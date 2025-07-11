@@ -1,5 +1,5 @@
-use crate::Result;
 use super::CommandHandler;
+use crate::Result;
 
 /// Handler for the `audit` command
 pub struct AuditCommand {
@@ -14,24 +14,24 @@ pub struct AuditCommand {
 impl CommandHandler for AuditCommand {
     fn execute(&self) -> Result<()> {
         println!("Cupcake audit command (implementation pending)");
-        
+
         println!("Tail: {:?}", self.tail);
         println!("Follow: {}", self.follow);
         println!("Session filter: {:?}", self.session);
         println!("Event filter: {:?}", self.event);
         println!("Format: {}", self.format);
         println!("Clear: {}", self.clear);
-        
+
         // TODO: Implement actual audit logic
         // 1. Read audit log file
         // 2. Apply filters
         // 3. Format output
         // 4. Handle follow mode
         // 5. Handle clear operation
-        
+
         Ok(())
     }
-    
+
     fn name(&self) -> &'static str {
         "audit"
     }
@@ -47,6 +47,13 @@ impl AuditCommand {
         format: String,
         clear: bool,
     ) -> Self {
-        Self { tail, follow, session, event, format, clear }
+        Self {
+            tail,
+            follow,
+            session,
+            event,
+            format,
+            clear,
+        }
     }
 }

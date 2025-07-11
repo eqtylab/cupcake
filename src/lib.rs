@@ -1,8 +1,13 @@
 pub mod cli;
-pub mod engine;
 pub mod config;
-pub mod state;
-pub mod io;
+pub mod engine;
 pub mod error;
+pub mod io;
+pub mod state;
 
 pub use error::{CupcakeError, Result};
+
+// Add dependencies for conditions module
+extern crate chrono;
+extern crate glob;
+extern crate regex;

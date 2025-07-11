@@ -1,5 +1,5 @@
-use crate::Result;
 use super::CommandHandler;
+use crate::Result;
 
 /// Handler for the `init` command
 pub struct InitCommand {
@@ -11,12 +11,12 @@ pub struct InitCommand {
 impl CommandHandler for InitCommand {
     fn execute(&self) -> Result<()> {
         println!("Cupcake init command (implementation pending)");
-        
+
         if self.verbose {
             println!("Output file: {}", self.output);
             println!("Auto-confirm: {}", self.yes);
         }
-        
+
         // TODO: Implement actual initialization logic
         // 1. Discover CLAUDE.md files
         // 2. Generate meta-prompt
@@ -24,10 +24,10 @@ impl CommandHandler for InitCommand {
         // 4. Generate cupcake.toml
         // 5. Validate policies
         // 6. Save and sync
-        
+
         Ok(())
     }
-    
+
     fn name(&self) -> &'static str {
         "init"
     }
@@ -36,6 +36,10 @@ impl CommandHandler for InitCommand {
 impl InitCommand {
     /// Create new init command
     pub fn new(output: String, yes: bool, verbose: bool) -> Self {
-        Self { output, yes, verbose }
+        Self {
+            output,
+            yes,
+            verbose,
+        }
     }
 }

@@ -1,6 +1,6 @@
-use std::path::Path;
-use crate::{Result, CupcakeError};
 use super::types::PolicyFile;
+use crate::{CupcakeError, Result};
+use std::path::Path;
 
 /// Configuration loader for policy files
 pub struct PolicyLoader {
@@ -18,18 +18,18 @@ impl PolicyLoader {
             cache: std::collections::HashMap::new(),
         }
     }
-    
+
     /// Enable strict validation mode
     pub fn with_strict_validation(mut self) -> Self {
         self.strict = true;
         self
     }
-    
+
     /// Load policy file from path
     pub fn load_policy_file<P: AsRef<Path>>(&mut self, path: P) -> Result<PolicyFile> {
         let path = path.as_ref();
         let path_str = path.to_string_lossy().to_string();
-        
+
         // Check cache first
         if let Some((cached_policy, cached_time)) = self.cache.get(&path_str) {
             if let Ok(metadata) = std::fs::metadata(path) {
@@ -40,49 +40,94 @@ impl PolicyLoader {
                 }
             }
         }
-        
+
         // Load from file
-        let contents = std::fs::read_to_string(path)
-            .map_err(|e| CupcakeError::Config(format!("Failed to read policy file {}: {}", path_str, e)))?;
-        
-        let policy: PolicyFile = toml::from_str(&contents)
-            .map_err(|e| CupcakeError::Config(format!("Failed to parse policy file {}: {}", path_str, e)))?;
-        
+        let contents = std::fs::read_to_string(path).map_err(|e| {
+            CupcakeError::Config(format!("Failed to read policy file {}: {}", path_str, e))
+        })?;
+
+        let policy: PolicyFile = toml::from_str(&contents).map_err(|e| {
+            CupcakeError::Config(format!("Failed to parse policy file {}: {}", path_str, e))
+        })?;
+
         // Validate policy
         self.validate_policy(&policy)?;
-        
+
         // Cache the result
         if let Ok(metadata) = std::fs::metadata(path) {
             if let Ok(modified) = metadata.modified() {
                 self.cache.insert(path_str, (policy.clone(), modified));
             }
         }
-        
+
         Ok(policy)
     }
-    
+
     /// Load policies from multiple files (project + user)
-    pub fn load_policy_hierarchy<P: AsRef<Path>>(&mut self, project_root: P) -> Result<Vec<PolicyFile>> {
+    pub fn load_policy_hierarchy<P: AsRef<Path>>(
+        &mut self,
+        project_root: P,
+    ) -> Result<Vec<PolicyFile>> {
         let project_root = project_root.as_ref();
         let mut policies = Vec::new();
-        
+
         // Load project policies first (higher priority)
         let project_policy_path = project_root.join("cupcake.toml");
         if project_policy_path.exists() {
-            policies.push(self.load_policy_file(project_policy_path)?);
-        }
-        
-        // Load user policies second (lower priority)
-        if let Some(user_dirs) = directories::ProjectDirs::from("", "", "cupcake") {
-            let user_policy_path = user_dirs.config_dir().join("cupcake.toml");
-            if user_policy_path.exists() {
-                policies.push(self.load_policy_file(user_policy_path)?);
+            match self.load_policy_file(project_policy_path) {
+                Ok(policy) => policies.push(policy),
+                Err(e) => {
+                    eprintln!("Warning: Failed to load project policy file: {}", e);
+                    // Don't fail entirely, just continue without project policies
+                }
             }
         }
-        
+
+        // Load user policies second (lower priority)
+        // Claude Code uses ~/.claude/ directory structure
+        if let Some(home_dir) = directories::BaseDirs::new() {
+            let user_policy_path = home_dir.home_dir().join(".claude").join("cupcake.toml");
+            if user_policy_path.exists() {
+                match self.load_policy_file(user_policy_path) {
+                    Ok(policy) => policies.push(policy),
+                    Err(e) => {
+                        eprintln!("Warning: Failed to load user policy file: {}", e);
+                        // Don't fail entirely, just continue without user policies
+                    }
+                }
+            }
+        }
+
         Ok(policies)
     }
-    
+
+    /// Load policy files from specific paths (for runtime use)
+    pub fn load_policies_from_paths<P: AsRef<Path>>(
+        &mut self,
+        paths: &[P],
+    ) -> Result<Vec<PolicyFile>> {
+        let mut policies = Vec::new();
+
+        for path in paths {
+            let path = path.as_ref();
+            if path.exists() {
+                match self.load_policy_file(path) {
+                    Ok(policy) => policies.push(policy),
+                    Err(e) => {
+                        eprintln!(
+                            "Warning: Failed to load policy file {}: {}",
+                            path.display(),
+                            e
+                        );
+                        // Continue loading other files
+                    }
+                }
+            }
+        }
+
+        Ok(policies)
+    }
+
     /// Validate policy file structure and content
     fn validate_policy(&self, policy: &PolicyFile) -> Result<()> {
         // Check schema version
@@ -92,17 +137,21 @@ impl PolicyLoader {
                 policy.schema_version
             )));
         }
-        
+
         // Validate each policy
         for (index, policy_def) in policy.policies.iter().enumerate() {
             self.validate_policy_definition(policy_def, index)?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate individual policy definition
-    fn validate_policy_definition(&self, policy: &super::types::Policy, index: usize) -> Result<()> {
+    fn validate_policy_definition(
+        &self,
+        policy: &super::types::Policy,
+        index: usize,
+    ) -> Result<()> {
         // Check policy name
         if policy.name.is_empty() {
             return Err(CupcakeError::Config(format!(
@@ -110,7 +159,7 @@ impl PolicyLoader {
                 index
             )));
         }
-        
+
         // Check conditions
         if policy.conditions.is_empty() {
             return Err(CupcakeError::Config(format!(
@@ -118,15 +167,15 @@ impl PolicyLoader {
                 policy.name
             )));
         }
-        
+
         // Validate conditions
         for condition in &policy.conditions {
             self.validate_condition(condition, &policy.name)?;
         }
-        
+
         // Validate action
         self.validate_action(&policy.action, &policy.name)?;
-        
+
         // Check matcher for tool events
         match policy.hook_event {
             super::types::HookEventType::PreToolUse | super::types::HookEventType::PostToolUse => {
@@ -136,7 +185,7 @@ impl PolicyLoader {
                         policy.name
                     )));
                 }
-                
+
                 // Validate matcher regex
                 if let Some(ref matcher) = policy.matcher {
                     regex::Regex::new(matcher).map_err(|e| {
@@ -161,71 +210,67 @@ impl PolicyLoader {
                 // Other events don't use matchers
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate condition
-    fn validate_condition(&self, condition: &super::conditions::Condition, policy_name: &str) -> Result<()> {
+    #[allow(clippy::only_used_in_recursion)] // False positive - self is needed for method recursion
+    fn validate_condition(
+        &self,
+        condition: &super::conditions::Condition,
+        policy_name: &str,
+    ) -> Result<()> {
         match condition {
-            super::conditions::Condition::CommandRegex { value, .. } |
-            super::conditions::Condition::FilepathRegex { value, .. } |
-            super::conditions::Condition::FileContentRegex { value, .. } => {
-                // Validate regex
-                regex::Regex::new(value).map_err(|e| {
+            super::conditions::Condition::Pattern { regex, .. } => {
+                // Validate regex pattern
+                regex::Regex::new(regex).map_err(|e| {
                     CupcakeError::Config(format!(
                         "Policy '{}' has invalid regex '{}': {}",
-                        policy_name, value, e
+                        policy_name, regex, e
                     ))
                 })?;
             }
-            super::conditions::Condition::FilepathGlob { value } => {
-                // Validate glob pattern
-                glob::Pattern::new(value).map_err(|e| {
-                    CupcakeError::Config(format!(
-                        "Policy '{}' has invalid glob pattern '{}': {}",
-                        policy_name, value, e
-                    ))
-                })?;
+            super::conditions::Condition::Match { field, .. } => {
+                // Validate field name (basic check for non-empty)
+                if field.is_empty() {
+                    return Err(CupcakeError::Config(format!(
+                        "Policy '{}' has empty field name in Match condition",
+                        policy_name
+                    )));
+                }
+            }
+            super::conditions::Condition::Check { command, .. } => {
+                // Validate command is not empty
+                if command.trim().is_empty() {
+                    return Err(CupcakeError::Config(format!(
+                        "Policy '{}' has empty command in Check condition",
+                        policy_name
+                    )));
+                }
             }
             super::conditions::Condition::Not { condition } => {
                 self.validate_condition(condition, policy_name)?;
             }
-            super::conditions::Condition::And { conditions } |
-            super::conditions::Condition::Or { conditions } => {
+            super::conditions::Condition::And { conditions }
+            | super::conditions::Condition::Or { conditions } => {
                 for cond in conditions {
                     self.validate_condition(cond, policy_name)?;
                 }
             }
-            super::conditions::Condition::TimeWindow { start, end, .. } => {
-                // Validate time format (HH:MM)
-                self.validate_time_format(start, policy_name)?;
-                self.validate_time_format(end, policy_name)?;
-            }
-            super::conditions::Condition::DayOfWeek { days } => {
-                // Validate day names
-                for day in days {
-                    if !["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].contains(&day.as_str()) {
-                        return Err(CupcakeError::Config(format!(
-                            "Policy '{}' has invalid day of week: {}",
-                            policy_name, day
-                        )));
-                    }
-                }
-            }
-            _ => {
-                // Other conditions don't need special validation
-            }
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate action
     fn validate_action(&self, action: &super::actions::Action, policy_name: &str) -> Result<()> {
         match action {
-            super::actions::Action::ProvideFeedback { message, .. } |
-            super::actions::Action::BlockWithFeedback { feedback_message: message, .. } => {
+            super::actions::Action::ProvideFeedback { message, .. }
+            | super::actions::Action::BlockWithFeedback {
+                feedback_message: message,
+                ..
+            } => {
                 if message.is_empty() {
                     return Err(CupcakeError::Config(format!(
                         "Policy '{}' has empty feedback message",
@@ -249,7 +294,12 @@ impl PolicyLoader {
                     )));
                 }
             }
-            super::actions::Action::Conditional { if_condition, then_action, else_action, .. } => {
+            super::actions::Action::Conditional {
+                if_condition,
+                then_action,
+                else_action,
+                ..
+            } => {
                 self.validate_condition(if_condition, policy_name)?;
                 self.validate_action(then_action, policy_name)?;
                 if let Some(else_act) = else_action {
@@ -260,11 +310,12 @@ impl PolicyLoader {
                 // Other actions don't need special validation
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate time format (HH:MM)
+    #[cfg(test)]
     fn validate_time_format(&self, time: &str, policy_name: &str) -> Result<()> {
         let parts: Vec<&str> = time.split(':').collect();
         if parts.len() != 2 {
@@ -273,28 +324,28 @@ impl PolicyLoader {
                 policy_name, time
             )));
         }
-        
+
         let hours: u32 = parts[0].parse().map_err(|_| {
             CupcakeError::Config(format!(
                 "Policy '{}' has invalid hours in time '{}'",
                 policy_name, time
             ))
         })?;
-        
+
         let minutes: u32 = parts[1].parse().map_err(|_| {
             CupcakeError::Config(format!(
                 "Policy '{}' has invalid minutes in time '{}'",
                 policy_name, time
             ))
         })?;
-        
+
         if hours > 23 || minutes > 59 {
             return Err(CupcakeError::Config(format!(
                 "Policy '{}' has invalid time '{}'. Hours must be 0-23, minutes 0-59",
                 policy_name, time
             )));
         }
-        
+
         Ok(())
     }
 }
@@ -316,28 +367,28 @@ mod tests {
     fn test_load_valid_policy() {
         let dir = tempdir().unwrap();
         let policy_path = dir.path().join("cupcake.toml");
-        
+
         let policy_content = r#"schema_version = "1.0"
 
 [settings]
 audit_logging = true
 
-[[policy]]
+[[policies]]
 name = "Test Policy"
 hook_event = "PreToolUse"
 matcher = "Bash"
 conditions = [
-  { type = "command_regex", value = "echo.*", flags = [] }
+  { type = "pattern", field = "tool_input.command", regex = "echo.*" }
 ]
 action = { type = "provide_feedback", message = "Test message", include_context = false }
 "#;
-        
+
         let mut file = File::create(&policy_path).unwrap();
         file.write_all(policy_content.as_bytes()).unwrap();
-        
+
         let mut loader = PolicyLoader::new();
         let policy = loader.load_policy_file(&policy_path).unwrap();
-        
+
         assert_eq!(policy.schema_version, "1.0");
         assert!(policy.settings.audit_logging);
         assert_eq!(policy.policies.len(), 1);
@@ -348,25 +399,25 @@ action = { type = "provide_feedback", message = "Test message", include_context 
     fn test_validate_invalid_regex() {
         let dir = tempdir().unwrap();
         let policy_path = dir.path().join("cupcake.toml");
-        
+
         let policy_content = r#"schema_version = "1.0"
 
-[[policy]]
+[[policies]]
 name = "Invalid Regex"
 hook_event = "PreToolUse"
 matcher = "Bash"
 conditions = [
-  { type = "command_regex", value = "[invalid-regex", flags = [] }
+  { type = "pattern", field = "tool_input.command", regex = "[invalid-regex" }
 ]
 action = { type = "provide_feedback", message = "Test", include_context = false }
 "#;
-        
+
         let mut file = File::create(&policy_path).unwrap();
         file.write_all(policy_content.as_bytes()).unwrap();
-        
+
         let mut loader = PolicyLoader::new();
         let result = loader.load_policy_file(&policy_path);
-        
+
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("regex") || error_msg.contains("invalid"));
@@ -375,12 +426,12 @@ action = { type = "provide_feedback", message = "Test", include_context = false 
     #[test]
     fn test_validate_time_format() {
         let loader = PolicyLoader::new();
-        
+
         // Valid times
         assert!(loader.validate_time_format("09:00", "test").is_ok());
         assert!(loader.validate_time_format("23:59", "test").is_ok());
         assert!(loader.validate_time_format("00:00", "test").is_ok());
-        
+
         // Invalid times
         assert!(loader.validate_time_format("25:00", "test").is_err());
         assert!(loader.validate_time_format("12:60", "test").is_err());

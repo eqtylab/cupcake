@@ -1,0 +1,43 @@
+{
+  "session_id": "560539d2-8271-4ac9-b985-6ee901687f02",
+  "created_at": "2025-07-11T19:08:00.172520Z",
+  "updated_at": "2025-07-11T19:10:16.916655Z",
+  "entries": [
+    {
+      "timestamp": "2025-07-11T19:08:00.172513Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "command": "echo \"hello world\"",
+          "description": "Print hello world to console"
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "hello world"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-11T19:10:16.916615Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Write",
+        "input": {
+          "file_path": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/test.py",
+          "content": "def calculate_factorial(n):\n    if n < 0:\n        raise ValueError(\"Factorial is not defined for negative numbers\")\n    elif n == 0 or n == 1:\n        return 1\n    else:\n        result = 1\n        for i in range(2, n + 1):\n            result *= i\n        return result\n\ndef fibonacci(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return [0]\n    elif n == 2:\n        return [0, 1]\n    \n    fib_sequence = [0, 1]\n    for i in range(2, n):\n        fib_sequence.append(fib_sequence[i-1] + fib_sequence[i-2])\n    return fib_sequence\n\nif __name__ == \"__main__\":\n    print(f\"Factorial of 5: {calculate_factorial(5)}\")\n    print(f\"First 10 Fibonacci numbers: {fibonacci(10)}\")"
+        },
+        "success": true,
+        "output": {
+          "content": "def calculate_factorial(n):\n    if n < 0:\n        raise ValueError(\"Factorial is not defined for negative numbers\")\n    elif n == 0 or n == 1:\n        return 1\n    else:\n        result = 1\n        for i in range(2, n + 1):\n            result *= i\n        return result\n\ndef fibonacci(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return [0]\n    elif n == 2:\n        return [0, 1]\n    \n    fib_sequence = [0, 1]\n    for i in range(2, n):\n        fib_sequence.append(fib_sequence[i-1] + fib_sequence[i-2])\n    return fib_sequence\n\nif __name__ == \"__main__\":\n    print(f\"Factorial of 5: {calculate_factorial(5)}\")\n    print(f\"First 10 Fibonacci numbers: {fibonacci(10)}\")",
+          "filePath": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/test.py",
+          "structuredPatch": [],
+          "type": "create"
+        }
+      }
+    }
+  ]
+}

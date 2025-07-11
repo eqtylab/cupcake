@@ -1,18 +1,18 @@
 use serde::{Deserialize, Serialize};
 
-use super::conditions::Condition;
 use super::actions::Action;
+use super::conditions::Condition;
 
 /// Top-level policy configuration file structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyFile {
     /// Schema version for forward compatibility
     pub schema_version: String,
-    
+
     /// Global settings
     #[serde(default)]
     pub settings: Settings,
-    
+
     /// Array of policy definitions
     pub policies: Vec<Policy>,
 }
@@ -23,7 +23,7 @@ pub struct Settings {
     /// Enable structured audit logging
     #[serde(default)]
     pub audit_logging: bool,
-    
+
     /// Enable verbose debug logging
     #[serde(default)]
     pub debug_mode: bool,
@@ -34,21 +34,21 @@ pub struct Settings {
 pub struct Policy {
     /// Human-readable policy name
     pub name: String,
-    
+
     /// Optional longer description
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    
+
     /// Hook event when to evaluate this policy
     pub hook_event: HookEventType,
-    
+
     /// Tool name pattern (regex) for PreToolUse/PostToolUse events
     #[serde(skip_serializing_if = "Option::is_none")]
     pub matcher: Option<String>,
-    
+
     /// Conditions that must all be true for policy to trigger
     pub conditions: Vec<Condition>,
-    
+
     /// Action to take when all conditions match
     pub action: Action,
 }

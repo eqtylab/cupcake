@@ -1,0 +1,11 @@
+{
+  "name": "cupcake-test",
+  "version": "1.0.0",
+  "description": "Sample file for testing Cupcake policies",
+  "policies": [
+    "echo_feedback",
+    "cat_block", 
+    "markdown_read_feedback",
+    "txt_write_block"
+  ]
+}

@@ -5,12 +5,9 @@ use serde::{Deserialize, Serialize};
 pub struct CommonEventData {
     /// Unique identifier for the Claude Code session
     pub session_id: String,
-    
+
     /// Path to the session transcript file
     pub transcript_path: String,
-    
-    /// Name of the hook event being triggered
-    pub hook_event_name: String,
 }
 
 /// All possible Claude Code hook events
@@ -21,64 +18,64 @@ pub enum HookEvent {
     PreToolUse {
         #[serde(flatten)]
         common: CommonEventData,
-        
+
         /// Name of the tool being called
         tool_name: String,
-        
+
         /// Input parameters for the tool
         tool_input: serde_json::Value,
     },
-    
+
     /// After tool execution (success only)
     PostToolUse {
         #[serde(flatten)]
         common: CommonEventData,
-        
+
         /// Name of the tool that was called
         tool_name: String,
-        
+
         /// Input parameters that were used
         tool_input: serde_json::Value,
-        
+
         /// Response from the tool
         tool_response: serde_json::Value,
     },
-    
+
     /// Claude Code notifications
     Notification {
         #[serde(flatten)]
         common: CommonEventData,
-        
+
         /// The notification message
         message: String,
     },
-    
+
     /// Main agent stopping
     Stop {
         #[serde(flatten)]
         common: CommonEventData,
-        
+
         /// Whether stop hook is currently active (prevents infinite loops)
         stop_hook_active: bool,
     },
-    
+
     /// Subagent (Task tool) stopping
     SubagentStop {
         #[serde(flatten)]
         common: CommonEventData,
-        
+
         /// Whether stop hook is currently active (prevents infinite loops)
         stop_hook_active: bool,
     },
-    
+
     /// Before memory compaction
     PreCompact {
         #[serde(flatten)]
         common: CommonEventData,
-        
+
         /// Whether compaction was triggered manually or automatically
         trigger: CompactTrigger,
-        
+
         /// Custom instructions for manual compaction
         #[serde(skip_serializing_if = "Option::is_none")]
         custom_instructions: Option<String>,
@@ -147,7 +144,7 @@ impl HookEvent {
             HookEvent::PreCompact { common, .. } => common,
         }
     }
-    
+
     /// Get the tool name for tool-related events
     pub fn tool_name(&self) -> Option<&str> {
         match self {
@@ -156,7 +153,7 @@ impl HookEvent {
             _ => None,
         }
     }
-    
+
     /// Get the tool input for tool-related events
     pub fn tool_input(&self) -> Option<&serde_json::Value> {
         match self {
@@ -165,17 +162,35 @@ impl HookEvent {
             _ => None,
         }
     }
-    
+
+    /// Get the event name as a string
+    pub fn event_name(&self) -> &'static str {
+        match self {
+            HookEvent::PreToolUse { .. } => "PreToolUse",
+            HookEvent::PostToolUse { .. } => "PostToolUse",
+            HookEvent::Notification { .. } => "Notification",
+            HookEvent::Stop { .. } => "Stop",
+            HookEvent::SubagentStop { .. } => "SubagentStop",
+            HookEvent::PreCompact { .. } => "PreCompact",
+        }
+    }
+
     /// Check if this is a tool-related event
     pub fn is_tool_event(&self) -> bool {
-        matches!(self, HookEvent::PreToolUse { .. } | HookEvent::PostToolUse { .. })
+        matches!(
+            self,
+            HookEvent::PreToolUse { .. } | HookEvent::PostToolUse { .. }
+        )
     }
-    
+
     /// Check if this is a stop event
     pub fn is_stop_event(&self) -> bool {
-        matches!(self, HookEvent::Stop { .. } | HookEvent::SubagentStop { .. })
+        matches!(
+            self,
+            HookEvent::Stop { .. } | HookEvent::SubagentStop { .. }
+        )
     }
-    
+
     /// Parse tool input as specific tool type
     pub fn parse_tool_input<T>(&self) -> Result<T, serde_json::Error>
     where
@@ -185,7 +200,7 @@ impl HookEvent {
             Some(input) => serde_json::from_value(input.clone()),
             None => Err(serde_json::Error::io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "No tool input available"
+                "No tool input available",
             ))),
         }
     }
@@ -202,12 +217,11 @@ mod tests {
             common: CommonEventData {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
-                hook_event_name: "PreToolUse".to_string(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
         };
-        
+
         assert_eq!(event.common().session_id, "test-session");
         assert_eq!(event.tool_name(), Some("Bash"));
         assert!(event.is_tool_event());
@@ -225,11 +239,15 @@ mod tests {
             "tool_input": {"command": "echo hello"}
         }
         "#;
-        
+
         let event: HookEvent = serde_json::from_str(json).unwrap();
-        
+
         match event {
-            HookEvent::PreToolUse { common, tool_name, tool_input } => {
+            HookEvent::PreToolUse {
+                common,
+                tool_name,
+                tool_input,
+            } => {
                 assert_eq!(common.session_id, "test-session");
                 assert_eq!(tool_name, "Bash");
                 assert_eq!(tool_input["command"], "echo hello");
@@ -244,7 +262,6 @@ mod tests {
             common: CommonEventData {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
-                hook_event_name: "PreToolUse".to_string(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({
@@ -253,10 +270,13 @@ mod tests {
                 "timeout": 60
             }),
         };
-        
+
         let bash_input: BashToolInput = event.parse_tool_input().unwrap();
         assert_eq!(bash_input.command, "cargo build");
-        assert_eq!(bash_input.description, Some("Build the project".to_string()));
+        assert_eq!(
+            bash_input.description,
+            Some("Build the project".to_string())
+        );
         assert_eq!(bash_input.timeout, Some(60));
     }
 
@@ -265,7 +285,7 @@ mod tests {
         let trigger = CompactTrigger::Manual;
         let json = serde_json::to_string(&trigger).unwrap();
         assert_eq!(json, r#""manual""#);
-        
+
         let trigger = CompactTrigger::Auto;
         let json = serde_json::to_string(&trigger).unwrap();
         assert_eq!(json, r#""auto""#);
@@ -277,11 +297,10 @@ mod tests {
             common: CommonEventData {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
-                hook_event_name: "Notification".to_string(),
             },
             message: "Test notification".to_string(),
         };
-        
+
         assert!(!event.is_tool_event());
         assert_eq!(event.tool_name(), None);
     }

@@ -52,3 +52,23 @@ conditions = [
   { type = "pattern", field = "tool_input.file_path", regex = "\\.md$" }
 ]
 action = { type = "provide_feedback", message = "📖 [Transcript] Reading markdown file", include_context = false }
+
+# Test 6: Block .txt file creation - hard block for testing
+[[policies]]
+name = "Block TXT File Creation"
+hook_event = "PreToolUse"
+matcher = "Write"
+conditions = [
+  { type = "pattern", field = "tool_input.file_path", regex = "\\.txt$" }
+]
+action = { type = "block_with_feedback", feedback_message = "🚫 Creating .txt files is not allowed in this test environment!", include_context = false }
+
+# Test 7: Block cat command usage - suggest using Read tool instead
+[[policies]]
+name = "Block Cat Command"
+hook_event = "PreToolUse"
+matcher = "Bash"
+conditions = [
+  { type = "pattern", field = "tool_input.command", regex = "^cat\\s" }
+]
+action = { type = "block_with_feedback", feedback_message = "🚫 Use Read tool instead of cat command for better file access control.", include_context = false }

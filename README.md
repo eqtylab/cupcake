@@ -17,7 +17,7 @@ Cupcake transforms natural language rules from CLAUDE.md files into deterministi
 
 ## Core Features
 
-- **Small, yet powerful abstraction**: Manage 10s to 100s of rules without writing individual hooks - one policy file drives all enforcement
+- **Small, yet powerful abstraction**: Manage 10s to 100s of rules without writing individual hooks
 - **Deterministic enforcement**: Converts suggestions into guarantees through Claude Code hooks
 - **Integrated feedback**: Enables agents to self-correct and continue working productively
 - **Two-pass evaluation**: Aggregates all feedback before blocking, preventing iterative corrections

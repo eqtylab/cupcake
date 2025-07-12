@@ -23,10 +23,10 @@ fn main() -> Result<()> {
         Commands::Run {
             event,
             timeout,
-            policy_file,
+            config,
             debug,
         } => {
-            let command = RunCommand::new(event, timeout, policy_file, debug);
+            let command = RunCommand::new(event, timeout, config, debug);
             command.execute()?;
         }
         Commands::Sync {

@@ -15,7 +15,7 @@ use std::io::{self, Read};
 pub struct RunCommand {
     pub event: String,
     pub timeout: u32,
-    pub policy_file: String,
+    pub config: String,
     pub debug: bool,
 }
 
@@ -24,7 +24,7 @@ impl CommandHandler for RunCommand {
         if self.debug {
             eprintln!("Debug: Event: {}", self.event);
             eprintln!("Debug: Timeout: {}s", self.timeout);
-            eprintln!("Debug: Policy file: {}", self.policy_file);
+            eprintln!("Debug: Config file: {}", self.config);
         }
 
         // 1. Read hook event JSON from stdin
@@ -148,11 +148,11 @@ impl CommandHandler for RunCommand {
 
 impl RunCommand {
     /// Create new run command
-    pub fn new(event: String, timeout: u32, policy_file: String, debug: bool) -> Self {
+    pub fn new(event: String, timeout: u32, config: String, debug: bool) -> Self {
         Self {
             event,
             timeout,
-            policy_file,
+            config,
             debug,
         }
     }
@@ -180,21 +180,33 @@ impl RunCommand {
     fn load_policies(&self) -> Result<Vec<ComposedPolicy>> {
         let mut loader = PolicyLoader::new();
 
-        // Get current directory for policy discovery
-        let current_dir = std::env::current_dir().map_err(|e| {
-            crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
-        })?;
+        if !self.config.is_empty() {
+            // User specified a config file - load from that file
+            let config_path = std::path::Path::new(&self.config);
+            let policies = loader.load_from_config_file(config_path)?;
 
-        // Use the new YAML composition engine
-        let policies = loader.load_and_compose_policies(&current_dir)?;
+            if self.debug {
+                eprintln!("Debug: Loaded policies from config file: {}", self.config);
+                eprintln!("Debug: Found and composed {} policies", policies.len());
+            }
 
-        if self.debug {
-            eprintln!("Debug: Searched for YAML policies starting from:");
-            eprintln!("  - {}/guardrails/cupcake.yaml", current_dir.display());
-            eprintln!("Debug: Found and composed {} policies", policies.len());
+            Ok(policies)
+        } else {
+            // No config specified - use auto-discovery
+            let current_dir = std::env::current_dir().map_err(|e| {
+                crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
+            })?;
+
+            let policies = loader.load_and_compose_policies(&current_dir)?;
+
+            if self.debug {
+                eprintln!("Debug: Searched for YAML policies starting from:");
+                eprintln!("  - {}/guardrails/cupcake.yaml", current_dir.display());
+                eprintln!("Debug: Found and composed {} policies", policies.len());
+            }
+
+            Ok(policies)
         }
-
-        Ok(policies)
     }
 
     /// Build evaluation context from hook event
@@ -333,7 +345,7 @@ mod tests {
 
         assert_eq!(cmd.event, "PreToolUse");
         assert_eq!(cmd.timeout, 60);
-        assert_eq!(cmd.policy_file, ""); // Auto-discovery mode
+        assert_eq!(cmd.config, ""); // Auto-discovery mode
         assert!(!cmd.debug);
         assert_eq!(cmd.name(), "run");
     }

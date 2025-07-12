@@ -40,9 +40,9 @@ pub enum Commands {
         #[arg(long, default_value = "60")]
         timeout: u32,
 
-        /// Policy file path (automatically discovered from guardrails/cupcake.yaml)
+        /// Configuration file path (automatically discovered from guardrails/cupcake.yaml)
         #[arg(long, default_value = "")]
-        policy_file: String,
+        config: String,
 
         /// Enable debug output
         #[arg(long)]
@@ -166,12 +166,12 @@ mod tests {
             Commands::Run {
                 event,
                 timeout,
-                policy_file,
+                config,
                 debug,
             } => {
                 assert_eq!(event, "PreToolUse");
                 assert_eq!(timeout, 60);
-                assert_eq!(policy_file, ""); // Auto-discovery mode
+                assert_eq!(config, ""); // Auto-discovery mode
                 assert!(!debug);
             }
             _ => panic!("Wrong command parsed"),
@@ -261,7 +261,7 @@ mod tests {
         let run_cmd = Commands::Run {
             event: "PreToolUse".to_string(),
             timeout: 60,
-            policy_file: "".to_string(), // Auto-discovery
+            config: "".to_string(), // Auto-discovery
             debug: false,
         };
 

@@ -45,6 +45,18 @@ Migration executed in 6 phases over 2 days. All phases completed successfully:
 Minor cleanup remaining: src/io/paths.rs still has dead code referencing cupcake.toml.
 This doesn't affect functionality as the new loader doesn't use these methods.
 
+## Post-Implementation Discoveries
+
+During implementation, we discovered:
+
+1. **Config parameter ignored**: The `--policy-file` parameter exists but is completely ignored by the new loader, breaking integration tests that specify custom policy files.
+
+2. **Performance excellent**: YAML loading takes ~1.6ms for realistic policy sets (25 policies), well within the 100ms target. Binary cache not needed.
+
+3. **Test infrastructure needs**: Tests require ability to specify custom configs for isolation. Plan 006 addresses this with `--config` parameter support.
+
+4. **No backward compatibility needed**: This is early development - clean breaks are acceptable and preferable to technical debt.
+
 Performance target maintained - sub-100ms response time preserved through:
 - Binary policy caching (unchanged)
 - Compiled regex caching (unchanged)

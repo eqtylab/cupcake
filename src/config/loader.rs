@@ -40,6 +40,72 @@ impl PolicyLoader {
         Ok(composed_policies)
     }
 
+    /// Load policies from a specific config file path
+    /// Supports both RootConfig (with imports) and bare PolicyFragment formats
+    pub fn load_from_config_file(&mut self, config_path: &Path) -> Result<Vec<ComposedPolicy>> {
+        let content = std::fs::read_to_string(config_path).map_err(|e| {
+            CupcakeError::Config(format!(
+                "Failed to read config file {}: {}",
+                config_path.display(),
+                e
+            ))
+        })?;
+
+        // Determine format by checking for RootConfig-specific keys
+        // If the YAML has 'settings' or 'imports' as top-level keys, it's a RootConfig
+        // Otherwise, try to parse as PolicyFragment (which has HookEvent keys)
+        if content.contains("settings:") || content.contains("imports:") {
+            // Try to parse as RootConfig
+            match serde_yaml_ng::from_str::<RootConfig>(&content) {
+                Ok(root_config) => {
+                    return self.load_from_root_config(root_config, config_path);
+                }
+                Err(e) => {
+                    return Err(CupcakeError::Config(format!(
+                        "Config file {} appears to be a RootConfig but failed to parse: {}",
+                        config_path.display(),
+                        e
+                    )));
+                }
+            }
+        } else {
+            // Try to parse as PolicyFragment
+            match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                Ok(fragment) => {
+                    return self.load_from_policy_fragment(fragment);
+                }
+                Err(e) => {
+                    return Err(CupcakeError::Config(format!(
+                        "Config file {} appears to be a PolicyFragment but failed to parse: {}",
+                        config_path.display(),
+                        e
+                    )));
+                }
+            }
+        }
+    }
+
+    /// Load from RootConfig with imports resolved relative to config file location
+    fn load_from_root_config(&mut self, root_config: RootConfig, config_path: &Path) -> Result<Vec<ComposedPolicy>> {
+        // Step 1: Resolve imports using glob patterns relative to config file
+        let policy_fragment_paths = self.resolve_imports(&root_config, config_path)?;
+
+        // Step 2: Compose - deep merge all policy fragments
+        let composed_fragment = self.compose_policy_fragments(&policy_fragment_paths)?;
+
+        // Step 3: Validate and flatten to Vec<ComposedPolicy>
+        let composed_policies = self.validate_and_flatten(composed_fragment)?;
+
+        Ok(composed_policies)
+    }
+
+    /// Load from a bare PolicyFragment (no imports, default settings)
+    fn load_from_policy_fragment(&mut self, fragment: PolicyFragment) -> Result<Vec<ComposedPolicy>> {
+        // Skip composition step since we only have one fragment
+        // Go directly to validation and flattening
+        self.validate_and_flatten(fragment)
+    }
+
     /// Step 1: Search upward from start_dir for guardrails/cupcake.yaml
     fn discover_root_config(&self, start_dir: &Path) -> Result<PathBuf> {
         let mut current_dir = start_dir;
@@ -594,6 +660,37 @@ PostToolUse:
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("Unknown hook event type: InvalidEvent"));
+    }
+
+    #[test]
+    fn test_load_from_config_file_policy_fragment() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("test-config.yaml");
+
+        let mut file = File::create(&config_path).unwrap();
+        file.write_all(
+            br#"PreToolUse:
+  "Bash":
+    - name: "Test Block Policy"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "^rm\\s"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "Dangerous command blocked!"
+        include_context: false
+"#,
+        )
+        .unwrap();
+
+        let mut loader = PolicyLoader::new();
+        let policies = loader.load_from_config_file(&config_path).unwrap();
+
+        assert_eq!(policies.len(), 1);
+        assert_eq!(policies[0].name, "Test Block Policy");
+        assert_eq!(policies[0].hook_event, HookEventType::PreToolUse);
+        assert_eq!(policies[0].matcher, "Bash");
     }
 
     #[test]

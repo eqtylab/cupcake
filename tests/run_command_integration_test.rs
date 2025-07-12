@@ -109,7 +109,7 @@ PreToolUse:
             "--debug",
             "--event",
             "PreToolUse",
-            "--policy-file",
+            "--config",
             policy_path.to_str().unwrap(),
         ])
         .stdin(Stdio::piped())
@@ -167,7 +167,7 @@ PreToolUse:
             "--debug",
             "--event",
             "PreToolUse",
-            "--policy-file",
+            "--config",
             policy_path.to_str().unwrap(),
         ])
         .stdin(Stdio::piped())

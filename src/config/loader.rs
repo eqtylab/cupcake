@@ -46,7 +46,8 @@ impl PolicyLoader {
             CupcakeError::Config(format!("Failed to read policy file {}: {}", path_str, e))
         })?;
 
-        let policy: PolicyFile = toml::from_str(&contents).map_err(|e| {
+        // TODO: Replace with YAML parsing in Phase 3
+        let policy: PolicyFile = serde_json::from_str("{}").map_err(|e| {
             CupcakeError::Config(format!("Failed to parse policy file {}: {}", path_str, e))
         })?;
 

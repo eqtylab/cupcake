@@ -13,7 +13,7 @@ pub struct ValidateCommand {
 impl CommandHandler for ValidateCommand {
     fn execute(&self) -> Result<()> {
         let mut loader = PolicyLoader::new();
-        
+
         // Enable strict validation if requested
         if self.strict {
             loader = loader.with_strict_validation();
@@ -34,7 +34,7 @@ impl CommandHandler for ValidateCommand {
         match loader.load_and_compose_policies(&start_dir) {
             Ok(policies) => {
                 let policy_count = policies.len();
-                
+
                 if self.format == "json" {
                     // JSON output format
                     let result = serde_json::json!({
@@ -54,24 +54,25 @@ impl CommandHandler for ValidateCommand {
                     // Text output format
                     println!("✅ Policy validation successful!");
                     println!("📄 Found {} composed policies", policy_count);
-                    
+
                     if policy_count > 0 {
                         println!("\nPolicy summary:");
                         for (i, policy) in policies.iter().enumerate() {
-                            println!("  {}. {} ({}:{})", 
-                                i + 1, 
-                                policy.name, 
-                                policy.hook_event, 
+                            println!(
+                                "  {}. {} ({}:{})",
+                                i + 1,
+                                policy.name,
+                                policy.hook_event,
                                 policy.matcher
                             );
                         }
                     }
-                    
+
                     if self.strict {
                         println!("\n🔍 Strict validation mode: PASSED");
                     }
                 }
-                
+
                 Ok(())
             }
             Err(e) => {
@@ -87,7 +88,7 @@ impl CommandHandler for ValidateCommand {
                     println!("❌ Policy validation failed!");
                     println!("Error: {}", e);
                 }
-                
+
                 // Return the original error for proper exit codes
                 Err(e)
             }

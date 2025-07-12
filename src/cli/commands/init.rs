@@ -25,12 +25,15 @@ impl CommandHandler for InitCommand {
 
         // Check if guardrails directory already exists
         if guardrails_dir.exists() && !self.yes {
-            println!("⚠️  Directory '{}' already exists.", guardrails_dir.display());
+            println!(
+                "⚠️  Directory '{}' already exists.",
+                guardrails_dir.display()
+            );
             println!("This will overwrite existing files. Continue? (y/N)");
-            
+
             let mut input = String::new();
             io::stdin().read_line(&mut input)?;
-            
+
             if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
                 println!("❌ Initialization cancelled.");
                 return Ok(());
@@ -41,11 +44,11 @@ impl CommandHandler for InitCommand {
         if self.verbose {
             println!("📁 Creating directory structure...");
         }
-        
+
         fs::create_dir_all(&policies_dir).map_err(|e| {
             crate::CupcakeError::Config(format!(
-                "Failed to create policies directory {}: {}", 
-                policies_dir.display(), 
+                "Failed to create policies directory {}: {}",
+                policies_dir.display(),
                 e
             ))
         })?;
@@ -54,7 +57,7 @@ impl CommandHandler for InitCommand {
         if self.verbose {
             println!("📄 Writing root configuration...");
         }
-        
+
         let root_config_content = r#"# Cupcake YAML Configuration
 # This file configures global settings and imports policy fragments
 
@@ -73,8 +76,8 @@ imports:
 
         fs::write(&cupcake_yaml, root_config_content).map_err(|e| {
             crate::CupcakeError::Config(format!(
-                "Failed to write root config {}: {}", 
-                cupcake_yaml.display(), 
+                "Failed to write root config {}: {}",
+                cupcake_yaml.display(),
                 e
             ))
         })?;
@@ -83,7 +86,7 @@ imports:
         if self.verbose {
             println!("📄 Writing example policies...");
         }
-        
+
         let base_policy_content = r#"# Base Policy Examples
 # This file demonstrates the YAML policy format structure
 
@@ -139,8 +142,8 @@ PostToolUse:
 
         fs::write(&base_policy, base_policy_content).map_err(|e| {
             crate::CupcakeError::Config(format!(
-                "Failed to write base policy {}: {}", 
-                base_policy.display(), 
+                "Failed to write base policy {}: {}",
+                base_policy.display(),
                 e
             ))
         })?;

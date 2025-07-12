@@ -59,8 +59,8 @@ fn test_run_command_stdin_parsing() {
         "Expected session ID in debug output"
     );
     assert!(
-        stderr_output.contains("Debug: Allowing operation") || 
-        stderr_output.contains("Debug: Evaluation complete"),
+        stderr_output.contains("Debug: Allowing operation")
+            || stderr_output.contains("Debug: Evaluation complete"),
         "Expected evaluation or allow operation debug output"
     );
 }
@@ -102,10 +102,14 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
 
     let mut child = Command::new("cargo")
         .args([
-            "run", "--", "run", 
-            "--debug", 
-            "--event", "PreToolUse",
-            "--policy-file", policy_path.to_str().unwrap()
+            "run",
+            "--",
+            "run",
+            "--debug",
+            "--event",
+            "PreToolUse",
+            "--policy-file",
+            policy_path.to_str().unwrap(),
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -124,7 +128,11 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
         .expect("Failed to wait for command");
 
     // Should exit with code 2 (blocked)
-    assert_eq!(output.status.code(), Some(2), "Expected exit code 2 for blocked operation");
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Expected exit code 2 for blocked operation"
+    );
 
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -152,10 +160,14 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
 
     let mut child2 = Command::new("cargo")
         .args([
-            "run", "--", "run", 
-            "--debug", 
-            "--event", "PreToolUse",
-            "--policy-file", policy_path.to_str().unwrap()
+            "run",
+            "--",
+            "run",
+            "--debug",
+            "--event",
+            "PreToolUse",
+            "--policy-file",
+            policy_path.to_str().unwrap(),
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -174,7 +186,10 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
         .expect("Failed to wait for command");
 
     // Should exit with code 0 (allowed)
-    assert!(output2.status.success(), "Expected success for allowed operation");
+    assert!(
+        output2.status.success(),
+        "Expected success for allowed operation"
+    );
 
     let stderr_output2 = String::from_utf8_lossy(&output2.stderr);
     assert!(

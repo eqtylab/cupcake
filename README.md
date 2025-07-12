@@ -13,7 +13,7 @@ Policy enforcement engine that makes AI coding agents actually follow your rules
 
 ## Overview
 
-Cupcake transforms natural language rules from CLAUDE.md files into deterministic policies enforced through Claude Code's hooks system. Beyond simple enforcement, it provides an integrated feedback system that enables agents to self-correct and work autonomously for longer periods.
+Cupcake transforms natural language rules from CLAUDE.md files into deterministic YAML policies enforced through Claude Code's hooks system. Beyond simple enforcement, it provides an integrated feedback system that enables agents to self-correct and work autonomously for longer periods.
 
 ## Core Features
 
@@ -26,30 +26,50 @@ Cupcake transforms natural language rules from CLAUDE.md files into deterministi
 
 ## Policy Configuration
 
-Policies are defined in `cupcake.toml` using three primitive condition types:
+Policies are defined in YAML format using the guardrails structure:
 
-```toml
-# Block git commits when tests fail
-[[policies]]
-name = "Require passing tests"
-hook_event = "PreToolUse"
-matcher = "Bash"
-conditions = [
-  { type = "pattern", field = "tool_input.command", regex = "^git\\s+commit" },
-  { type = "check", command = "cargo test --quiet", expected_exit_code = 1 }
-]
-action = { type = "block_with_feedback", message = "Tests must pass before committing" }
+```yaml
+# guardrails/cupcake.yaml - Root configuration
+settings:
+  audit_logging: true
+  debug_mode: false
 
-# Enforce reading architecture before engine edits
-[[policies]]
-name = "Read architecture first"
-hook_event = "PreToolUse"
-matcher = "Write|Edit"
-conditions = [
-  { type = "pattern", field = "tool_input.file_path", regex = "^src/engine/" },
-  { type = "check", command = "cupcake state has-read-file docs/architecture.md", expected_exit_code = 1 }
-]
-action = { type = "block_with_feedback", message = "Read docs/architecture.md before editing engine" }
+imports:
+  - "policies/*.yaml"
+```
+
+```yaml
+# guardrails/policies/git-workflow.yaml - Policy fragments
+PreToolUse:
+  "Bash":
+    - name: "Require passing tests before commit"
+      description: "Block git commits when tests fail"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "^git\\s+commit"
+        - type: "check"
+          command: "cargo test --quiet"
+          expected_exit_code: 1
+      action:
+        type: "block_with_feedback"
+        message: "Tests must pass before committing"
+        include_context: true
+
+  "Write|Edit":
+    - name: "Read architecture first"
+      description: "Enforce reading architecture before engine edits"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.file_path"
+          regex: "^src/engine/"
+        - type: "check"
+          command: "cupcake state has-read-file docs/architecture.md"
+          expected_exit_code: 1
+      action:
+        type: "block_with_feedback"
+        message: "Read docs/architecture.md before editing engine"
+        include_context: true
 ```
 
 ## Architecture
@@ -104,7 +124,12 @@ Cupcake integrates with Claude Code through hooks:
 ## File Structure
 
 ```
-cupcake.toml              # Project policies
+guardrails/
+├── cupcake.yaml          # Root configuration  
+└── policies/            # Policy fragments
+    ├── git-workflow.yaml
+    ├── code-quality.yaml
+    └── security-checks.yaml
 .cupcake/
 ├── policy.cache         # Binary cache
 ├── state/               # Session tracking

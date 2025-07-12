@@ -62,17 +62,13 @@ impl CommandHandler for RunCommand {
             for (i, policy) in policies.iter().enumerate() {
                 eprintln!(
                     "Debug: Policy {}: {} ({}:{})",
-                    i,
-                    policy.name,
-                    policy.hook_event.to_string(),
-                    policy.matcher
+                    i, policy.name, policy.hook_event, policy.matcher
                 );
             }
         }
 
         // 3. Initialize state manager
-        let current_dir = std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let mut state_manager = StateManager::new(&current_dir)?;
 
         // 4. Build evaluation context
@@ -80,12 +76,18 @@ impl CommandHandler for RunCommand {
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
-        let evaluation_result = match policy_evaluator.evaluate(&policies, &hook_event, &evaluation_context) {
+        let evaluation_result = match policy_evaluator.evaluate(
+            &policies,
+            &hook_event,
+            &evaluation_context,
+        ) {
             Ok(result) => result,
             Err(e) => {
                 eprintln!("Error during policy evaluation: {}", e);
                 if self.debug {
-                    eprintln!("Debug: Graceful degradation - allowing operation due to evaluation error");
+                    eprintln!(
+                        "Debug: Graceful degradation - allowing operation due to evaluation error"
+                    );
                 }
                 // Graceful degradation - allow operation on evaluation error
                 self.send_response_safely(PolicyDecision::Allow)
@@ -93,14 +95,22 @@ impl CommandHandler for RunCommand {
         };
 
         if self.debug {
-            eprintln!("Debug: Evaluation complete - Decision: {:?}", evaluation_result.decision);
+            eprintln!(
+                "Debug: Evaluation complete - Decision: {:?}",
+                evaluation_result.decision
+            );
             if !evaluation_result.feedback_messages.is_empty() {
-                eprintln!("Debug: Collected feedback messages: {:?}", evaluation_result.feedback_messages);
+                eprintln!(
+                    "Debug: Collected feedback messages: {:?}",
+                    evaluation_result.feedback_messages
+                );
             }
         }
 
         // Output soft feedback to stdout if we're allowing the operation
-        if matches!(evaluation_result.decision, PolicyDecision::Allow) && !evaluation_result.feedback_messages.is_empty() {
+        if matches!(evaluation_result.decision, PolicyDecision::Allow)
+            && !evaluation_result.feedback_messages.is_empty()
+        {
             // Combine all soft feedback messages
             let feedback_output = evaluation_result.feedback_messages.join("\n");
             println!("{}", feedback_output);
@@ -116,9 +126,10 @@ impl CommandHandler for RunCommand {
 
         // 7. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
-        let final_decision = if hook_event.event_name() == "PostToolUse" 
+        let final_decision = if hook_event.event_name() == "PostToolUse"
             && matches!(evaluation_result.decision, PolicyDecision::Allow)
-            && !evaluation_result.feedback_messages.is_empty() {
+            && !evaluation_result.feedback_messages.is_empty()
+        {
             // Convert soft feedback to a "block" for PostToolUse so Claude sees it
             PolicyDecision::Block {
                 feedback: evaluation_result.feedback_messages.join("\n"),
@@ -126,7 +137,7 @@ impl CommandHandler for RunCommand {
         } else {
             evaluation_result.decision
         };
-        
+
         self.send_response_safely(final_decision)
     }
 
@@ -207,11 +218,9 @@ impl RunCommand {
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => (
-                common.session_id.clone(),
-                String::new(),
-                HashMap::new(),
-            ),
+            | HookEvent::PreCompact { common, .. } => {
+                (common.session_id.clone(), String::new(), HashMap::new())
+            }
         };
 
         EvaluationContext {
@@ -227,7 +236,10 @@ impl RunCommand {
     }
 
     /// Extract tool input as a map of string values
-    fn extract_tool_input(&self, tool_input: &serde_json::Value) -> HashMap<String, serde_json::Value> {
+    fn extract_tool_input(
+        &self,
+        tool_input: &serde_json::Value,
+    ) -> HashMap<String, serde_json::Value> {
         match tool_input {
             serde_json::Value::Object(map) => map.clone().into_iter().collect(),
             _ => HashMap::new(),
@@ -249,10 +261,10 @@ impl RunCommand {
         {
             // Extract input as HashMap
             let input_map = self.extract_tool_input(tool_input);
-            
+
             // Determine success based on tool response (simplified - could be enhanced)
             let success = !tool_response.is_null();
-            
+
             state_manager.add_tool_usage(
                 &common.session_id,
                 tool_name.clone(),

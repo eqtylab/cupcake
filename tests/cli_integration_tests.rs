@@ -50,7 +50,10 @@ fn test_cli_run_command() {
 
     // Will fail due to no stdin input
     let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("No input received from stdin") || stderr.contains("No guardrails/cupcake.yaml found"));
+    assert!(
+        stderr.contains("No input received from stdin")
+            || stderr.contains("No guardrails/cupcake.yaml found")
+    );
 }
 
 #[test]
@@ -223,7 +226,7 @@ fn test_cli_default_values() {
         .expect("Failed to execute cupcake run with defaults");
 
     let stderr = String::from_utf8(output.stderr).unwrap();
-    // Will fail due to no YAML config, but debug should show timeout  
+    // Will fail due to no YAML config, but debug should show timeout
     assert!(stderr.contains("Timeout: 60s"));
 }
 

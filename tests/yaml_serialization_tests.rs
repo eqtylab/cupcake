@@ -1,7 +1,7 @@
 use cupcake::config::{
     actions::{Action, OnFailureBehavior},
     conditions::Condition,
-    types::{RootConfig, YamlPolicy, PolicyFragment, ComposedPolicy, HookEventType, Settings},
+    types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig, Settings, YamlPolicy},
 };
 use std::collections::HashMap;
 
@@ -23,8 +23,14 @@ fn test_root_config_yaml_serialization() {
     let deserialized: RootConfig =
         serde_yaml_ng::from_str(&yaml_str).expect("Failed to deserialize from YAML");
 
-    assert_eq!(deserialized.settings.audit_logging, root_config.settings.audit_logging);
-    assert_eq!(deserialized.settings.debug_mode, root_config.settings.debug_mode);
+    assert_eq!(
+        deserialized.settings.audit_logging,
+        root_config.settings.audit_logging
+    );
+    assert_eq!(
+        deserialized.settings.debug_mode,
+        root_config.settings.debug_mode
+    );
     assert_eq!(deserialized.imports.len(), root_config.imports.len());
     assert_eq!(deserialized.imports[0], root_config.imports[0]);
 }
@@ -57,40 +63,44 @@ fn test_yaml_policy_serialization() {
 #[test]
 fn test_policy_fragment_yaml_serialization() {
     let mut fragment: PolicyFragment = HashMap::new();
-    
+
     // Create a nested structure: PreToolUse -> Bash -> [policies]
     let mut bash_policies = HashMap::new();
-    bash_policies.insert("Bash".to_string(), vec![
-        YamlPolicy {
-            name: "Block Dangerous Commands".to_string(),
-            description: None,
-            conditions: vec![Condition::Pattern {
-                field: "tool_input.command".to_string(),
-                regex: "^(rm|dd)\\s".to_string(),
-            }],
-            action: Action::BlockWithFeedback {
-                feedback_message: "Dangerous command blocked!".to_string(),
-                include_context: false,
+    bash_policies.insert(
+        "Bash".to_string(),
+        vec![
+            YamlPolicy {
+                name: "Block Dangerous Commands".to_string(),
+                description: None,
+                conditions: vec![Condition::Pattern {
+                    field: "tool_input.command".to_string(),
+                    regex: "^(rm|dd)\\s".to_string(),
+                }],
+                action: Action::BlockWithFeedback {
+                    feedback_message: "Dangerous command blocked!".to_string(),
+                    include_context: false,
+                },
             },
-        },
-        YamlPolicy {
-            name: "Git Commit Reminder".to_string(),
-            description: Some("Reminds about running tests".to_string()),
-            conditions: vec![Condition::Pattern {
-                field: "tool_input.command".to_string(),
-                regex: "git\\s+commit".to_string(),
-            }],
-            action: Action::ProvideFeedback {
-                message: "Don't forget to run tests!".to_string(),
-                include_context: false,
+            YamlPolicy {
+                name: "Git Commit Reminder".to_string(),
+                description: Some("Reminds about running tests".to_string()),
+                conditions: vec![Condition::Pattern {
+                    field: "tool_input.command".to_string(),
+                    regex: "git\\s+commit".to_string(),
+                }],
+                action: Action::ProvideFeedback {
+                    message: "Don't forget to run tests!".to_string(),
+                    include_context: false,
+                },
             },
-        },
-    ]);
-    
+        ],
+    );
+
     fragment.insert("PreToolUse".to_string(), bash_policies);
 
     // Test YAML serialization
-    let yaml_str = serde_yaml_ng::to_string(&fragment).expect("Failed to serialize fragment to YAML");
+    let yaml_str =
+        serde_yaml_ng::to_string(&fragment).expect("Failed to serialize fragment to YAML");
     let deserialized: PolicyFragment =
         serde_yaml_ng::from_str(&yaml_str).expect("Failed to deserialize fragment from YAML");
 
@@ -132,7 +142,7 @@ fn test_composed_policy_structure() {
 #[test]
 fn test_root_config_default() {
     let default_config = RootConfig::default();
-    
+
     assert!(!default_config.settings.audit_logging);
     assert!(!default_config.settings.debug_mode);
     assert_eq!(default_config.imports.len(), 1);
@@ -178,25 +188,25 @@ PostToolUse:
         include_context: false
 "#;
 
-    let fragment: PolicyFragment = serde_yaml_ng::from_str(yaml_content)
-        .expect("Failed to parse complex YAML fragment");
+    let fragment: PolicyFragment =
+        serde_yaml_ng::from_str(yaml_content).expect("Failed to parse complex YAML fragment");
 
     // Verify structure
     assert!(fragment.contains_key("PreToolUse"));
     assert!(fragment.contains_key("PostToolUse"));
-    
+
     let pre_tool_use = fragment.get("PreToolUse").unwrap();
     assert!(pre_tool_use.contains_key("Bash"));
     assert!(pre_tool_use.contains_key("Edit|Write"));
-    
+
     let bash_policies = pre_tool_use.get("Bash").unwrap();
     assert_eq!(bash_policies.len(), 1);
     assert_eq!(bash_policies[0].name, "Security Check");
-    
+
     let edit_policies = pre_tool_use.get("Edit|Write").unwrap();
     assert_eq!(edit_policies.len(), 1);
     assert_eq!(edit_policies[0].name, "Rust File Formatting");
-    
+
     let post_tool_use = fragment.get("PostToolUse").unwrap();
     assert!(post_tool_use.contains_key("Write"));
     let write_policies = post_tool_use.get("Write").unwrap();

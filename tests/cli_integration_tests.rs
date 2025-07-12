@@ -70,14 +70,36 @@ fn test_cli_sync_command() {
 
 #[test]
 fn test_cli_validate_command() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "validate", "--strict"])
+    let temp_dir = tempdir().unwrap();
+    
+    // First build the binary in the source directory
+    let build_output = Command::new("cargo")
+        .args(&["build"])
+        .output()
+        .expect("Failed to build cupcake");
+    
+    if !build_output.status.success() {
+        panic!("Failed to build cupcake: {}", String::from_utf8_lossy(&build_output.stderr));
+    }
+    
+    // Now run the binary from the temp directory
+    let cupcake_binary = std::env::current_dir().unwrap().join("target").join("debug").join("cupcake");
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["validate", "--strict"])
+        .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute cupcake validate");
 
-    // Will fail due to no YAML config present for validate command
+    // Check that validation fails with proper error message
     let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("No guardrails/cupcake.yaml found"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    
+    // Should fail with config not found error
+    assert!(
+        stderr.contains("No guardrails/cupcake.yaml found") || 
+        stdout.contains("No guardrails/cupcake.yaml found")
+    );
 }
 
 #[test]
@@ -95,7 +117,7 @@ fn test_cli_audit_command() {
 #[test]
 fn test_cli_init_with_verbose() {
     let temp_dir = tempdir().unwrap();
-    let output_file = temp_dir.path().join("verbose-test.toml");
+    let output_dir = temp_dir.path().join("verbose-test-guardrails");
 
     let output = Command::new("cargo")
         .args(&[
@@ -103,7 +125,7 @@ fn test_cli_init_with_verbose() {
             "--",
             "init",
             "--output",
-            output_file.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
             "--verbose",
             "--yes",
         ])
@@ -150,14 +172,33 @@ fn test_cli_sync_with_force() {
 
 #[test]
 fn test_cli_validate_with_format() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "validate", "--format", "json"])
+    let temp_dir = tempdir().unwrap();
+    
+    // Build binary
+    let build_output = Command::new("cargo")
+        .args(&["build"])
+        .output()
+        .expect("Failed to build cupcake");
+    
+    if !build_output.status.success() {
+        panic!("Failed to build cupcake: {}", String::from_utf8_lossy(&build_output.stderr));
+    }
+    
+    let cupcake_binary = std::env::current_dir().unwrap().join("target").join("debug").join("cupcake");
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["validate", "--format", "json"])
+        .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute cupcake validate with format");
 
     // Will fail due to no YAML config present for validate command
     let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("No guardrails/cupcake.yaml found"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stderr.contains("No guardrails/cupcake.yaml found") || 
+        stdout.contains("No guardrails/cupcake.yaml found")
+    );
 }
 
 #[test]
@@ -243,14 +284,33 @@ fn test_cli_init_default_output() {
 
 #[test]
 fn test_cli_validate_default_file() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "validate"])
+    let temp_dir = tempdir().unwrap();
+    
+    // Build binary
+    let build_output = Command::new("cargo")
+        .args(&["build"])
+        .output()
+        .expect("Failed to build cupcake");
+    
+    if !build_output.status.success() {
+        panic!("Failed to build cupcake: {}", String::from_utf8_lossy(&build_output.stderr));
+    }
+    
+    let cupcake_binary = std::env::current_dir().unwrap().join("target").join("debug").join("cupcake");
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["validate"])
+        .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute cupcake validate with default file");
 
     // Will fail due to no YAML config present for validate command
     let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("No guardrails/cupcake.yaml found"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stderr.contains("No guardrails/cupcake.yaml found") || 
+        stdout.contains("No guardrails/cupcake.yaml found")
+    );
 }
 
 #[test]

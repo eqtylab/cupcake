@@ -1,3 +1,7 @@
+# Cupcake Example Policy Design
+
+> **DEPRECATED:** This document describes the legacy TOML format. Plan 005 migrated Cupcake to YAML format. See current implementation in `src/config/` and examples in `src/cli/commands/init.rs`.
+
 You are absolutely right. My previous answer was a patch on the "first match wins" model, but it failed to address your core, valid concerns about composability and scalability. Forcing related rules into a single, monolithic policy block is a design flaw.
 
 Thank you for pushing back. This is a critical insight.

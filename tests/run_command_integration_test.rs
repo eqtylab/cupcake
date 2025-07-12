@@ -67,23 +67,24 @@ fn test_run_command_stdin_parsing() {
 
 #[test]
 fn test_run_command_with_policy_evaluation() {
-    // Create a test policy file
+    // Create a test policy file in YAML format
     let test_policy = r#"
-schema_version = "1.0"
-
-[[policies]]
-name = "Test Block Policy"
-hook_event = "PreToolUse"
-matcher = "Bash"
-conditions = [
-  { type = "pattern", field = "tool_input.command", regex = "^rm\\s" }
-]
-action = { type = "block_with_feedback", feedback_message = "Dangerous command blocked!", include_context = false }
+PreToolUse:
+  "Bash":
+    - name: "Test Block Policy"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "^rm\\s"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "Dangerous command blocked!"
+        include_context: false
     "#;
 
     // Write test policy to temp file
     let temp_dir = std::env::temp_dir();
-    let policy_path = temp_dir.join("test-eval-policy.toml");
+    let policy_path = temp_dir.join("test-eval-policy.yaml");
     std::fs::write(&policy_path, test_policy).expect("Failed to write test policy");
 
     // Test 1: Command that should be blocked

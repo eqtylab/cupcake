@@ -395,7 +395,16 @@ mod tests {
 
     #[test]
     fn test_policy_loading_with_nonexistent_files() {
-        // Test that policy loading works when no policy files exist
+        use std::env;
+        use tempfile::tempdir;
+
+        // Test that policy loading fails when no guardrails config exists
+        let temp_dir = tempdir().unwrap();
+        let original_dir = env::current_dir().unwrap();
+
+        // Change to temp directory where no guardrails config exists
+        env::set_current_dir(temp_dir.path()).unwrap();
+
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
             60,
@@ -403,29 +412,19 @@ mod tests {
             false,
         );
 
-        // This should not fail even if no policy files exist
-        let policies = cmd.load_policies().unwrap();
-        assert_eq!(policies.len(), 0); // Should return empty list
-    }
-
-    // Note: We can't test the full execute() method easily because it calls std::process::exit
-    // Integration tests in tests/ directory handle the full execution path
-
-    #[test]
-    fn test_policy_loading_with_invalid_path() {
-        // Test that policy loading fails gracefully with invalid custom path
-        let cmd = RunCommand::new(
-            "PreToolUse".to_string(),
-            60,
-            "".to_string(), // Auto-discovery mode
-            false,
-        );
-
+        // This should fail since no guardrails/cupcake.yaml exists
         let result = cmd.load_policies();
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
             .to_string()
             .contains("No guardrails/cupcake.yaml found"));
+
+        // Restore original directory
+        env::set_current_dir(original_dir).unwrap();
     }
+
+    // Note: We can't test the full execute() method easily because it calls std::process::exit
+    // Integration tests in tests/ directory handle the full execution path
+
 }

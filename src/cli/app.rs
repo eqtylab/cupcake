@@ -17,8 +17,8 @@ pub struct Cli {
 pub enum Commands {
     /// Interactive policy generation from CLAUDE.md files
     Init {
-        /// Output file path for generated policies
-        #[arg(short, long, default_value = "cupcake.toml")]
+        /// Output directory for generated policies
+        #[arg(short, long, default_value = "guardrails")]
         output: String,
 
         /// Skip interactive confirmation
@@ -40,8 +40,8 @@ pub enum Commands {
         #[arg(long, default_value = "60")]
         timeout: u32,
 
-        /// Policy file path
-        #[arg(long, default_value = "cupcake.toml")]
+        /// Policy file path (automatically discovered from guardrails/cupcake.yaml)
+        #[arg(long, default_value = "")]
         policy_file: String,
 
         /// Enable debug output
@@ -66,8 +66,8 @@ pub enum Commands {
 
     /// Validates policy file syntax
     Validate {
-        /// Path to policy file
-        #[arg(default_value = "cupcake.toml")]
+        /// Path to policy directory (automatically discovered from guardrails/cupcake.yaml)
+        #[arg(default_value = "")]
         policy_file: String,
 
         /// Strict validation mode
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_cli_parsing() {
-        let cli = Cli::parse_from(&["cupcake", "init", "--output", "test.toml", "--yes"]);
+        let cli = Cli::parse_from(&["cupcake", "init", "--output", "test-guardrails", "--yes"]);
 
         match cli.command {
             Commands::Init {
@@ -150,7 +150,7 @@ mod tests {
                 yes,
                 verbose,
             } => {
-                assert_eq!(output, "test.toml");
+                assert_eq!(output, "test-guardrails");
                 assert!(yes);
                 assert!(!verbose);
             }
@@ -171,7 +171,7 @@ mod tests {
             } => {
                 assert_eq!(event, "PreToolUse");
                 assert_eq!(timeout, 60);
-                assert_eq!(policy_file, "cupcake.toml");
+                assert_eq!(policy_file, ""); // Auto-discovery mode
                 assert!(!debug);
             }
             _ => panic!("Wrong command parsed"),
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_validate_command() {
-        let cli = Cli::parse_from(&["cupcake", "validate", "my-policy.toml", "--strict"]);
+        let cli = Cli::parse_from(&["cupcake", "validate", "my-guardrails", "--strict"]);
 
         match cli.command {
             Commands::Validate {
@@ -188,7 +188,7 @@ mod tests {
                 strict,
                 format,
             } => {
-                assert_eq!(policy_file, "my-policy.toml");
+                assert_eq!(policy_file, "my-guardrails");
                 assert!(strict);
                 assert_eq!(format, "text");
             }
@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn test_command_properties() {
         let init_cmd = Commands::Init {
-            output: "test.toml".to_string(),
+            output: "test-guardrails".to_string(),
             yes: false,
             verbose: false,
         };
@@ -261,7 +261,7 @@ mod tests {
         let run_cmd = Commands::Run {
             event: "PreToolUse".to_string(),
             timeout: 60,
-            policy_file: "cupcake.toml".to_string(),
+            policy_file: "".to_string(), // Auto-discovery
             debug: false,
         };
 

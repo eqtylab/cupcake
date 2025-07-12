@@ -1,4 +1,4 @@
-use crate::config::types::PolicyFile;
+use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::{ConditionEvaluator, EvaluationContext};
 use crate::engine::response::PolicyDecision;
 use crate::Result;
@@ -46,7 +46,7 @@ impl PolicyEvaluator {
     /// Execute two-pass evaluation on the given policies
     pub fn evaluate(
         &mut self,
-        policies: &[PolicyFile],
+        policies: &[ComposedPolicy],
         hook_event: &crate::engine::events::HookEvent,
         evaluation_context: &EvaluationContext,
     ) -> Result<EvaluationResult> {
@@ -83,47 +83,36 @@ impl PolicyEvaluator {
     /// Build ordered list of policies matching the hook event
     fn build_ordered_policy_list<'a>(
         &self,
-        policy_files: &'a [PolicyFile],
+        policies: &'a [ComposedPolicy],
         hook_event: &crate::engine::events::HookEvent,
-    ) -> Result<Vec<&'a crate::config::types::Policy>> {
+    ) -> Result<Vec<&'a ComposedPolicy>> {
         let mut ordered_policies = Vec::new();
         let hook_event_name = hook_event.event_name();
         let tool_name = hook_event.tool_name();
 
-        for policy_file in policy_files {
-            for policy in &policy_file.policies {
-                // Check if policy applies to this hook event
-                let policy_event_name = match &policy.hook_event {
-                    crate::config::types::HookEventType::PreToolUse => "PreToolUse",
-                    crate::config::types::HookEventType::PostToolUse => "PostToolUse",
-                    crate::config::types::HookEventType::Notification => "Notification",
-                    crate::config::types::HookEventType::Stop => "Stop",
-                    crate::config::types::HookEventType::SubagentStop => "SubagentStop",
-                    crate::config::types::HookEventType::PreCompact => "PreCompact",
-                };
+        for policy in policies {
+            // Check if policy applies to this hook event
+            let policy_event_name = policy.hook_event.to_string();
 
-                if policy_event_name != hook_event_name {
+            if policy_event_name != hook_event_name {
+                continue;
+            }
+
+            // Check if policy matcher applies to this tool (for PreToolUse/PostToolUse)
+            if let Some(tool) = tool_name {
+                let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
+                    crate::CupcakeError::Config(format!(
+                        "Invalid matcher regex '{}': {}",
+                        policy.matcher, e
+                    ))
+                })?;
+
+                if !matcher_regex.is_match(tool) {
                     continue;
                 }
-
-                // Check if policy matcher applies to this tool (for PreToolUse/PostToolUse)
-                if let Some(ref matcher) = policy.matcher {
-                    if let Some(tool) = tool_name {
-                        let matcher_regex = regex::Regex::new(matcher).map_err(|e| {
-                            crate::CupcakeError::Config(format!(
-                                "Invalid matcher regex '{}': {}",
-                                matcher, e
-                            ))
-                        })?;
-
-                        if !matcher_regex.is_match(tool) {
-                            continue;
-                        }
-                    }
-                }
-
-                ordered_policies.push(policy);
             }
+
+            ordered_policies.push(policy);
         }
 
         Ok(ordered_policies)
@@ -132,12 +121,12 @@ impl PolicyEvaluator {
     /// Execute Pass 1: Collect all feedback from soft actions
     fn execute_pass_1(
         &mut self,
-        policy_files: &[PolicyFile],
+        policies: &[ComposedPolicy],
         hook_event: &crate::engine::events::HookEvent,
         evaluation_context: &EvaluationContext,
     ) -> Result<FeedbackCollection> {
         let mut feedback_messages = Vec::new();
-        let ordered_policies = self.build_ordered_policy_list(policy_files, hook_event)?;
+        let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
 
         for policy in ordered_policies {
             // Evaluate all conditions for this policy
@@ -162,11 +151,11 @@ impl PolicyEvaluator {
     /// Execute Pass 2: Find first hard action decision
     fn execute_pass_2(
         &mut self,
-        policy_files: &[PolicyFile],
+        policies: &[ComposedPolicy],
         hook_event: &crate::engine::events::HookEvent,
         evaluation_context: &EvaluationContext,
     ) -> Result<HardDecision> {
-        let ordered_policies = self.build_ordered_policy_list(policy_files, hook_event)?;
+        let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
 
         for policy in ordered_policies {
             // Evaluate all conditions for this policy
@@ -228,7 +217,7 @@ impl PolicyEvaluator {
     /// Evaluate all conditions for a policy
     fn evaluate_policy_conditions(
         &mut self,
-        policy: &crate::config::types::Policy,
+        policy: &ComposedPolicy,
         context: &EvaluationContext,
     ) -> Result<bool> {
         // If no conditions, policy always matches

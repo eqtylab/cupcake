@@ -67,6 +67,19 @@ pub enum HookEventType {
     PreCompact,
 }
 
+impl std::fmt::Display for HookEventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HookEventType::PreToolUse => write!(f, "PreToolUse"),
+            HookEventType::PostToolUse => write!(f, "PostToolUse"),
+            HookEventType::Notification => write!(f, "Notification"),
+            HookEventType::Stop => write!(f, "Stop"),
+            HookEventType::SubagentStop => write!(f, "SubagentStop"),
+            HookEventType::PreCompact => write!(f, "PreCompact"),
+        }
+    }
+}
+
 impl Default for PolicyFile {
     fn default() -> Self {
         Self {

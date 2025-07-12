@@ -1,6 +1,6 @@
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
-use crate::config::types::PolicyFile;
+use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
 use crate::engine::events::HookEvent;
@@ -10,7 +10,6 @@ use crate::Result;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::io::{self, Read};
-use std::path::Path;
 
 /// Handler for the `run` command
 pub struct RunCommand {
@@ -59,12 +58,14 @@ impl CommandHandler for RunCommand {
         };
 
         if self.debug {
-            eprintln!("Debug: Loaded {} policy files", policies.len());
+            eprintln!("Debug: Loaded {} composed policies", policies.len());
             for (i, policy) in policies.iter().enumerate() {
                 eprintln!(
-                    "Debug: Policy file {}: {} policies",
+                    "Debug: Policy {}: {} ({}:{})",
                     i,
-                    policy.policies.len()
+                    policy.name,
+                    policy.hook_event.to_string(),
+                    policy.matcher
                 );
             }
         }
@@ -164,36 +165,22 @@ impl RunCommand {
             .map_err(|e| crate::CupcakeError::HookEvent(format!("Invalid JSON from stdin: {}", e)))
     }
 
-    /// Load policies from the configured policy file and user policy file
-    fn load_policies(&self) -> Result<Vec<PolicyFile>> {
+    /// Load policies using the new YAML composition engine
+    fn load_policies(&self) -> Result<Vec<ComposedPolicy>> {
         let mut loader = PolicyLoader::new();
 
-        // If a specific policy file is provided, use it
-        if !self.policy_file.is_empty() && self.policy_file != "cupcake.toml" {
-            let policy_path = Path::new(&self.policy_file);
-            if policy_path.exists() {
-                return Ok(vec![loader.load_policy_file(policy_path)?]);
-            } else {
-                return Err(crate::CupcakeError::Config(format!(
-                    "Policy file not found: {}",
-                    self.policy_file
-                )));
-            }
-        }
-
-        // Load from hierarchy (project + user)
+        // Get current directory for policy discovery
         let current_dir = std::env::current_dir().map_err(|e| {
             crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
         })?;
 
-        let policies = loader.load_policy_hierarchy(&current_dir)?;
+        // Use the new YAML composition engine
+        let policies = loader.load_and_compose_policies(&current_dir)?;
 
         if self.debug {
-            eprintln!("Debug: Searched for policies in:");
-            eprintln!("  - {}/cupcake.toml", current_dir.display());
-            if let Some(home_dir) = directories::BaseDirs::new() {
-                eprintln!("  - {}/.claude/cupcake.toml", home_dir.home_dir().display());
-            }
+            eprintln!("Debug: Searched for YAML policies starting from:");
+            eprintln!("  - {}/guardrails/cupcake.yaml", current_dir.display());
+            eprintln!("Debug: Found and composed {} policies", policies.len());
         }
 
         Ok(policies)

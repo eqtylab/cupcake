@@ -4,6 +4,7 @@ use super::actions::Action;
 use super::conditions::Condition;
 
 /// Top-level policy configuration file structure
+#[deprecated(note = "Use RootConfig and ComposedPolicy instead. Will be removed in Phase 6.")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyFile {
     /// Schema version for forward compatibility
@@ -30,6 +31,7 @@ pub struct Settings {
 }
 
 /// Individual policy definition
+#[deprecated(note = "Use YamlPolicy and ComposedPolicy instead. Will be removed in Phase 6.")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Policy {
     /// Human-readable policy name
@@ -73,6 +75,75 @@ impl Default for PolicyFile {
             policies: Vec::new(),
         }
     }
+}
+
+// =============================================================================
+// YAML-Based Policy Types (Plan 005)
+// =============================================================================
+
+/// Root configuration file structure for guardrails/cupcake.yaml
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RootConfig {
+    /// Global settings for the policy engine
+    #[serde(default)]
+    pub settings: Settings,
+
+    /// Glob patterns for importing policy fragment files
+    #[serde(default)]
+    pub imports: Vec<String>,
+}
+
+impl Default for RootConfig {
+    fn default() -> Self {
+        Self {
+            settings: Settings::default(),
+            imports: vec!["policies/*.yaml".to_string()],
+        }
+    }
+}
+
+/// Simplified policy structure for YAML fragments (without hook_event/matcher)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YamlPolicy {
+    /// Human-readable policy name
+    pub name: String,
+
+    /// Optional longer description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+
+    /// Conditions that must all be true for policy to trigger
+    pub conditions: Vec<Condition>,
+
+    /// Action to take when all conditions match
+    pub action: Action,
+}
+
+/// Type alias for the "Grouped Map" structure of a single policy file
+/// Structure: { "HookEvent": { "Matcher": [Policy, Policy, ...] } }
+pub type PolicyFragment = std::collections::HashMap<String, std::collections::HashMap<String, Vec<YamlPolicy>>>;
+
+/// Final composed policy structure for engine consumption
+/// This restores the hook_event and matcher fields from the YAML structure
+#[derive(Debug, Clone)]
+pub struct ComposedPolicy {
+    /// Human-readable policy name
+    pub name: String,
+
+    /// Optional longer description
+    pub description: Option<String>,
+
+    /// Hook event when to evaluate this policy (restored from YAML structure)
+    pub hook_event: HookEventType,
+
+    /// Tool name pattern (restored from YAML structure)
+    pub matcher: String,
+
+    /// Conditions that must all be true for policy to trigger
+    pub conditions: Vec<Condition>,
+
+    /// Action to take when all conditions match
+    pub action: Action,
 }
 
 #[cfg(test)]

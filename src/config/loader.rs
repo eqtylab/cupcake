@@ -663,6 +663,52 @@ PostToolUse:
     }
 
     #[test]
+    fn test_load_from_config_file_root_config() {
+        let dir = tempdir().unwrap();
+        let policies_dir = dir.path().join("policies");
+        create_dir_all(&policies_dir).unwrap();
+
+        // Create the root config file
+        let config_path = dir.path().join("my-config.yaml");
+        let mut file = File::create(&config_path).unwrap();
+        file.write_all(
+            br#"settings:
+  audit_logging: true
+imports:
+  - "policies/*.yaml"
+"#,
+        )
+        .unwrap();
+
+        // Create a policy fragment
+        let fragment_path = policies_dir.join("test.yaml");
+        let mut file = File::create(&fragment_path).unwrap();
+        file.write_all(
+            br#"PreToolUse:
+  "Bash":
+    - name: "Test Policy"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "^test"
+      action:
+        type: "provide_feedback"
+        message: "Testing command detected"
+        include_context: false
+"#,
+        )
+        .unwrap();
+
+        let mut loader = PolicyLoader::new();
+        let policies = loader.load_from_config_file(&config_path).unwrap();
+
+        assert_eq!(policies.len(), 1);
+        assert_eq!(policies[0].name, "Test Policy");
+        assert_eq!(policies[0].hook_event, HookEventType::PreToolUse);
+        assert_eq!(policies[0].matcher, "Bash");
+    }
+
+    #[test]
     fn test_load_from_config_file_policy_fragment() {
         let dir = tempdir().unwrap();
         let config_path = dir.path().join("test-config.yaml");
@@ -691,6 +737,32 @@ PostToolUse:
         assert_eq!(policies[0].name, "Test Block Policy");
         assert_eq!(policies[0].hook_event, HookEventType::PreToolUse);
         assert_eq!(policies[0].matcher, "Bash");
+    }
+
+    #[test]
+    fn test_load_from_config_file_missing_file() {
+        let mut loader = PolicyLoader::new();
+        let result = loader.load_from_config_file(Path::new("/nonexistent/file.yaml"));
+        
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Failed to read config file"));
+    }
+
+    #[test]
+    fn test_load_from_config_file_invalid_yaml() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("invalid.yaml");
+
+        let mut file = File::create(&config_path).unwrap();
+        file.write_all(b"invalid: yaml: content: [\n").unwrap();
+
+        let mut loader = PolicyLoader::new();
+        let result = loader.load_from_config_file(&config_path);
+        
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("failed to parse"));
     }
 
     #[test]

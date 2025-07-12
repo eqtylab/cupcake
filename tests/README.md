@@ -46,7 +46,7 @@ This directory contains integration tests for Cupcake's Claude Code hooks integr
 
 The `claude-code-integration-directory/` contains:
 
-- `.claude/test-policy.toml` - Test policies for various scenarios
+- `guardrails/` - YAML policy configuration and fragments
 - `.claude/settings.example.json` - Claude Code hooks configuration
 - Sample files for testing (README.md, example.py, etc.)
 

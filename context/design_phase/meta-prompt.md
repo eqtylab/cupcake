@@ -1,5 +1,7 @@
 # Cupcake Init Meta-Prompt Design
 
+> **DEPRECATED:** This document describes the legacy AI-assisted TOML generation system. Plan 005 migrated to YAML format and updated the init command to generate `guardrails/` structure directly without AI translation.
+
 ## Overview
 
 This document contains the meta-prompt that `cupcake init` will use to invoke Claude Code for translating CLAUDE.md rules into cupcake.toml policies.

@@ -1,0 +1,14 @@
+# Cupcake YAML Configuration
+# This file configures global settings and imports policy fragments
+
+settings:
+  # Enable structured audit logging for policy decisions
+  audit_logging: true
+  
+  # Disable debug mode for production use
+  debug_mode: false
+
+# Import patterns for policy fragment files
+# Files are processed in alphabetical order for deterministic behavior
+imports:
+  - "policies/*.yaml"

@@ -1,0 +1,51 @@
+# Base Policy Examples
+# This file demonstrates the YAML policy format structure
+
+PreToolUse:
+  "Bash":
+    - name: "Git Commit Reminder"
+      description: "Reminds to run tests before committing"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "git\\s+commit"
+      action:
+        type: "provide_feedback"
+        message: "💡 Remember to run tests before committing!"
+        include_context: false
+
+    - name: "Dangerous Command Warning"
+      description: "Warns about potentially destructive commands"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "^(rm|dd|format)\\s.*(-rf|--force)"
+      action:
+        type: "provide_feedback"
+        message: "⚠️  Potentially destructive command detected. Please review carefully."
+        include_context: true
+
+  "Edit|Write":
+    - name: "Rust File Formatting Reminder"
+      description: "Suggests running cargo fmt on Rust files"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.file_path"
+          regex: "\\.rs$"
+      action:
+        type: "provide_feedback"
+        message: "📝 Consider running 'cargo fmt' after editing Rust files"
+        include_context: false
+
+PostToolUse:
+  "Write":
+    - name: "File Creation Confirmation"
+      description: "Confirms successful file creation"
+      conditions:
+        - type: "match"
+          field: "tool_name"
+          value: "Write"
+      action:
+        type: "provide_feedback"
+        message: "✅ File successfully created"
+        include_context: false

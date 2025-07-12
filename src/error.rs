@@ -8,8 +8,8 @@ pub enum CupcakeError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("TOML serialization error: {0}")]
-    TomlSerialization(#[from] toml::de::Error),
+    #[error("YAML serialization error: {0}")]
+    YamlSerialization(#[from] serde_yaml_ng::Error),
 
     #[error("JSON serialization error: {0}")]
     JsonSerialization(#[from] serde_json::Error),

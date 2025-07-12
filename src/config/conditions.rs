@@ -75,8 +75,8 @@ mod tests {
             regex: "git\\s+commit".to_string(),
         };
 
-        let toml = toml::to_string(&condition).unwrap();
-        let deserialized: Condition = toml::from_str(&toml).unwrap();
+        let yaml = serde_yaml_ng::to_string(&condition).unwrap();
+        let deserialized: Condition = serde_yaml_ng::from_str(&yaml).unwrap();
 
         match deserialized {
             Condition::Pattern { field, regex } => {
@@ -104,7 +104,7 @@ mod tests {
             ],
         };
 
-        let toml = toml::to_string(&condition).unwrap();
-        let _deserialized: Condition = toml::from_str(&toml).unwrap();
+        let yaml = serde_yaml_ng::to_string(&condition).unwrap();
+        let _deserialized: Condition = serde_yaml_ng::from_str(&yaml).unwrap();
     }
 }

@@ -1,5 +1,7 @@
 # Cupcake Policy Schema Design
 
+> **DEPRECATED:** This document describes the legacy TOML format. Plan 005 migrated Cupcake to YAML format. See current implementation in `src/config/` for the active YAML-based system using `guardrails/cupcake.yaml` and `guardrails/policies/*.yaml`.
+
 ## Overview
 
 This document defines the schema for `cupcake.toml` - the policy configuration file that drives Cupcake's enforcement engine.

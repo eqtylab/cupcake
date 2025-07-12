@@ -59,31 +59,32 @@ fn test_run_command_stdin_parsing() {
         "Expected session ID in debug output"
     );
     assert!(
-        stderr_output.contains("Debug: Allowing operation") || 
-        stderr_output.contains("Debug: Evaluation complete"),
+        stderr_output.contains("Debug: Allowing operation")
+            || stderr_output.contains("Debug: Evaluation complete"),
         "Expected evaluation or allow operation debug output"
     );
 }
 
 #[test]
 fn test_run_command_with_policy_evaluation() {
-    // Create a test policy file
+    // Create a test policy file in YAML format
     let test_policy = r#"
-schema_version = "1.0"
-
-[[policies]]
-name = "Test Block Policy"
-hook_event = "PreToolUse"
-matcher = "Bash"
-conditions = [
-  { type = "pattern", field = "tool_input.command", regex = "^rm\\s" }
-]
-action = { type = "block_with_feedback", feedback_message = "Dangerous command blocked!", include_context = false }
+PreToolUse:
+  "Bash":
+    - name: "Test Block Policy"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "^rm\\s"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "Dangerous command blocked!"
+        include_context: false
     "#;
 
     // Write test policy to temp file
     let temp_dir = std::env::temp_dir();
-    let policy_path = temp_dir.join("test-eval-policy.toml");
+    let policy_path = temp_dir.join("test-eval-policy.yaml");
     std::fs::write(&policy_path, test_policy).expect("Failed to write test policy");
 
     // Test 1: Command that should be blocked
@@ -102,10 +103,14 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
 
     let mut child = Command::new("cargo")
         .args([
-            "run", "--", "run", 
-            "--debug", 
-            "--event", "PreToolUse",
-            "--policy-file", policy_path.to_str().unwrap()
+            "run",
+            "--",
+            "run",
+            "--debug",
+            "--event",
+            "PreToolUse",
+            "--config",
+            policy_path.to_str().unwrap(),
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -124,7 +129,11 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
         .expect("Failed to wait for command");
 
     // Should exit with code 2 (blocked)
-    assert_eq!(output.status.code(), Some(2), "Expected exit code 2 for blocked operation");
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Expected exit code 2 for blocked operation"
+    );
 
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -152,10 +161,14 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
 
     let mut child2 = Command::new("cargo")
         .args([
-            "run", "--", "run", 
-            "--debug", 
-            "--event", "PreToolUse",
-            "--policy-file", policy_path.to_str().unwrap()
+            "run",
+            "--",
+            "run",
+            "--debug",
+            "--event",
+            "PreToolUse",
+            "--config",
+            policy_path.to_str().unwrap(),
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -174,7 +187,10 @@ action = { type = "block_with_feedback", feedback_message = "Dangerous command b
         .expect("Failed to wait for command");
 
     // Should exit with code 0 (allowed)
-    assert!(output2.status.success(), "Expected success for allowed operation");
+    assert!(
+        output2.status.success(),
+        "Expected success for allowed operation"
+    );
 
     let stderr_output2 = String::from_utf8_lossy(&output2.stderr);
     assert!(

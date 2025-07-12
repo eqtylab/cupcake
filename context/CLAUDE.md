@@ -22,6 +22,7 @@ You must use the versions for each lib as described in the doc names:
 - tokio-1.46.1.md
 - toml-0.9.1.md
 - walkdir-2.5.0.md
+- serde_yaml_ng-0.10.0.md
 
 # claude code docs
 
@@ -279,3 +280,7 @@ The Git history becomes a perfect timeline of lnr work progress.
 Just create files as you lnr work. The system emerges from the naming patterns. No tools needed beyond a text editor and Git.
 
 Always read entire files to avoid confusion.
+
+## Github Issues
+
+Issues for some features will be found in @/Users/ramos/cupcake/cupcake-rs/context/issues

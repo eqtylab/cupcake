@@ -1,6 +1,6 @@
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
-use crate::config::types::PolicyFile;
+use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
 use crate::engine::events::HookEvent;
@@ -10,13 +10,12 @@ use crate::Result;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::io::{self, Read};
-use std::path::Path;
 
 /// Handler for the `run` command
 pub struct RunCommand {
     pub event: String,
     pub timeout: u32,
-    pub policy_file: String,
+    pub config: String,
     pub debug: bool,
 }
 
@@ -25,7 +24,7 @@ impl CommandHandler for RunCommand {
         if self.debug {
             eprintln!("Debug: Event: {}", self.event);
             eprintln!("Debug: Timeout: {}s", self.timeout);
-            eprintln!("Debug: Policy file: {}", self.policy_file);
+            eprintln!("Debug: Config file: {}", self.config);
         }
 
         // 1. Read hook event JSON from stdin
@@ -59,19 +58,17 @@ impl CommandHandler for RunCommand {
         };
 
         if self.debug {
-            eprintln!("Debug: Loaded {} policy files", policies.len());
+            eprintln!("Debug: Loaded {} composed policies", policies.len());
             for (i, policy) in policies.iter().enumerate() {
                 eprintln!(
-                    "Debug: Policy file {}: {} policies",
-                    i,
-                    policy.policies.len()
+                    "Debug: Policy {}: {} ({}:{})",
+                    i, policy.name, policy.hook_event, policy.matcher
                 );
             }
         }
 
         // 3. Initialize state manager
-        let current_dir = std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let mut state_manager = StateManager::new(&current_dir)?;
 
         // 4. Build evaluation context
@@ -79,12 +76,18 @@ impl CommandHandler for RunCommand {
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
-        let evaluation_result = match policy_evaluator.evaluate(&policies, &hook_event, &evaluation_context) {
+        let evaluation_result = match policy_evaluator.evaluate(
+            &policies,
+            &hook_event,
+            &evaluation_context,
+        ) {
             Ok(result) => result,
             Err(e) => {
                 eprintln!("Error during policy evaluation: {}", e);
                 if self.debug {
-                    eprintln!("Debug: Graceful degradation - allowing operation due to evaluation error");
+                    eprintln!(
+                        "Debug: Graceful degradation - allowing operation due to evaluation error"
+                    );
                 }
                 // Graceful degradation - allow operation on evaluation error
                 self.send_response_safely(PolicyDecision::Allow)
@@ -92,14 +95,22 @@ impl CommandHandler for RunCommand {
         };
 
         if self.debug {
-            eprintln!("Debug: Evaluation complete - Decision: {:?}", evaluation_result.decision);
+            eprintln!(
+                "Debug: Evaluation complete - Decision: {:?}",
+                evaluation_result.decision
+            );
             if !evaluation_result.feedback_messages.is_empty() {
-                eprintln!("Debug: Collected feedback messages: {:?}", evaluation_result.feedback_messages);
+                eprintln!(
+                    "Debug: Collected feedback messages: {:?}",
+                    evaluation_result.feedback_messages
+                );
             }
         }
 
         // Output soft feedback to stdout if we're allowing the operation
-        if matches!(evaluation_result.decision, PolicyDecision::Allow) && !evaluation_result.feedback_messages.is_empty() {
+        if matches!(evaluation_result.decision, PolicyDecision::Allow)
+            && !evaluation_result.feedback_messages.is_empty()
+        {
             // Combine all soft feedback messages
             let feedback_output = evaluation_result.feedback_messages.join("\n");
             println!("{}", feedback_output);
@@ -115,9 +126,10 @@ impl CommandHandler for RunCommand {
 
         // 7. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
-        let final_decision = if hook_event.event_name() == "PostToolUse" 
+        let final_decision = if hook_event.event_name() == "PostToolUse"
             && matches!(evaluation_result.decision, PolicyDecision::Allow)
-            && !evaluation_result.feedback_messages.is_empty() {
+            && !evaluation_result.feedback_messages.is_empty()
+        {
             // Convert soft feedback to a "block" for PostToolUse so Claude sees it
             PolicyDecision::Block {
                 feedback: evaluation_result.feedback_messages.join("\n"),
@@ -125,7 +137,7 @@ impl CommandHandler for RunCommand {
         } else {
             evaluation_result.decision
         };
-        
+
         self.send_response_safely(final_decision)
     }
 
@@ -136,11 +148,11 @@ impl CommandHandler for RunCommand {
 
 impl RunCommand {
     /// Create new run command
-    pub fn new(event: String, timeout: u32, policy_file: String, debug: bool) -> Self {
+    pub fn new(event: String, timeout: u32, config: String, debug: bool) -> Self {
         Self {
             event,
             timeout,
-            policy_file,
+            config,
             debug,
         }
     }
@@ -164,39 +176,37 @@ impl RunCommand {
             .map_err(|e| crate::CupcakeError::HookEvent(format!("Invalid JSON from stdin: {}", e)))
     }
 
-    /// Load policies from the configured policy file and user policy file
-    fn load_policies(&self) -> Result<Vec<PolicyFile>> {
+    /// Load policies using the new YAML composition engine
+    fn load_policies(&self) -> Result<Vec<ComposedPolicy>> {
         let mut loader = PolicyLoader::new();
 
-        // If a specific policy file is provided, use it
-        if !self.policy_file.is_empty() && self.policy_file != "cupcake.toml" {
-            let policy_path = Path::new(&self.policy_file);
-            if policy_path.exists() {
-                return Ok(vec![loader.load_policy_file(policy_path)?]);
-            } else {
-                return Err(crate::CupcakeError::Config(format!(
-                    "Policy file not found: {}",
-                    self.policy_file
-                )));
+        if !self.config.is_empty() {
+            // User specified a config file - load from that file
+            let config_path = std::path::Path::new(&self.config);
+            let policies = loader.load_from_config_file(config_path)?;
+
+            if self.debug {
+                eprintln!("Debug: Loaded policies from config file: {}", self.config);
+                eprintln!("Debug: Found and composed {} policies", policies.len());
             }
-        }
 
-        // Load from hierarchy (project + user)
-        let current_dir = std::env::current_dir().map_err(|e| {
-            crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
-        })?;
+            Ok(policies)
+        } else {
+            // No config specified - use auto-discovery
+            let current_dir = std::env::current_dir().map_err(|e| {
+                crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
+            })?;
 
-        let policies = loader.load_policy_hierarchy(&current_dir)?;
+            let policies = loader.load_and_compose_policies(&current_dir)?;
 
-        if self.debug {
-            eprintln!("Debug: Searched for policies in:");
-            eprintln!("  - {}/cupcake.toml", current_dir.display());
-            if let Some(home_dir) = directories::BaseDirs::new() {
-                eprintln!("  - {}/.claude/cupcake.toml", home_dir.home_dir().display());
+            if self.debug {
+                eprintln!("Debug: Searched for YAML policies starting from:");
+                eprintln!("  - {}/guardrails/cupcake.yaml", current_dir.display());
+                eprintln!("Debug: Found and composed {} policies", policies.len());
             }
-        }
 
-        Ok(policies)
+            Ok(policies)
+        }
     }
 
     /// Build evaluation context from hook event
@@ -220,11 +230,9 @@ impl RunCommand {
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => (
-                common.session_id.clone(),
-                String::new(),
-                HashMap::new(),
-            ),
+            | HookEvent::PreCompact { common, .. } => {
+                (common.session_id.clone(), String::new(), HashMap::new())
+            }
         };
 
         EvaluationContext {
@@ -240,7 +248,10 @@ impl RunCommand {
     }
 
     /// Extract tool input as a map of string values
-    fn extract_tool_input(&self, tool_input: &serde_json::Value) -> HashMap<String, serde_json::Value> {
+    fn extract_tool_input(
+        &self,
+        tool_input: &serde_json::Value,
+    ) -> HashMap<String, serde_json::Value> {
         match tool_input {
             serde_json::Value::Object(map) => map.clone().into_iter().collect(),
             _ => HashMap::new(),
@@ -262,10 +273,10 @@ impl RunCommand {
         {
             // Extract input as HashMap
             let input_map = self.extract_tool_input(tool_input);
-            
+
             // Determine success based on tool response (simplified - could be enhanced)
             let success = !tool_response.is_null();
-            
+
             state_manager.add_tool_usage(
                 &common.session_id,
                 tool_name.clone(),
@@ -328,13 +339,13 @@ mod tests {
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
             60,
-            "cupcake.toml".to_string(),
+            "".to_string(), // Auto-discovery mode
             false,
         );
 
         assert_eq!(cmd.event, "PreToolUse");
         assert_eq!(cmd.timeout, 60);
-        assert_eq!(cmd.policy_file, "cupcake.toml");
+        assert_eq!(cmd.config, ""); // Auto-discovery mode
         assert!(!cmd.debug);
         assert_eq!(cmd.name(), "run");
     }
@@ -396,37 +407,36 @@ mod tests {
 
     #[test]
     fn test_policy_loading_with_nonexistent_files() {
-        // Test that policy loading works when no policy files exist
+        use std::env;
+        use tempfile::tempdir;
+
+        // Test that policy loading fails when no guardrails config exists
+        let temp_dir = tempdir().unwrap();
+        let original_dir = env::current_dir().unwrap();
+
+        // Change to temp directory where no guardrails config exists
+        env::set_current_dir(temp_dir.path()).unwrap();
+
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
             60,
-            "cupcake.toml".to_string(),
+            "".to_string(), // Auto-discovery mode
             false,
         );
 
-        // This should not fail even if no policy files exist
-        let policies = cmd.load_policies().unwrap();
-        assert_eq!(policies.len(), 0); // Should return empty list
-    }
-
-    // Note: We can't test the full execute() method easily because it calls std::process::exit
-    // Integration tests in tests/ directory handle the full execution path
-
-    #[test]
-    fn test_policy_loading_with_invalid_path() {
-        // Test that policy loading fails gracefully with invalid custom path
-        let cmd = RunCommand::new(
-            "PreToolUse".to_string(),
-            60,
-            "/nonexistent/path/to/policies.toml".to_string(),
-            false,
-        );
-
+        // This should fail since no guardrails/cupcake.yaml exists
         let result = cmd.load_policies();
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Policy file not found"));
+            .contains("No guardrails/cupcake.yaml found"));
+
+        // Restore original directory
+        env::set_current_dir(original_dir).unwrap();
     }
+
+    // Note: We can't test the full execute() method easily because it calls std::process::exit
+    // Integration tests in tests/ directory handle the full execution path
+
 }

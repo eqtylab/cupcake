@@ -187,8 +187,8 @@ mod tests {
             include_context: true,
         };
 
-        let toml = toml::to_string(&action).unwrap();
-        let deserialized: Action = toml::from_str(&toml).unwrap();
+        let yaml = serde_yaml_ng::to_string(&action).unwrap();
+        let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
 
         match deserialized {
             Action::ProvideFeedback {

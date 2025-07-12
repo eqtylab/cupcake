@@ -50,15 +50,7 @@ impl CupcakePaths {
         }
     }
 
-    /// Get policy file path for project
-    pub fn policy_file(&self, project_root: &std::path::Path) -> PathBuf {
-        project_root.join("cupcake.toml")
-    }
 
-    /// Get user policy file path
-    pub fn user_policy_file(&self) -> PathBuf {
-        self.config_dir.join("cupcake.toml")
-    }
 
     /// Get state file path for a session
     pub fn state_file(&self, session_id: &str) -> PathBuf {
@@ -147,19 +139,6 @@ impl Default for CupcakePaths {
 pub struct PathUtils;
 
 impl PathUtils {
-    /// Find project root by looking for cupcake.toml or .git
-    pub fn find_project_root() -> Option<PathBuf> {
-        let current_dir = std::env::current_dir().ok()?;
-        let mut dir = current_dir.as_path();
-
-        loop {
-            if dir.join("cupcake.toml").exists() || dir.join(".git").exists() {
-                return Some(dir.to_path_buf());
-            }
-
-            dir = dir.parent()?;
-        }
-    }
 
     /// Check if path is safe (no traversal attacks)
     pub fn is_safe_path(path: &std::path::Path) -> bool {
@@ -206,17 +185,6 @@ mod tests {
         assert_eq!(paths.audit_file, project_root.join(".cupcake/audit.log"));
     }
 
-    #[test]
-    fn test_policy_file_paths() {
-        let project_root = Path::new("/tmp/test-project");
-        let paths = CupcakePaths::for_project(project_root);
-
-        assert_eq!(
-            paths.policy_file(project_root),
-            project_root.join("cupcake.toml")
-        );
-        assert!(paths.user_policy_file().ends_with("cupcake.toml"));
-    }
 
     #[test]
     fn test_state_file_path() {

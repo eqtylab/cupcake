@@ -140,16 +140,15 @@ impl ConditionEvaluator {
         } else {
             "/bin/sh"
         };
-        
+
         let mut command = std::process::Command::new(shell);
         if cfg!(target_os = "windows") {
             command.arg("/C").arg(&expanded_command);
         } else {
             command.arg("-c").arg(&expanded_command);
         }
-        
-        match command.current_dir(&context.current_dir).output()
-        {
+
+        match command.current_dir(&context.current_dir).output() {
             Ok(output) => {
                 let success = output.status.success();
                 if success == expect_success {

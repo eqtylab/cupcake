@@ -76,7 +76,7 @@ The project uses an lnr (linear) work management system. Check `context/lnrwrk/`
 ## Key Dependencies
 
 - `serde` & `serde_json` - Serialization
-- `toml` - Policy file format
+- `serde_yaml_ng` - YAML policy file format
 - `clap` - CLI framework
 - `tokio` - Async runtime
 - `anyhow` & `thiserror` - Error handling
@@ -85,13 +85,13 @@ The project uses an lnr (linear) work management system. Check `context/lnrwrk/`
 ## Integration with Claude Code
 
 - Hooks configured in `.claude/settings.local.json`
-- Policy files in `cupcake.toml` format
+- Policy files in YAML format via `guardrails/cupcake.yaml`
 - State tracked in `.cupcake/` directory
 
 ## Important Design Documents
 
 - Architecture: `context/design_phase/architecture.md` - Master blueprint
-- Policy Schema: `context/design_phase/policy-schema.md` - cupcake.toml specification
+- Policy Schema: `context/design_phase/policy-schema.md` - YAML guardrails specification
 - Feedback Model: `context/design_phase/feedback-aggregation.md` - Two-pass evaluation
 - Hook Events: `context/design_phase/hook-events.md` - Claude Code lifecycle mapping
 - Meta Prompt: `context/design_phase/meta-prompt.md` - AI translation logic for init
@@ -104,14 +104,16 @@ The project uses an lnr (linear) work management system. Check `context/lnrwrk/`
 - `cupcake init` - Interactive policy generation from CLAUDE.md files
 - `cupcake sync` - Updates Claude Code hooks in .claude/settings.local.json
 - `cupcake run` - Runtime enforcement (called automatically by hooks)
-- `cupcake validate` - Validates cupcake.toml syntax
+- `cupcake validate` - Validates YAML guardrails syntax
 - `cupcake audit` - Views audit logs from .cupcake/state/
 
 ## Policy File Format
 
-Policies are defined in `cupcake.toml`:
+Policies are defined in YAML format in the `guardrails/` directory:
 
-- Conditions: `command_regex`, `state_exists`, `file_regex`
+- Root config: `guardrails/cupcake.yaml` with settings and imports
+- Policy fragments: `guardrails/policies/*.yaml` organized by hook event
+- Conditions: `pattern`, `check`, `state_exists` 
 - Actions: `provide_feedback` (soft), `block_with_feedback` (hard), `run_command`
 - Two-pass evaluation: Soft feedback aggregated, hard blocks shown immediately
 

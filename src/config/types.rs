@@ -56,7 +56,7 @@ pub struct Policy {
 }
 
 /// Hook event types that policies can respond to
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub enum HookEventType {
     PreToolUse,
@@ -138,7 +138,7 @@ pub type PolicyFragment = std::collections::HashMap<String, std::collections::Ha
 
 /// Final composed policy structure for engine consumption
 /// This restores the hook_event and matcher fields from the YAML structure
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComposedPolicy {
     /// Human-readable policy name
     pub name: String,

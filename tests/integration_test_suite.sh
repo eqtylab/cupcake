@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/claude-code-integration-directory"
 CUPCAKE_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/target/release/cupcake"
 CLAUDE_SETTINGS_FILE="$TEST_DIR/.claude/settings.example.json"
-POLICY_FILE="$TEST_DIR/.claude/test-policy.toml"
+POLICY_DIR="$TEST_DIR/guardrails"
 
 # Check for verbose mode
 VERBOSE=false
@@ -34,7 +34,7 @@ print_header() {
     echo -e "${BLUE}=== Cupcake Integration Test Suite ===${NC}"
     echo -e "Testing directory: ${TEST_DIR}"
     echo -e "Cupcake binary: ${CUPCAKE_BIN}"
-    echo -e "Policy file: ${POLICY_FILE}"
+    echo -e "Policy directory: ${POLICY_DIR}"
     if [ "$VERBOSE" = true ]; then
         echo -e "${YELLOW}Verbose mode: ON${NC}"
     fi
@@ -126,9 +126,15 @@ check_dependencies() {
         exit 1
     fi
     
-    # Check if policy file exists
-    if [ ! -f "$POLICY_FILE" ]; then
-        print_failure "Policy file not found: $POLICY_FILE"
+    # Check if policy directory exists
+    if [ ! -d "$POLICY_DIR" ]; then
+        print_failure "Policy directory not found: $POLICY_DIR"
+        exit 1
+    fi
+    
+    # Check if guardrails structure exists
+    if [ ! -f "$POLICY_DIR/cupcake.yaml" ]; then
+        print_failure "Root config not found: $POLICY_DIR/cupcake.yaml"
         exit 1
     fi
     
@@ -140,7 +146,7 @@ test_cupcake_validate() {
     ((TOTAL_TESTS++))
     
     cd "$TEST_DIR"
-    if "$CUPCAKE_BIN" validate .claude/test-policy.toml &> /tmp/validate_test.log; then
+    if "$CUPCAKE_BIN" validate &> /tmp/validate_test.log; then
         # Check if validate command ran (even if not fully implemented)
         if grep -q "Cupcake validate command" /tmp/validate_test.log; then
             print_success "Policy validation command executed"
@@ -172,7 +178,7 @@ test_cupcake_run_direct() {
     }'
     
     # Test that cupcake run processes the event without error
-    if echo "$test_event" | "$CUPCAKE_BIN" run --event PreToolUse --policy-file .claude/test-policy.toml --debug &> /tmp/cupcake_test.log; then
+    if echo "$test_event" | "$CUPCAKE_BIN" run --event PreToolUse --debug &> /tmp/cupcake_test.log; then
         print_success "Cupcake run processed PreToolUse event successfully"
     else
         print_failure "Cupcake run failed on PreToolUse event"

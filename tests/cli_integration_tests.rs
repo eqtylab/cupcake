@@ -10,7 +10,7 @@ fn test_cli_help_command() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Cupcake: Deterministic policy enforcement for Claude Code"));
+    assert!(stdout.contains("transforms natural language rules"));
     assert!(stdout.contains("init"));
     assert!(stdout.contains("run"));
     assert!(stdout.contains("sync"));
@@ -21,7 +21,7 @@ fn test_cli_help_command() {
 #[test]
 fn test_cli_init_command() {
     let temp_dir = tempdir().unwrap();
-    let output_file = temp_dir.path().join("test-cupcake.toml");
+    let output_dir = temp_dir.path().join("test-guardrails");
 
     let output = Command::new("cargo")
         .args(&[
@@ -29,16 +29,16 @@ fn test_cli_init_command() {
             "--",
             "init",
             "--output",
-            output_file.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
             "--yes",
         ])
         .output()
         .expect("Failed to execute cupcake init");
 
-    // Should not panic and should indicate implementation is pending
+    // Should succeed and create the guardrails structure
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("init command"));
-    assert!(stdout.contains("implementation pending"));
+    assert!(stdout.contains("Cupcake guardrails initialized successfully"));
+    assert!(stdout.contains("Created structure"));
 }
 
 #[test]
@@ -48,9 +48,9 @@ fn test_cli_run_command() {
         .output()
         .expect("Failed to execute cupcake run");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("run command"));
-    assert!(stdout.contains("implementation pending"));
+    // Will fail due to no stdin input
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("No input received from stdin") || stderr.contains("No guardrails/cupcake.yaml found"));
 }
 
 #[test]
@@ -68,13 +68,13 @@ fn test_cli_sync_command() {
 #[test]
 fn test_cli_validate_command() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "validate", "test-policy.toml", "--strict"])
+        .args(&["run", "--", "validate", "--strict"])
         .output()
         .expect("Failed to execute cupcake validate");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("validate command"));
-    assert!(stdout.contains("implementation pending"));
+    // Will fail due to no YAML config present for validate command
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("No guardrails/cupcake.yaml found"));
 }
 
 #[test]
@@ -108,8 +108,8 @@ fn test_cli_init_with_verbose() {
         .expect("Failed to execute cupcake init --verbose");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Output file:"));
-    assert!(stdout.contains("Auto-confirm:"));
+    assert!(stdout.contains("Output directory:"));
+    assert!(stdout.contains("Initializing Cupcake guardrails"));
 }
 
 #[test]
@@ -128,9 +128,9 @@ fn test_cli_run_with_debug() {
         .output()
         .expect("Failed to execute cupcake run --debug");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Event: PostToolUse"));
-    assert!(stdout.contains("Timeout: 30s"));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("Event: PostToolUse"));
+    assert!(stderr.contains("Timeout: 30s"));
 }
 
 #[test]
@@ -148,12 +148,13 @@ fn test_cli_sync_with_force() {
 #[test]
 fn test_cli_validate_with_format() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "validate", "policy.toml", "--format", "json"])
+        .args(&["run", "--", "validate", "--format", "json"])
         .output()
         .expect("Failed to execute cupcake validate with format");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Format: json"));
+    // Will fail due to no YAML config present for validate command
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("No guardrails/cupcake.yaml found"));
 }
 
 #[test]
@@ -217,13 +218,13 @@ fn test_cli_version() {
 #[test]
 fn test_cli_default_values() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "run", "--event", "PreToolUse"])
+        .args(&["run", "--", "run", "--event", "PreToolUse", "--debug"])
         .output()
         .expect("Failed to execute cupcake run with defaults");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Timeout: 60s"));
-    assert!(stdout.contains("Policy file: cupcake.toml"));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    // Will fail due to no YAML config, but debug should show timeout  
+    assert!(stderr.contains("Timeout: 60s"));
 }
 
 #[test]
@@ -234,7 +235,7 @@ fn test_cli_init_default_output() {
         .expect("Failed to execute cupcake init with default output");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Output file: cupcake.toml"));
+    assert!(stdout.contains("guardrails initialized successfully"));
 }
 
 #[test]
@@ -244,8 +245,9 @@ fn test_cli_validate_default_file() {
         .output()
         .expect("Failed to execute cupcake validate with default file");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Policy file: cupcake.toml"));
+    // Will fail due to no YAML config present for validate command
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("No guardrails/cupcake.yaml found"));
 }
 
 #[test]

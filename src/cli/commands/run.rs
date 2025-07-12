@@ -315,13 +315,13 @@ mod tests {
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
             60,
-            "cupcake.toml".to_string(),
+            "".to_string(), // Auto-discovery mode
             false,
         );
 
         assert_eq!(cmd.event, "PreToolUse");
         assert_eq!(cmd.timeout, 60);
-        assert_eq!(cmd.policy_file, "cupcake.toml");
+        assert_eq!(cmd.policy_file, ""); // Auto-discovery mode
         assert!(!cmd.debug);
         assert_eq!(cmd.name(), "run");
     }
@@ -387,7 +387,7 @@ mod tests {
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
             60,
-            "cupcake.toml".to_string(),
+            "".to_string(), // Auto-discovery mode
             false,
         );
 
@@ -405,7 +405,7 @@ mod tests {
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
             60,
-            "/nonexistent/path/to/policies.toml".to_string(),
+            "".to_string(), // Auto-discovery mode
             false,
         );
 
@@ -414,6 +414,6 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Policy file not found"));
+            .contains("No guardrails/cupcake.yaml found"));
     }
 }

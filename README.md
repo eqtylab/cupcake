@@ -100,7 +100,14 @@ cargo install --path .
    cupcake sync
    ```
 
-3. **Runtime enforcement:**
+3. **Inspect loaded policies:**
+   ```bash
+   cupcake inspect
+   # Or with specific config file
+   cupcake inspect --config my-policy.yaml
+   ```
+
+4. **Runtime enforcement:**
    ```bash
    cupcake run --event PreToolUse
    ```
@@ -111,6 +118,25 @@ cargo install --path .
 - `cupcake sync` - Update Claude Code hooks configuration
 - `cupcake run` - Runtime policy enforcement (called by hooks)
 - `cupcake validate` - Validate policy syntax
+- `cupcake inspect` - View loaded policies in compact table format
+
+### Policy Inspection
+
+The `inspect` command provides a compact view of all loaded policies:
+
+```bash
+$ cupcake inspect
+NAME                       EVENT       TOOL       ACTION              CONDITIONS
+-------------------------- ----------- ---------- ------------------- ----------
+Git Commit Reminder        PreToolUse  Bash       provide_feedback    tool_input.command ~ "git\s+commit"
+Dangerous Command Warning  PreToolUse  Bash       block_with_feedback tool_input.command ~ "^(rm|dd)\s.*"
+Rust File Formatting       PreToolUse  Edit|Write provide_feedback    tool_input.file_path ~ "\.rs$"
+File Creation Confirmation PostToolUse Write      provide_feedback    tool_name = "Write"
+
+Total: 4 policies
+```
+
+Perfect for debugging and understanding which policies are active.
 
 ## Integration
 

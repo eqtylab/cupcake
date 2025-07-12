@@ -1,8 +1,8 @@
 use clap::Parser;
 use cupcake::{
     cli::commands::{
-        audit::AuditCommand, init::InitCommand, run::RunCommand, sync::SyncCommand,
-        validate::ValidateCommand, CommandHandler,
+        audit::AuditCommand, init::InitCommand, inspect::InspectCommand, run::RunCommand, 
+        sync::SyncCommand, validate::ValidateCommand, CommandHandler,
     },
     cli::{Cli, Commands},
     Result,
@@ -54,6 +54,10 @@ fn main() -> Result<()> {
             clear,
         } => {
             let command = AuditCommand::new(tail, follow, session, event, format, clear);
+            command.execute()?;
+        }
+        Commands::Inspect { config } => {
+            let command = InspectCommand::new(config);
             command.execute()?;
         }
     }

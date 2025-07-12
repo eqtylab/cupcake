@@ -69,3 +69,33 @@ Started Plan 006 implementation - Config File Flexibility and Test Support
 
 **Total Test Coverage**: 120 tests passing (up from 113)
 **Performance**: Still maintains sub-100ms target with ~1.6ms load time
+
+## 2025-07-12T22:00:00Z
+
+**Enhancement: Inspect Command Added**
+
+Following user suggestion during Plan 006, implemented a new `inspect` command for debugging and development UX:
+
+**Features Delivered**:
+- ✅ `cupcake inspect` - Auto-discovery from guardrails/
+- ✅ `cupcake inspect --config file.yaml` - Specific config file
+- ✅ Compact table format showing essential policy information
+- ✅ Support for both RootConfig and PolicyFragment formats
+- ✅ Clean condition formatting (e.g., `tool_input.command ~ "git commit"`)
+
+**Output Format**:
+```
+NAME                       EVENT       TOOL       ACTION              CONDITIONS
+-------------------------- ----------- ---------- ------------------- ----------
+Git Commit Reminder        PreToolUse  Bash       provide_feedback    tool_input.command ~ "git\s+commit"
+Dangerous Command Warning  PreToolUse  Bash       block_with_feedback tool_input.command ~ "^(rm|dd)\s.*"
+```
+
+**Implementation**:
+- Added `Commands::Inspect` to CLI enum with full integration
+- Created `InspectCommand` handler with elegant table formatting
+- Intelligent condition summarization for readability
+- Proper error handling for missing configs
+- All tests passing (31 CLI tests + 2 new inspect tests)
+
+This significantly improves developer experience for policy debugging and understanding.

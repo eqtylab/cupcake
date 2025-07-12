@@ -105,6 +105,13 @@ pub enum Commands {
         #[arg(long)]
         clear: bool,
     },
+
+    /// Inspect loaded policies in compact table format
+    Inspect {
+        /// Configuration file path (automatically discovered from guardrails/cupcake.yaml)
+        #[arg(long, default_value = "")]
+        config: String,
+    },
 }
 
 impl Commands {
@@ -116,12 +123,13 @@ impl Commands {
             Commands::Sync { .. } => "sync",
             Commands::Validate { .. } => "validate",
             Commands::Audit { .. } => "audit",
+            Commands::Inspect { .. } => "inspect",
         }
     }
 
     /// Check if this command requires a policy file
     pub fn requires_policy_file(&self) -> bool {
-        matches!(self, Commands::Run { .. } | Commands::Validate { .. })
+        matches!(self, Commands::Run { .. } | Commands::Validate { .. } | Commands::Inspect { .. })
     }
 
     /// Check if this command modifies files
@@ -240,6 +248,30 @@ mod tests {
                 assert_eq!(settings_path, None);
                 assert!(dry_run);
                 assert!(force);
+            }
+            _ => panic!("Wrong command parsed"),
+        }
+    }
+
+    #[test]
+    fn test_inspect_command() {
+        let cli = Cli::parse_from(&["cupcake", "inspect", "--config", "my-config.yaml"]);
+
+        match cli.command {
+            Commands::Inspect { config } => {
+                assert_eq!(config, "my-config.yaml");
+            }
+            _ => panic!("Wrong command parsed"),
+        }
+    }
+
+    #[test]
+    fn test_inspect_command_defaults() {
+        let cli = Cli::parse_from(&["cupcake", "inspect"]);
+
+        match cli.command {
+            Commands::Inspect { config } => {
+                assert_eq!(config, ""); // Auto-discovery mode
             }
             _ => panic!("Wrong command parsed"),
         }

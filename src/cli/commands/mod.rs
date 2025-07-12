@@ -1,5 +1,6 @@
 pub mod audit;
 pub mod init;
+pub mod inspect;
 pub mod run;
 pub mod sync;
 pub mod validate;

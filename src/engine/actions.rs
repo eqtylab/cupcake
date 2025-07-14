@@ -158,13 +158,13 @@ impl ActionExecutor {
             } => self.execute_block_with_feedback(feedback_message, context),
             Action::Approve { reason } => self.execute_approve(reason.as_deref(), context),
             Action::RunCommand {
-                command,
+                spec,
                 on_failure,
                 on_failure_feedback,
                 background,
                 timeout_seconds,
             } => self.execute_run_command(
-                command,
+                spec,
                 on_failure,
                 on_failure_feedback.as_deref(),
                 *background,
@@ -225,15 +225,17 @@ impl ActionExecutor {
     /// Execute run_command action with actual command execution
     fn execute_run_command(
         &self,
-        command: &str,
-        on_failure: &OnFailureBehavior,
+        spec: &crate::config::actions::CommandSpec,
+        on_failure: &crate::config::actions::OnFailureBehavior,
         on_failure_feedback: Option<&str>,
         background: bool,
         timeout_seconds: u32,
         context: &ActionContext,
     ) -> ActionResult {
-        // Substitute template variables in command
-        let substituted_command = context.substitute_template(command);
+        // TODO: Replace with proper CommandExecutor in Phase 2
+        // For now, convert CommandSpec to legacy string format to maintain compilation
+        let command_string = self.convert_spec_to_legacy_string(spec, context);
+        let substituted_command = command_string;
 
         // If background execution, don't wait for completion
         if background {
@@ -381,6 +383,32 @@ impl ActionExecutor {
                     feedback: Some(format!("Condition evaluation failed: {}", err)),
                     state_update: None,
                 }
+            }
+        }
+    }
+
+    /// Temporary conversion function to maintain compilation during transition
+    /// TODO: Remove this when CommandExecutor is complete
+    fn convert_spec_to_legacy_string(
+        &self,
+        spec: &crate::config::actions::CommandSpec,
+        context: &ActionContext,
+    ) -> String {
+        match spec {
+            crate::config::actions::CommandSpec::Array(array_spec) => {
+                let mut parts = array_spec.command.clone();
+                if let Some(args) = &array_spec.args {
+                    parts.extend(args.clone());
+                }
+                
+                // Apply template substitution safely to args only
+                let substituted_parts: Vec<String> = parts
+                    .iter()
+                    .map(|part| context.substitute_template(part))
+                    .collect();
+                
+                // Join with spaces (this is temporary and insecure - will be replaced)
+                substituted_parts.join(" ")
             }
         }
     }
@@ -541,7 +569,19 @@ mod tests {
         assert!(approve_action.is_hard_action());
 
         let soft_command = Action::RunCommand {
-            command: "echo test".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["echo".to_string()],
+                args: Some(vec!["test".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,
@@ -551,7 +591,19 @@ mod tests {
         assert!(!soft_command.is_hard_action());
 
         let hard_command = Action::RunCommand {
-            command: "cargo test".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["cargo".to_string()],
+                args: Some(vec!["test".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Tests failed".to_string()),
             background: false,
@@ -749,7 +801,19 @@ mod tests {
 
         // Use a simple true command that should succeed on most systems
         let action = Action::RunCommand {
-            command: "true".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["true".to_string()],
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: None,
             background: false,
@@ -778,7 +842,19 @@ mod tests {
 
         // Use a command that should fail
         let action = Action::RunCommand {
-            command: "false".to_string(), // Command that always fails
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["false".to_string()], // Command that always fails
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Custom failure message".to_string()),
             background: false,
@@ -809,7 +885,19 @@ mod tests {
 
         // Use a command that should fail but continue
         let action = Action::RunCommand {
-            command: "false".to_string(), // Command that always fails
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["false".to_string()], // Command that always fails
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,
@@ -842,7 +930,19 @@ mod tests {
 
         // Use template variables in command
         let action = Action::RunCommand {
-            command: "echo {{tool_input.file_path}}".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["echo".to_string()],
+                args: Some(vec!["{{tool_input.file_path}}".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: None,
             background: false,

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::actions::CommandSpec;
+
 /// Condition types for policy evaluation using 3-primitive model
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -22,11 +24,11 @@ pub enum Condition {
         regex: String,
     },
 
-    /// Command execution - run shell command for complex checks
-    /// Example: { type = "check", command = "[ $(date +%u) -le 5 ]", expect_success = true }
+    /// Command execution - run secure command for complex checks
+    /// Example: { type = "check", spec = { mode = "array", command = ["test", "-f", "{{file_path}}"] }, expect_success = true }
     Check {
-        /// Shell command to execute (supports template variables)
-        command: String,
+        /// Command specification for secure execution
+        spec: CommandSpec,
         /// Whether exit code 0 means condition matches (true) or doesn't match (false)
         #[serde(default = "default_expect_success")]
         expect_success: bool,

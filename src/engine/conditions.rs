@@ -71,9 +71,9 @@ impl ConditionEvaluator {
             Condition::Match { field, value } => self.evaluate_match(field, value, context),
             Condition::Pattern { field, regex } => self.evaluate_pattern(field, regex, context),
             Condition::Check {
-                command,
+                spec,
                 expect_success,
-            } => self.evaluate_check(command, *expect_success, context),
+            } => self.evaluate_check(spec, *expect_success, context),
             Condition::Not { condition } => self.evaluate_not(condition, context),
             Condition::And { conditions } => self.evaluate_and(conditions, context),
             Condition::Or { conditions } => self.evaluate_or(conditions, context),
@@ -126,12 +126,14 @@ impl ConditionEvaluator {
     /// Evaluate Check condition - command execution
     fn evaluate_check(
         &self,
-        command: &str,
+        spec: &crate::config::actions::CommandSpec,
         expect_success: bool,
         context: &EvaluationContext,
     ) -> ConditionResult {
-        // Substitute template variables in command
-        let expanded_command = self.expand_template_variables(command, context);
+        // TODO: Replace with proper CommandExecutor in Phase 2
+        // For now, convert CommandSpec to legacy string format to maintain functionality
+        let command_string = self.convert_spec_to_legacy_string(spec, context);
+        let expanded_command = command_string;
 
         // Execute command and check exit status
         // Use full path to shell for better portability
@@ -293,6 +295,32 @@ impl ConditionEvaluator {
         self.regex_cache
             .get(pattern)
             .ok_or_else(|| crate::CupcakeError::Condition("Regex cache inconsistency".to_string()))
+    }
+
+    /// Temporary conversion function to maintain compilation during transition
+    /// TODO: Remove this when CommandExecutor is complete
+    fn convert_spec_to_legacy_string(
+        &self,
+        spec: &crate::config::actions::CommandSpec,
+        context: &EvaluationContext,
+    ) -> String {
+        match spec {
+            crate::config::actions::CommandSpec::Array(array_spec) => {
+                let mut parts = array_spec.command.clone();
+                if let Some(args) = &array_spec.args {
+                    parts.extend(args.clone());
+                }
+                
+                // Apply template substitution safely to parts
+                let substituted_parts: Vec<String> = parts
+                    .iter()
+                    .map(|part| self.expand_template_variables(part, context))
+                    .collect();
+                
+                // Join with spaces (this is temporary and insecure - will be replaced)
+                substituted_parts.join(" ")
+            }
+        }
     }
 }
 

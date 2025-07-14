@@ -150,11 +150,21 @@ impl InspectCommand {
             Condition::Match { field, value } => {
                 format!("{} = \"{}\"", field, value)
             }
-            Condition::Check { command, expect_success } => {
+            Condition::Check { spec, expect_success } => {
+                // TODO: Improve display of CommandSpec in Phase 2
+                let command_display = match spec {
+                    crate::config::actions::CommandSpec::Array(array_spec) => {
+                        let mut parts = array_spec.command.clone();
+                        if let Some(args) = &array_spec.args {
+                            parts.extend(args.clone());
+                        }
+                        parts.join(" ")
+                    }
+                };
                 if *expect_success {
-                    format!("check \"{}\"", command)
+                    format!("check \"{}\"", command_display)
                 } else {
-                    format!("check !\"{}\"", command)
+                    format!("check !\"{}\"", command_display)
                 }
             }
             Condition::And { conditions } => {

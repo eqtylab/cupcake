@@ -142,14 +142,13 @@ impl ActionExecutor {
         Self {}
     }
 
-    /// Create action executor with state manager (reserved for future use)
-    pub fn with_state_manager(_state_manager: crate::state::StateManager) -> Self {
-        // TODO: Phase 5 - Integrate state manager for persisting state updates
-        Self {}
-    }
-
-    /// Execute an action with the given context
-    pub fn execute(&mut self, action: &Action, context: &ActionContext) -> ActionResult {
+    /// Execute an action with the given context and optional state manager
+    pub fn execute(
+        &mut self,
+        action: &Action,
+        context: &ActionContext,
+        state_manager: Option<&mut crate::state::manager::StateManager>,
+    ) -> ActionResult {
         match action {
             Action::ProvideFeedback { message, .. } => {
                 self.execute_provide_feedback(message, context)
@@ -178,14 +177,20 @@ impl ActionExecutor {
                 let event_name = event.as_ref().unwrap_or(&default_event);
                 let empty_data = HashMap::new();
                 let event_data = data.as_ref().unwrap_or(&empty_data);
-                self.execute_update_state(event_name, event_data, context)
+                self.execute_update_state(event_name, event_data, context, state_manager)
             }
             Action::Conditional {
                 if_condition,
                 then_action,
                 else_action,
             } => {
-                self.execute_conditional(if_condition, then_action, else_action.as_deref(), context)
+                self.execute_conditional(
+                    if_condition,
+                    then_action,
+                    else_action.as_deref(),
+                    context,
+                    state_manager,
+                )
             }
         }
     }
@@ -287,6 +292,7 @@ impl ActionExecutor {
         event: &str,
         data: &HashMap<String, serde_json::Value>,
         context: &ActionContext,
+        state_manager: Option<&mut crate::state::manager::StateManager>,
     ) -> ActionResult {
         let event_name = context.substitute_template(event);
         let mut substituted_data = HashMap::new();
@@ -298,6 +304,24 @@ impl ActionExecutor {
                 substituted_data.insert(key.clone(), serde_json::Value::String(substituted_value));
             } else {
                 substituted_data.insert(key.clone(), value.clone());
+            }
+        }
+
+        // Persist state update if state manager is available
+        if let Some(state_manager) = state_manager {
+            match state_manager.add_custom_event(
+                &context.session_id,
+                event_name.clone(),
+                substituted_data.clone(),
+            ) {
+                Ok(_) => {
+                    // State persisted successfully
+                }
+                Err(e) => {
+                    return ActionResult::Error {
+                        message: format!("Failed to persist state update: {}", e),
+                    };
+                }
             }
         }
 
@@ -314,6 +338,7 @@ impl ActionExecutor {
         then_action: &Action,
         else_action: Option<&Action>,
         context: &ActionContext,
+        state_manager: Option<&mut crate::state::manager::StateManager>,
     ) -> ActionResult {
         // Create condition evaluator for runtime evaluation
         let mut condition_evaluator = crate::engine::conditions::ConditionEvaluator::new();
@@ -336,12 +361,12 @@ impl ActionExecutor {
         match condition_result {
             crate::engine::conditions::ConditionResult::Match => {
                 // Condition matched, execute then_action
-                self.execute(then_action, context)
+                self.execute(then_action, context, state_manager)
             }
             crate::engine::conditions::ConditionResult::NoMatch => {
                 // Condition didn't match, execute else_action if present
                 if let Some(else_action) = else_action {
-                    self.execute(else_action, context)
+                    self.execute(else_action, context, state_manager)
                 } else {
                     // No else action, just continue
                     ActionResult::Success {
@@ -600,7 +625,7 @@ mod tests {
             include_context: false,
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Success {
                 feedback,
@@ -623,7 +648,7 @@ mod tests {
             include_context: false,
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Block { feedback } => {
                 assert_eq!(feedback, "Blocked: src/main.rs");
@@ -641,7 +666,7 @@ mod tests {
             reason: Some("Auto-approved for {{env.USER}}".to_string()),
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Approve { reason } => {
                 assert_eq!(reason, Some("Auto-approved for testuser".to_string()));
@@ -676,7 +701,7 @@ mod tests {
             data: Some(data),
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Success {
                 feedback,
@@ -731,7 +756,7 @@ mod tests {
             timeout_seconds: Some(5),
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Success { feedback, .. } => {
                 assert!(feedback.is_some());
@@ -760,7 +785,7 @@ mod tests {
             timeout_seconds: Some(5),
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Block { feedback } => {
                 assert_eq!(feedback, "Custom failure message");
@@ -791,7 +816,7 @@ mod tests {
             timeout_seconds: Some(5),
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Success { feedback, .. } => {
                 assert!(feedback.is_some());
@@ -824,7 +849,7 @@ mod tests {
             timeout_seconds: Some(5),
         };
 
-        let result = executor.execute(&action, &context);
+        let result = executor.execute(&action, &context, None);
         match result {
             ActionResult::Success { feedback, .. } => {
                 assert!(feedback.is_some());

@@ -33,6 +33,17 @@ pub struct EvaluationResult {
     pub decision: PolicyDecision,
     /// All feedback collected (from Pass 1)
     pub feedback_messages: Vec<String>,
+    /// Policies that matched and their actions
+    pub matched_policies: Vec<MatchedPolicy>,
+}
+
+/// A policy that matched during evaluation
+#[derive(Debug, Clone)]
+pub struct MatchedPolicy {
+    /// Policy name for debugging
+    pub name: String,
+    /// The action to execute
+    pub action: crate::config::actions::Action,
 }
 
 impl PolicyEvaluator {
@@ -50,6 +61,20 @@ impl PolicyEvaluator {
         hook_event: &crate::engine::events::HookEvent,
         evaluation_context: &EvaluationContext,
     ) -> Result<EvaluationResult> {
+        // Collect all matched policies
+        let mut matched_policies = Vec::new();
+        let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
+        
+        for policy in &ordered_policies {
+            let conditions_match = self.evaluate_policy_conditions(policy, evaluation_context)?;
+            if conditions_match {
+                matched_policies.push(MatchedPolicy {
+                    name: policy.name.clone(),
+                    action: policy.action.clone(),
+                });
+            }
+        }
+
         // Pass 1: Collect all feedback from soft actions
         let feedback_collection = self.execute_pass_1(policies, hook_event, evaluation_context)?;
 
@@ -77,6 +102,7 @@ impl PolicyEvaluator {
         Ok(EvaluationResult {
             decision,
             feedback_messages: feedback_collection.feedback_messages,
+            matched_policies,
         })
     }
 
@@ -182,24 +208,17 @@ impl PolicyEvaluator {
                             })
                         }
                         crate::config::actions::Action::RunCommand {
-                            on_failure,
-                            on_failure_feedback,
-                            ..
+                            on_failure, ..
                         } => {
-                            // For now, treat run_command with block as immediate block
-                            // TODO: Implement actual command execution in Phase 5
+                            // RunCommand actions are executed in the action phase
+                            // For now, we continue to find other hard actions
+                            // The action phase will handle the actual blocking decision
                             if matches!(
                                 on_failure,
                                 crate::config::actions::OnFailureBehavior::Block
                             ) {
-                                let feedback = on_failure_feedback
-                                    .as_deref()
-                                    .unwrap_or("Command execution would be required");
-                                let substituted_feedback =
-                                    self.substitute_templates(feedback, evaluation_context);
-                                Ok(HardDecision::Block {
-                                    feedback: substituted_feedback,
-                                })
+                                // Skip this for now - let action phase handle it
+                                continue;
                             } else {
                                 continue; // Soft command, keep looking
                             }

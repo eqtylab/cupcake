@@ -80,7 +80,7 @@ PreToolUse:
 
 ### String Commands and Shell Execution
 
-Cupcake supports three command execution modes:
+Beyond the exec array form for commands, Cupcake supports two other command execution modes:
 
 ```yaml
 # String mode: Shell-like syntax parsed into secure commands
@@ -129,6 +129,7 @@ cargo install --path .
    ```
 
 3. **Inspect loaded policies:**
+
    ```bash
    cupcake inspect
    # Or with specific config file
@@ -180,7 +181,7 @@ Cupcake integrates with Claude Code through hooks:
 
 ```
 guardrails/
-├── cupcake.yaml          # Root configuration  
+├── cupcake.yaml          # Root configuration
 └── policies/            # Policy fragments
     ├── git-workflow.yaml
     ├── code-quality.yaml

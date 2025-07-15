@@ -5,8 +5,7 @@
 
 use cupcake::config::actions::{ArrayCommandSpec, CommandSpec, EnvVar, PipeCommand};
 use cupcake::engine::command_executor::{
-    CommandExecutor, CommandGraph, ExecutionNode, Command, Operation, ConditionalExecution,
-    ExecutionResult, ExecutionError
+    CommandExecutor, Operation, ExecutionError
 };
 use std::collections::HashMap;
 use std::path::PathBuf;

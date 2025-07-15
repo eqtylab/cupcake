@@ -21,6 +21,8 @@ mod shell_execution_tests {
             audit_logging: true,
             debug_mode: true, // Enable debug mode to skip UID dropping in tests
             allow_shell,
+            timeout_ms: 30000,
+            sandbox_uid: None,
         };
         
         CommandExecutor::with_settings(vars, settings)

@@ -31,6 +31,8 @@ async fn test_encode_and_execute_simple_command() {
         audit_logging: true,
         debug_mode: true, // Skip UID dropping for tests
         allow_shell: false, // This is array mode, not shell mode
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(vars, settings);
@@ -72,6 +74,8 @@ async fn test_encode_and_execute_piped_command() {
         audit_logging: true,
         debug_mode: true, // Skip UID dropping for tests
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(vars, settings);
@@ -110,6 +114,8 @@ async fn test_encode_and_execute_redirected_command() {
         audit_logging: true,
         debug_mode: true, // Skip UID dropping for tests
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(vars, settings);
@@ -150,6 +156,8 @@ async fn test_encode_and_execute_with_template_variables() {
         audit_logging: true,
         debug_mode: true, // Skip UID dropping for tests
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(vars, settings);
@@ -187,6 +195,8 @@ async fn test_encode_security_vs_shell_mode() {
         audit_logging: true,
         debug_mode: true,
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(vars, settings);
@@ -245,6 +255,8 @@ async fn test_encode_output_formats_produce_valid_specs() {
         audit_logging: true,
         debug_mode: true,
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);

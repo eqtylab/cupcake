@@ -15,6 +15,7 @@ async fn test_custom_timeout_short() {
         debug_mode: true,
         allow_shell: false,
         timeout_ms: 100, // Very short timeout - 100ms
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
@@ -49,6 +50,7 @@ async fn test_custom_timeout_long() {
         debug_mode: true,
         allow_shell: false,
         timeout_ms: 5000, // 5 second timeout
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);

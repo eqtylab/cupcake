@@ -121,6 +121,8 @@ done"#.to_string(),
             audit_logging: true,
             debug_mode: false,
             allow_shell: true,
+            timeout_ms: 30000,
+            sandbox_uid: None,
         };
 
         let yaml = serde_yaml_ng::to_string(&settings).unwrap();

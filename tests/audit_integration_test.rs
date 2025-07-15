@@ -25,6 +25,8 @@ async fn test_audit_logs_to_file() {
         audit_logging: true,
         debug_mode: true,
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(vars, settings);
@@ -52,6 +54,10 @@ async fn test_audit_logs_to_file() {
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // Check that audit log file was created
+    if !audit_dir.exists() {
+        panic!("Audit directory does not exist: {:?}", audit_dir);
+    }
+    
     let files: Vec<_> = std::fs::read_dir(&audit_dir)
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
@@ -94,6 +100,8 @@ async fn test_audit_disabled() {
         audit_logging: false, // Audit logging disabled
         debug_mode: true,
         allow_shell: false,
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
@@ -129,6 +137,8 @@ async fn test_audit_shell_command_tracking() {
         audit_logging: true,
         debug_mode: true,
         allow_shell: true, // Enable shell
+        timeout_ms: 30000,
+        sandbox_uid: None,
     };
     
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);

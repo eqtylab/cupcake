@@ -163,6 +163,9 @@ impl InspectCommand {
                     crate::config::actions::CommandSpec::String(string_spec) => {
                         string_spec.command.clone()
                     }
+                    crate::config::actions::CommandSpec::Shell(shell_spec) => {
+                        format!("shell: {}", shell_spec.script.chars().take(50).collect::<String>())
+                    }
                 };
                 if *expect_success {
                     format!("check \"{}\"", command_display)

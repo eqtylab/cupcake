@@ -11,6 +11,7 @@ fn test_root_config_yaml_serialization() {
         settings: Settings {
             audit_logging: true,
             debug_mode: false,
+            allow_shell: false,
         },
         imports: vec![
             "policies/*.yaml".to_string(),

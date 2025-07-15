@@ -12,7 +12,7 @@
 
 mod parser;
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, EnvVar};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec, EnvVar};
 use parser::StringParser;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -141,6 +141,7 @@ impl CommandExecutor {
         match spec {
             CommandSpec::Array(array_spec) => self.build_graph_from_array(array_spec),
             CommandSpec::String(string_spec) => self.build_graph_from_string(string_spec),
+            CommandSpec::Shell(shell_spec) => self.build_graph_from_shell(shell_spec),
         }
     }
 
@@ -311,6 +312,16 @@ impl CommandExecutor {
     fn build_graph_from_string(&self, spec: &StringCommandSpec) -> Result<CommandGraph, ExecutionError> {
         let parser = StringParser::new(self.template_vars.clone());
         parser.parse(spec).map_err(|e| e.into())
+    }
+
+    /// Build CommandGraph from ShellCommandSpec
+    /// 
+    /// NOTE: This will be implemented in Phase 2 with proper security controls
+    fn build_graph_from_shell(&self, _spec: &ShellCommandSpec) -> Result<CommandGraph, ExecutionError> {
+        // TODO: Implement shell execution with allow_shell check
+        Err(ExecutionError::InvalidSpec(
+            "Shell command execution not yet implemented".to_string()
+        ))
     }
 
     /// Safely substitute template variables

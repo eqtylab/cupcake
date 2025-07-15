@@ -13,6 +13,11 @@ pub struct Settings {
     /// Enable verbose debug logging
     #[serde(default)]
     pub debug_mode: bool,
+
+    /// Allow shell command execution (security-sensitive setting)
+    /// Defaults to false for security. Set to true to enable shell: commands.
+    #[serde(default)]
+    pub allow_shell: bool,
 }
 
 /// Hook event types that policies can respond to
@@ -119,5 +124,6 @@ mod tests {
         let settings = Settings::default();
         assert!(!settings.audit_logging);
         assert!(!settings.debug_mode);
+        assert!(!settings.allow_shell); // Security: default to false
     }
 }

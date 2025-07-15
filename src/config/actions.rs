@@ -11,6 +11,8 @@ pub enum CommandSpec {
     Array(ArrayCommandSpec),
     /// Shell-like string syntax parsed into secure execution (no shell)
     String(StringCommandSpec),
+    /// Shell script executed via /bin/sh (requires allow_shell setting)
+    Shell(ShellCommandSpec),
 }
 
 /// Kubernetes-style command specification with composition operators
@@ -82,6 +84,14 @@ pub struct StringCommandSpec {
     /// Command string with shell-like syntax (e.g., "npm test | grep PASS")
     /// Parsed securely without shell involvement
     pub command: String,
+}
+
+/// Shell script specification for legacy/complex scripts
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShellCommandSpec {
+    /// Shell script to execute via /bin/sh -c
+    /// WARNING: This bypasses security protections and requires allow_shell=true
+    pub script: String,
 }
 
 /// Action types for policy responses

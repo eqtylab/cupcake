@@ -140,3 +140,20 @@ Commands fail with clear error messages:
 - Direct process spawning (no shell startup)
 - Async I/O for pipes and redirects
 - Proper child process reaping (no zombies)
+
+## Shell Mode (Escape Hatch)
+
+For legacy scripts or complex shell-specific syntax, Cupcake provides an optional shell escape hatch:
+
+```yaml
+spec:
+  mode: shell
+  script: |
+    set -euo pipefail
+    source ~/.bashrc
+    deploy-app --env=production
+```
+
+**⚠️ Security Warning**: Shell mode bypasses injection protections and requires explicit `allow_shell: true` configuration.
+
+See [Shell Escape Hatch](shell-escape-hatch.md) for security controls, migration tools, and best practices.

@@ -4,7 +4,7 @@ use super::actions::Action;
 use super::conditions::Condition;
 
 /// Global settings for the policy engine
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     /// Enable structured audit logging
     #[serde(default)]
@@ -18,6 +18,33 @@ pub struct Settings {
     /// Defaults to false for security. Set to true to enable shell: commands.
     #[serde(default)]
     pub allow_shell: bool,
+
+    /// Command execution timeout in milliseconds
+    /// Defaults to 30000 (30 seconds)
+    #[serde(default = "default_timeout_ms")]
+    pub timeout_ms: u64,
+
+    /// UID to drop to when executing shell commands
+    /// Can be numeric (65534) or username ("nobody")
+    /// None means no UID drop (default)
+    #[serde(default)]
+    pub sandbox_uid: Option<String>,
+}
+
+fn default_timeout_ms() -> u64 {
+    30000 // 30 seconds
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            audit_logging: false,
+            debug_mode: false,
+            allow_shell: false,
+            timeout_ms: default_timeout_ms(),
+            sandbox_uid: None,
+        }
+    }
 }
 
 /// Hook event types that policies can respond to
@@ -125,5 +152,7 @@ mod tests {
         assert!(!settings.audit_logging);
         assert!(!settings.debug_mode);
         assert!(!settings.allow_shell); // Security: default to false
+        assert_eq!(settings.timeout_ms, 30000); // 30 seconds default
+        assert!(settings.sandbox_uid.is_none()); // No UID drop by default
     }
 }

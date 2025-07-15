@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod encode;
 pub mod init;
 pub mod inspect;
 pub mod run;

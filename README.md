@@ -119,6 +119,7 @@ cargo install --path .
 - `cupcake run` - Runtime policy enforcement (called by hooks)
 - `cupcake validate` - Validate policy syntax
 - `cupcake inspect` - View loaded policies in compact table format
+- `cupcake encode` - Convert shell commands to secure array format
 
 ### Policy Inspection
 
@@ -172,6 +173,13 @@ Sub-100ms response times through:
 - Compiled regex patterns
 - Lazy state loading
 - Static binary with zero runtime dependencies
+
+## Documentation
+
+- [Policy Format](docs/policy-format.md) - Writing YAML policies
+- [Secure Command Execution](docs/secure-command-execution.md) - Array and string command modes
+- [Shell Escape Hatch](docs/shell-escape-hatch.md) - Shell mode with security controls
+- [Command Execution Reference](docs/command-execution-reference.md) - Technical details
 
 ## License
 

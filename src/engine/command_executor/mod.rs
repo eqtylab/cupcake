@@ -12,12 +12,14 @@
 
 mod parser;
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec, EnvVar};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec};
+use crate::config::types::Settings;
+use crate::engine::audit::{AuditSinkImpl, create_default_sink};
 use parser::StringParser;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tokio::process::Command as TokioCommand;
 use std::process::Stdio;
+use std::time::Instant;
 
 /// Internal representation of a command execution graph
 /// 
@@ -119,18 +121,38 @@ pub enum ExecutionError {
     
     #[error("Invalid command specification: {0}")]
     InvalidSpec(String),
+    
+    #[error("Audit logging failed: {0}")]
+    AuditFailure(String),
 }
 
 /// The main command executor that transforms specs into secure execution
 pub struct CommandExecutor {
     /// Template variables for substitution
     template_vars: HashMap<String, String>,
+    /// Global settings for security controls
+    settings: Settings,
+    /// Audit sink for command execution logging
+    audit_sink: AuditSinkImpl,
 }
 
 impl CommandExecutor {
     /// Create a new command executor with template variables
     pub fn new(template_vars: HashMap<String, String>) -> Self {
-        Self { template_vars }
+        Self { 
+            template_vars,
+            settings: Settings::default(), // Use secure defaults
+            audit_sink: create_default_sink(),
+        }
+    }
+
+    /// Create a new command executor with template variables and settings
+    pub fn with_settings(template_vars: HashMap<String, String>, settings: Settings) -> Self {
+        Self { 
+            template_vars, 
+            settings,
+            audit_sink: create_default_sink(),
+        }
     }
 
     /// Build a CommandGraph from a CommandSpec
@@ -316,12 +338,32 @@ impl CommandExecutor {
 
     /// Build CommandGraph from ShellCommandSpec
     /// 
-    /// NOTE: This will be implemented in Phase 2 with proper security controls
-    fn build_graph_from_shell(&self, _spec: &ShellCommandSpec) -> Result<CommandGraph, ExecutionError> {
-        // TODO: Implement shell execution with allow_shell check
-        Err(ExecutionError::InvalidSpec(
-            "Shell command execution not yet implemented".to_string()
-        ))
+    /// Shell commands are executed directly via /bin/sh -c, bypassing the secure
+    /// CommandGraph architecture. This requires explicit allow_shell=true setting.
+    fn build_graph_from_shell(&self, spec: &ShellCommandSpec) -> Result<CommandGraph, ExecutionError> {
+        // Security check: shell execution must be explicitly enabled
+        if !self.settings.allow_shell {
+            return Err(ExecutionError::InvalidSpec(
+                "Shell command execution is disabled. Set allow_shell=true in settings to enable.".to_string()
+            ));
+        }
+
+        // Create a special CommandGraph for shell execution
+        // The script will be executed via /bin/sh -c during execution
+        let command = Command {
+            program: "/bin/sh".to_string(),
+            args: vec!["-c".to_string(), self.substitute_template(&spec.script)?],
+            working_dir: None,
+            env_vars: HashMap::new(),
+        };
+
+        let node = ExecutionNode {
+            command,
+            operations: Vec::new(),
+            conditional: None,
+        };
+
+        Ok(CommandGraph { nodes: vec![node] })
     }
 
     /// Safely substitute template variables
@@ -339,11 +381,85 @@ impl CommandExecutor {
         Ok(result)
     }
 
+    /// Execute a CommandSpec with audit logging and security controls
+    /// 
+    /// This is the main entry point for command execution with full audit trail.
+    pub async fn execute_spec(&self, spec: &CommandSpec) -> Result<ExecutionResult, ExecutionError> {
+        let graph = self.build_graph(spec)?;
+        self.execute_graph_with_audit(spec, &graph).await
+    }
+
     /// Execute a CommandGraph with secure, shell-free process spawning
     /// 
     /// This implements industry-standard async execution patterns with tokio,
     /// following the principle of elegance through simplicity and safety.
     pub async fn execute_graph(&self, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
+        // This method doesn't have access to original spec, so no audit logging
+        self.execute_graph_internal(graph).await
+    }
+
+    /// Execute CommandGraph with audit logging
+    async fn execute_graph_with_audit(&self, spec: &CommandSpec, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
+        let graph_id = uuid::Uuid::new_v4();
+        let start_time = Instant::now();
+        let start_timestamp = chrono::Utc::now();
+
+        // Determine execution mode
+        let mode = match spec {
+            CommandSpec::Array(_) => "array",
+            CommandSpec::String(_) => "string", 
+            CommandSpec::Shell(_) => "shell",
+        };
+
+        // Check if shell is being used
+        let shell_used = matches!(spec, CommandSpec::Shell(_));
+
+        // Extract command info for audit
+        let (argv, cwd, env) = if let Some(node) = graph.nodes.first() {
+            let mut argv = vec![node.command.program.clone()];
+            argv.extend(node.command.args.clone());
+            
+            let cwd = node.command.working_dir.as_ref()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|| std::env::current_dir()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| "unknown".to_string()));
+                    
+            (argv, cwd, node.command.env_vars.clone())
+        } else {
+            (vec![], "unknown".to_string(), HashMap::new())
+        };
+
+        // Execute the graph
+        let result = self.execute_graph_internal(graph).await?;
+
+        // Calculate duration
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        // Create audit record
+        let audit_record = serde_json::json!({
+            "graph": graph_id.to_string(),
+            "mode": mode,
+            "argv": argv,
+            "cwd": cwd,
+            "env": env,
+            "timestamp": start_timestamp.to_rfc3339(),
+            "exit_code": result.exit_code,
+            "duration_ms": duration_ms,
+            "shell_used": shell_used
+        });
+
+        // Write audit record through the audit sink if audit logging is enabled
+        if self.settings.audit_logging {
+            self.audit_sink.write(&audit_record).await
+                .map_err(|e| ExecutionError::AuditFailure(format!("Failed to write audit log: {}", e)))?;
+        }
+
+        Ok(result)
+    }
+
+    /// Internal graph execution without audit logging
+    async fn execute_graph_internal(&self, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
         let mut final_exit_code = 0;
         let mut captured_stdout = None;
         let mut captured_stderr = None;
@@ -384,7 +500,7 @@ impl CommandExecutor {
         })
     }
 
-    /// Execute a single execution node with elegant I/O handling
+    /// Execute a single execution node with elegant I/O handling and sandboxing controls
     async fn execute_node(&self, node: &ExecutionNode) -> Result<ExecutionResult, ExecutionError> {
         // Build the tokio command with secure configuration
         let mut cmd = self.build_tokio_command(&node.command)?;
@@ -395,11 +511,11 @@ impl CommandExecutor {
         cmd.stderr(stderr_config);
         cmd.stdin(Stdio::null()); // Secure default - no stdin unless explicitly needed
 
-        // Execute with proper async patterns
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| ExecutionError::ProcessSpawn(format!("Failed to execute command: {}", e)))?;
+        // Apply sandboxing controls
+        self.apply_sandboxing_controls(&mut cmd, &node.command)?;
+
+        // Execute with timeout and proper async patterns
+        let output = self.execute_with_timeout(cmd).await?;
 
         // Process the output through any pipe operations
         let processed_output = self.process_operations(&node.operations, &output).await?;
@@ -430,6 +546,108 @@ impl CommandExecutor {
         }
         
         Ok(cmd)
+    }
+
+    /// Apply sandboxing controls to the command
+    /// 
+    /// Implements the security controls outlined in Plan 008 Part 3:
+    /// - UID drop (if supported on platform and not in debug mode)
+    /// - seccomp stub (placeholder for future implementation)
+    fn apply_sandboxing_controls(&self, cmd: &mut tokio::process::Command, command: &Command) -> Result<(), ExecutionError> {
+        // UID drop for shell commands (Unix platforms only, not in debug mode)
+        #[cfg(unix)]
+        if command.program == "/bin/sh" && !self.settings.debug_mode {
+            if let Some(sandbox_uid_str) = &self.settings.sandbox_uid {
+                use std::os::unix::process::CommandExt;
+                
+                // Resolve UID from string (either numeric or username)
+                let uid = self.resolve_uid(sandbox_uid_str)?;
+                cmd.uid(uid);
+                
+                // Also set GID to match the UID
+                cmd.gid(uid);
+            }
+        }
+
+        // seccomp stub - placeholder for future implementation
+        // In a production system, this would set up seccomp filters to restrict system calls
+        self.apply_seccomp_stub(cmd, command)?;
+
+        Ok(())
+    }
+
+    /// Resolve UID from string (numeric or username)
+    #[cfg(unix)]
+    fn resolve_uid(&self, uid_str: &str) -> Result<u32, ExecutionError> {
+        // First try to parse as numeric UID
+        if let Ok(uid) = uid_str.parse::<u32>() {
+            return Ok(uid);
+        }
+        
+        // Otherwise try to resolve as username
+        #[cfg(target_os = "linux")]
+        {
+            use std::ffi::CString;
+            use std::ptr;
+            
+            unsafe {
+                let username = CString::new(uid_str)
+                    .map_err(|_| ExecutionError::InvalidSpec(format!("Invalid username: {}", uid_str)))?;
+                let pwd = libc::getpwnam(username.as_ptr());
+                
+                if pwd.is_null() {
+                    return Err(ExecutionError::InvalidSpec(format!("Unknown user: {}", uid_str)));
+                }
+                
+                Ok((*pwd).pw_uid)
+            }
+        }
+        
+        #[cfg(not(target_os = "linux"))]
+        {
+            // For non-Linux Unix systems, require numeric UID
+            Err(ExecutionError::InvalidSpec(
+                format!("Username resolution not supported on this platform. Please use numeric UID instead of '{}'", uid_str)
+            ))
+        }
+    }
+
+    /// Execute command with timeout protection
+    /// 
+    /// Implements the timeout control outlined in Plan 008 Part 3
+    async fn execute_with_timeout(&self, mut cmd: tokio::process::Command) -> Result<std::process::Output, ExecutionError> {
+        use tokio::time::{timeout, Duration};
+        
+        // Use configurable timeout for command execution
+        // This prevents runaway processes from consuming resources
+        let timeout_duration = Duration::from_millis(self.settings.timeout_ms);
+        
+        let output_future = cmd.output();
+        
+        match timeout(timeout_duration, output_future).await {
+            Ok(Ok(output)) => Ok(output),
+            Ok(Err(e)) => Err(ExecutionError::ProcessSpawn(format!("Failed to execute command: {}", e))),
+            Err(_) => Err(ExecutionError::Timeout),
+        }
+    }
+
+    /// Apply seccomp restrictions (stub implementation)
+    /// 
+    /// This is a placeholder for future seccomp implementation.
+    /// In production, this would set up seccomp-bpf filters to restrict system calls.
+    fn apply_seccomp_stub(&self, _cmd: &mut tokio::process::Command, command: &Command) -> Result<(), ExecutionError> {
+        // Log seccomp application for audit purposes
+        if self.settings.debug_mode {
+            eprintln!("DEBUG: seccomp stub applied to command: {}", command.program);
+        }
+        
+        // TODO: Implement actual seccomp-bpf filters
+        // This would involve:
+        // 1. Creating a seccomp filter that allows only necessary system calls
+        // 2. Loading the filter using prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)
+        // 3. Different filter profiles for different command types
+        
+        Ok(())
     }
 
     /// Configure stdio with industry-standard patterns for pipes and redirects
@@ -506,12 +724,15 @@ impl CommandExecutor {
         })
     }
 
-    /// Execute pipe command with industry-standard async process handling
+    /// Execute pipe command with industry-standard async process handling and sandboxing
     async fn execute_pipe(&self, pipe_cmd: &Command, input: &str) -> Result<String, ExecutionError> {
         let mut cmd = self.build_tokio_command(pipe_cmd)?;
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::null()); // Pipes don't capture stderr by default
+
+        // Apply sandboxing controls to pipe commands as well
+        self.apply_sandboxing_controls(&mut cmd, pipe_cmd)?;
 
         let mut child = cmd
             .spawn()
@@ -531,11 +752,15 @@ impl CommandExecutor {
                 .map_err(|e| ExecutionError::IoOperation(format!("Failed to close pipe stdin: {}", e)))?;
         }
 
-        // Wait for completion and capture output
-        let output = child
-            .wait_with_output()
-            .await
-            .map_err(|e| ExecutionError::ProcessSpawn(format!("Failed to read pipe output: {}", e)))?;
+        // Wait for completion and capture output with timeout
+        use tokio::time::{timeout, Duration};
+        let timeout_duration = Duration::from_millis(self.settings.timeout_ms);
+        
+        let output = match timeout(timeout_duration, child.wait_with_output()).await {
+            Ok(Ok(output)) => output,
+            Ok(Err(e)) => return Err(ExecutionError::ProcessSpawn(format!("Failed to read pipe output: {}", e))),
+            Err(_) => return Err(ExecutionError::Timeout),
+        };
 
         if !output.status.success() {
             return Err(ExecutionError::ProcessSpawn(format!(

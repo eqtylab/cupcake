@@ -112,6 +112,20 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         config: String,
     },
+
+    /// Convert shell commands to secure array format
+    Encode {
+        /// Shell command to encode (quotes may be needed for complex commands)
+        command: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        format: String,
+
+        /// Include full template with metadata
+        #[arg(short, long)]
+        template: bool,
+    },
 }
 
 impl Commands {
@@ -124,6 +138,7 @@ impl Commands {
             Commands::Validate { .. } => "validate",
             Commands::Audit { .. } => "audit",
             Commands::Inspect { .. } => "inspect",
+            Commands::Encode { .. } => "encode",
         }
     }
 
@@ -312,5 +327,41 @@ mod tests {
         assert!(!sync_cmd.requires_policy_file());
         assert!(sync_cmd.modifies_files());
         assert!(sync_cmd.requires_permissions());
+
+        let encode_cmd = Commands::Encode {
+            command: "echo 'test'".to_string(),
+            format: "yaml".to_string(),
+            template: false,
+        };
+
+        assert_eq!(encode_cmd.name(), "encode");
+        assert!(!encode_cmd.requires_policy_file());
+        assert!(!encode_cmd.modifies_files());
+        assert!(!encode_cmd.requires_permissions());
+    }
+
+    #[test]
+    fn test_encode_command() {
+        let cli = Cli::parse_from(&[
+            "cupcake",
+            "encode",
+            "npm test | grep -v warning",
+            "--format",
+            "json",
+            "--template",
+        ]);
+
+        match cli.command {
+            Commands::Encode {
+                command,
+                format,
+                template,
+            } => {
+                assert_eq!(command, "npm test | grep -v warning");
+                assert_eq!(format, "json");
+                assert!(template);
+            }
+            _ => panic!("Wrong command parsed"),
+        }
     }
 }

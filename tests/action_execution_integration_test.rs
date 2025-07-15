@@ -61,7 +61,7 @@ imports:
 "#;
         fs::write(guardrails_dir.join("cupcake.yaml"), root_config).unwrap();
 
-        // Create policy with RunCommand action
+        // Create policy with RunCommand action using secure array format
         let command = if expect_success { "true" } else { "false" };
         let policy = format!(
             r#"
@@ -75,7 +75,9 @@ PreToolUse:
           value: "Bash"
       action:
         type: "run_command"
-        command: "{}"
+        spec:
+          mode: "array"
+          command: ["{}"]
         on_failure: "block"
         on_failure_feedback: "Test command failed"
 "#,

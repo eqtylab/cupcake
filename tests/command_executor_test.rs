@@ -508,9 +508,9 @@ mod command_executor_tests {
         let graph = executor.build_graph(&spec).unwrap();
         let result = executor.execute_graph(&graph).await.unwrap();
         
-        // Phase 2 placeholder - actual execution in Phase 3
+        // Phase 3 - actual execution working!
         assert!(result.success);
         assert!(result.stdout.is_some());
-        assert!(result.stdout.unwrap().contains("Phase 3"));
+        assert_eq!(result.stdout.unwrap().trim(), "test");
     }
 }

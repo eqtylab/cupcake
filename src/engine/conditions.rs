@@ -123,43 +123,64 @@ impl ConditionEvaluator {
         }
     }
 
-    /// Evaluate Check condition - command execution
+    /// Evaluate Check condition - secure command execution (Plan 008)
     fn evaluate_check(
         &self,
         spec: &crate::config::actions::CommandSpec,
         expect_success: bool,
         context: &EvaluationContext,
     ) -> ConditionResult {
-        // TODO: Replace with proper CommandExecutor in Phase 2
-        // For now, convert CommandSpec to legacy string format to maintain functionality
-        let command_string = self.convert_spec_to_legacy_string(spec, context);
-        let expanded_command = command_string;
-
-        // Execute command and check exit status
-        // Use full path to shell for better portability
-        let shell = if cfg!(target_os = "windows") {
-            "cmd"
-        } else {
-            "/bin/sh"
-        };
-
-        let mut command = std::process::Command::new(shell);
-        if cfg!(target_os = "windows") {
-            command.arg("/C").arg(&expanded_command);
-        } else {
-            command.arg("-c").arg(&expanded_command);
+        // Create template variables from context for secure substitution
+        let mut template_vars = std::collections::HashMap::new();
+        
+        // Add basic context variables
+        template_vars.insert("tool_name".to_string(), context.tool_name.clone());
+        template_vars.insert("session_id".to_string(), context.session_id.clone());
+        template_vars.insert("event_type".to_string(), context.event_type.clone());
+        
+        // Add tool input variables
+        for (key, value) in &context.tool_input {
+            if let Some(str_value) = value.as_str() {
+                template_vars.insert(format!("tool_input.{}", key), str_value.to_string());
+            }
+        }
+        
+        // Add environment variables
+        for (key, value) in &context.env_vars {
+            template_vars.insert(format!("env.{}", key), value.clone());
         }
 
-        match command.current_dir(&context.current_dir).output() {
-            Ok(output) => {
-                let success = output.status.success();
-                if success == expect_success {
+        // Create secure CommandExecutor
+        let command_executor = crate::engine::command_executor::CommandExecutor::new(template_vars);
+
+        // Build secure CommandGraph 
+        let graph = match command_executor.build_graph(spec) {
+            Ok(graph) => graph,
+            Err(e) => return ConditionResult::Error(format!("Command graph construction failed: {}", e)),
+        };
+
+        // Execute with secure, shell-free process spawning
+        let rt = match tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build() {
+            Ok(rt) => rt,
+            Err(e) => return ConditionResult::Error(format!("Failed to create async runtime: {}", e)),
+        };
+
+        let execution_result = rt.block_on(async {
+            command_executor.execute_graph(&graph).await
+        });
+
+        match execution_result {
+            Ok(result) => {
+                // Check if result matches expectation
+                if result.success == expect_success {
                     ConditionResult::Match
                 } else {
                     ConditionResult::NoMatch
                 }
             }
-            Err(e) => ConditionResult::Error(format!("Command execution failed: {}", e)),
+            Err(e) => ConditionResult::Error(format!("Secure command execution failed: {}", e)),
         }
     }
 
@@ -198,35 +219,8 @@ impl ConditionEvaluator {
         }
     }
 
-    /// Expand template variables in command string
-    fn expand_template_variables(&self, command: &str, context: &EvaluationContext) -> String {
-        let mut result = command.to_string();
-
-        // Replace common template variables
-        result = result.replace("{{session_id}}", &context.session_id);
-        result = result.replace("{{tool_name}}", &context.tool_name);
-        result = result.replace("{{event_type}}", &context.event_type);
-
-        // Replace tool_input variables
-        for (key, value) in &context.tool_input {
-            let placeholder = format!("{{{{tool_input.{}}}}}", key);
-            let value_str = match value {
-                serde_json::Value::String(s) => s.clone(),
-                serde_json::Value::Number(n) => n.to_string(),
-                serde_json::Value::Bool(b) => b.to_string(),
-                _ => continue,
-            };
-            result = result.replace(&placeholder, &value_str);
-        }
-
-        // Replace environment variables
-        for (key, value) in &context.env_vars {
-            let placeholder = format!("{{{{env.{}}}}}", key);
-            result = result.replace(&placeholder, value);
-        }
-
-        result
-    }
+    // Legacy template expansion removed in Plan 008
+    // Template substitution now handled securely by CommandExecutor
 
     /// Evaluate logical NOT condition
     fn evaluate_not(
@@ -297,31 +291,8 @@ impl ConditionEvaluator {
             .ok_or_else(|| crate::CupcakeError::Condition("Regex cache inconsistency".to_string()))
     }
 
-    /// Temporary conversion function to maintain compilation during transition
-    /// TODO: Remove this when CommandExecutor is complete
-    fn convert_spec_to_legacy_string(
-        &self,
-        spec: &crate::config::actions::CommandSpec,
-        context: &EvaluationContext,
-    ) -> String {
-        match spec {
-            crate::config::actions::CommandSpec::Array(array_spec) => {
-                let mut parts = array_spec.command.clone();
-                if let Some(args) = &array_spec.args {
-                    parts.extend(args.clone());
-                }
-                
-                // Apply template substitution safely to parts
-                let substituted_parts: Vec<String> = parts
-                    .iter()
-                    .map(|part| self.expand_template_variables(part, context))
-                    .collect();
-                
-                // Join with spaces (this is temporary and insecure - will be replaced)
-                substituted_parts.join(" ")
-            }
-        }
-    }
+    // Legacy insecure command conversion removed in Plan 008
+    // All command execution now uses secure CommandExecutor with zero shell involvement
 }
 
 impl Default for ConditionEvaluator {
@@ -445,7 +416,19 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            command: "echo 'test'".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["echo".to_string()],
+                args: Some(vec!["test".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             expect_success: true,
         };
 
@@ -459,7 +442,19 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            command: "false".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["false".to_string()],
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             expect_success: true,
         };
 
@@ -473,7 +468,19 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            command: "false".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["false".to_string()],
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             expect_success: false,
         };
 
@@ -487,7 +494,19 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            command: "test '{{tool_name}}' = 'Bash'".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["test".to_string()],
+                args: Some(vec!["{{tool_name}}".to_string(), "=".to_string(), "Bash".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             expect_success: true,
         };
 
@@ -656,7 +675,21 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            command: "echo '{{tool_input.file_path}}' | grep -q '\\.rs$'".to_string(),
+            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+                command: vec!["echo".to_string()],
+                args: Some(vec!["{{tool_input.file_path}}".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: Some(vec![crate::config::actions::PipeCommand {
+                    cmd: vec!["grep".to_string(), "-q".to_string(), "\\.rs$".to_string()],
+                }]),
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             expect_success: true,
         };
 

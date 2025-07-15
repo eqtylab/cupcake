@@ -87,6 +87,15 @@ pub struct ExecutionResult {
     pub success: bool,
 }
 
+/// Internal result of processing operations on command output
+#[derive(Debug, Clone)]
+struct ProcessedOutput {
+    /// Processed stdout (after pipes, redirects, etc.)
+    stdout: Option<String>,
+    /// Processed stderr (after redirects, merges, etc.)
+    stderr: Option<String>,
+}
+
 /// Errors that can occur during command execution
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError {
@@ -162,13 +171,21 @@ impl CommandExecutor {
 
     /// Build secure Command from ArrayCommandSpec
     fn build_command(&self, spec: &ArrayCommandSpec) -> Result<Command, ExecutionError> {
-        // Program is the first element of command array
-        let program = self.substitute_template(&spec.command[0])?;
+        // SECURITY: Use command path literally - no template substitution allowed
+        let program = spec.command[0].clone();
+        
+        // Validate command path doesn't contain template syntax
+        if program.contains("{{") || program.contains("}}") {
+            return Err(ExecutionError::InvalidSpec(
+                "Template variables are not allowed in command paths for security reasons".to_string()
+            ));
+        }
         
         // Remaining command elements plus args become arguments
         let mut args = Vec::new();
         
         // Add remaining command elements as args (if any)
+        // SAFE: Template substitution only in arguments
         if spec.command.len() > 1 {
             for arg in &spec.command[1..] {
                 args.push(self.substitute_template(arg)?);
@@ -176,6 +193,7 @@ impl CommandExecutor {
         }
         
         // Add explicit args
+        // SAFE: Template substitution in arguments is allowed
         if let Some(explicit_args) = &spec.args {
             for arg in explicit_args {
                 args.push(self.substitute_template(arg)?);
@@ -300,20 +318,267 @@ impl CommandExecutor {
         Ok(result)
     }
 
-    /// Execute a CommandGraph (async implementation in Phase 3)
+    /// Execute a CommandGraph with secure, shell-free process spawning
     /// 
-    /// This is where the actual secure execution happens using tokio::process::Command
-    pub async fn execute_graph(&self, _graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
-        // TODO: Implement in Phase 3
-        // This will use tokio::process::Command for direct process spawning
-        // with proper pipe/redirect handling and no shell involvement
-        
+    /// This implements industry-standard async execution patterns with tokio,
+    /// following the principle of elegance through simplicity and safety.
+    pub async fn execute_graph(&self, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
+        let mut final_exit_code = 0;
+        let mut captured_stdout = None;
+        let mut captured_stderr = None;
+
+        // Execute each node in the graph sequentially
+        for node in &graph.nodes {
+            let result = self.execute_node(node).await?;
+            
+            // Update final result based on execution
+            final_exit_code = result.exit_code;
+            if result.stdout.is_some() {
+                captured_stdout = result.stdout;
+            }
+            if result.stderr.is_some() {
+                captured_stderr = result.stderr;
+            }
+
+            // Handle conditional execution based on exit code
+            if let Some(conditional) = &node.conditional {
+                let conditional_result = if result.success {
+                    self.execute_conditional_nodes(&conditional.on_success).await?
+                } else {
+                    self.execute_conditional_nodes(&conditional.on_failure).await?
+                };
+                
+                // Conditional execution can override the final result
+                if !conditional_result.success {
+                    final_exit_code = conditional_result.exit_code;
+                }
+            }
+        }
+
         Ok(ExecutionResult {
+            exit_code: final_exit_code,
+            stdout: captured_stdout,
+            stderr: captured_stderr,
+            success: final_exit_code == 0,
+        })
+    }
+
+    /// Execute a single execution node with elegant I/O handling
+    async fn execute_node(&self, node: &ExecutionNode) -> Result<ExecutionResult, ExecutionError> {
+        // Build the tokio command with secure configuration
+        let mut cmd = self.build_tokio_command(&node.command)?;
+        
+        // Configure I/O based on operations - industry standard stdio handling
+        let (stdout_config, stderr_config) = self.configure_stdio(&node.operations)?;
+        cmd.stdout(stdout_config);
+        cmd.stderr(stderr_config);
+        cmd.stdin(Stdio::null()); // Secure default - no stdin unless explicitly needed
+
+        // Execute with proper async patterns
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| ExecutionError::ProcessSpawn(format!("Failed to execute command: {}", e)))?;
+
+        // Process the output through any pipe operations
+        let processed_output = self.process_operations(&node.operations, &output).await?;
+
+        Ok(ExecutionResult {
+            exit_code: output.status.code().unwrap_or(-1),
+            stdout: processed_output.stdout,
+            stderr: processed_output.stderr,
+            success: output.status.success(),
+        })
+    }
+
+    /// Build tokio::process::Command with secure, direct process spawning
+    fn build_tokio_command(&self, command: &Command) -> Result<tokio::process::Command, ExecutionError> {
+        let mut cmd = tokio::process::Command::new(&command.program);
+        
+        // Add arguments - each as separate argument (secure argv approach)
+        cmd.args(&command.args);
+        
+        // Set working directory if specified
+        if let Some(working_dir) = &command.working_dir {
+            cmd.current_dir(working_dir);
+        }
+        
+        // Add environment variables (extends system environment)
+        for (key, value) in &command.env_vars {
+            cmd.env(key, value);
+        }
+        
+        Ok(cmd)
+    }
+
+    /// Configure stdio with industry-standard patterns for pipes and redirects
+    fn configure_stdio(&self, operations: &[Operation]) -> Result<(Stdio, Stdio), ExecutionError> {
+        let mut stdout_config = Stdio::piped(); // Default: capture for processing
+        let mut stderr_config = Stdio::piped(); // Default: capture for processing
+        
+        // Check for redirect operations that override defaults
+        for operation in operations {
+            match operation {
+                Operation::RedirectStdout(_) | Operation::AppendStdout(_) => {
+                    // File redirection will be handled in post-processing
+                    stdout_config = Stdio::piped();
+                }
+                Operation::RedirectStderr(_) => {
+                    stderr_config = Stdio::piped();
+                }
+                Operation::MergeStderr => {
+                    stderr_config = Stdio::piped(); // We'll merge in post-processing
+                }
+                Operation::Pipe(_) => {
+                    // Pipes require captured output for chaining
+                    stdout_config = Stdio::piped();
+                }
+            }
+        }
+        
+        Ok((stdout_config, stderr_config))
+    }
+
+    /// Process operations with elegant async I/O handling
+    async fn process_operations(
+        &self,
+        operations: &[Operation],
+        output: &std::process::Output,
+    ) -> Result<ProcessedOutput, ExecutionError> {
+        let mut current_stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let mut current_stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        for operation in operations {
+            match operation {
+                Operation::Pipe(pipe_cmd) => {
+                    // Execute pipe command with current stdout as input
+                    current_stdout = self.execute_pipe(pipe_cmd, &current_stdout).await?;
+                }
+                Operation::RedirectStdout(path) => {
+                    self.write_to_file(path, &current_stdout, false).await?;
+                    current_stdout.clear(); // Redirected, not captured
+                }
+                Operation::AppendStdout(path) => {
+                    self.write_to_file(path, &current_stdout, true).await?;
+                    current_stdout.clear(); // Redirected, not captured
+                }
+                Operation::RedirectStderr(path) => {
+                    self.write_to_file(path, &current_stderr, false).await?;
+                    current_stderr.clear(); // Redirected, not captured
+                }
+                Operation::MergeStderr => {
+                    // Elegant stderr merge - append to stdout
+                    if !current_stderr.is_empty() {
+                        if !current_stdout.is_empty() {
+                            current_stdout.push('\n');
+                        }
+                        current_stdout.push_str(&current_stderr);
+                        current_stderr.clear();
+                    }
+                }
+            }
+        }
+
+        Ok(ProcessedOutput {
+            stdout: if current_stdout.is_empty() { None } else { Some(current_stdout) },
+            stderr: if current_stderr.is_empty() { None } else { Some(current_stderr) },
+        })
+    }
+
+    /// Execute pipe command with industry-standard async process handling
+    async fn execute_pipe(&self, pipe_cmd: &Command, input: &str) -> Result<String, ExecutionError> {
+        let mut cmd = self.build_tokio_command(pipe_cmd)?;
+        cmd.stdin(Stdio::piped());
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::null()); // Pipes don't capture stderr by default
+
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| ExecutionError::ProcessSpawn(format!("Failed to spawn pipe command: {}", e)))?;
+
+        // Write input to stdin - elegant async I/O
+        if let Some(stdin) = child.stdin.take() {
+            use tokio::io::AsyncWriteExt;
+            let mut stdin = stdin;
+            stdin
+                .write_all(input.as_bytes())
+                .await
+                .map_err(|e| ExecutionError::IoOperation(format!("Failed to write to pipe stdin: {}", e)))?;
+            stdin
+                .shutdown()
+                .await
+                .map_err(|e| ExecutionError::IoOperation(format!("Failed to close pipe stdin: {}", e)))?;
+        }
+
+        // Wait for completion and capture output
+        let output = child
+            .wait_with_output()
+            .await
+            .map_err(|e| ExecutionError::ProcessSpawn(format!("Failed to read pipe output: {}", e)))?;
+
+        if !output.status.success() {
+            return Err(ExecutionError::ProcessSpawn(format!(
+                "Pipe command failed with exit code: {}",
+                output.status.code().unwrap_or(-1)
+            )));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    /// Write to file with async I/O - industry standard file handling
+    async fn write_to_file(&self, path: &std::path::Path, content: &str, append: bool) -> Result<(), ExecutionError> {
+        use tokio::fs::OpenOptions;
+        use tokio::io::AsyncWriteExt;
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(append)
+            .truncate(!append)
+            .open(path)
+            .await
+            .map_err(|e| ExecutionError::IoOperation(format!("Failed to open file {:?}: {}", path, e)))?;
+
+        file.write_all(content.as_bytes())
+            .await
+            .map_err(|e| ExecutionError::IoOperation(format!("Failed to write to file {:?}: {}", path, e)))?;
+
+        file.flush()
+            .await
+            .map_err(|e| ExecutionError::IoOperation(format!("Failed to flush file {:?}: {}", path, e)))?;
+
+        Ok(())
+    }
+
+    /// Execute conditional nodes sequentially
+    async fn execute_conditional_nodes(&self, nodes: &[ExecutionNode]) -> Result<ExecutionResult, ExecutionError> {
+        let mut final_result = ExecutionResult {
             exit_code: 0,
-            stdout: Some("TODO: Implement in Phase 3".to_string()),
+            stdout: None,
             stderr: None,
             success: true,
-        })
+        };
+
+        for node in nodes {
+            let result = self.execute_node(node).await?;
+            
+            // Update final result - last failing command determines overall result
+            if !result.success {
+                final_result.exit_code = result.exit_code;
+                final_result.success = false;
+            }
+            
+            // Capture output from last command
+            if result.stdout.is_some() {
+                final_result.stdout = result.stdout;
+            }
+            if result.stderr.is_some() {
+                final_result.stderr = result.stderr;
+            }
+        }
+
+        Ok(final_result)
     }
 }
 
@@ -562,5 +827,83 @@ mod tests {
         let result = executor.build_graph_from_array(&spec);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ExecutionError::InvalidSpec(_)));
+    }
+
+    #[test]
+    fn test_command_path_template_injection_blocked() {
+        let mut vars = HashMap::new();
+        vars.insert("cmd".to_string(), "/bin/sh".to_string());
+        vars.insert("malicious".to_string(), "../../bin/evil".to_string());
+        
+        let executor = CommandExecutor::new(vars);
+        
+        // Test 1: Full template in command path
+        let spec = ArrayCommandSpec {
+            command: vec!["{{cmd}}".to_string()],
+            args: Some(vec!["-c".to_string(), "echo pwned".to_string()]),
+            working_dir: None,
+            env: None,
+            pipe: None,
+            redirect_stdout: None,
+            append_stdout: None,
+            redirect_stderr: None,
+            merge_stderr: None,
+            on_success: None,
+            on_failure: None,
+        };
+        
+        let result = executor.build_graph_from_array(&spec);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ExecutionError::InvalidSpec(msg) => {
+                assert!(msg.contains("Template variables are not allowed in command paths"));
+            }
+            _ => panic!("Expected InvalidSpec error for template in command path"),
+        }
+        
+        // Test 2: Partial template in command path
+        let spec2 = ArrayCommandSpec {
+            command: vec!["/usr/bin/{{malicious}}".to_string()],
+            args: None,
+            working_dir: None,
+            env: None,
+            pipe: None,
+            redirect_stdout: None,
+            append_stdout: None,
+            redirect_stderr: None,
+            merge_stderr: None,
+            on_success: None,
+            on_failure: None,
+        };
+        
+        let result2 = executor.build_graph_from_array(&spec2);
+        assert!(result2.is_err());
+        match result2.unwrap_err() {
+            ExecutionError::InvalidSpec(msg) => {
+                assert!(msg.contains("Template variables are not allowed in command paths"));
+            }
+            _ => panic!("Expected InvalidSpec error for partial template in command path"),
+        }
+        
+        // Test 3: Templates in args should still work
+        let spec3 = ArrayCommandSpec {
+            command: vec!["echo".to_string()],
+            args: Some(vec!["{{cmd}}".to_string(), "{{malicious}}".to_string()]),
+            working_dir: None,
+            env: None,
+            pipe: None,
+            redirect_stdout: None,
+            append_stdout: None,
+            redirect_stderr: None,
+            merge_stderr: None,
+            on_success: None,
+            on_failure: None,
+        };
+        
+        let result3 = executor.build_graph_from_array(&spec3);
+        assert!(result3.is_ok());
+        let graph = result3.unwrap();
+        assert_eq!(graph.nodes[0].command.program, "echo");
+        assert_eq!(graph.nodes[0].command.args, vec!["/bin/sh", "../../bin/evil"]);
     }
 }

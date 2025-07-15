@@ -12,7 +12,7 @@
 
 mod parser;
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec, EnvVar};
 use crate::config::types::Settings;
 use crate::engine::audit::{AuditSinkImpl, create_default_sink};
 use parser::StringParser;

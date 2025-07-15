@@ -10,7 +10,7 @@
 //! - Secure pipe and redirect handling
 //! - Template substitution only in safe contexts
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, EnvVar};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, EnvVar};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::process::Command as TokioCommand;
@@ -137,6 +137,7 @@ impl CommandExecutor {
     pub fn build_graph(&self, spec: &CommandSpec) -> Result<CommandGraph, ExecutionError> {
         match spec {
             CommandSpec::Array(array_spec) => self.build_graph_from_array(array_spec),
+            CommandSpec::String(string_spec) => self.build_graph_from_string(string_spec),
         }
     }
 
@@ -301,6 +302,14 @@ impl CommandExecutor {
                 on_failure,
             }))
         }
+    }
+
+    /// Build CommandGraph from StringCommandSpec (temporary implementation)
+    fn build_graph_from_string(&self, spec: &StringCommandSpec) -> Result<CommandGraph, ExecutionError> {
+        // Temporary implementation - will be replaced with proper parser in Phase 2
+        Err(ExecutionError::InvalidSpec(
+            "String command parsing not yet implemented".to_string()
+        ))
     }
 
     /// Safely substitute template variables

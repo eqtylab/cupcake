@@ -17,6 +17,7 @@ walkdir = "2.5.0"
 glob = "0.3.2"
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.46.1", features = ["rt", "process", "time", "macros", "fs", "io-util"] }
+shell-words = "1.1.0"
 
 [dev-dependencies]
 pretty_assertions = "1.4"

@@ -64,6 +64,7 @@ mod command_spec_tests {
                 assert_eq!(spec.command, vec!["npm"]);
                 assert_eq!(spec.args.as_ref().unwrap(), &vec!["test"]);
             }
+            CommandSpec::String(_) => panic!("Expected Array variant"),
         }
     }
 
@@ -118,6 +119,7 @@ mod command_spec_tests {
                 assert_eq!(deserialized_spec.working_dir.as_ref().unwrap(), "project");
                 assert_eq!(deserialized_spec.env.as_ref().unwrap().len(), 2);
             }
+            CommandSpec::String(_) => panic!("Expected Array variant"),
         }
     }
 
@@ -339,6 +341,7 @@ onFailure:
                 assert_eq!(array_spec.on_success.as_ref().unwrap().len(), 2);
                 assert_eq!(array_spec.on_failure.as_ref().unwrap().len(), 1);
             }
+            CommandSpec::String(_) => panic!("Expected Array variant"),
         }
     }
 

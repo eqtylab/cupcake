@@ -103,26 +103,102 @@ mod string_parser_integration_tests {
     }
 
     #[test]
-    fn test_string_command_operators_not_yet_supported() {
+    fn test_string_command_pipe_operator() {
+        let executor = create_executor();
+        let spec = CommandSpec::String(StringCommandSpec {
+            command: "echo hello world | grep world".to_string(),
+        });
+
+        let graph = executor.build_graph(&spec).unwrap();
+        assert_eq!(graph.nodes.len(), 1);
+        
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "echo");
+        assert_eq!(node.command.args, vec!["hello", "world"]);
+        assert_eq!(node.operations.len(), 1);
+        
+        match &node.operations[0] {
+            cupcake::engine::command_executor::Operation::Pipe(cmd) => {
+                assert_eq!(cmd.program, "grep");
+                assert_eq!(cmd.args, vec!["world"]);
+            }
+            _ => panic!("Expected Pipe operation"),
+        }
+    }
+
+    #[test]
+    fn test_string_command_redirect_operators() {
         let executor = create_executor();
         
-        let operators = vec![
-            ("echo test | grep test", "pipe support coming"),
-            ("echo test > output.txt", "redirect support coming"),
-            ("echo test >> output.txt", "append support coming"),
-            ("echo test && echo success", "conditional support coming"),
-            ("echo test || echo failed", "conditional support coming"),
-        ];
+        // Test > redirect
+        let spec = CommandSpec::String(StringCommandSpec {
+            command: "echo test content > output.txt".to_string(),
+        });
+        let graph = executor.build_graph(&spec).unwrap();
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "echo");
+        assert_eq!(node.command.args, vec!["test", "content"]);
+        assert_eq!(node.operations.len(), 1);
+        assert!(matches!(&node.operations[0], cupcake::engine::command_executor::Operation::RedirectStdout(_)));
+        
+        // Test >> append
+        let spec2 = CommandSpec::String(StringCommandSpec {
+            command: "echo more content >> output.txt".to_string(),
+        });
+        let graph2 = executor.build_graph(&spec2).unwrap();
+        let node2 = &graph2.nodes[0];
+        assert_eq!(node2.operations.len(), 1);
+        assert!(matches!(&node2.operations[0], cupcake::engine::command_executor::Operation::AppendStdout(_)));
+    }
 
-        for (command, expected_msg) in operators {
-            let spec = CommandSpec::String(StringCommandSpec {
-                command: command.to_string(),
-            });
+    #[test]
+    fn test_string_command_conditional_operators() {
+        let executor = create_executor();
+        
+        // Test && operator
+        let spec = CommandSpec::String(StringCommandSpec {
+            command: "test -f {{file_path}} && echo file exists".to_string(),
+        });
+        let graph = executor.build_graph(&spec).unwrap();
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "test");
+        assert_eq!(node.command.args, vec!["-f", "/tmp/test.txt"]);
+        assert!(node.conditional.is_some());
+        let cond = node.conditional.as_ref().unwrap();
+        assert_eq!(cond.on_success.len(), 1);
+        assert_eq!(cond.on_success[0].command.program, "echo");
+        
+        // Test || operator
+        let spec2 = CommandSpec::String(StringCommandSpec {
+            command: "test -f missing.txt || echo file not found".to_string(),
+        });
+        let graph2 = executor.build_graph(&spec2).unwrap();
+        let node2 = &graph2.nodes[0];
+        let cond2 = node2.conditional.as_ref().unwrap();
+        assert_eq!(cond2.on_failure.len(), 1);
+        assert_eq!(cond2.on_failure[0].command.program, "echo");
+    }
 
-            let result = executor.build_graph(&spec);
-            assert!(result.is_err(), "Command should fail: {}", command);
-            let error_msg = result.unwrap_err().to_string();
-            assert!(error_msg.contains(expected_msg), "Error should mention '{}' for command '{}', got: {}", expected_msg, command, error_msg);
+    #[test]
+    fn test_string_command_complex_pipe_with_template() {
+        let executor = create_executor();
+        let spec = CommandSpec::String(StringCommandSpec {
+            command: "cat {{file_path}} | grep {{user}} | wc -l > count.txt".to_string(),
+        });
+
+        let graph = executor.build_graph(&spec).unwrap();
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "cat");
+        assert_eq!(node.command.args, vec!["/tmp/test.txt"]);
+        assert_eq!(node.operations.len(), 3);
+        
+        // Verify template substitution in pipe args
+        match &node.operations[0] {
+            cupcake::engine::command_executor::Operation::Pipe(cmd) => {
+                assert_eq!(cmd.program, "grep");
+                assert_eq!(cmd.args, vec!["alice"]);
+            }
+            _ => panic!("Expected Pipe operation"),
         }
     }
 

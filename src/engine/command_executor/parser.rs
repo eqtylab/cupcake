@@ -10,7 +10,6 @@
 use crate::config::actions::StringCommandSpec;
 use super::{CommandGraph, ExecutionNode, Command, Operation, ConditionalExecution, ExecutionError};
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Tokens produced by the string parser
 #[derive(Debug, Clone, PartialEq)]
@@ -141,9 +140,6 @@ impl StringParser {
             return Err(ParseError::EmptyCommand("No command provided".to_string()));
         }
         
-        // For v1.0, let's implement a simplified approach focused on basic cases
-        // We'll enhance this incrementally
-        
         // Check for basic errors first
         if matches!(tokens[0], OpTok::Pipe | OpTok::RedirectOut | OpTok::AppendOut | OpTok::AndAnd | OpTok::OrOr) {
             let op_name = match &tokens[0] {
@@ -172,59 +168,233 @@ impl StringParser {
             }
         }
         
-        // For v1.0, let's just handle simple commands without operators
-        // This gives us a solid foundation to build on
-        let mut cmd_words = Vec::new();
+        // V1.0 implementation: Linear parsing of operators
+        let mut nodes = Vec::new();
+        let mut current_words = Vec::new();
+        let mut i = 0;
         
-        // Check if we have any operators - if so, return not implemented error for now
-        for token in &tokens {
-            match token {
-                OpTok::CmdWord(word) => cmd_words.push(word.clone()),
-                OpTok::Pipe => return Err(ParseError::RedirectCombo("| (pipe support coming in next iteration)".to_string())),
-                OpTok::RedirectOut => return Err(ParseError::RedirectCombo("> (redirect support coming in next iteration)".to_string())),
-                OpTok::AppendOut => return Err(ParseError::RedirectCombo(">> (append support coming in next iteration)".to_string())),
-                OpTok::AndAnd => return Err(ParseError::RedirectCombo("&& (conditional support coming in next iteration)".to_string())),
-                OpTok::OrOr => return Err(ParseError::RedirectCombo("|| (conditional support coming in next iteration)".to_string())),
+        while i < tokens.len() {
+            match &tokens[i] {
+                OpTok::CmdWord(word) => {
+                    current_words.push(word.clone());
+                    i += 1;
+                }
+                OpTok::Pipe => {
+                    // Build current command and prepare for pipe
+                    if current_words.is_empty() {
+                        return Err(ParseError::EmptyCommand("| (no command before pipe)".to_string()));
+                    }
+                    
+                    let command = self.build_command_from_words(current_words)?;
+                    current_words = Vec::new();
+                    i += 1;
+                    
+                    // Collect piped commands
+                    let mut operations = Vec::new();
+                    while i < tokens.len() {
+                        if matches!(tokens[i], OpTok::Pipe | OpTok::AndAnd | OpTok::OrOr) {
+                            break;
+                        }
+                        
+                        // Collect command words until next operator
+                        let mut pipe_words = Vec::new();
+                        while i < tokens.len() && matches!(tokens[i], OpTok::CmdWord(_)) {
+                            if let OpTok::CmdWord(word) = &tokens[i] {
+                                pipe_words.push(word.clone());
+                            }
+                            i += 1;
+                        }
+                        
+                        if pipe_words.is_empty() {
+                            return Err(ParseError::EmptyCommand("| (missing command after pipe)".to_string()));
+                        }
+                        
+                        let pipe_cmd = self.build_pipe_command(pipe_words)?;
+                        operations.push(Operation::Pipe(pipe_cmd));
+                        
+                        // Check for redirect after pipe
+                        if i < tokens.len() {
+                            match &tokens[i] {
+                                OpTok::RedirectOut => {
+                                    i += 1;
+                                    if i >= tokens.len() || !matches!(tokens[i], OpTok::CmdWord(_)) {
+                                        return Err(ParseError::TrailingOperator(">".to_string()));
+                                    }
+                                    if let OpTok::CmdWord(file) = &tokens[i] {
+                                        operations.push(Operation::RedirectStdout(file.into()));
+                                        i += 1;
+                                    }
+                                }
+                                OpTok::AppendOut => {
+                                    i += 1;
+                                    if i >= tokens.len() || !matches!(tokens[i], OpTok::CmdWord(_)) {
+                                        return Err(ParseError::TrailingOperator(">>".to_string()));
+                                    }
+                                    if let OpTok::CmdWord(file) = &tokens[i] {
+                                        operations.push(Operation::AppendStdout(file.into()));
+                                        i += 1;
+                                    }
+                                }
+                                OpTok::Pipe => {
+                                    i += 1;
+                                    continue; // Continue processing pipe chain
+                                }
+                                _ => break, // Exit pipe processing for other operators
+                            }
+                        }
+                    }
+                    
+                    nodes.push(ExecutionNode {
+                        command,
+                        operations,
+                        conditional: None,
+                    });
+                }
+                OpTok::RedirectOut => {
+                    // Handle redirect without pipe
+                    if current_words.is_empty() {
+                        return Err(ParseError::EmptyCommand("> (no command before redirect)".to_string()));
+                    }
+                    
+                    i += 1;
+                    if i >= tokens.len() || !matches!(tokens[i], OpTok::CmdWord(_)) {
+                        return Err(ParseError::TrailingOperator(">".to_string()));
+                    }
+                    
+                    let command = self.build_command_from_words(current_words)?;
+                    current_words = Vec::new();
+                    
+                    let mut operations = vec![];
+                    if let OpTok::CmdWord(file) = &tokens[i] {
+                        operations.push(Operation::RedirectStdout(file.into()));
+                        i += 1;
+                    }
+                    
+                    nodes.push(ExecutionNode {
+                        command,
+                        operations,
+                        conditional: None,
+                    });
+                }
+                OpTok::AppendOut => {
+                    // Handle append without pipe
+                    if current_words.is_empty() {
+                        return Err(ParseError::EmptyCommand(">> (no command before append)".to_string()));
+                    }
+                    
+                    i += 1;
+                    if i >= tokens.len() || !matches!(tokens[i], OpTok::CmdWord(_)) {
+                        return Err(ParseError::TrailingOperator(">>".to_string()));
+                    }
+                    
+                    let command = self.build_command_from_words(current_words)?;
+                    current_words = Vec::new();
+                    
+                    let mut operations = vec![];
+                    if let OpTok::CmdWord(file) = &tokens[i] {
+                        operations.push(Operation::AppendStdout(file.into()));
+                        i += 1;
+                    }
+                    
+                    nodes.push(ExecutionNode {
+                        command,
+                        operations,
+                        conditional: None,
+                    });
+                }
+                OpTok::AndAnd | OpTok::OrOr => {
+                    // Handle conditional execution
+                    if current_words.is_empty() {
+                        let op = if matches!(tokens[i], OpTok::AndAnd) { "&&" } else { "||" };
+                        return Err(ParseError::EmptyCommand(format!("{} (no command before conditional)", op)));
+                    }
+                    
+                    let command = self.build_command_from_words(current_words)?;
+                    current_words = Vec::new();
+                    
+                    let is_and = matches!(tokens[i], OpTok::AndAnd);
+                    i += 1;
+                    
+                    // Collect the conditional command
+                    let mut cond_words = Vec::new();
+                    while i < tokens.len() && matches!(tokens[i], OpTok::CmdWord(_)) {
+                        if let OpTok::CmdWord(word) = &tokens[i] {
+                            cond_words.push(word.clone());
+                        }
+                        i += 1;
+                    }
+                    
+                    if cond_words.is_empty() {
+                        let op = if is_and { "&&" } else { "||" };
+                        return Err(ParseError::TrailingOperator(op.to_string()));
+                    }
+                    
+                    let cond_command = self.build_command_from_words(cond_words)?;
+                    let cond_node = ExecutionNode {
+                        command: cond_command,
+                        operations: Vec::new(),
+                        conditional: None,
+                    };
+                    
+                    let conditional = if is_and {
+                        ConditionalExecution {
+                            on_success: vec![cond_node],
+                            on_failure: vec![],
+                        }
+                    } else {
+                        ConditionalExecution {
+                            on_success: vec![],
+                            on_failure: vec![cond_node],
+                        }
+                    };
+                    
+                    nodes.push(ExecutionNode {
+                        command,
+                        operations: Vec::new(),
+                        conditional: Some(conditional),
+                    });
+                }
             }
         }
         
-        if cmd_words.is_empty() {
-            return Err(ParseError::EmptyCommand("No command words found".to_string()));
+        // Handle any remaining words as final command
+        if !current_words.is_empty() {
+            let command = self.build_command_from_words(current_words)?;
+            nodes.push(ExecutionNode {
+                command,
+                operations: Vec::new(),
+                conditional: None,
+            });
         }
         
-        let command = self.build_command_from_words(cmd_words)?;
-        let node = ExecutionNode {
-            command,
-            operations: Vec::new(),
-            conditional: None,
-        };
+        if nodes.is_empty() {
+            return Err(ParseError::EmptyCommand("No commands found".to_string()));
+        }
         
-        Ok(CommandGraph { nodes: vec![node] })
+        Ok(CommandGraph { nodes })
     }
     
-    /// Extract the next command after a pipe operator
-    fn extract_next_command(&self, tokens: &[OpTok], start_index: usize) -> Result<(String, Vec<String>), ParseError> {
-        let mut cmd_words = Vec::new();
-        
-        for token in tokens.iter().skip(start_index) {
-            match token {
-                OpTok::CmdWord(word) => cmd_words.push(word.clone()),
-                _ => break, // Hit another operator, stop collecting
-            }
+    /// Build a pipe command (simpler than full command - no env/workdir)
+    fn build_pipe_command(&self, words: Vec<String>) -> Result<Command, ParseError> {
+        if words.is_empty() {
+            return Err(ParseError::EmptyCommand("No command words for pipe".to_string()));
         }
         
-        if cmd_words.is_empty() {
-            return Err(ParseError::EmptyCommand("| (missing command after pipe)".to_string()));
-        }
-        
-        let program = cmd_words[0].clone();
-        let args = if cmd_words.len() > 1 {
-            cmd_words[1..].to_vec()
+        let program = words[0].clone();
+        let args = if words.len() > 1 {
+            words[1..].iter()
+                .map(|arg| self.substitute_template(arg))
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             Vec::new()
         };
         
-        Ok((program, args))
+        Ok(Command {
+            program,
+            args,
+            working_dir: None,  // Pipes inherit working dir
+            env_vars: HashMap::new(),  // Pipes inherit environment
+        })
     }
     
     /// Build a Command from a vector of words (program + args)
@@ -346,6 +516,145 @@ mod tests {
     }
 
     #[test]
+    fn test_pipe_operator_support() {
+        let parser = create_parser();
+        let spec = StringCommandSpec {
+            command: "echo hello | grep hello".to_string(),
+        };
+
+        let graph = parser.parse(&spec).unwrap();
+        assert_eq!(graph.nodes.len(), 1);
+        
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "echo");
+        assert_eq!(node.command.args, vec!["hello"]);
+        assert_eq!(node.operations.len(), 1);
+        
+        match &node.operations[0] {
+            Operation::Pipe(cmd) => {
+                assert_eq!(cmd.program, "grep");
+                assert_eq!(cmd.args, vec!["hello"]);
+            }
+            _ => panic!("Expected Pipe operation"),
+        }
+    }
+
+    #[test]
+    fn test_redirect_operator_support() {
+        let parser = create_parser();
+        let spec = StringCommandSpec {
+            command: "echo test > output.txt".to_string(),
+        };
+
+        let graph = parser.parse(&spec).unwrap();
+        assert_eq!(graph.nodes.len(), 1);
+        
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "echo");
+        assert_eq!(node.command.args, vec!["test"]);
+        assert_eq!(node.operations.len(), 1);
+        
+        match &node.operations[0] {
+            Operation::RedirectStdout(path) => {
+                assert_eq!(path.to_str().unwrap(), "output.txt");
+            }
+            _ => panic!("Expected RedirectStdout operation"),
+        }
+    }
+
+    #[test]
+    fn test_append_operator_support() {
+        let parser = create_parser();
+        let spec = StringCommandSpec {
+            command: "echo test >> output.txt".to_string(),
+        };
+
+        let graph = parser.parse(&spec).unwrap();
+        let node = &graph.nodes[0];
+        assert_eq!(node.operations.len(), 1);
+        
+        match &node.operations[0] {
+            Operation::AppendStdout(path) => {
+                assert_eq!(path.to_str().unwrap(), "output.txt");
+            }
+            _ => panic!("Expected AppendStdout operation"),
+        }
+    }
+
+    #[test]
+    fn test_conditional_operators_support() {
+        let parser = create_parser();
+        
+        // Test &&
+        let spec = StringCommandSpec {
+            command: "test -f {{file_path}} && echo exists".to_string(),
+        };
+        let graph = parser.parse(&spec).unwrap();
+        assert_eq!(graph.nodes.len(), 1);
+        
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "test");
+        assert_eq!(node.command.args, vec!["-f", "/tmp/test.txt"]);
+        assert!(node.conditional.is_some());
+        
+        let cond = node.conditional.as_ref().unwrap();
+        assert_eq!(cond.on_success.len(), 1);
+        assert_eq!(cond.on_success[0].command.program, "echo");
+        assert_eq!(cond.on_success[0].command.args, vec!["exists"]);
+        assert!(cond.on_failure.is_empty());
+        
+        // Test ||
+        let spec2 = StringCommandSpec {
+            command: "test -f missing || echo not found".to_string(),
+        };
+        let graph2 = parser.parse(&spec2).unwrap();
+        let node2 = &graph2.nodes[0];
+        let cond2 = node2.conditional.as_ref().unwrap();
+        assert!(cond2.on_success.is_empty());
+        assert_eq!(cond2.on_failure.len(), 1);
+        assert_eq!(cond2.on_failure[0].command.program, "echo");
+    }
+
+    #[test]
+    fn test_complex_pipe_chain() {
+        let parser = create_parser();
+        let spec = StringCommandSpec {
+            command: "cat {{file_path}} | grep test | wc -l > count.txt".to_string(),
+        };
+
+        let graph = parser.parse(&spec).unwrap();
+        assert_eq!(graph.nodes.len(), 1);
+        
+        let node = &graph.nodes[0];
+        assert_eq!(node.command.program, "cat");
+        assert_eq!(node.command.args, vec!["/tmp/test.txt"]);
+        assert_eq!(node.operations.len(), 3);
+        
+        match &node.operations[0] {
+            Operation::Pipe(cmd) => {
+                assert_eq!(cmd.program, "grep");
+                assert_eq!(cmd.args, vec!["test"]);
+            }
+            _ => panic!("Expected first Pipe operation"),
+        }
+        
+        match &node.operations[1] {
+            Operation::Pipe(cmd) => {
+                assert_eq!(cmd.program, "wc");
+                assert_eq!(cmd.args, vec!["-l"]);
+            }
+            _ => panic!("Expected second Pipe operation"),
+        }
+        
+        match &node.operations[2] {
+            Operation::RedirectStdout(path) => {
+                assert_eq!(path.to_str().unwrap(), "count.txt");
+            }
+            _ => panic!("Expected RedirectStdout operation"),
+        }
+    }
+
+    #[test]
     fn test_quoted_operators_as_literals_not_yet_supported() {
         let parser = create_parser();
         let spec = StringCommandSpec {
@@ -356,12 +665,16 @@ mod tests {
         let raw_tokens = shell_words::split(&spec.command).unwrap();
         assert_eq!(raw_tokens, vec!["grep", "|", "file.txt"]);
         
-        // For v1.0 basic implementation, this fails because we don't yet
-        // distinguish between quoted and unquoted operators
-        // TODO: Implement proper quote detection in next iteration
+        // For v1.0 implementation, quoted operators are still treated as operators
+        // This is a known limitation - proper quote detection would require
+        // preserving quote information from shell-words
         let result = parser.parse(&spec);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("pipe support coming"));
+        assert!(result.is_ok());
+        let _graph = result.unwrap();
+        
+        // The parser interprets this as "grep | file.txt" which is invalid
+        // because "file.txt" is not a valid command
+        // In a future version, we should detect quoted operators and treat them as literals
     }
 
     #[test]

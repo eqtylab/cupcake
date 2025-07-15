@@ -148,7 +148,6 @@ cargo install --path .
 - `cupcake run` - Runtime policy enforcement (called by hooks)
 - `cupcake validate` - Validate policy syntax
 - `cupcake inspect` - View loaded policies in compact table format
-- `cupcake encode` - Convert shell commands to secure array format
 
 ### Policy Inspection
 

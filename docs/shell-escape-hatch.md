@@ -24,7 +24,7 @@ The shell escape hatch provides this capability with multiple security layers:
 
 1. Understand the security implications
 2. Audit all shell command usage
-3. Use `cupcake encode` to migrate to secure formats where possible
+3. Migrate to secure formats where possible
 4. Enable comprehensive audit logging
 5. Restrict shell access in production environments
 
@@ -144,18 +144,18 @@ Key audit fields:
 - `argv`: Actual command array passed to OS
 - `duration_ms`: Execution time for performance monitoring
 
-## Migration with `cupcake encode`
+## Migration to Secure Formats
 
-Convert shell commands to secure array format:
+Convert shell commands to secure array format manually:
 
-### Basic Usage
+### Basic Conversion
 
+**Shell**:
 ```bash
-# Simple command
-$ cupcake encode "echo 'Hello World'"
+echo 'Hello World'
 ```
 
-Output:
+**Secure Array**:
 ```yaml
 command:
 - echo
@@ -165,12 +165,12 @@ args:
 
 ### Complex Examples
 
-**Pipes**:
+**Pipes** - Convert to multiple commands:
 ```bash
-$ cupcake encode "ps aux | grep node | awk '{print $2}'"
+# Shell: ps aux | grep node | awk '{print $2}'
 ```
 
-Output:
+**Secure Array**:
 ```yaml
 command:
 - ps
@@ -185,31 +185,18 @@ pipe:
   - '{print $2}'
 ```
 
-**Redirects**:
+**Redirects** - Use explicit output:
 ```bash
-$ cupcake encode "echo 'test' > output.txt"
+# Shell: echo 'test' > output.txt
 ```
 
-Output:
+**Secure Array**:
 ```yaml
 command:
 - echo
 args:
 - test
 redirect_stdout: output.txt
-```
-
-### Format Options
-
-```bash
-# YAML output (default)
-cupcake encode "npm test"
-
-# JSON output
-cupcake encode "npm test" --format json
-
-# Full template with metadata
-cupcake encode "npm test" --template
 ```
 
 ## Claude Code Integration
@@ -255,7 +242,7 @@ policies:
 Start restrictive and relax as needed:
 
 1. Begin with `allow_shell: false`
-2. Convert commands using `cupcake encode`
+2. Convert commands to secure array format
 3. Enable shell only for specific environments
 4. Monitor audit logs regularly
 

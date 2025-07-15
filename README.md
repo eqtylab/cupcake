@@ -78,6 +78,28 @@ PreToolUse:
         include_context: true
 ```
 
+### String Commands and Shell Execution
+
+Cupcake supports three command execution modes:
+
+```yaml
+# String mode: Shell-like syntax parsed into secure commands
+- type: "check"
+  spec:
+    mode: string
+    command: "git diff --quiet && git diff --cached --quiet"
+  expect_success: false
+
+# Shell mode: Direct shell execution (requires allow_shell: true in settings)
+- type: "run_command"
+  spec:
+    mode: shell
+    script: |
+      # Complex shell script with pipes, redirects, etc.
+      find . -name "*.rs" | xargs cargo fmt --check
+  on_failure: "block"
+```
+
 ## Architecture
 
 - **CLI Binary**: Single Rust executable with init, sync, run, validate commands

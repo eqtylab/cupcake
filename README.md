@@ -49,8 +49,11 @@ PreToolUse:
           field: "tool_input.command"
           regex: "^git\\s+commit"
         - type: "check"
-          command: "cargo test --quiet"
-          expected_exit_code: 1
+          spec:
+            mode: array
+            command: ["cargo"]
+            args: ["test", "--quiet"]
+          expect_success: false
       action:
         type: "block_with_feedback"
         message: "Tests must pass before committing"
@@ -64,8 +67,11 @@ PreToolUse:
           field: "tool_input.file_path"
           regex: "^src/engine/"
         - type: "check"
-          command: "cupcake state has-read-file docs/architecture.md"
-          expected_exit_code: 1
+          spec:
+            mode: array
+            command: ["cupcake"]
+            args: ["state", "has-read-file", "docs/architecture.md"]
+          expect_success: false
       action:
         type: "block_with_feedback"
         message: "Read docs/architecture.md before editing engine"

@@ -61,12 +61,16 @@ impl PolicyEvaluator {
         hook_event: &crate::engine::events::HookEvent,
         evaluation_context: &EvaluationContext,
     ) -> Result<EvaluationResult> {
-        // Collect all matched policies
-        let mut matched_policies = Vec::new();
+        // Single evaluation pass: evaluate each policy once and cache results
         let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
+        let mut matched_policies = Vec::new();
+        let mut evaluation_cache = std::collections::HashMap::new();
         
+        // Evaluate each policy exactly once
         for policy in &ordered_policies {
             let conditions_match = self.evaluate_policy_conditions(policy, evaluation_context)?;
+            evaluation_cache.insert(policy.name.clone(), conditions_match);
+            
             if conditions_match {
                 matched_policies.push(MatchedPolicy {
                     name: policy.name.clone(),
@@ -75,11 +79,11 @@ impl PolicyEvaluator {
             }
         }
 
-        // Pass 1: Collect all feedback from soft actions
-        let feedback_collection = self.execute_pass_1(policies, hook_event, evaluation_context)?;
+        // Pass 1: Collect all feedback from soft actions (using cached results)
+        let feedback_collection = self.execute_pass_1_cached(&ordered_policies, &evaluation_cache, evaluation_context)?;
 
-        // Pass 2: Find first hard action decision
-        let hard_decision = self.execute_pass_2(policies, hook_event, evaluation_context)?;
+        // Pass 2: Find first hard action decision (using cached results)
+        let hard_decision = self.execute_pass_2_cached(&ordered_policies, &evaluation_cache, evaluation_context)?;
 
         // Combine results
         let decision = match hard_decision {
@@ -144,7 +148,36 @@ impl PolicyEvaluator {
         Ok(ordered_policies)
     }
 
-    /// Execute Pass 1: Collect all feedback from soft actions
+    /// Execute Pass 1: Collect all feedback from soft actions (using cached evaluation results)
+    fn execute_pass_1_cached(
+        &mut self,
+        ordered_policies: &[&ComposedPolicy],
+        evaluation_cache: &std::collections::HashMap<String, bool>,
+        evaluation_context: &EvaluationContext,
+    ) -> Result<FeedbackCollection> {
+        let mut feedback_messages = Vec::new();
+
+        for policy in ordered_policies {
+            // Use cached evaluation result instead of re-evaluating
+            let conditions_match = evaluation_cache.get(&policy.name).copied().unwrap_or(false);
+
+            if conditions_match {
+                // Check if this is a soft action
+                if policy.action.is_soft_action() {
+                    // Extract feedback message based on action type
+                    let feedback =
+                        self.extract_feedback_message(&policy.action, evaluation_context);
+                    if let Some(msg) = feedback {
+                        feedback_messages.push(msg);
+                    }
+                }
+            }
+        }
+
+        Ok(FeedbackCollection { feedback_messages })
+    }
+
+    /// Execute Pass 1: Collect all feedback from soft actions (legacy method for compatibility)
     fn execute_pass_1(
         &mut self,
         policies: &[ComposedPolicy],
@@ -174,7 +207,64 @@ impl PolicyEvaluator {
         Ok(FeedbackCollection { feedback_messages })
     }
 
-    /// Execute Pass 2: Find first hard action decision
+    /// Execute Pass 2: Find first hard action decision (using cached evaluation results)
+    fn execute_pass_2_cached(
+        &mut self,
+        ordered_policies: &[&ComposedPolicy],
+        evaluation_cache: &std::collections::HashMap<String, bool>,
+        evaluation_context: &EvaluationContext,
+    ) -> Result<HardDecision> {
+        for policy in ordered_policies {
+            // Use cached evaluation result instead of re-evaluating
+            let conditions_match = evaluation_cache.get(&policy.name).copied().unwrap_or(false);
+
+            if conditions_match {
+                // Check if this is a hard action
+                if policy.action.is_hard_action() {
+                    return match &policy.action {
+                        crate::config::actions::Action::BlockWithFeedback {
+                            feedback_message,
+                            ..
+                        } => {
+                            let feedback =
+                                self.substitute_templates(feedback_message, evaluation_context);
+                            Ok(HardDecision::Block { feedback })
+                        }
+                        crate::config::actions::Action::Approve { reason } => {
+                            let substituted_reason = reason
+                                .as_ref()
+                                .map(|r| self.substitute_templates(r, evaluation_context));
+                            Ok(HardDecision::Approve {
+                                reason: substituted_reason,
+                            })
+                        }
+                        crate::config::actions::Action::RunCommand {
+                            on_failure, ..
+                        } => {
+                            // RunCommand actions are executed in the action phase
+                            // For now, we continue to find other hard actions
+                            // The action phase will handle the actual blocking decision
+                            if matches!(
+                                on_failure,
+                                crate::config::actions::OnFailureBehavior::Block
+                            ) {
+                                // Skip this for now - let action phase handle it
+                                continue;
+                            } else {
+                                continue; // Soft command, keep looking
+                            }
+                        }
+                        _ => continue, // Shouldn't happen for hard actions, but be safe
+                    };
+                }
+            }
+        }
+
+        // No hard action found
+        Ok(HardDecision::Allow)
+    }
+
+    /// Execute Pass 2: Find first hard action decision (legacy method for compatibility)
     fn execute_pass_2(
         &mut self,
         policies: &[ComposedPolicy],
@@ -239,6 +329,9 @@ impl PolicyEvaluator {
         policy: &ComposedPolicy,
         context: &EvaluationContext,
     ) -> Result<bool> {
+        // Debug: Track policy condition evaluations
+        eprintln!("Debug: Evaluating policy conditions for '{}'", policy.name);
+        
         // If no conditions, policy always matches
         if policy.conditions.is_empty() {
             return Ok(true);

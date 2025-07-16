@@ -1,6 +1,7 @@
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
 use crate::config::types::ComposedPolicy;
+use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
 use crate::engine::events::HookEvent;
@@ -76,6 +77,8 @@ impl CommandHandler for RunCommand {
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
+        let mut action_executor = ActionExecutor::new();
+        
         let evaluation_result = match policy_evaluator.evaluate(
             &policies,
             &hook_event,
@@ -116,7 +119,35 @@ impl CommandHandler for RunCommand {
             println!("{}", feedback_output);
         }
 
-        // 6. Track tool usage for PostToolUse events
+        // 6. Execute actions for matched policies
+        if self.debug {
+            eprintln!(
+                "Debug: Executing actions for {} matched policies",
+                evaluation_result.matched_policies.len()
+            );
+        }
+
+        // Execute actions for each matched policy
+        let action_results = self.execute_matched_actions(
+            &evaluation_result.matched_policies,
+            &hook_event,
+            &mut state_manager,
+            &mut action_executor,
+        )?;
+
+        // Check if any action resulted in a block
+        let mut final_decision = evaluation_result.decision.clone();
+        for (policy_name, result) in &action_results {
+            if let ActionResult::Block { feedback } = result {
+                // An action execution resulted in block - override the evaluation decision
+                final_decision = PolicyDecision::Block {
+                    feedback: feedback.clone(),
+                };
+                break;
+            }
+        }
+
+        // 7. Track tool usage for PostToolUse events
         if let Err(e) = self.track_tool_usage(&mut state_manager, &hook_event) {
             if self.debug {
                 eprintln!("Debug: Failed to track tool usage: {}", e);
@@ -124,10 +155,10 @@ impl CommandHandler for RunCommand {
             // Non-critical error - continue with response
         }
 
-        // 7. Send response to Claude Code
+        // 8. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
-        let final_decision = if hook_event.event_name() == "PostToolUse"
-            && matches!(evaluation_result.decision, PolicyDecision::Allow)
+        let response_decision = if hook_event.event_name() == "PostToolUse"
+            && matches!(final_decision, PolicyDecision::Allow)
             && !evaluation_result.feedback_messages.is_empty()
         {
             // Convert soft feedback to a "block" for PostToolUse so Claude sees it
@@ -135,10 +166,10 @@ impl CommandHandler for RunCommand {
                 feedback: evaluation_result.feedback_messages.join("\n"),
             }
         } else {
-            evaluation_result.decision
+            final_decision
         };
 
-        self.send_response_safely(final_decision)
+        self.send_response_safely(response_decision)
     }
 
     fn name(&self) -> &'static str {
@@ -207,6 +238,41 @@ impl RunCommand {
 
             Ok(policies)
         }
+    }
+
+    /// Build action context from hook event
+    fn build_action_context(&self, hook_event: &HookEvent) -> ActionContext {
+        let (session_id, tool_name, tool_input) = match hook_event {
+            HookEvent::PreToolUse {
+                common,
+                tool_name,
+                tool_input,
+            }
+            | HookEvent::PostToolUse {
+                common,
+                tool_name,
+                tool_input,
+                ..
+            } => (
+                common.session_id.clone(),
+                tool_name.clone(),
+                self.extract_tool_input(tool_input),
+            ),
+            HookEvent::Notification { common, .. }
+            | HookEvent::Stop { common, .. }
+            | HookEvent::SubagentStop { common, .. }
+            | HookEvent::PreCompact { common, .. } => {
+                (common.session_id.clone(), String::new(), HashMap::new())
+            }
+        };
+
+        ActionContext::new(
+            tool_name,
+            tool_input,
+            std::env::current_dir().unwrap_or_default(),
+            std::env::vars().collect(),
+            session_id,
+        )
     }
 
     /// Build evaluation context from hook event
@@ -287,6 +353,58 @@ impl RunCommand {
             )?;
         }
         Ok(())
+    }
+
+    /// Execute actions for matched policies
+    fn execute_matched_actions(
+        &self,
+        matched_policies: &[crate::engine::evaluation::MatchedPolicy],
+        hook_event: &HookEvent,
+        state_manager: &mut StateManager,
+        action_executor: &mut ActionExecutor,
+    ) -> Result<Vec<(String, ActionResult)>> {
+        let mut results = Vec::new();
+        for matched_policy in matched_policies {
+            if self.debug {
+                eprintln!(
+                    "Debug: Executing action for policy '{}': {:?}",
+                    matched_policy.name, matched_policy.action
+                );
+            }
+
+            // Build action context
+            let action_context = self.build_action_context(hook_event);
+
+            // Execute the action
+            let result = action_executor.execute(&matched_policy.action, &action_context, Some(state_manager));
+            
+            match &result {
+                ActionResult::Success { feedback, .. } => {
+                    if let Some(msg) = feedback {
+                        if self.debug {
+                            eprintln!("Debug: Action feedback: {}", msg);
+                        }
+                    }
+                }
+                ActionResult::Block { feedback } => {
+                    if self.debug {
+                        eprintln!("Debug: Action execution resulted in block: {}", feedback);
+                    }
+                }
+                ActionResult::Approve { .. } => {
+                    if self.debug {
+                        eprintln!("Debug: Action execution resulted in approval");
+                    }
+                }
+                ActionResult::Error { message } => {
+                    eprintln!("Error executing action for policy '{}': {}", matched_policy.name, message);
+                    // Continue with other actions - graceful degradation
+                }
+            }
+            
+            results.push((matched_policy.name.clone(), result));
+        }
+        Ok(results)
     }
 
     /// Send response to Claude Code with error handling

@@ -3,6 +3,97 @@ use std::collections::HashMap;
 
 use super::conditions::Condition;
 
+/// Command specification for secure execution
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case")]
+pub enum CommandSpec {
+    /// Kubernetes-style array command (secure, no shell)
+    Array(ArrayCommandSpec),
+    /// Shell-like string syntax parsed into secure execution (no shell)
+    String(StringCommandSpec),
+    /// Shell script executed via /bin/sh (requires allow_shell setting)
+    Shell(ShellCommandSpec),
+}
+
+/// Kubernetes-style command specification with composition operators
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ArrayCommandSpec {
+    /// Command to execute (e.g., ["/usr/bin/git"])
+    pub command: Vec<String>,
+    
+    /// Arguments to pass to command (e.g., ["status", "-s"])
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
+    
+    /// Working directory for execution
+    #[serde(skip_serializing_if = "Option::is_none", rename = "workingDir")]
+    pub working_dir: Option<String>,
+    
+    /// Environment variables
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<Vec<EnvVar>>,
+    
+    // Composition operators for shell-free command chaining
+    
+    /// Pipe stdout to subsequent commands
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pipe: Option<Vec<PipeCommand>>,
+    
+    /// Redirect stdout to file (truncate)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "redirectStdout")]
+    pub redirect_stdout: Option<String>,
+    
+    /// Append stdout to file
+    #[serde(skip_serializing_if = "Option::is_none", rename = "appendStdout")]
+    pub append_stdout: Option<String>,
+    
+    /// Redirect stderr to file
+    #[serde(skip_serializing_if = "Option::is_none", rename = "redirectStderr")]
+    pub redirect_stderr: Option<String>,
+    
+    /// Merge stderr into stdout
+    #[serde(skip_serializing_if = "Option::is_none", rename = "mergeStderr")]
+    pub merge_stderr: Option<bool>,
+    
+    /// Commands to run on success (exit code 0)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "onSuccess")]
+    pub on_success: Option<Vec<ArrayCommandSpec>>,
+    
+    /// Commands to run on failure (exit code != 0)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "onFailure")]
+    pub on_failure: Option<Vec<ArrayCommandSpec>>,
+}
+
+/// Environment variable specification
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EnvVar {
+    pub name: String,
+    pub value: String,
+}
+
+/// Pipe command specification for chaining
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PipeCommand {
+    /// Command and args as array (e.g., ["grep", "-v", "WARNING"])
+    pub cmd: Vec<String>,
+}
+
+/// String-based command specification for shell-like syntax
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StringCommandSpec {
+    /// Command string with shell-like syntax (e.g., "npm test | grep PASS")
+    /// Parsed securely without shell involvement
+    pub command: String,
+}
+
+/// Shell script specification for legacy/complex scripts
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShellCommandSpec {
+    /// Shell script to execute via /bin/sh -c
+    /// WARNING: This bypasses security protections and requires allow_shell=true
+    pub script: String,
+}
+
 /// Action types for policy responses
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -29,7 +120,8 @@ pub enum Action {
 
     /// Run a command (can be soft or hard based on on_failure)
     RunCommand {
-        command: String,
+        /// Command specification for secure execution
+        spec: CommandSpec,
         #[serde(default)]
         on_failure: OnFailureBehavior,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,7 +254,19 @@ mod tests {
         assert_eq!(hard_action.action_type(), ActionType::Hard);
 
         let soft_command = Action::RunCommand {
-            command: "echo test".to_string(),
+            spec: CommandSpec::Array(ArrayCommandSpec {
+                command: vec!["echo".to_string()],
+                args: Some(vec!["test".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,
@@ -171,7 +275,19 @@ mod tests {
         assert_eq!(soft_command.action_type(), ActionType::Soft);
 
         let hard_command = Action::RunCommand {
-            command: "cargo test".to_string(),
+            spec: CommandSpec::Array(ArrayCommandSpec {
+                command: vec!["cargo".to_string()],
+                args: Some(vec!["test".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Tests failed".to_string()),
             background: false,
@@ -212,7 +328,19 @@ mod tests {
     fn test_conditional_action_hard_classification() {
         let conditional = Action::Conditional {
             if_condition: Condition::Check {
-                command: "echo 'test'".to_string(),
+                spec: CommandSpec::Array(ArrayCommandSpec {
+                    command: vec!["echo".to_string()],
+                    args: Some(vec!["test".to_string()]),
+                    working_dir: None,
+                    env: None,
+                    pipe: None,
+                    redirect_stdout: None,
+                    append_stdout: None,
+                    redirect_stderr: None,
+                    merge_stderr: None,
+                    on_success: None,
+                    on_failure: None,
+                }),
                 expect_success: true,
             },
             then_action: Box::new(Action::BlockWithFeedback {
@@ -228,7 +356,19 @@ mod tests {
     #[test]
     fn test_action_requirements() {
         let run_command = Action::RunCommand {
-            command: "test".to_string(),
+            spec: CommandSpec::Array(ArrayCommandSpec {
+                command: vec!["test".to_string()],
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            }),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,

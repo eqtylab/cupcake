@@ -18,6 +18,7 @@ You must use the versions for each lib as described in the doc names:
 - regex-1.11.1.md
 - serde_json-1.0.140.md
 - serde-1.0.219.md
+- shell-quotes-1.1.0.md
 - thiserror-2.0.12.md
 - tokio-1.46.1.md
 - toml-0.9.1.md

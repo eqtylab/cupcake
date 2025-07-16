@@ -49,8 +49,11 @@ PreToolUse:
           field: "tool_input.command"
           regex: "^git\\s+commit"
         - type: "check"
-          command: "cargo test --quiet"
-          expected_exit_code: 1
+          spec:
+            mode: array
+            command: ["cargo"]
+            args: ["test", "--quiet"]
+          expect_success: false
       action:
         type: "block_with_feedback"
         message: "Tests must pass before committing"
@@ -64,12 +67,37 @@ PreToolUse:
           field: "tool_input.file_path"
           regex: "^src/engine/"
         - type: "check"
-          command: "cupcake state has-read-file docs/architecture.md"
-          expected_exit_code: 1
+          spec:
+            mode: array
+            command: ["cupcake"]
+            args: ["state", "has-read-file", "docs/architecture.md"]
+          expect_success: false
       action:
         type: "block_with_feedback"
         message: "Read docs/architecture.md before editing engine"
         include_context: true
+```
+
+### String Commands and Shell Execution
+
+Beyond the exec array form for commands, Cupcake supports two other command execution modes:
+
+```yaml
+# String mode: Shell-like syntax parsed into secure commands
+- type: "check"
+  spec:
+    mode: string
+    command: "git diff --quiet && git diff --cached --quiet"
+  expect_success: false
+
+# Shell mode: Direct shell execution (requires allow_shell: true in settings)
+- type: "run_command"
+  spec:
+    mode: shell
+    script: |
+      # Complex shell script with pipes, redirects, etc.
+      find . -name "*.rs" | xargs cargo fmt --check
+  on_failure: "block"
 ```
 
 ## Architecture
@@ -101,6 +129,7 @@ cargo install --path .
    ```
 
 3. **Inspect loaded policies:**
+
    ```bash
    cupcake inspect
    # Or with specific config file
@@ -151,7 +180,7 @@ Cupcake integrates with Claude Code through hooks:
 
 ```
 guardrails/
-├── cupcake.yaml          # Root configuration  
+├── cupcake.yaml          # Root configuration
 └── policies/            # Policy fragments
     ├── git-workflow.yaml
     ├── code-quality.yaml
@@ -172,6 +201,13 @@ Sub-100ms response times through:
 - Compiled regex patterns
 - Lazy state loading
 - Static binary with zero runtime dependencies
+
+## Documentation
+
+- [Policy Format](docs/policy-format.md) - Writing YAML policies
+- [Secure Command Execution](docs/secure-command-execution.md) - Array and string command modes
+- [Shell Escape Hatch](docs/shell-escape-hatch.md) - Shell mode with security controls
+- [Command Execution Reference](docs/command-execution-reference.md) - Technical details
 
 ## License
 

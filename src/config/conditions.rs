@@ -28,7 +28,7 @@ pub enum Condition {
     /// Example: { type = "check", spec = { mode = "array", command = ["test", "-f", "{{file_path}}"] }, expect_success = true }
     Check {
         /// Command specification for secure execution
-        spec: CommandSpec,
+        spec: Box<CommandSpec>,
         /// Whether exit code 0 means condition matches (true) or doesn't match (false)
         #[serde(default = "default_expect_success")]
         expect_success: bool,

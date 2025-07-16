@@ -178,6 +178,7 @@ impl PolicyEvaluator {
     }
 
     /// Execute Pass 1: Collect all feedback from soft actions (legacy method for compatibility)
+    #[allow(dead_code)]
     fn execute_pass_1(
         &mut self,
         policies: &[ComposedPolicy],
@@ -265,6 +266,7 @@ impl PolicyEvaluator {
     }
 
     /// Execute Pass 2: Find first hard action decision (legacy method for compatibility)
+    #[allow(dead_code)]
     fn execute_pass_2(
         &mut self,
         policies: &[ComposedPolicy],

@@ -1,7 +1,14 @@
-use super::types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig};
+use super::types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig, Settings};
 use crate::{CupcakeError, Result};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+/// Result of loading configuration with both settings and policies
+#[derive(Debug)]
+pub struct LoadedConfiguration {
+    pub settings: Settings,
+    pub policies: Vec<ComposedPolicy>,
+}
 
 /// Configuration loader for policy files
 pub struct PolicyLoader {
@@ -38,6 +45,78 @@ impl PolicyLoader {
         let composed_policies = self.validate_and_flatten(composed_fragment)?;
 
         Ok(composed_policies)
+    }
+
+    /// Load configuration (settings and policies) from a config file
+    pub fn load_configuration(&mut self, config_path: &Path) -> Result<LoadedConfiguration> {
+        let content = std::fs::read_to_string(config_path).map_err(|e| {
+            CupcakeError::Config(format!(
+                "Failed to read config file {}: {}",
+                config_path.display(),
+                e
+            ))
+        })?;
+
+        // If the YAML has 'settings' or 'imports' as top-level keys, it's a RootConfig
+        if content.contains("settings:") || content.contains("imports:") {
+            match serde_yaml_ng::from_str::<RootConfig>(&content) {
+                Ok(root_config) => {
+                    let settings = root_config.settings.clone();
+                    let policies = self.load_from_root_config(root_config, config_path)?;
+                    Ok(LoadedConfiguration {
+                        settings,
+                        policies,
+                    })
+                }
+                Err(e) => {
+                    Err(CupcakeError::Config(format!(
+                        "Config file {} appears to be a RootConfig but failed to parse: {}",
+                        config_path.display(),
+                        e
+                    )))
+                }
+            }
+        } else {
+            // PolicyFragment - use default settings
+            match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                Ok(fragment) => {
+                    let policies = self.load_from_policy_fragment(fragment)?;
+                    Ok(LoadedConfiguration {
+                        settings: Settings::default(),
+                        policies,
+                    })
+                }
+                Err(e) => {
+                    Err(CupcakeError::Config(format!(
+                        "Config file {} appears to be a PolicyFragment but failed to parse: {}",
+                        config_path.display(),
+                        e
+                    )))
+                }
+            }
+        }
+    }
+    
+    /// Load and compose policies with settings from YAML guardrails directory
+    pub fn load_configuration_from_directory(&mut self, start_dir: &Path) -> Result<LoadedConfiguration> {
+        // Step 1: Discover - find guardrails/cupcake.yaml
+        let root_config_path = self.discover_root_config(start_dir)?;
+        let root_config = self.load_root_config(&root_config_path)?;
+        let settings = root_config.settings.clone();
+
+        // Step 2: Resolve imports using glob patterns
+        let policy_fragment_paths = self.resolve_imports(&root_config, &root_config_path)?;
+
+        // Step 3: Compose - deep merge all policy fragments
+        let composed_fragment = self.compose_policy_fragments(&policy_fragment_paths)?;
+
+        // Step 4: Validate and flatten to Vec<ComposedPolicy>
+        let composed_policies = self.validate_and_flatten(composed_fragment)?;
+
+        Ok(LoadedConfiguration {
+            settings,
+            policies: composed_policies,
+        })
     }
 
     /// Load policies from a specific config file path

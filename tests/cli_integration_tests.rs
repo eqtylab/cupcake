@@ -172,15 +172,12 @@ fn test_cli_run_with_debug() {
             "--event",
             "PostToolUse",
             "--debug",
-            "--timeout",
-            "30",
         ])
         .output()
         .expect("Failed to execute cupcake run --debug");
 
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("Event: PostToolUse"));
-    assert!(stderr.contains("Timeout: 30s"));
 }
 
 #[test]
@@ -301,8 +298,8 @@ fn test_cli_default_values() {
         .expect("Failed to execute cupcake run with defaults");
 
     let stderr = String::from_utf8(output.stderr).unwrap();
-    // Will fail due to no YAML config, but debug should show timeout
-    assert!(stderr.contains("Timeout: 60s"));
+    // Will fail due to no YAML config, but debug should show event
+    assert!(stderr.contains("Event: PreToolUse"));
 }
 
 #[test]

@@ -8,7 +8,7 @@ use super::conditions::Condition;
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum CommandSpec {
     /// Kubernetes-style array command (secure, no shell)
-    Array(ArrayCommandSpec),
+    Array(Box<ArrayCommandSpec>),
     /// Shell-like string syntax parsed into secure execution (no shell)
     String(StringCommandSpec),
     /// Shell script executed via /bin/sh (requires allow_shell setting)
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(hard_action.action_type(), ActionType::Hard);
 
         let soft_command = Action::RunCommand {
-            spec: CommandSpec::Array(ArrayCommandSpec {
+            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -266,7 +266,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,
@@ -275,7 +275,7 @@ mod tests {
         assert_eq!(soft_command.action_type(), ActionType::Soft);
 
         let hard_command = Action::RunCommand {
-            spec: CommandSpec::Array(ArrayCommandSpec {
+            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
                 command: vec!["cargo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -287,7 +287,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Tests failed".to_string()),
             background: false,
@@ -328,7 +328,7 @@ mod tests {
     fn test_conditional_action_hard_classification() {
         let conditional = Action::Conditional {
             if_condition: Condition::Check {
-                spec: CommandSpec::Array(ArrayCommandSpec {
+                spec: Box::new(CommandSpec::Array(Box::new(ArrayCommandSpec {
                     command: vec!["echo".to_string()],
                     args: Some(vec!["test".to_string()]),
                     working_dir: None,
@@ -340,7 +340,7 @@ mod tests {
                     merge_stderr: None,
                     on_success: None,
                     on_failure: None,
-                }),
+                }))),
                 expect_success: true,
             },
             then_action: Box::new(Action::BlockWithFeedback {
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn test_action_requirements() {
         let run_command = Action::RunCommand {
-            spec: CommandSpec::Array(ArrayCommandSpec {
+            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
                 command: vec!["test".to_string()],
                 args: None,
                 working_dir: None,
@@ -368,7 +368,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,

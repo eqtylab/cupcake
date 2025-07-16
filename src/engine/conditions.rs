@@ -73,7 +73,7 @@ impl ConditionEvaluator {
             Condition::Check {
                 spec,
                 expect_success,
-            } => self.evaluate_check(spec, *expect_success, context),
+            } => self.evaluate_check(spec.as_ref(), *expect_success, context),
             Condition::Not { condition } => self.evaluate_not(condition, context),
             Condition::And { conditions } => self.evaluate_and(conditions, context),
             Condition::Or { conditions } => self.evaluate_or(conditions, context),
@@ -416,7 +416,7 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -428,7 +428,7 @@ mod tests_disabled {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         };
 
@@ -442,7 +442,7 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["false".to_string()],
                 args: None,
                 working_dir: None,
@@ -454,7 +454,7 @@ mod tests_disabled {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         };
 
@@ -468,7 +468,7 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["false".to_string()],
                 args: None,
                 working_dir: None,
@@ -480,7 +480,7 @@ mod tests_disabled {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: false,
         };
 
@@ -494,7 +494,7 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["test".to_string()],
                 args: Some(vec!["{{tool_name}}".to_string(), "=".to_string(), "Bash".to_string()]),
                 working_dir: None,
@@ -506,7 +506,7 @@ mod tests_disabled {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         };
 
@@ -675,7 +675,7 @@ mod tests_disabled {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["{{tool_input.file_path}}".to_string()]),
                 working_dir: None,
@@ -689,7 +689,7 @@ mod tests_disabled {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         };
 

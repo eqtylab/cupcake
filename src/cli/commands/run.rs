@@ -1,6 +1,5 @@
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
-use crate::config::types::ComposedPolicy;
 use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
@@ -15,7 +14,6 @@ use std::io::{self, Read};
 /// Handler for the `run` command
 pub struct RunCommand {
     pub event: String,
-    pub timeout: u32,
     pub config: String,
     pub debug: bool,
 }
@@ -24,7 +22,6 @@ impl CommandHandler for RunCommand {
     fn execute(&self) -> Result<()> {
         if self.debug {
             eprintln!("Debug: Event: {}", self.event);
-            eprintln!("Debug: Timeout: {}s", self.timeout);
             eprintln!("Debug: Config file: {}", self.config);
         }
 
@@ -46,21 +43,21 @@ impl CommandHandler for RunCommand {
             eprintln!("Debug: Parsed hook event: {:?}", hook_event);
         }
 
-        // 2. Load policies from file(s)
-        let policies = match self.load_policies() {
-            Ok(policies) => policies,
+        // 2. Load configuration (settings and policies) from file(s)
+        let configuration = match self.load_configuration() {
+            Ok(config) => config,
             Err(e) => {
-                eprintln!("Error loading policies: {}", e);
+                eprintln!("Error loading configuration: {}", e);
                 if self.debug {
-                    eprintln!("Debug: Graceful degradation - allowing operation due to policy loading error");
+                    eprintln!("Debug: Graceful degradation - allowing operation due to configuration loading error");
                 }
                 std::process::exit(0); // Graceful degradation - allow operation
             }
         };
 
         if self.debug {
-            eprintln!("Debug: Loaded {} composed policies", policies.len());
-            for (i, policy) in policies.iter().enumerate() {
+            eprintln!("Debug: Loaded {} composed policies", configuration.policies.len());
+            for (i, policy) in configuration.policies.iter().enumerate() {
                 eprintln!(
                     "Debug: Policy {}: {} ({}:{})",
                     i, policy.name, policy.hook_event, policy.matcher
@@ -77,10 +74,10 @@ impl CommandHandler for RunCommand {
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
-        let mut action_executor = ActionExecutor::new();
+        let mut action_executor = ActionExecutor::with_settings(configuration.settings);
         
         let evaluation_result = match policy_evaluator.evaluate(
-            &policies,
+            &configuration.policies,
             &hook_event,
             &evaluation_context,
         ) {
@@ -137,7 +134,7 @@ impl CommandHandler for RunCommand {
 
         // Check if any action resulted in a block
         let mut final_decision = evaluation_result.decision.clone();
-        for (policy_name, result) in &action_results {
+        for (_policy_name, result) in &action_results {
             if let ActionResult::Block { feedback } = result {
                 // An action execution resulted in block - override the evaluation decision
                 final_decision = PolicyDecision::Block {
@@ -179,10 +176,9 @@ impl CommandHandler for RunCommand {
 
 impl RunCommand {
     /// Create new run command
-    pub fn new(event: String, timeout: u32, config: String, debug: bool) -> Self {
+    pub fn new(event: String, config: String, debug: bool) -> Self {
         Self {
             event,
-            timeout,
             config,
             debug,
         }
@@ -207,36 +203,38 @@ impl RunCommand {
             .map_err(|e| crate::CupcakeError::HookEvent(format!("Invalid JSON from stdin: {}", e)))
     }
 
-    /// Load policies using the new YAML composition engine
-    fn load_policies(&self) -> Result<Vec<ComposedPolicy>> {
+    /// Load configuration (settings and policies) using the new YAML composition engine
+    fn load_configuration(&self) -> Result<crate::config::loader::LoadedConfiguration> {
         let mut loader = PolicyLoader::new();
 
         if !self.config.is_empty() {
             // User specified a config file - load from that file
             let config_path = std::path::Path::new(&self.config);
-            let policies = loader.load_from_config_file(config_path)?;
+            let configuration = loader.load_configuration(config_path)?;
 
             if self.debug {
-                eprintln!("Debug: Loaded policies from config file: {}", self.config);
-                eprintln!("Debug: Found and composed {} policies", policies.len());
+                eprintln!("Debug: Loaded configuration from config file: {}", self.config);
+                eprintln!("Debug: Found and composed {} policies", configuration.policies.len());
+                eprintln!("Debug: Timeout setting: {}ms", configuration.settings.timeout_ms);
             }
 
-            Ok(policies)
+            Ok(configuration)
         } else {
             // No config specified - use auto-discovery
             let current_dir = std::env::current_dir().map_err(|e| {
                 crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
             })?;
 
-            let policies = loader.load_and_compose_policies(&current_dir)?;
+            let configuration = loader.load_configuration_from_directory(&current_dir)?;
 
             if self.debug {
-                eprintln!("Debug: Searched for YAML policies starting from:");
+                eprintln!("Debug: Searched for YAML configuration starting from:");
                 eprintln!("  - {}/guardrails/cupcake.yaml", current_dir.display());
-                eprintln!("Debug: Found and composed {} policies", policies.len());
+                eprintln!("Debug: Found and composed {} policies", configuration.policies.len());
+                eprintln!("Debug: Timeout setting: {}ms", configuration.settings.timeout_ms);
             }
 
-            Ok(policies)
+            Ok(configuration)
         }
     }
 
@@ -456,13 +454,11 @@ mod tests {
     fn test_run_command_creation() {
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
-            60,
             "".to_string(), // Auto-discovery mode
             false,
         );
 
         assert_eq!(cmd.event, "PreToolUse");
-        assert_eq!(cmd.timeout, 60);
         assert_eq!(cmd.config, ""); // Auto-discovery mode
         assert!(!cmd.debug);
         assert_eq!(cmd.name(), "run");
@@ -537,13 +533,12 @@ mod tests {
 
         let cmd = RunCommand::new(
             "PreToolUse".to_string(),
-            60,
             "".to_string(), // Auto-discovery mode
             false,
         );
 
         // This should fail since no guardrails/cupcake.yaml exists
-        let result = cmd.load_policies();
+        let result = cmd.load_configuration();
         assert!(result.is_err());
         assert!(result
             .unwrap_err()

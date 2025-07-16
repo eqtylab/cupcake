@@ -22,11 +22,10 @@ fn main() -> Result<()> {
         }
         Commands::Run {
             event,
-            timeout,
             config,
             debug,
         } => {
-            let command = RunCommand::new(event, timeout, config, debug);
+            let command = RunCommand::new(event, config, debug);
             command.execute()?;
         }
         Commands::Sync {

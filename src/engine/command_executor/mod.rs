@@ -12,7 +12,7 @@
 
 mod parser;
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec, EnvVar};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec};
 use crate::config::types::Settings;
 use crate::engine::audit::{AuditSinkImpl, create_default_sink};
 use parser::StringParser;
@@ -558,6 +558,7 @@ impl CommandExecutor {
         #[cfg(unix)]
         if command.program == "/bin/sh" && !self.settings.debug_mode {
             if let Some(sandbox_uid_str) = &self.settings.sandbox_uid {
+                #[allow(unused_imports)]
                 use std::os::unix::process::CommandExt;
                 
                 // Resolve UID from string (either numeric or username)
@@ -831,7 +832,7 @@ impl CommandExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::actions::{PipeCommand};
+    use crate::config::actions::{PipeCommand, EnvVar};
 
     fn create_template_vars() -> HashMap<String, String> {
         let mut vars = HashMap::new();

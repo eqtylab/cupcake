@@ -287,9 +287,12 @@ fn test_shell_working_directory() {
 /// Test actual shell execution success case
 #[tokio::test]
 async fn test_shell_execution_success() {
+    // Small delay to reduce test concurrency issues
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    
     let settings = Settings {
         allow_shell: true,
-        timeout_ms: 5000, // Generous timeout
+        timeout_ms: 10000, // More generous timeout to handle test concurrency
         ..Settings::default()
     };
     

@@ -343,3 +343,4 @@ fn test_cli_all_subcommands_exist() {
         );
     }
 }
+

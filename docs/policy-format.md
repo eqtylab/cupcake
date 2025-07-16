@@ -91,10 +91,18 @@ conditions:
 
 ### Command Execution
 
+Check conditions support three command modes:
+- `array`: Secure array-based execution (recommended)
+- `string`: Shell-like syntax parsed into secure commands
+- `shell`: Direct shell execution (requires `allow_shell: true`)
+
 ```yaml
 conditions:
   - type: "check"
-    command: "test -f package.json"
+    spec:
+      mode: array
+      command: ["test"]
+      args: ["-f", "package.json"]
     expect_success: true          # true = exit 0 means match
 ```
 
@@ -140,6 +148,19 @@ action:
 action:
   type: "approve"
   reason: "Pre-approved safe operation"
+```
+
+### Run Command
+
+```yaml
+action:
+  type: "run_command"
+  spec:
+    mode: array
+    command: ["cargo"]
+    args: ["fmt", "--all"]
+  on_failure: "continue"  # or "block"
+  timeout_seconds: 30
 ```
 
 ## Common Fields
@@ -210,7 +231,9 @@ PreToolUse:
           field: "tool_input.command"
           regex: "^git\\s+push"
         - type: "check"
-          command: "git diff --quiet && git diff --cached --quiet"
+          spec:
+            mode: string  # Shell-like syntax, parsed securely
+            command: "git diff --quiet && git diff --cached --quiet"
           expect_success: false
       action:
         type: "block_with_feedback"

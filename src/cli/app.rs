@@ -112,6 +112,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         config: String,
     },
+
 }
 
 impl Commands {
@@ -312,5 +313,7 @@ mod tests {
         assert!(!sync_cmd.requires_policy_file());
         assert!(sync_cmd.modifies_files());
         assert!(sync_cmd.requires_permissions());
+
     }
+
 }

@@ -1,5 +1,5 @@
 use cupcake::config::{
-    actions::{Action, OnFailureBehavior},
+    actions::Action,
     conditions::Condition,
     types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig, Settings, YamlPolicy},
 };
@@ -11,6 +11,9 @@ fn test_root_config_yaml_serialization() {
         settings: Settings {
             audit_logging: true,
             debug_mode: false,
+            allow_shell: false,
+            timeout_ms: 30000,
+            sandbox_uid: None,
         },
         imports: vec![
             "policies/*.yaml".to_string(),

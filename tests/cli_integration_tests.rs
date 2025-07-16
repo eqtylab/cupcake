@@ -1,10 +1,43 @@
 use std::process::Command;
+use std::sync::Once;
 use tempfile::tempdir;
+
+// Ensure we only build the binary once for all tests
+static BUILD_ONCE: Once = Once::new();
+static mut BINARY_PATH: Option<String> = None;
+
+fn get_cupcake_binary() -> String {
+    unsafe {
+        BUILD_ONCE.call_once(|| {
+            // Build the binary
+            let output = Command::new("cargo")
+                .args(&["build"])
+                .output()
+                .expect("Failed to build cupcake");
+            
+            if !output.status.success() {
+                panic!("Failed to build cupcake binary: {}", String::from_utf8_lossy(&output.stderr));
+            }
+            
+            let path = std::env::current_dir()
+                .unwrap()
+                .join("target")
+                .join("debug")
+                .join("cupcake");
+            
+            BINARY_PATH = Some(path.to_string_lossy().to_string());
+        });
+        
+        BINARY_PATH.clone().unwrap()
+    }
+}
 
 #[test]
 fn test_cli_help_command() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .arg("--help")
         .output()
         .expect("Failed to execute cupcake --help");
 
@@ -20,13 +53,12 @@ fn test_cli_help_command() {
 
 #[test]
 fn test_cli_init_command() {
+    let cupcake_binary = get_cupcake_binary();
     let temp_dir = tempdir().unwrap();
     let output_dir = temp_dir.path().join("test-guardrails");
 
-    let output = Command::new("cargo")
+    let output = Command::new(&cupcake_binary)
         .args(&[
-            "run",
-            "--",
             "init",
             "--output",
             output_dir.to_str().unwrap(),
@@ -43,8 +75,10 @@ fn test_cli_init_command() {
 
 #[test]
 fn test_cli_run_command() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "run", "--event", "PreToolUse", "--debug"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["run", "--event", "PreToolUse", "--debug"])
         .output()
         .expect("Failed to execute cupcake run");
 
@@ -58,8 +92,10 @@ fn test_cli_run_command() {
 
 #[test]
 fn test_cli_sync_command() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "sync", "--dry-run"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["sync", "--dry-run"])
         .output()
         .expect("Failed to execute cupcake sync");
 
@@ -71,19 +107,7 @@ fn test_cli_sync_command() {
 #[test]
 fn test_cli_validate_command() {
     let temp_dir = tempdir().unwrap();
-    
-    // First build the binary in the source directory
-    let build_output = Command::new("cargo")
-        .args(&["build"])
-        .output()
-        .expect("Failed to build cupcake");
-    
-    if !build_output.status.success() {
-        panic!("Failed to build cupcake: {}", String::from_utf8_lossy(&build_output.stderr));
-    }
-    
-    // Now run the binary from the temp directory
-    let cupcake_binary = std::env::current_dir().unwrap().join("target").join("debug").join("cupcake");
+    let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
         .args(&["validate", "--strict"])
@@ -104,8 +128,10 @@ fn test_cli_validate_command() {
 
 #[test]
 fn test_cli_audit_command() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "audit", "--tail", "10", "--format", "json"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["audit", "--tail", "10", "--format", "json"])
         .output()
         .expect("Failed to execute cupcake audit");
 
@@ -116,13 +142,12 @@ fn test_cli_audit_command() {
 
 #[test]
 fn test_cli_init_with_verbose() {
+    let cupcake_binary = get_cupcake_binary();
     let temp_dir = tempdir().unwrap();
     let output_dir = temp_dir.path().join("verbose-test-guardrails");
 
-    let output = Command::new("cargo")
+    let output = Command::new(&cupcake_binary)
         .args(&[
-            "run",
-            "--",
             "init",
             "--output",
             output_dir.to_str().unwrap(),
@@ -139,10 +164,10 @@ fn test_cli_init_with_verbose() {
 
 #[test]
 fn test_cli_run_with_debug() {
-    let output = Command::new("cargo")
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
         .args(&[
-            "run",
-            "--",
             "run",
             "--event",
             "PostToolUse",
@@ -160,8 +185,10 @@ fn test_cli_run_with_debug() {
 
 #[test]
 fn test_cli_sync_with_force() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "sync", "--force", "--dry-run"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["sync", "--force", "--dry-run"])
         .output()
         .expect("Failed to execute cupcake sync --force");
 
@@ -173,18 +200,7 @@ fn test_cli_sync_with_force() {
 #[test]
 fn test_cli_validate_with_format() {
     let temp_dir = tempdir().unwrap();
-    
-    // Build binary
-    let build_output = Command::new("cargo")
-        .args(&["build"])
-        .output()
-        .expect("Failed to build cupcake");
-    
-    if !build_output.status.success() {
-        panic!("Failed to build cupcake: {}", String::from_utf8_lossy(&build_output.stderr));
-    }
-    
-    let cupcake_binary = std::env::current_dir().unwrap().join("target").join("debug").join("cupcake");
+    let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
         .args(&["validate", "--format", "json"])
@@ -203,10 +219,10 @@ fn test_cli_validate_with_format() {
 
 #[test]
 fn test_cli_audit_with_filters() {
-    let output = Command::new("cargo")
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
         .args(&[
-            "run",
-            "--",
             "audit",
             "--session",
             "test-session",
@@ -225,20 +241,34 @@ fn test_cli_audit_with_filters() {
 
 #[test]
 fn test_cli_invalid_command() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "invalid-command"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .arg("invalid-command")
         .output()
         .expect("Failed to execute cupcake with invalid command");
 
-    assert!(!output.status.success());
+    assert!(!output.status.success(), "Command should have failed");
+    
     let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("error") || stderr.contains("unrecognized"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    
+    // More robust check - error message might be in stdout or stderr
+    let combined = format!("{}{}", stderr, stdout);
+    assert!(
+        combined.contains("error") || combined.contains("unrecognized"),
+        "Expected 'error' or 'unrecognized' in output.\nStderr: {}\nStdout: {}",
+        stderr,
+        stdout
+    );
 }
 
 #[test]
 fn test_cli_missing_required_args() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "run"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["run"])
         .output()
         .expect("Failed to execute cupcake run without required args");
 
@@ -249,8 +279,10 @@ fn test_cli_missing_required_args() {
 
 #[test]
 fn test_cli_version() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "--version"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .arg("--version")
         .output()
         .expect("Failed to execute cupcake --version");
 
@@ -261,8 +293,10 @@ fn test_cli_version() {
 
 #[test]
 fn test_cli_default_values() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "run", "--event", "PreToolUse", "--debug"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["run", "--event", "PreToolUse", "--debug"])
         .output()
         .expect("Failed to execute cupcake run with defaults");
 
@@ -273,8 +307,10 @@ fn test_cli_default_values() {
 
 #[test]
 fn test_cli_init_default_output() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "init", "--yes"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["init", "--yes"])
         .output()
         .expect("Failed to execute cupcake init with default output");
 
@@ -285,18 +321,7 @@ fn test_cli_init_default_output() {
 #[test]
 fn test_cli_validate_default_file() {
     let temp_dir = tempdir().unwrap();
-    
-    // Build binary
-    let build_output = Command::new("cargo")
-        .args(&["build"])
-        .output()
-        .expect("Failed to build cupcake");
-    
-    if !build_output.status.success() {
-        panic!("Failed to build cupcake: {}", String::from_utf8_lossy(&build_output.stderr));
-    }
-    
-    let cupcake_binary = std::env::current_dir().unwrap().join("target").join("debug").join("cupcake");
+    let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
         .args(&["validate"])
@@ -315,8 +340,10 @@ fn test_cli_validate_default_file() {
 
 #[test]
 fn test_cli_audit_default_format() {
-    let output = Command::new("cargo")
-        .args(&["run", "--", "audit", "--tail", "5"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .args(&["audit", "--tail", "5"])
         .output()
         .expect("Failed to execute cupcake audit with default format");
 
@@ -327,8 +354,10 @@ fn test_cli_audit_default_format() {
 #[test]
 fn test_cli_all_subcommands_exist() {
     // Test that all expected subcommands are available
-    let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+    let cupcake_binary = get_cupcake_binary();
+    
+    let output = Command::new(&cupcake_binary)
+        .arg("--help")
         .output()
         .expect("Failed to execute cupcake --help");
 

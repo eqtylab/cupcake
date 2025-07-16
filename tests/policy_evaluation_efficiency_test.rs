@@ -1,6 +1,37 @@
 use std::process::Command;
+use std::sync::Once;
 use tempfile::NamedTempFile;
 use std::io::Write;
+
+// Ensure we only build the binary once for all tests
+static BUILD_ONCE: Once = Once::new();
+static mut BINARY_PATH: Option<String> = None;
+
+fn get_cupcake_binary() -> String {
+    unsafe {
+        BUILD_ONCE.call_once(|| {
+            // Build the binary
+            let output = Command::new("cargo")
+                .args(&["build"])
+                .output()
+                .expect("Failed to build cupcake");
+            
+            if !output.status.success() {
+                panic!("Failed to build cupcake binary: {}", String::from_utf8_lossy(&output.stderr));
+            }
+            
+            let path = std::env::current_dir()
+                .unwrap()
+                .join("target")
+                .join("debug")
+                .join("cupcake");
+            
+            BINARY_PATH = Some(path.to_string_lossy().to_string());
+        });
+        
+        BINARY_PATH.clone().unwrap()
+    }
+}
 
 #[test]
 fn test_policy_evaluation_occurs_only_once_per_policy() {
@@ -32,8 +63,9 @@ PreToolUse:
     let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
 
     // Run cupcake with debug logging, piping hook event to stdin
-    let mut child = Command::new("cargo")
-        .args(&["run", "--", "run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
+        .args(&["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
         .env("RUST_LOG", "debug")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -80,8 +112,9 @@ PreToolUse:
     let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
 
     // Run cupcake with debug logging
-    let mut child = Command::new("cargo")
-        .args(&["run", "--", "run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
+        .args(&["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
         .env("RUST_LOG", "debug")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -163,8 +196,9 @@ PreToolUse:
     let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "tool_name": "Bash", "tool_input": {"command": "echo hello world"}}"#;
 
     // Run cupcake with debug logging
-    let mut child = Command::new("cargo")
-        .args(&["run", "--", "run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
+        .args(&["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
         .env("RUST_LOG", "debug")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

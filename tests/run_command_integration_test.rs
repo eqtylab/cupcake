@@ -1,5 +1,36 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::sync::Once;
+
+// Ensure we only build the binary once for all tests
+static BUILD_ONCE: Once = Once::new();
+static mut BINARY_PATH: Option<String> = None;
+
+fn get_cupcake_binary() -> String {
+    unsafe {
+        BUILD_ONCE.call_once(|| {
+            // Build the binary
+            let output = Command::new("cargo")
+                .args(&["build"])
+                .output()
+                .expect("Failed to build cupcake");
+            
+            if !output.status.success() {
+                panic!("Failed to build cupcake binary: {}", String::from_utf8_lossy(&output.stderr));
+            }
+            
+            let path = std::env::current_dir()
+                .unwrap()
+                .join("target")
+                .join("debug")
+                .join("cupcake");
+            
+            BINARY_PATH = Some(path.to_string_lossy().to_string());
+        });
+        
+        BINARY_PATH.clone().unwrap()
+    }
+}
 
 #[test]
 fn test_run_command_stdin_parsing() {
@@ -17,19 +48,24 @@ fn test_run_command_stdin_parsing() {
     }
     "#;
 
-    let mut child = Command::new("cargo")
-        .args(["run", "--", "run", "--debug", "--event", "PreToolUse"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
+        .args(["run", "--debug", "--event", "PreToolUse"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to spawn cupcake run command");
 
-    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    stdin
-        .write_all(hook_event_json.as_bytes())
-        .expect("Failed to write to stdin");
-    child.stdin.take(); // Close stdin to signal end of input
+    // Write to stdin and explicitly close it
+    {
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        stdin
+            .write_all(hook_event_json.as_bytes())
+            .expect("Failed to write to stdin");
+        stdin.flush().expect("Failed to flush stdin");
+    }
+    // stdin is dropped here, which closes the pipe
 
     let output = child
         .wait_with_output()
@@ -101,10 +137,9 @@ PreToolUse:
     }
     "#;
 
-    let mut child = Command::new("cargo")
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
         .args([
-            "run",
-            "--",
             "run",
             "--debug",
             "--event",
@@ -118,11 +153,14 @@ PreToolUse:
         .spawn()
         .expect("Failed to spawn cupcake run command");
 
-    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    stdin
-        .write_all(hook_event_json.as_bytes())
-        .expect("Failed to write to stdin");
-    child.stdin.take();
+    // Write to stdin and explicitly close it
+    {
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        stdin
+            .write_all(hook_event_json.as_bytes())
+            .expect("Failed to write to stdin");
+        stdin.flush().expect("Failed to flush stdin");
+    }
 
     let output = child
         .wait_with_output()
@@ -159,10 +197,8 @@ PreToolUse:
     }
     "#;
 
-    let mut child2 = Command::new("cargo")
+    let mut child2 = Command::new(&cupcake_binary)
         .args([
-            "run",
-            "--",
             "run",
             "--debug",
             "--event",
@@ -176,11 +212,14 @@ PreToolUse:
         .spawn()
         .expect("Failed to spawn cupcake run command");
 
-    let stdin2 = child2.stdin.as_mut().expect("Failed to open stdin");
-    stdin2
-        .write_all(safe_command_json.as_bytes())
-        .expect("Failed to write to stdin");
-    child2.stdin.take();
+    // Write to stdin and explicitly close it
+    {
+        let stdin2 = child2.stdin.as_mut().expect("Failed to open stdin");
+        stdin2
+            .write_all(safe_command_json.as_bytes())
+            .expect("Failed to write to stdin");
+        stdin2.flush().expect("Failed to flush stdin");
+    }
 
     let output2 = child2
         .wait_with_output()
@@ -213,19 +252,23 @@ fn test_run_command_invalid_json() {
     }
     "#;
 
-    let mut child = Command::new("cargo")
-        .args(["run", "--", "run", "--debug", "--event", "PreToolUse"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
+        .args(["run", "--debug", "--event", "PreToolUse"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to spawn cupcake run command");
 
-    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    stdin
-        .write_all(invalid_json.as_bytes())
-        .expect("Failed to write to stdin");
-    child.stdin.take(); // Close stdin to signal end of input
+    // Write to stdin and explicitly close it
+    {
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        stdin
+            .write_all(invalid_json.as_bytes())
+            .expect("Failed to write to stdin");
+        stdin.flush().expect("Failed to flush stdin");
+    }
 
     let output = child
         .wait_with_output()
@@ -247,8 +290,9 @@ fn test_run_command_invalid_json() {
 #[test]
 fn test_run_command_empty_stdin() {
     // Test that the run command handles empty stdin gracefully
-    let mut child = Command::new("cargo")
-        .args(["run", "--", "run", "--debug", "--event", "PreToolUse"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut child = Command::new(&cupcake_binary)
+        .args(["run", "--debug", "--event", "PreToolUse"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

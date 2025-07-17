@@ -240,13 +240,16 @@ impl ActionExecutor {
         on_failure: &crate::config::actions::OnFailureBehavior,
         on_failure_feedback: Option<&str>,
         background: bool,
-        _timeout_seconds: u32,
+        timeout_seconds: u32,
         context: &ActionContext,
     ) -> ActionResult {
-        // Create secure CommandExecutor with template variables and settings
+        // Create secure CommandExecutor with template variables and action-level timeout
+        let mut action_settings = self.settings.clone();
+        action_settings.timeout_ms = (timeout_seconds as u64) * 1000;
+        
         let command_executor = crate::engine::command_executor::CommandExecutor::with_settings(
             context.template_vars.clone(),
-            self.settings.clone()
+            action_settings
         );
 
         // Build secure CommandGraph 
@@ -275,7 +278,6 @@ impl ActionExecutor {
         };
 
         let execution_result = rt.block_on(async {
-            // TODO: Add timeout support in future phase
             command_executor.execute_graph(&graph).await
         });
 

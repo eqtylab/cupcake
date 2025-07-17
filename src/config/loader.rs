@@ -57,41 +57,33 @@ impl PolicyLoader {
             ))
         })?;
 
-        // If the YAML has 'settings' or 'imports' as top-level keys, it's a RootConfig
-        if content.contains("settings:") || content.contains("imports:") {
-            match serde_yaml_ng::from_str::<RootConfig>(&content) {
-                Ok(root_config) => {
-                    let settings = root_config.settings.clone();
-                    let policies = self.load_from_root_config(root_config, config_path)?;
-                    Ok(LoadedConfiguration {
-                        settings,
-                        policies,
-                    })
-                }
-                Err(e) => {
-                    Err(CupcakeError::Config(format!(
-                        "Config file {} appears to be a RootConfig but failed to parse: {}",
-                        config_path.display(),
-                        e
-                    )))
-                }
+        // Try parsing as RootConfig first, then fall back to PolicyFragment
+        match serde_yaml_ng::from_str::<RootConfig>(&content) {
+            Ok(root_config) => {
+                let settings = root_config.settings.clone();
+                let policies = self.load_from_root_config(root_config, config_path)?;
+                Ok(LoadedConfiguration {
+                    settings,
+                    policies,
+                })
             }
-        } else {
-            // PolicyFragment - use default settings
-            match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
-                Ok(fragment) => {
-                    let policies = self.load_from_policy_fragment(fragment)?;
-                    Ok(LoadedConfiguration {
-                        settings: Settings::default(),
-                        policies,
-                    })
-                }
-                Err(e) => {
-                    Err(CupcakeError::Config(format!(
-                        "Config file {} appears to be a PolicyFragment but failed to parse: {}",
-                        config_path.display(),
-                        e
-                    )))
+            Err(_) => {
+                // Failed as RootConfig, try as PolicyFragment
+                match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                    Ok(fragment) => {
+                        let policies = self.load_from_policy_fragment(fragment)?;
+                        Ok(LoadedConfiguration {
+                            settings: Settings::default(),
+                            policies,
+                        })
+                    }
+                    Err(e) => {
+                        Err(CupcakeError::Config(format!(
+                            "Config file {} could not be parsed as either RootConfig or PolicyFragment: {}",
+                            config_path.display(),
+                            e
+                        )))
+                    }
                 }
             }
         }
@@ -130,35 +122,24 @@ impl PolicyLoader {
             ))
         })?;
 
-        // Determine format by checking for RootConfig-specific keys
-        // If the YAML has 'settings' or 'imports' as top-level keys, it's a RootConfig
-        // Otherwise, try to parse as PolicyFragment (which has HookEvent keys)
-        if content.contains("settings:") || content.contains("imports:") {
-            // Try to parse as RootConfig
-            match serde_yaml_ng::from_str::<RootConfig>(&content) {
-                Ok(root_config) => {
-                    return self.load_from_root_config(root_config, config_path);
-                }
-                Err(e) => {
-                    return Err(CupcakeError::Config(format!(
-                        "Config file {} appears to be a RootConfig but failed to parse: {}",
-                        config_path.display(),
-                        e
-                    )));
-                }
+        // Try parsing as RootConfig first, then fall back to PolicyFragment
+        match serde_yaml_ng::from_str::<RootConfig>(&content) {
+            Ok(root_config) => {
+                self.load_from_root_config(root_config, config_path)
             }
-        } else {
-            // Try to parse as PolicyFragment
-            match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
-                Ok(fragment) => {
-                    return self.load_from_policy_fragment(fragment);
-                }
-                Err(e) => {
-                    return Err(CupcakeError::Config(format!(
-                        "Config file {} appears to be a PolicyFragment but failed to parse: {}",
-                        config_path.display(),
-                        e
-                    )));
+            Err(_) => {
+                // Failed as RootConfig, try as PolicyFragment
+                match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                    Ok(fragment) => {
+                        self.load_from_policy_fragment(fragment)
+                    }
+                    Err(e) => {
+                        Err(CupcakeError::Config(format!(
+                            "Config file {} could not be parsed as either RootConfig or PolicyFragment: {}",
+                            config_path.display(),
+                            e
+                        )))
+                    }
                 }
             }
         }
@@ -841,7 +822,7 @@ imports:
         
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("failed to parse"));
+        assert!(error_msg.contains("could not be parsed"));
     }
 
     #[test]

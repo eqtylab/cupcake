@@ -31,7 +31,7 @@ pub struct Settings {
     pub sandbox_uid: Option<String>,
 }
 
-fn default_timeout_ms() -> u64 {
+pub fn default_timeout_ms() -> u64 {
     30000 // 30 seconds
 }
 

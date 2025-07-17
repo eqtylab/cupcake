@@ -130,7 +130,7 @@ impl PolicyLoader {
                 let has_non_default_settings = root_config.settings.audit_logging 
                     || root_config.settings.debug_mode 
                     || root_config.settings.allow_shell 
-                    || root_config.settings.timeout_ms != 30000 
+                    || root_config.settings.timeout_ms != crate::config::types::default_timeout_ms() 
                     || root_config.settings.sandbox_uid.is_some();
                 
                 if has_imports || has_non_default_settings {

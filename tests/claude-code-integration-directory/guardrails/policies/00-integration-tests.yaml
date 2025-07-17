@@ -61,15 +61,18 @@ PreToolUse:
         include_context: false
 
   "Write|Edit":
-    # Test 4: PostToolUse feedback for file operations
-    - name: "Python File Best Practices"
+    # Test 8: JSX Component Standards - hard block for testing
+    - name: "JSX Component Standards"
       conditions:
         - type: "pattern"
           field: "tool_input.file_path"
-          regex: "\\.py$"
+          regex: "\\.(jsx|tsx)$"
+        - type: "pattern"
+          field: "tool_input.new_string"
+          regex: "<button\\b"
       action:
-        type: "provide_feedback"
-        message: "🐍 Python file modified. Remember to run black for formatting and mypy for type checking!"
+        type: "block_with_feedback"
+        feedback_message: "🚫 Use <Button> component instead of <button> in JSX files. Import from your component library."
         include_context: false
 
 # Test 2: PostToolUse soft feedback - Claude sees this!
@@ -83,4 +86,16 @@ PostToolUse:
       action:
         type: "provide_feedback"
         message: "💡 Consider using printf instead of echo for better portability across different shells."
+        include_context: false
+
+  "Write|Edit":
+    # Test 4: PostToolUse feedback for file operations - Claude sees this!
+    - name: "Python File Best Practices"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.file_path"
+          regex: "\\.py$"
+      action:
+        type: "provide_feedback"
+        message: "🐍 Python file modified. Remember to run black for formatting and mypy for type checking!"
         include_context: false

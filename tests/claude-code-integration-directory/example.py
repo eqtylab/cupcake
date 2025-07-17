@@ -6,6 +6,7 @@ This file should be safe to read and edit.
 
 def test_cupcake():
     """Test function to verify Cupcake is working."""
+    # Manual test comment added
     print("✅ Cupcake integration test!")
     return True
 

@@ -125,7 +125,31 @@ impl PolicyLoader {
         // Try parsing as RootConfig first, then fall back to PolicyFragment
         match serde_yaml_ng::from_str::<RootConfig>(&content) {
             Ok(root_config) => {
-                self.load_from_root_config(root_config, config_path)
+                // Check if this is actually a meaningful RootConfig (has imports or non-default settings)
+                let has_imports = !root_config.imports.is_empty();
+                let has_non_default_settings = root_config.settings.audit_logging 
+                    || root_config.settings.debug_mode 
+                    || root_config.settings.allow_shell 
+                    || root_config.settings.timeout_ms != 30000 
+                    || root_config.settings.sandbox_uid.is_some();
+                
+                if has_imports || has_non_default_settings {
+                    self.load_from_root_config(root_config, config_path)
+                } else {
+                    // This looks like a PolicyFragment that just happened to parse as RootConfig
+                    match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                        Ok(fragment) => {
+                            self.load_from_policy_fragment(fragment)
+                        }
+                        Err(e) => {
+                            Err(CupcakeError::Config(format!(
+                                "Config file {} could not be parsed as PolicyFragment: {}",
+                                config_path.display(),
+                                e
+                            )))
+                        }
+                    }
+                }
             }
             Err(_) => {
                 // Failed as RootConfig, try as PolicyFragment

@@ -558,9 +558,6 @@ impl CommandExecutor {
         #[cfg(unix)]
         if command.program == "/bin/sh" && !self.settings.debug_mode {
             if let Some(sandbox_uid_str) = &self.settings.sandbox_uid {
-                #[allow(unused_imports)]
-                use std::os::unix::process::CommandExt;
-                
                 // Resolve UID from string (either numeric or username)
                 let uid = self.resolve_uid(sandbox_uid_str)?;
                 cmd.uid(uid);

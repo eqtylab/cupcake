@@ -179,7 +179,7 @@ impl ActionExecutor {
                 on_failure,
                 on_failure_feedback.as_deref(),
                 *background,
-                timeout_seconds.unwrap_or((self.settings.timeout_ms / 1000) as u32),
+                timeout_seconds.unwrap_or(std::cmp::max(1, (self.settings.timeout_ms + 999) / 1000) as u32),
                 context,
             ),
             Action::UpdateState { event, data, .. } => {

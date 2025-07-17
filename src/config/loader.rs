@@ -126,14 +126,7 @@ impl PolicyLoader {
         match serde_yaml_ng::from_str::<RootConfig>(&content) {
             Ok(root_config) => {
                 // Check if this is actually a meaningful RootConfig (has imports or non-default settings)
-                let has_imports = !root_config.imports.is_empty();
-                let has_non_default_settings = root_config.settings.audit_logging 
-                    || root_config.settings.debug_mode 
-                    || root_config.settings.allow_shell 
-                    || root_config.settings.timeout_ms != crate::config::types::default_timeout_ms() 
-                    || root_config.settings.sandbox_uid.is_some();
-                
-                if has_imports || has_non_default_settings {
+                if root_config.has_meaningful_content() {
                     self.load_from_root_config(root_config, config_path)
                 } else {
                     // This looks like a PolicyFragment that just happened to parse as RootConfig

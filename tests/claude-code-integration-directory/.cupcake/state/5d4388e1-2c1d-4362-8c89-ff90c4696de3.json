@@ -1,0 +1,142 @@
+{
+  "session_id": "5d4388e1-2c1d-4362-8c89-ff90c4696de3",
+  "created_at": "2025-07-17T16:25:47.952738Z",
+  "updated_at": "2025-07-17T16:28:38.997455Z",
+  "entries": [
+    {
+      "timestamp": "2025-07-17T16:25:47.952730Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "description": "Print hello world to console",
+          "command": "echo \"hello world\""
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "hello world"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-17T16:26:17.127215Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "description": "Print hello world using printf",
+          "command": "printf \"hello world\\n\""
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "hello world"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-17T16:26:38.792060Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Read",
+        "input": {
+          "file_path": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/README.md"
+        },
+        "success": true,
+        "output": {
+          "file": {
+            "content": "# Cupcake Integration Test Directory\n\nThis directory is used for testing Cupcake integration with Claude Code.\n\n## Test Files\n\n- `README.md` - This file (for testing Read tool feedback)\n- `sample.json` - Sample JSON file \n- `example.py` - Sample Python file\n\n## What to Test\n\n1. `echo \"hello\"` - Should get feedback but work\n2. `cat README.md` - Should be blocked\n3. Ask Claude to read this README.md - Should get feedback\n4. Ask Claude to create a .txt file - Should be blocked\n",
+            "filePath": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/README.md",
+            "numLines": 17,
+            "startLine": 1,
+            "totalLines": 17
+          },
+          "type": "text"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-17T16:27:15.893731Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "command": "clear",
+          "description": "Clear the terminal screen"
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "\u001b[3J\u001b[H\u001b[2J"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-17T16:28:07.119540Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Read",
+        "input": {
+          "file_path": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/example.py"
+        },
+        "success": true,
+        "output": {
+          "file": {
+            "content": "#!/usr/bin/env python3\n\"\"\"\nExample Python file for Cupcake integration testing.\nThis file should be safe to read and edit.\n\"\"\"\n\ndef test_cupcake():\n    \"\"\"Test function to verify Cupcake is working.\"\"\"\n    print(\"✅ Cupcake integration test!\")\n    return True\n\nif __name__ == \"__main__\":\n    test_cupcake()",
+            "filePath": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/example.py",
+            "numLines": 13,
+            "startLine": 1,
+            "totalLines": 13
+          },
+          "type": "text"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-17T16:28:38.997408Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Edit",
+        "input": {
+          "replace_all": false,
+          "new_string": "def test_cupcake():\n    \"\"\"Test function to verify Cupcake is working.\"\"\"\n    # Manual test comment added\n    print(\"✅ Cupcake integration test!\")\n    return True",
+          "file_path": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/example.py",
+          "old_string": "def test_cupcake():\n    \"\"\"Test function to verify Cupcake is working.\"\"\"\n    print(\"✅ Cupcake integration test!\")\n    return True"
+        },
+        "success": true,
+        "output": {
+          "filePath": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/example.py",
+          "newString": "def test_cupcake():\n    \"\"\"Test function to verify Cupcake is working.\"\"\"\n    # Manual test comment added\n    print(\"✅ Cupcake integration test!\")\n    return True",
+          "oldString": "def test_cupcake():\n    \"\"\"Test function to verify Cupcake is working.\"\"\"\n    print(\"✅ Cupcake integration test!\")\n    return True",
+          "originalFile": "#!/usr/bin/env python3\n\"\"\"\nExample Python file for Cupcake integration testing.\nThis file should be safe to read and edit.\n\"\"\"\n\ndef test_cupcake():\n    \"\"\"Test function to verify Cupcake is working.\"\"\"\n    print(\"✅ Cupcake integration test!\")\n    return True\n\nif __name__ == \"__main__\":\n    test_cupcake()",
+          "replaceAll": false,
+          "structuredPatch": [
+            {
+              "lines": [
+                " ",
+                " def test_cupcake():",
+                "     \"\"\"Test function to verify Cupcake is working.\"\"\"",
+                "+    # Manual test comment added",
+                "     print(\"✅ Cupcake integration test!\")",
+                "     return True",
+                " "
+              ],
+              "newLines": 7,
+              "newStart": 6,
+              "oldLines": 6,
+              "oldStart": 6
+            }
+          ],
+          "userModified": false
+        }
+      }
+    }
+  ]
+}

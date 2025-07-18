@@ -134,12 +134,23 @@ pub struct CommandOutput {
 }
 
 /// Action executor
-pub struct ActionExecutor {}
+pub struct ActionExecutor {
+    settings: crate::config::types::Settings,
+}
 
 impl ActionExecutor {
     /// Create new action executor
     pub fn new() -> Self {
-        Self {}
+        Self {
+            settings: crate::config::types::Settings::default(),
+        }
+    }
+    
+    /// Create new action executor with settings
+    pub fn with_settings(settings: crate::config::types::Settings) -> Self {
+        Self {
+            settings,
+        }
     }
 
     /// Execute an action with the given context and optional state manager
@@ -168,7 +179,7 @@ impl ActionExecutor {
                 on_failure,
                 on_failure_feedback.as_deref(),
                 *background,
-                timeout_seconds.unwrap_or(30),
+                timeout_seconds.unwrap_or(std::cmp::max(1, (self.settings.timeout_ms + 999) / 1000) as u32),
                 context,
             ),
             Action::UpdateState { event, data, .. } => {
@@ -232,9 +243,13 @@ impl ActionExecutor {
         timeout_seconds: u32,
         context: &ActionContext,
     ) -> ActionResult {
-        // Create secure CommandExecutor with template variables
-        let command_executor = crate::engine::command_executor::CommandExecutor::new(
-            context.template_vars.clone()
+        // Create secure CommandExecutor with template variables and action-level timeout
+        let mut action_settings = self.settings.clone();
+        action_settings.timeout_ms = (timeout_seconds as u64) * 1000;
+        
+        let command_executor = crate::engine::command_executor::CommandExecutor::with_settings(
+            context.template_vars.clone(),
+            action_settings
         );
 
         // Build secure CommandGraph 
@@ -263,7 +278,6 @@ impl ActionExecutor {
         };
 
         let execution_result = rt.block_on(async {
-            // TODO: Add timeout support in future phase
             command_executor.execute_graph(&graph).await
         });
 
@@ -479,7 +493,7 @@ mod tests {
         assert!(approve_action.is_hard_action());
 
         let soft_command = Action::RunCommand {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -491,7 +505,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,
@@ -501,7 +515,7 @@ mod tests {
         assert!(!soft_command.is_hard_action());
 
         let hard_command = Action::RunCommand {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["cargo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -513,7 +527,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Tests failed".to_string()),
             background: false,
@@ -711,7 +725,7 @@ mod tests {
 
         // Use a simple true command that should succeed on most systems
         let action = Action::RunCommand {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["true".to_string()],
                 args: None,
                 working_dir: None,
@@ -723,7 +737,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: None,
             background: false,
@@ -755,7 +769,7 @@ mod tests {
 
         // Use a command that should fail
         let action = Action::RunCommand {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["false".to_string()], // Command that always fails
                 args: None,
                 working_dir: None,
@@ -767,7 +781,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Custom failure message".to_string()),
             background: false,
@@ -798,7 +812,7 @@ mod tests {
 
         // Use a command that should fail but continue
         let action = Action::RunCommand {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["false".to_string()], // Command that always fails
                 args: None,
                 working_dir: None,
@@ -810,7 +824,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Continue,
             on_failure_feedback: None,
             background: false,
@@ -843,7 +857,7 @@ mod tests {
 
         // Use template variables in command
         let action = Action::RunCommand {
-            spec: crate::config::actions::CommandSpec::Array(crate::config::actions::ArrayCommandSpec {
+            spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["{{tool_input.file_path}}".to_string()]),
                 working_dir: None,
@@ -855,7 +869,7 @@ mod tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: None,
             background: false,

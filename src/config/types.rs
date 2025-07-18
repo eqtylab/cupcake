@@ -31,7 +31,7 @@ pub struct Settings {
     pub sandbox_uid: Option<String>,
 }
 
-fn default_timeout_ms() -> u64 {
+pub fn default_timeout_ms() -> u64 {
     30000 // 30 seconds
 }
 
@@ -44,6 +44,17 @@ impl Default for Settings {
             timeout_ms: default_timeout_ms(),
             sandbox_uid: None,
         }
+    }
+}
+
+impl Settings {
+    /// Check if settings have non-default values
+    pub fn has_non_default_values(&self) -> bool {
+        self.audit_logging 
+            || self.debug_mode 
+            || self.allow_shell 
+            || self.timeout_ms != default_timeout_ms() 
+            || self.sandbox_uid.is_some()
     }
 }
 
@@ -94,6 +105,13 @@ impl Default for RootConfig {
             settings: Settings::default(),
             imports: vec!["policies/*.yaml".to_string()],
         }
+    }
+}
+
+impl RootConfig {
+    /// Check if this is a meaningful RootConfig (not just default values)
+    pub fn has_meaningful_content(&self) -> bool {
+        !self.imports.is_empty() || self.settings.has_non_default_values()
     }
 }
 

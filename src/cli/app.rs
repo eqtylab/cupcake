@@ -36,10 +36,6 @@ pub enum Commands {
         #[arg(long)]
         event: String,
 
-        /// Timeout in seconds for policy evaluation
-        #[arg(long, default_value = "60")]
-        timeout: u32,
-
         /// Configuration file path (automatically discovered from guardrails/cupcake.yaml)
         #[arg(long, default_value = "")]
         config: String,
@@ -174,12 +170,10 @@ mod tests {
         match cli.command {
             Commands::Run {
                 event,
-                timeout,
                 config,
                 debug,
             } => {
                 assert_eq!(event, "PreToolUse");
-                assert_eq!(timeout, 60);
                 assert_eq!(config, ""); // Auto-discovery mode
                 assert!(!debug);
             }
@@ -293,7 +287,6 @@ mod tests {
 
         let run_cmd = Commands::Run {
             event: "PreToolUse".to_string(),
-            timeout: 60,
             config: "".to_string(), // Auto-discovery
             debug: false,
         };

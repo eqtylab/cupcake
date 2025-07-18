@@ -177,35 +177,6 @@ impl PolicyEvaluator {
         Ok(FeedbackCollection { feedback_messages })
     }
 
-    /// Execute Pass 1: Collect all feedback from soft actions (legacy method for compatibility)
-    fn execute_pass_1(
-        &mut self,
-        policies: &[ComposedPolicy],
-        hook_event: &crate::engine::events::HookEvent,
-        evaluation_context: &EvaluationContext,
-    ) -> Result<FeedbackCollection> {
-        let mut feedback_messages = Vec::new();
-        let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
-
-        for policy in ordered_policies {
-            // Evaluate all conditions for this policy
-            let conditions_match = self.evaluate_policy_conditions(policy, evaluation_context)?;
-
-            if conditions_match {
-                // Check if this is a soft action
-                if policy.action.is_soft_action() {
-                    // Extract feedback message based on action type
-                    let feedback =
-                        self.extract_feedback_message(&policy.action, evaluation_context);
-                    if let Some(msg) = feedback {
-                        feedback_messages.push(msg);
-                    }
-                }
-            }
-        }
-
-        Ok(FeedbackCollection { feedback_messages })
-    }
 
     /// Execute Pass 2: Find first hard action decision (using cached evaluation results)
     fn execute_pass_2_cached(
@@ -264,64 +235,6 @@ impl PolicyEvaluator {
         Ok(HardDecision::Allow)
     }
 
-    /// Execute Pass 2: Find first hard action decision (legacy method for compatibility)
-    fn execute_pass_2(
-        &mut self,
-        policies: &[ComposedPolicy],
-        hook_event: &crate::engine::events::HookEvent,
-        evaluation_context: &EvaluationContext,
-    ) -> Result<HardDecision> {
-        let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
-
-        for policy in ordered_policies {
-            // Evaluate all conditions for this policy
-            let conditions_match = self.evaluate_policy_conditions(policy, evaluation_context)?;
-
-            if conditions_match {
-                // Check if this is a hard action
-                if policy.action.is_hard_action() {
-                    return match &policy.action {
-                        crate::config::actions::Action::BlockWithFeedback {
-                            feedback_message,
-                            ..
-                        } => {
-                            let feedback =
-                                self.substitute_templates(feedback_message, evaluation_context);
-                            Ok(HardDecision::Block { feedback })
-                        }
-                        crate::config::actions::Action::Approve { reason } => {
-                            let substituted_reason = reason
-                                .as_ref()
-                                .map(|r| self.substitute_templates(r, evaluation_context));
-                            Ok(HardDecision::Approve {
-                                reason: substituted_reason,
-                            })
-                        }
-                        crate::config::actions::Action::RunCommand {
-                            on_failure, ..
-                        } => {
-                            // RunCommand actions are executed in the action phase
-                            // For now, we continue to find other hard actions
-                            // The action phase will handle the actual blocking decision
-                            if matches!(
-                                on_failure,
-                                crate::config::actions::OnFailureBehavior::Block
-                            ) {
-                                // Skip this for now - let action phase handle it
-                                continue;
-                            } else {
-                                continue; // Soft command, keep looking
-                            }
-                        }
-                        _ => continue, // Shouldn't happen for hard actions, but be safe
-                    };
-                }
-            }
-        }
-
-        // No hard action found
-        Ok(HardDecision::Allow)
-    }
 
     /// Evaluate all conditions for a policy
     fn evaluate_policy_conditions(

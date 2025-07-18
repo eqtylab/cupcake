@@ -71,7 +71,7 @@ impl InspectCommand {
             .max(4); // "TOOL"
 
         let action_width = policies.iter()
-            .map(|p| self.format_action_type(&p).len())
+            .map(|p| self.format_action_type(p).len())
             .max()
             .unwrap_or(6)
             .max(6); // "ACTION"
@@ -142,6 +142,7 @@ impl InspectCommand {
     }
 
     /// Format a single condition as a compact string
+    #[allow(clippy::only_used_in_recursion)]
     fn format_single_condition(&self, condition: &Condition) -> String {
         match condition {
             Condition::Pattern { field, regex } => {
@@ -152,7 +153,7 @@ impl InspectCommand {
             }
             Condition::Check { spec, expect_success } => {
                 // TODO: Improve display of CommandSpec in Phase 2
-                let command_display = match spec {
+                let command_display = match spec.as_ref() {
                     crate::config::actions::CommandSpec::Array(array_spec) => {
                         let mut parts = array_spec.command.clone();
                         if let Some(args) = &array_spec.args {

@@ -1,0 +1,25 @@
+{
+  "session_id": "3d42d8fe-2d72-43f1-a411-60d7148da308",
+  "created_at": "2025-07-17T17:20:56.846415Z",
+  "updated_at": "2025-07-17T17:20:56.846416Z",
+  "entries": [
+    {
+      "timestamp": "2025-07-17T17:20:56.846407Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "description": "Print hello world to console",
+          "command": "echo 'hello world'"
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "hello world"
+        }
+      }
+    }
+  ]
+}

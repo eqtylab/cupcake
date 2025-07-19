@@ -86,8 +86,6 @@ fn test_prompt_field_no_match() {
 
 #[test]
 fn test_cwd_from_evaluation_context() {
-    let mut evaluator = ConditionEvaluator::new();
-    
     // Create context with specific cwd
     let context = EvaluationContext {
         event_type: "PreToolUse".to_string(),

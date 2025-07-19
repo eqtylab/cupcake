@@ -398,6 +398,7 @@ impl ActionExecutor {
             env_vars: context.env_vars.clone(),
             timestamp: chrono::Utc::now(),
             full_session_state: None,
+            prompt: None,
         };
 
         // Evaluate the condition

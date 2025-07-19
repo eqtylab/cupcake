@@ -76,6 +76,20 @@ PreToolUse:
         type: "block_with_feedback"
         message: "Read docs/architecture.md before editing engine"
         include_context: true
+
+# guardrails/policies/prompt-security.yaml - UserPromptSubmit policies
+UserPromptSubmit:
+  "":  # Empty string matcher required for non-tool events
+    - name: "Block API keys in prompts"
+      description: "Prevent accidental exposure of secrets"
+      conditions:
+        - type: "pattern"
+          field: "prompt"
+          regex: "(api[_-]?key|token|secret)\\s*[:=]\\s*[a-zA-Z0-9_-]{16,}"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "Detected potential secret in prompt!"
+        include_context: false
 ```
 
 ### String Commands and Shell Execution
@@ -173,6 +187,12 @@ Cupcake integrates with Claude Code through hooks:
 
 - **PreToolUse**: Block operations before execution
 - **PostToolUse**: Provide feedback after execution
+- **UserPromptSubmit**: Intercept and validate user prompts before processing
+- **Notification**: React to Claude Code notifications
+- **Stop/SubagentStop**: Handle session termination events
+- **PreCompact**: Manage context compaction events
+
+Response handling:
 - **Exit code 0**: Soft feedback (transcript only)
 - **Exit code 2**: Hard block (Claude sees feedback)
 

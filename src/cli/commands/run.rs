@@ -265,10 +265,14 @@ impl RunCommand {
             }
         };
 
+        // Use cwd from hook data as authoritative source
+        let current_dir = hook_event.common().cwd.clone();
+        let current_dir_path = std::path::PathBuf::from(current_dir);
+
         ActionContext::new(
             tool_name,
             tool_input,
-            std::env::current_dir().unwrap_or_default(),
+            current_dir_path,
             std::env::vars().collect(),
             session_id,
         )
@@ -276,7 +280,7 @@ impl RunCommand {
 
     /// Build evaluation context from hook event
     fn build_evaluation_context(&self, hook_event: &HookEvent) -> EvaluationContext {
-        let (session_id, tool_name, tool_input) = match hook_event {
+        let (session_id, tool_name, tool_input, prompt) = match hook_event {
             HookEvent::PreToolUse {
                 common,
                 tool_name,
@@ -291,25 +295,36 @@ impl RunCommand {
                 common.session_id.clone(),
                 tool_name.clone(),
                 self.extract_tool_input(tool_input),
+                None,
+            ),
+            HookEvent::UserPromptSubmit { common, prompt } => (
+                common.session_id.clone(),
+                String::new(),
+                HashMap::new(),
+                Some(prompt.clone()),
             ),
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. }
-            | HookEvent::UserPromptSubmit { common, .. } => {
-                (common.session_id.clone(), String::new(), HashMap::new())
+            | HookEvent::PreCompact { common, .. } => {
+                (common.session_id.clone(), String::new(), HashMap::new(), None)
             }
         };
+
+        // Use cwd from hook data as authoritative source
+        let current_dir = hook_event.common().cwd.clone();
+        let current_dir_path = std::path::PathBuf::from(current_dir);
 
         EvaluationContext {
             event_type: hook_event.event_name().to_string(),
             tool_name,
             tool_input,
             session_id,
-            current_dir: std::env::current_dir().unwrap_or_default(),
+            current_dir: current_dir_path,
             env_vars: std::env::vars().collect(),
             timestamp: Utc::now(),
             full_session_state: None, // Will be loaded by state manager if needed
+            prompt,
         }
     }
 

@@ -360,8 +360,9 @@ impl PolicyLoader {
             "Stop" => Ok(HookEventType::Stop),
             "SubagentStop" => Ok(HookEventType::SubagentStop),
             "PreCompact" => Ok(HookEventType::PreCompact),
+            "UserPromptSubmit" => Ok(HookEventType::UserPromptSubmit),
             _ => Err(CupcakeError::Config(format!(
-                "Unknown hook event type: {}. Valid types are: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact",
+                "Unknown hook event type: {}. Valid types are: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, UserPromptSubmit",
                 hook_event_str
             )))
         }
@@ -726,6 +727,10 @@ PostToolUse:
         assert_eq!(
             loader.parse_hook_event("PreCompact").unwrap(),
             HookEventType::PreCompact
+        );
+        assert_eq!(
+            loader.parse_hook_event("UserPromptSubmit").unwrap(),
+            HookEventType::UserPromptSubmit
         );
     }
 

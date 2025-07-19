@@ -196,6 +196,22 @@ Response handling:
 - **Exit code 0**: Soft feedback (transcript only)
 - **Exit code 2**: Hard block (Claude sees feedback)
 
+### Available Fields for Conditions
+
+Common fields available for all events:
+- `event_type` - The hook event name (e.g., "PreToolUse", "UserPromptSubmit")
+- `session_id` - Unique session identifier
+- `env.*` - Environment variables (e.g., `env.USER`, `env.PATH`)
+
+Tool-specific fields (PreToolUse/PostToolUse only):
+- `tool_name` - Name of the tool being invoked (e.g., "Bash", "Write")
+- `tool_input.*` - Tool input parameters (e.g., `tool_input.command`, `tool_input.file_path`)
+
+UserPromptSubmit-specific fields:
+- `prompt` - The user's input text
+
+Note: The `cwd` field from hook data is used internally as the authoritative working directory for all command executions.
+
 ## File Structure
 
 ```

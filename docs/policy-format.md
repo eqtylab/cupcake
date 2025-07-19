@@ -60,16 +60,43 @@ PreToolUse:              # When to evaluate (before tool use)
 
 - `PreToolUse` - Evaluate before tool execution
 - `PostToolUse` - Evaluate after tool execution
+- `UserPromptSubmit` - Evaluate user prompts before processing
 - `Notification` - When Claude requests permission
 - `Stop` - When session ends
+- `SubagentStop` - When a subagent session ends
+- `PreCompact` - Before context compaction
 
 ### Tool Matchers
 
+For tool events (PreToolUse/PostToolUse):
 - Exact match: `"Bash"`
 - Multiple tools: `"Edit|Write"`
-- All tools: `"*"`
+- Regex pattern: `".*Test$"` (matches any tool ending with "Test")
+
+For non-tool events (UserPromptSubmit, Notification, etc.):
+- Must use empty string: `""`
 
 ## Conditions
+
+### Available Fields
+
+Common fields (all events):
+- `event_type` - Hook event name (e.g., "PreToolUse", "UserPromptSubmit")
+- `session_id` - Unique session identifier
+- `env.*` - Environment variables (e.g., `env.USER`, `env.HOME`)
+
+Tool event fields (PreToolUse/PostToolUse):
+- `tool_name` - Tool being invoked (e.g., "Bash", "Write", "Edit")
+- `tool_input.*` - Tool-specific parameters:
+  - `tool_input.command` - For Bash tool
+  - `tool_input.file_path` - For Write/Edit tools
+  - `tool_input.content` - For Write tool
+  - And other tool-specific fields
+
+UserPromptSubmit fields:
+- `prompt` - The user's input text
+
+Note: The current working directory from hook data is automatically used for all command executions.
 
 ### Pattern Matching
 
@@ -253,6 +280,21 @@ PreToolUse:
       action:
         type: "block_with_feedback"
         feedback_message: "Cannot modify production environment file"
+```
+
+### Prompt Security
+
+```yaml
+UserPromptSubmit:
+  "":  # Empty string matcher for non-tool events
+    - name: "Block Secrets in Prompts"
+      conditions:
+        - type: "pattern"
+          field: "prompt"
+          regex: "(api[_-]?key|token|password)\\s*[:=]\\s*[\"']?[a-zA-Z0-9]{16,}"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "Detected potential secret in your prompt. Please remove sensitive information."
 ```
 
 ## Best Practices

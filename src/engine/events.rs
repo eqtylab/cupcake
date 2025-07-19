@@ -8,6 +8,9 @@ pub struct CommonEventData {
 
     /// Path to the session transcript file
     pub transcript_path: String,
+
+    /// Current working directory when the hook is invoked
+    pub cwd: String,
 }
 
 /// All possible Claude Code hook events
@@ -80,6 +83,15 @@ pub enum HookEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         custom_instructions: Option<String>,
     },
+
+    /// User prompt submission
+    UserPromptSubmit {
+        #[serde(flatten)]
+        common: CommonEventData,
+
+        /// The prompt submitted by the user
+        prompt: String,
+    },
 }
 
 /// Type of compaction trigger
@@ -142,6 +154,7 @@ impl HookEvent {
             HookEvent::Stop { common, .. } => common,
             HookEvent::SubagentStop { common, .. } => common,
             HookEvent::PreCompact { common, .. } => common,
+            HookEvent::UserPromptSubmit { common, .. } => common,
         }
     }
 
@@ -172,6 +185,7 @@ impl HookEvent {
             HookEvent::Stop { .. } => "Stop",
             HookEvent::SubagentStop { .. } => "SubagentStop",
             HookEvent::PreCompact { .. } => "PreCompact",
+            HookEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
         }
     }
 
@@ -217,12 +231,14 @@ mod tests {
             common: CommonEventData {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
+                cwd: "/home/user/project".to_string(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
         };
 
         assert_eq!(event.common().session_id, "test-session");
+        assert_eq!(event.common().cwd, "/home/user/project");
         assert_eq!(event.tool_name(), Some("Bash"));
         assert!(event.is_tool_event());
         assert!(!event.is_stop_event());
@@ -235,6 +251,7 @@ mod tests {
             "hook_event_name": "PreToolUse",
             "session_id": "test-session",
             "transcript_path": "/path/to/transcript",
+            "cwd": "/home/user/project",
             "tool_name": "Bash",
             "tool_input": {"command": "echo hello"}
         }
@@ -249,6 +266,7 @@ mod tests {
                 tool_input,
             } => {
                 assert_eq!(common.session_id, "test-session");
+                assert_eq!(common.cwd, "/home/user/project");
                 assert_eq!(tool_name, "Bash");
                 assert_eq!(tool_input["command"], "echo hello");
             }
@@ -262,6 +280,7 @@ mod tests {
             common: CommonEventData {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
+                cwd: "/home/user/project".to_string(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({
@@ -297,11 +316,37 @@ mod tests {
             common: CommonEventData {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
+                cwd: "/home/user/project".to_string(),
             },
             message: "Test notification".to_string(),
         };
 
         assert!(!event.is_tool_event());
         assert_eq!(event.tool_name(), None);
+    }
+
+    #[test]
+    fn test_user_prompt_submit_event() {
+        let json = r#"
+        {
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "test-session",
+            "transcript_path": "/path/to/transcript",
+            "cwd": "/home/user/project",
+            "prompt": "Write a function to calculate factorial"
+        }
+        "#;
+
+        let event: HookEvent = serde_json::from_str(json).unwrap();
+
+        match &event {
+            HookEvent::UserPromptSubmit { common, prompt } => {
+                assert_eq!(common.session_id, "test-session");
+                assert_eq!(common.cwd, "/home/user/project");
+                assert_eq!(prompt, "Write a function to calculate factorial");
+                assert_eq!(event.event_name(), "UserPromptSubmit");
+            }
+            _ => panic!("Wrong event type"),
+        }
     }
 }

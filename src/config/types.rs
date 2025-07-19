@@ -68,6 +68,7 @@ pub enum HookEventType {
     Stop,
     SubagentStop,
     PreCompact,
+    UserPromptSubmit,
 }
 
 impl std::fmt::Display for HookEventType {
@@ -79,6 +80,7 @@ impl std::fmt::Display for HookEventType {
             HookEventType::Stop => write!(f, "Stop"),
             HookEventType::SubagentStop => write!(f, "SubagentStop"),
             HookEventType::PreCompact => write!(f, "PreCompact"),
+            HookEventType::UserPromptSubmit => write!(f, "UserPromptSubmit"),
         }
     }
 }

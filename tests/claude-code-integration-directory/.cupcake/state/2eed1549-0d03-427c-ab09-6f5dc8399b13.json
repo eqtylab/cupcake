@@ -1,0 +1,46 @@
+{
+  "session_id": "2eed1549-0d03-427c-ab09-6f5dc8399b13",
+  "created_at": "2025-07-18T17:05:14.380099Z",
+  "updated_at": "2025-07-18T17:06:08.374437Z",
+  "entries": [
+    {
+      "timestamp": "2025-07-18T17:05:14.380089Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "command": "echo \"hello world\"",
+          "description": "Print hello world message"
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "hello world"
+        }
+      }
+    },
+    {
+      "timestamp": "2025-07-18T17:06:08.374119Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Read",
+        "input": {
+          "file_path": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/example.jsx"
+        },
+        "success": true,
+        "output": {
+          "file": {
+            "content": "import React from 'react';\n\nfunction TestComponent() {\n  return (\n    <div>\n      <h1>Test Component</h1>\n      <p>This is a test JSX file for cupcake policies.</p>\n    </div>\n  );\n}\n\nexport default TestComponent;",
+            "filePath": "/Users/ramos/cupcake/cupcake-rs/tests/claude-code-integration-directory/example.jsx",
+            "numLines": 12,
+            "startLine": 1,
+            "totalLines": 12
+          },
+          "type": "text"
+        }
+      }
+    }
+  ]
+}

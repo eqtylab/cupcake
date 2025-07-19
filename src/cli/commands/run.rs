@@ -259,7 +259,8 @@ impl RunCommand {
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => {
+            | HookEvent::PreCompact { common, .. }
+            | HookEvent::UserPromptSubmit { common, .. } => {
                 (common.session_id.clone(), String::new(), HashMap::new())
             }
         };
@@ -294,7 +295,8 @@ impl RunCommand {
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => {
+            | HookEvent::PreCompact { common, .. }
+            | HookEvent::UserPromptSubmit { common, .. } => {
                 (common.session_id.clone(), String::new(), HashMap::new())
             }
         };

@@ -22,6 +22,8 @@ pub struct EvaluationContext {
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Full session state for advanced queries (optional)
     pub full_session_state: Option<crate::state::types::SessionState>,
+    /// Prompt text for UserPromptSubmit events
+    pub prompt: Option<String>,
 }
 
 /// Result of condition evaluation
@@ -191,6 +193,7 @@ impl ConditionEvaluator {
             "event_type" => Some(context.event_type.clone()),
             "tool_name" => Some(context.tool_name.clone()),
             "session_id" => Some(context.session_id.clone()),
+            "prompt" => context.prompt.clone(),
 
             // Tool input fields (dot notation)
             field_name if field_name.starts_with("tool_input.") => {
@@ -337,6 +340,7 @@ mod tests_disabled {
             env_vars,
             timestamp: Utc::now(),
             full_session_state: None,
+            prompt: None,
         }
     }
 

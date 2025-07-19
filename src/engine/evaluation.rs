@@ -128,16 +128,27 @@ impl PolicyEvaluator {
                 continue;
             }
 
-            // Check if policy matcher applies to this tool (for PreToolUse/PostToolUse)
-            if let Some(tool) = tool_name {
-                let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
-                    crate::CupcakeError::Config(format!(
-                        "Invalid matcher regex '{}': {}",
-                        policy.matcher, e
-                    ))
-                })?;
+            // Check if policy matcher applies
+            if policy.matcher.is_empty() {
+                // Empty string matcher: only matches non-tool events
+                if tool_name.is_some() {
+                    continue; // Skip this policy for tool events
+                }
+            } else {
+                // Non-empty matcher: only matches tool events with regex
+                if let Some(tool) = tool_name {
+                    let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
+                        crate::CupcakeError::Config(format!(
+                            "Invalid matcher regex '{}': {}",
+                            policy.matcher, e
+                        ))
+                    })?;
 
-                if !matcher_regex.is_match(tool) {
+                    if !matcher_regex.is_match(tool) {
+                        continue;
+                    }
+                } else {
+                    // Non-tool event with non-empty matcher: no match
                     continue;
                 }
             }

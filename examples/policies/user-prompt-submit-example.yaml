@@ -1,0 +1,96 @@
+# Example policy file for UserPromptSubmit hook event
+# This demonstrates how to create policies that intercept and validate user prompts
+# before they are sent to Claude Code.
+
+UserPromptSubmit:
+  # Empty string matcher is required for non-tool events like UserPromptSubmit
+  "":
+    # Block prompts containing API keys or tokens
+    - name: "Block API keys and tokens"
+      description: "Prevent accidental exposure of API keys and authentication tokens"
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(api[_-]?key|token|secret|password)\\s*[:=]\\s*[\"']?[a-zA-Z0-9_\\-\\.]{16,}[\"']?"
+      action:
+        type: block_with_feedback
+        feedback_message: "Detected potential secret in prompt! Please remove sensitive information before continuing."
+        include_context: false
+
+    # Block prompts containing AWS credentials
+    - name: "Block AWS credentials"
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "AKIA[0-9A-Z]{16}|aws_secret_access_key"
+      action:
+        type: block_with_feedback
+        feedback_message: "AWS credentials detected in prompt! Never share AWS keys."
+        include_context: false
+
+    # Provide feedback for prompts mentioning production
+    - name: "Warn about production mentions"
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "\\b(production|prod|live)\\b"
+          # Case insensitive regex would be: "(?i)\\b(production|prod|live)\\b"
+      action:
+        type: provide_feedback
+        message: "⚠️  Your prompt mentions production. Please be careful with production systems!"
+        include_context: false
+
+    # Block prompts requesting malicious actions
+    - name: "Block malicious requests"
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(delete|drop|truncate)\\s+(all|database|table|production)"
+      action:
+        type: block_with_feedback
+        feedback_message: "This prompt appears to request a potentially destructive action. Please reconsider."
+        include_context: true
+
+    # Log certain types of prompts for audit purposes
+    - name: "Audit security-related prompts"
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(security|vulnerability|exploit|penetration|hack)"
+      action:
+        type: run_command
+        spec:
+          mode: array
+          command: ["echo"]
+          args: ["Security-related prompt detected: {{session_id}}"]
+          redirectStdout: "/tmp/security-prompts.log"
+          appendStdout: true
+        on_failure: continue
+        background: true
+
+    # Check prompt length
+    - name: "Warn about very long prompts"
+      conditions:
+        - type: check
+          spec:
+            mode: string
+            command: "test $(echo '{{prompt}}' | wc -c) -gt 5000"
+          expect_success: true
+      action:
+        type: provide_feedback
+        message: "Your prompt is very long (>5000 chars). Consider breaking it into smaller, focused requests."
+        include_context: false
+
+# Notes:
+# 1. UserPromptSubmit events do not have a tool_name, so the matcher must be an empty string ""
+# 2. The prompt field contains the user's input text
+# 3. Common use cases include:
+#    - Blocking sensitive information (API keys, passwords, credentials)
+#    - Warning about potentially dangerous operations
+#    - Logging/auditing certain types of requests
+#    - Enforcing prompt guidelines or best practices
+# 4. Available fields for conditions:
+#    - prompt: The user's prompt text
+#    - session_id: Unique session identifier
+#    - event_type: Always "UserPromptSubmit"
+#    - Any environment variables via env.VARIABLE_NAME

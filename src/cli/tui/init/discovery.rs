@@ -1,0 +1,205 @@
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use glob::glob;
+use walkdir::WalkDir;
+
+use crate::Result;
+use super::state::{Agent, RuleFile};
+
+/// Pattern for discovering agent configuration files
+pub struct DiscoveryPattern {
+    /// Glob patterns to search for
+    pub patterns: Vec<&'static str>,
+    /// Agent type for discovered files
+    pub agent: Agent,
+    /// Whether to check if it's a directory
+    pub is_directory: bool,
+}
+
+impl DiscoveryPattern {
+    /// Get all discovery patterns
+    pub fn all() -> Vec<Self> {
+        vec![
+            // Claude
+            DiscoveryPattern {
+                patterns: vec!["CLAUDE.md", "claude.md", "CLAUDE.MD"],
+                agent: Agent::Claude,
+                is_directory: false,
+            },
+            // Cursor
+            DiscoveryPattern {
+                patterns: vec![".cursor/rules", ".cursor/RULES"],
+                agent: Agent::Cursor,
+                is_directory: false,
+            },
+            // Windsurf
+            DiscoveryPattern {
+                patterns: vec![".windsurf/rules/", ".windsurf/rules"],
+                agent: Agent::Windsurf,
+                is_directory: true,
+            },
+            // Kiro
+            DiscoveryPattern {
+                patterns: vec![".kiro/steering/", ".kiro/steering"],
+                agent: Agent::Kiro,
+                is_directory: true,
+            },
+            // Copilot
+            DiscoveryPattern {
+                patterns: vec!["copilot-instructions", ".copilot-instructions", ".github/copilot-instructions.md"],
+                agent: Agent::Copilot,
+                is_directory: false,
+            },
+            // Aider
+            DiscoveryPattern {
+                patterns: vec![".aider.conf.yml", ".aider.conf.yaml", ".aider"],
+                agent: Agent::Aider,
+                is_directory: false,
+            },
+        ]
+    }
+}
+
+/// Discover rule files in the given directory
+pub async fn discover_files(root_dir: &Path) -> Result<Vec<RuleFile>> {
+    let root_dir = root_dir.to_path_buf();
+    
+    // Run discovery in blocking task
+    let files = tokio::task::spawn_blocking(move || {
+        discover_files_sync(&root_dir)
+    }).await.map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
+    
+    Ok(files)
+}
+
+/// Synchronous file discovery
+fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
+    let mut discovered = Vec::new();
+    let mut seen = HashMap::new();
+    
+    for pattern in DiscoveryPattern::all() {
+        for glob_pattern in pattern.patterns {
+            // Try both relative and absolute patterns
+            let full_pattern = root_dir.join(glob_pattern);
+            let pattern_str = full_pattern.to_string_lossy();
+            
+            // Use glob for pattern matching
+            if let Ok(entries) = glob(&pattern_str) {
+                for entry in entries.flatten() {
+                    // Skip if we've already seen this file
+                    if seen.contains_key(&entry) {
+                        continue;
+                    }
+                    
+                    // Check if it matches our expectations
+                    let is_dir = entry.is_dir();
+                    if pattern.is_directory != is_dir {
+                        continue;
+                    }
+                    
+                    // Create RuleFile
+                    let mut rule_file = RuleFile {
+                        path: entry.clone(),
+                        agent: pattern.agent,
+                        is_directory: is_dir,
+                        children: vec![],
+                    };
+                    
+                    // If it's a directory, discover children
+                    if is_dir {
+                        rule_file.children = discover_children(&entry)?;
+                    }
+                    
+                    seen.insert(entry, discovered.len());
+                    discovered.push(rule_file);
+                }
+            }
+        }
+    }
+    
+    // Sort by agent type for consistent ordering
+    discovered.sort_by_key(|f| f.agent as u8);
+    
+    Ok(discovered)
+}
+
+/// Discover markdown and yaml files within a directory
+fn discover_children(dir: &Path) -> Result<Vec<PathBuf>> {
+    let mut children = Vec::new();
+    
+    for entry in WalkDir::new(dir)
+        .min_depth(1)
+        .max_depth(3) // Don't go too deep
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        
+        // Only include markdown and yaml files
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                let ext = ext.to_string_lossy().to_lowercase();
+                if matches!(ext.as_str(), "md" | "markdown" | "yml" | "yaml") {
+                    children.push(path.to_path_buf());
+                }
+            }
+        }
+    }
+    
+    Ok(children)
+}
+
+/// Mock discovery for testing
+pub async fn mock_discover_files() -> Result<Vec<RuleFile>> {
+    use std::time::Duration;
+    use tokio::time::sleep;
+    
+    // Simulate some delay
+    sleep(Duration::from_millis(100)).await;
+    
+    Ok(vec![
+        RuleFile {
+            path: PathBuf::from("CLAUDE.md"),
+            agent: Agent::Claude,
+            is_directory: false,
+            children: vec![],
+        },
+        RuleFile {
+            path: PathBuf::from(".cursor/rules"),
+            agent: Agent::Cursor,
+            is_directory: false,
+            children: vec![],
+        },
+        RuleFile {
+            path: PathBuf::from(".windsurf/rules/"),
+            agent: Agent::Windsurf,
+            is_directory: true,
+            children: vec![
+                PathBuf::from(".windsurf/rules/formatting.md"),
+                PathBuf::from(".windsurf/rules/security.md"),
+                PathBuf::from(".windsurf/rules/performance.md"),
+            ],
+        },
+        RuleFile {
+            path: PathBuf::from(".kiro/steering/"),
+            agent: Agent::Kiro,
+            is_directory: true,
+            children: vec![
+                PathBuf::from(".kiro/steering/agent-policy.yml"),
+                PathBuf::from(".kiro/steering/constraints.yml"),
+            ],
+        },
+        RuleFile {
+            path: PathBuf::from("copilot-instructions"),
+            agent: Agent::Copilot,
+            is_directory: false,
+            children: vec![],
+        },
+        RuleFile {
+            path: PathBuf::from(".aider.conf.yml"),
+            agent: Agent::Aider,
+            is_directory: false,
+            children: vec![],
+        },
+    ])
+}

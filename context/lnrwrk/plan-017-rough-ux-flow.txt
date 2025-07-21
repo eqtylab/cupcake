@@ -1,0 +1,8 @@
+This is the rough flow of what we want to do:
+The onboarding experience would:
+1. find all claude.md files in the repo, but also other coding agent rules (like cursorrules, or the curso rules folder). this should be really fast right?
+2. based on found files, give user a list and option select/deselect each file or folder. maybe as they scroll the list they would see file preview on the right side? if it is a directory we might show a preview of each file down in the dir? hmm.
+3. after selecting the rules they want. There is an option for any custom prompt. If not, they init process begins
+4. for each rules file, we will use our llm tooling to extract a list of each rule. this is fast and also happens in parallel. but a user should see like a loading indicator next to each.
+5. after all initial potential rules are found, the user can select or deselect each rule found (initially selected)... they also need to be able to edit each rule.
+6. the final stage will be a policy compilation step, and claude code hooks sync.

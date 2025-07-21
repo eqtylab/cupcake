@@ -1,0 +1,843 @@
+use std::time::Duration;
+use std::collections::HashSet;
+use std::path::PathBuf;
+use ratatui::{
+    crossterm::event::{self, Event, KeyCode, KeyEventKind},
+    DefaultTerminal, Frame
+};
+use tokio::time;
+use tui_input::backend::crossterm::EventHandler;
+
+use crate::Result;
+use super::state::*;
+use super::events::*;
+use super::theme::Theme;
+
+/// Main application struct
+pub struct App {
+    /// Current state of the wizard
+    state: WizardState,
+    /// Whether the app should quit
+    should_quit: bool,
+    /// Theme for styling
+    theme: Theme,
+    /// Event sender for background tasks
+    event_tx: Option<tokio::sync::mpsc::UnboundedSender<AppEvent>>,
+}
+
+impl App {
+    /// Create a new app instance
+    pub fn new() -> Self {
+        Self {
+            state: WizardState::Discovery(DiscoveryState::default()),
+            should_quit: false,
+            theme: Theme::default(),
+            event_tx: None,
+        }
+    }
+
+    /// Run the application
+    pub async fn run(mut self) -> Result<()> {
+        // Initialize terminal
+        let mut terminal = ratatui::init();
+        terminal.clear()?;
+
+        // Create event channel
+        let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+        self.event_tx = Some(event_tx.clone());
+
+        // Spawn background tasks
+        self.spawn_background_tasks(event_tx.clone());
+
+        // Spawn input handler
+        let input_tx = event_tx.clone();
+        tokio::spawn(async move {
+            loop {
+                if let Ok(event) = event::read() {
+                    match event {
+                        Event::Key(key) if key.kind == KeyEventKind::Press => {
+                            let _ = input_tx.send(AppEvent::Key(key));
+                        }
+                        Event::Mouse(mouse) => {
+                            let _ = input_tx.send(AppEvent::Mouse(mouse));
+                        }
+                        Event::Resize(width, height) => {
+                            let _ = input_tx.send(AppEvent::Resize(width, height));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
+
+        // Main render loop
+        let result = self.main_loop(&mut terminal, &mut event_rx).await;
+
+        // Cleanup
+        ratatui::restore();
+        result
+    }
+
+    /// Main event loop
+    async fn main_loop(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        event_rx: &mut tokio::sync::mpsc::UnboundedReceiver<AppEvent>,
+    ) -> Result<()> {
+        loop {
+            // Draw UI
+            terminal.draw(|frame| self.render(frame))?;
+
+            // Handle events with timeout for animations
+            match time::timeout(Duration::from_millis(50), event_rx.recv()).await {
+                Ok(Some(event)) => {
+                    if let Some(transition) = self.handle_event(event)? {
+                        self.transition_state(transition)?;
+                    }
+                }
+                Ok(None) => break, // Channel closed
+                Err(_) => {
+                    // Timeout - send tick for animations
+                    if let Some(transition) = self.handle_event(AppEvent::Tick)? {
+                        self.transition_state(transition)?;
+                    }
+                }
+            }
+
+            if self.should_quit {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Render the current state
+    fn render(&mut self, frame: &mut Frame) {
+        match &self.state {
+            WizardState::Discovery(state) => {
+                super::screens::discovery::render(frame, state);
+            }
+            WizardState::Extraction(state) => {
+                super::screens::extraction::render(frame, state);
+            }
+            WizardState::Review(state) => {
+                super::screens::review::render(frame, state);
+            }
+            WizardState::Compilation(state) => {
+                super::screens::compilation::render(frame, state);
+            }
+            WizardState::Success(state) => {
+                super::screens::success::render(frame, state);
+            }
+        }
+    }
+
+    /// Handle an event
+    fn handle_event(&mut self, event: AppEvent) -> Result<Option<StateTransition>> {
+        // Handle global keys first
+        if let AppEvent::Key(key) = &event {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Char('Q') => {
+                    if self.state.can_quit() {
+                        self.should_quit = true;
+                        return Ok(None);
+                    }
+                }
+                KeyCode::Esc => {
+                    if self.state.can_go_back() {
+                        return Ok(Some(StateTransition::Back));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Route to state-specific handler
+        use WizardState::*;
+        match self.state {
+            Discovery(_) => {
+                if let Discovery(ref mut state) = self.state {
+                    return Self::handle_discovery_event(state, event);
+                }
+                Ok(None)
+            }
+            Extraction(_) => {
+                if let Extraction(ref mut state) = self.state {
+                    return Self::handle_extraction_event(state, event);
+                }
+                Ok(None)
+            }
+            Review(_) => {
+                if let Review(ref mut state) = self.state {
+                    return Self::handle_review_event(state, event);
+                }
+                Ok(None)
+            }
+            Compilation(_) => {
+                if let Compilation(ref mut state) = self.state {
+                    return Self::handle_compilation_event(state, event);
+                }
+                Ok(None)
+            }
+            Success(_) => self.handle_success_event(event),
+        }
+    }
+
+    /// Transition to a new state
+    fn transition_state(&mut self, transition: StateTransition) -> Result<()> {
+        match transition {
+            StateTransition::Continue => {
+                self.state = match &self.state {
+                    WizardState::Discovery(discovery) => {
+                        // Pass custom instructions if provided
+                        let mut extraction = ExtractionState::default();
+                        if discovery.custom_prompt_input.value().trim().len() > 0 {
+                            extraction.custom_instructions = Some(discovery.custom_prompt_input.value().to_string());
+                        }
+                        
+                        // Start extraction for selected files
+                        self.start_extraction(&discovery.selected, &mut extraction)?;
+                        WizardState::Extraction(extraction)
+                    }
+                    WizardState::Extraction(_) => {
+                        let mut review = ReviewState::default();
+                        // Populate review with mock extracted rules
+                        populate_mock_rules(&mut review);
+                        WizardState::Review(review)
+                    }
+                    WizardState::Review(_) => {
+                        let mut compilation = CompilationState::default();
+                        self.start_compilation(&mut compilation)?;
+                        WizardState::Compilation(compilation)
+                    }
+                    WizardState::Compilation(_) => {
+                        WizardState::Success(SuccessState {
+                            total_rules: 52, // TODO: Get from actual data
+                            critical_count: 18,
+                            warning_count: 23,
+                            info_count: 11,
+                            config_location: std::path::PathBuf::from("guardrails/cupcake.yaml"),
+                        })
+                    }
+                    WizardState::Success(_) => {
+                        self.should_quit = true;
+                        return Ok(());
+                    }
+                };
+            }
+            StateTransition::Back => {
+                // TODO: Implement going back
+            }
+            StateTransition::Skip => {
+                // Used for skipping optional screens
+                return self.transition_state(StateTransition::Continue);
+            }
+            StateTransition::Quit => {
+                self.should_quit = true;
+            }
+        }
+        Ok(())
+    }
+
+    /// Spawn background tasks
+    fn spawn_background_tasks(&self, event_tx: tokio::sync::mpsc::UnboundedSender<AppEvent>) {
+        // File discovery task
+        tokio::spawn(async move {
+            // Simulate file discovery
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            
+            // Send some mock files
+            let files = vec![
+                RuleFile {
+                    path: "CLAUDE.md".into(),
+                    agent: Agent::Claude,
+                    is_directory: false,
+                    children: vec![],
+                },
+                RuleFile {
+                    path: ".cursor/rules".into(),
+                    agent: Agent::Cursor,
+                    is_directory: false,
+                    children: vec![],
+                },
+                RuleFile {
+                    path: ".windsurf/rules/".into(),
+                    agent: Agent::Windsurf,
+                    is_directory: true,
+                    children: vec![
+                        ".windsurf/rules/formatting.md".into(),
+                        ".windsurf/rules/security.md".into(),
+                        ".windsurf/rules/performance.md".into(),
+                    ],
+                },
+            ];
+
+            for (i, file) in files.into_iter().enumerate() {
+                let _ = event_tx.send(AppEvent::FileFound(file));
+                let progress = (i + 1) as f64 / 3.0;
+                let _ = event_tx.send(AppEvent::ScanProgress(progress));
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+
+            let _ = event_tx.send(AppEvent::ScanComplete);
+        });
+    }
+
+
+    fn handle_discovery_event(state: &mut DiscoveryState, event: AppEvent) -> Result<Option<StateTransition>> {
+        match event {
+            AppEvent::Key(key) => {
+                // Handle modal input first if modal is showing
+                if state.show_custom_prompt {
+                    match key.code {
+                        KeyCode::Enter => {
+                            // Apply custom instructions and close modal
+                            state.show_custom_prompt = false;
+                            return Ok(Some(StateTransition::Continue));
+                        }
+                        KeyCode::Esc => {
+                            // Cancel modal without applying
+                            state.custom_prompt_input.reset();
+                            state.show_custom_prompt = false;
+                        }
+                        KeyCode::Char('s') => {
+                            // Skip custom instructions
+                            state.custom_prompt_input.reset();
+                            state.show_custom_prompt = false;
+                            return Ok(Some(StateTransition::Continue));
+                        }
+                        _ => {
+                            // Let tui-input handle the key event
+                            // We need to pass the full event, not just the key
+                            if let AppEvent::Key(key) = event {
+                                state.custom_prompt_input.handle_event(&Event::Key(key));
+                            }
+                        }
+                    }
+                    return Ok(None);
+                }
+                
+                // Normal discovery screen key handling
+                match key.code {
+                    KeyCode::Up => {
+                        if state.selected_index > 0 {
+                            state.selected_index -= 1;
+                            // Load preview for new selection
+                            if let Some(file) = state.files.get(state.selected_index) {
+                                state.preview_content = Some(super::preview::mock_preview(&file.path));
+                            }
+                        }
+                    }
+                    KeyCode::Down => {
+                        if state.selected_index < state.files.len().saturating_sub(1) {
+                            state.selected_index += 1;
+                            // Load preview for new selection
+                            if let Some(file) = state.files.get(state.selected_index) {
+                                state.preview_content = Some(super::preview::mock_preview(&file.path));
+                            }
+                        }
+                    }
+                    KeyCode::Char(' ') => {
+                        // Toggle selection
+                        if let Some(file) = state.files.get(state.selected_index) {
+                            if state.selected.contains(&file.path) {
+                                state.selected.remove(&file.path);
+                            } else {
+                                state.selected.insert(file.path.clone());
+                            }
+                        }
+                    }
+                    KeyCode::Tab => {
+                        // Switch pane focus
+                        state.focused_pane = match state.focused_pane {
+                            Pane::FileList => Pane::Preview,
+                            Pane::Preview => Pane::FileList,
+                        };
+                    }
+                    KeyCode::Enter => {
+                        // Continue if we have selections
+                        if !state.selected.is_empty() {
+                            return Ok(Some(StateTransition::Continue));
+                        }
+                    }
+                    KeyCode::Char('c') | KeyCode::Char('C') => {
+                        // Open custom prompt modal
+                        state.show_custom_prompt = true;
+                    }
+                    _ => {}
+                }
+            }
+            AppEvent::FileFound(file) => {
+                state.files.push(file);
+                // Load preview for first file
+                if state.files.len() == 1 {
+                    state.preview_content = Some(super::preview::mock_preview(&state.files[0].path));
+                }
+            }
+            AppEvent::ScanProgress(progress) => {
+                state.scan_progress = progress;
+            }
+            AppEvent::ScanComplete => {
+                state.scan_complete = true;
+                // Select first file by default if any
+                if !state.files.is_empty() && state.selected.is_empty() {
+                    if let Some(first) = state.files.first() {
+                        state.selected.insert(first.path.clone());
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(None)
+    }
+
+    fn handle_extraction_event(_state: &mut ExtractionState, event: AppEvent) -> Result<Option<StateTransition>> {
+        match event {
+            AppEvent::Key(key) => {
+                match key.code {
+                    KeyCode::Enter => {
+                        // Continue to review
+                        return Ok(Some(StateTransition::Continue));
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        Ok(None)
+    }
+
+    fn handle_review_event(state: &mut ReviewState, event: AppEvent) -> Result<Option<StateTransition>> {
+        match event {
+            AppEvent::Key(key) => {
+                if state.search_active {
+                    // Handle search input
+                    match key.code {
+                        KeyCode::Enter | KeyCode::Esc => {
+                            state.search_active = false;
+                            // Update filtered indices based on search
+                            if !state.search_input.value().is_empty() {
+                                let search_term = state.search_input.value().to_lowercase();
+                                state.filtered_indices = state.rules.iter()
+                                    .enumerate()
+                                    .filter(|(_, rule)| {
+                                        rule.description.to_lowercase().contains(&search_term)
+                                    })
+                                    .map(|(idx, _)| idx)
+                                    .collect();
+                            }
+                        }
+                        _ => {
+                            state.search_input.handle_event(&Event::Key(key));
+                        }
+                    }
+                } else {
+                    // Normal navigation
+                    match key.code {
+                        KeyCode::Up => {
+                            if state.selected_index > 0 {
+                                state.selected_index -= 1;
+                            }
+                        }
+                        KeyCode::Down => {
+                            state.selected_index += 1; // TODO: Add bounds check
+                        }
+                        KeyCode::Char(' ') => {
+                            // Toggle selection for current rule
+                            // TODO: Map line index to rule index
+                        }
+                        KeyCode::Char('/') => {
+                            state.search_active = true;
+                            state.search_input.reset();
+                        }
+                        KeyCode::Char('a') => {
+                            // Select all
+                            for i in 0..state.rules.len() {
+                                state.selected.insert(i);
+                            }
+                        }
+                        KeyCode::Char('n') => {
+                            // Select none
+                            state.selected.clear();
+                        }
+                        KeyCode::Char('e') => {
+                            // Edit current rule
+                            // TODO: Open edit modal
+                        }
+                        KeyCode::Enter => {
+                            // Continue to compilation
+                            return Ok(Some(StateTransition::Continue));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(None)
+    }
+
+    fn handle_compilation_event(state: &mut CompilationState, event: AppEvent) -> Result<Option<StateTransition>> {
+        match event {
+            AppEvent::Key(key) => {
+                match key.code {
+                    KeyCode::Char('l') => {
+                        // Toggle logs
+                        state.show_logs = !state.show_logs;
+                    }
+                    KeyCode::Char('v') => {
+                        // Toggle verbose mode (add more logs)
+                        state.logs.push("Verbose mode enabled".to_string());
+                    }
+                    KeyCode::Char('r') => {
+                        // Retry failed phases
+                        if let Some(phase) = state.phases.get_mut(state.current_phase) {
+                            if matches!(phase.status, PhaseStatus::Failed(_)) {
+                                phase.status = PhaseStatus::InProgress;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            AppEvent::CompilationProgress { phase, progress } => {
+                // Calculate overall progress first
+                let phase_count = state.phases.len();
+                state.overall_progress = (phase as f64 + progress) / phase_count as f64;
+                
+                if let Some(current) = state.phases.get_mut(phase) {
+                    current.status = PhaseStatus::InProgress;
+                    
+                    // Update phase details based on progress
+                    match phase {
+                        0 => {
+                            // Policy compilation phase
+                            current.details.clear();
+                            if progress >= 0.3 {
+                                current.details.push("✓ Parsing extracted rules".to_string());
+                            }
+                            if progress >= 0.6 {
+                                current.details.push("✓ Generating YAML policies".to_string());
+                            }
+                            if progress >= 0.9 {
+                                current.details.push("⟳ Optimizing patterns...".to_string());
+                            }
+                        }
+                        1 => {
+                            // Hook installation phase
+                            current.details.clear();
+                            if progress >= 0.25 {
+                                current.details.push("✓ Created .claude/hooks/ directory".to_string());
+                            }
+                            if progress >= 0.5 {
+                                current.details.push("✓ Installed pre-commit hook".to_string());
+                            }
+                            if progress >= 0.75 {
+                                current.details.push("⟳ Installing file-change watchers...".to_string());
+                            }
+                        }
+                        2 => {
+                            // Validation phase
+                            current.details.clear();
+                            if progress >= 0.5 {
+                                current.details.push("✓ Policy syntax validated".to_string());
+                            }
+                            if progress >= 0.8 {
+                                current.details.push("⟳ Testing hook execution...".to_string());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            AppEvent::CompilationPhaseComplete { phase } => {
+                if let Some(current) = state.phases.get_mut(phase) {
+                    current.status = PhaseStatus::Complete;
+                    current.elapsed_ms = 348 + (phase as u64 * 127); // Mock elapsed time
+                    
+                    // Update final details
+                    match phase {
+                        0 => {
+                            current.details.clear();
+                            current.details.push("✓ Generated 3 policy files".to_string());
+                            current.details.push("✓ 18 critical, 23 warning, 11 info rules".to_string());
+                        }
+                        1 => {
+                            current.details.clear();
+                            current.details.push("✓ Created .claude/hooks/ directory".to_string());
+                            current.details.push("✓ Installed pre-commit hook".to_string());
+                            current.details.push("✓ Installed file-change watchers".to_string());
+                            current.details.push("✓ Updated .claude/settings.local.json".to_string());
+                        }
+                        2 => {
+                            current.details.clear();
+                            current.details.push("✓ Policy syntax validated".to_string());
+                            current.details.push("✓ Hook execution tested".to_string());
+                            current.details.push("✓ All systems operational".to_string());
+                        }
+                        _ => {}
+                    }
+                    
+                    state.current_phase = (phase + 1).min(state.phases.len() - 1);
+                }
+                
+                // If all phases complete, transition to success
+                if state.phases.iter().all(|p| matches!(p.status, PhaseStatus::Complete)) {
+                    return Ok(Some(StateTransition::Continue));
+                }
+            }
+            AppEvent::CompilationPhaseFailed { phase, error } => {
+                if let Some(current) = state.phases.get_mut(phase) {
+                    current.status = PhaseStatus::Failed(error);
+                }
+            }
+            AppEvent::CompilationLog(log) => {
+                state.logs.push(log);
+            }
+            _ => {}
+        }
+        Ok(None)
+    }
+
+    fn handle_success_event(&mut self, event: AppEvent) -> Result<Option<StateTransition>> {
+        if let AppEvent::Key(key) = event {
+            match key.code {
+                KeyCode::Enter | KeyCode::Char('t') | KeyCode::Char('s') | KeyCode::Char('d') => {
+                    self.should_quit = true;
+                }
+                _ => {}
+            }
+        }
+        Ok(None)
+    }
+
+    fn start_extraction(&self, selected_files: &HashSet<PathBuf>, state: &mut ExtractionState) -> Result<()> {
+        // Create extraction tasks for selected files
+        for (idx, path) in selected_files.iter().enumerate() {
+            let file_name = path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            
+            let task = ExtractionTask {
+                file_path: path.clone(),
+                file_name,
+                status: if idx < 2 {
+                    // Start first two immediately
+                    TaskStatus::InProgress
+                } else {
+                    TaskStatus::Queued
+                },
+                progress: if idx == 0 { 0.72 } else if idx == 1 { 0.15 } else { 0.0 },
+                elapsed_ms: if idx == 0 { 189 } else if idx == 1 { 54 } else { 0 },
+                rules_found: if idx == 0 { 8 } else { 0 },
+            };
+            
+            state.tasks.push(task);
+        }
+        
+        // Set overall progress
+        state.overall_progress = 0.35;
+        
+        // TODO: Actually spawn extraction tasks
+        Ok(())
+    }
+
+    fn start_compilation(&self, state: &mut CompilationState) -> Result<()> {
+        // Initialize compilation phases
+        state.phases = vec![
+            CompilationPhase {
+                name: "Policy Compilation".to_string(),
+                status: PhaseStatus::InProgress,
+                details: vec![
+                    "⟳ Compiling rules into Cupcake YAML format...".to_string(),
+                ],
+                elapsed_ms: 0,
+            },
+            CompilationPhase {
+                name: "Claude Code Hook Installation".to_string(),
+                status: PhaseStatus::Pending,
+                details: vec![],
+                elapsed_ms: 0,
+            },
+            CompilationPhase {
+                name: "Validation & Testing".to_string(),
+                status: PhaseStatus::Pending,
+                details: vec![],
+                elapsed_ms: 0,
+            },
+        ];
+        
+        state.current_phase = 0;
+        state.overall_progress = 0.0;
+        
+        // Start simulating compilation progress
+        if let Some(tx) = &self.event_tx {
+            let event_tx = tx.clone();
+            tokio::spawn(async move {
+                // Phase 1: Policy Compilation
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                let _ = event_tx.send(AppEvent::CompilationLog("Starting policy compilation...".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.3 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Writing blocking-policies.yml...".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.6 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Optimizing regex patterns...".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.9 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Generated 3 policy files (18 critical, 23 warning, 11 info)".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                let _ = event_tx.send(AppEvent::CompilationPhaseComplete { phase: 0 });
+                
+                // Phase 2: Hook Installation
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = event_tx.send(AppEvent::CompilationLog("Beginning Claude Code hook installation...".to_string()));
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.0 });
+                
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.25 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Created .claude/hooks/ directory".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.5 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Hook registered: pre-commit → cupcake check".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.75 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Installing file-change watchers...".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = event_tx.send(AppEvent::CompilationPhaseComplete { phase: 1 });
+                
+                // Phase 3: Validation
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = event_tx.send(AppEvent::CompilationLog("Running validation tests...".to_string()));
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 2, progress: 0.0 });
+                
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 2, progress: 0.5 });
+                let _ = event_tx.send(AppEvent::CompilationLog("Testing hook execution...".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 2, progress: 0.8 });
+                let _ = event_tx.send(AppEvent::CompilationLog("All tests passed!".to_string()));
+                
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                let _ = event_tx.send(AppEvent::CompilationPhaseComplete { phase: 2 });
+            });
+        }
+        
+        Ok(())
+    }
+}
+
+/// Populate review state with mock rules for testing
+fn populate_mock_rules(state: &mut ReviewState) {
+    use std::path::PathBuf;
+    
+    let mock_rules = vec![
+        // Claude rules
+        ExtractedRule {
+            id: 0,
+            source_file: PathBuf::from("CLAUDE.md"),
+            description: "Always run tests before committing".to_string(),
+            severity: Severity::Critical,
+            category: "testing".to_string(),
+            when: "pre-commit".to_string(),
+            block_on_violation: true,
+        },
+        ExtractedRule {
+            id: 1,
+            source_file: PathBuf::from("CLAUDE.md"),
+            description: "Use TypeScript strict mode".to_string(),
+            severity: Severity::Warning,
+            category: "code-style".to_string(),
+            when: "tool-call".to_string(),
+            block_on_violation: false,
+        },
+        ExtractedRule {
+            id: 2,
+            source_file: PathBuf::from("CLAUDE.md"),
+            description: "Document all public APIs".to_string(),
+            severity: Severity::Info,
+            category: "documentation".to_string(),
+            when: "file-change".to_string(),
+            block_on_violation: false,
+        },
+        // Cursor rules
+        ExtractedRule {
+            id: 3,
+            source_file: PathBuf::from(".cursor/rules"),
+            description: "No console.log in production code".to_string(),
+            severity: Severity::Critical,
+            category: "code-quality".to_string(),
+            when: "file-change".to_string(),
+            block_on_violation: true,
+        },
+        ExtractedRule {
+            id: 4,
+            source_file: PathBuf::from(".cursor/rules"),
+            description: "Prefer async/await over promises".to_string(),
+            severity: Severity::Info,
+            category: "code-style".to_string(),
+            when: "tool-call".to_string(),
+            block_on_violation: false,
+        },
+        // Kiro rules
+        ExtractedRule {
+            id: 5,
+            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
+            description: "Require PR approval before merging".to_string(),
+            severity: Severity::Critical,
+            category: "workflow".to_string(),
+            when: "pre-commit".to_string(),
+            block_on_violation: true,
+        },
+        ExtractedRule {
+            id: 6,
+            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
+            description: "All tests must pass in CI".to_string(),
+            severity: Severity::Critical,
+            category: "testing".to_string(),
+            when: "pre-commit".to_string(),
+            block_on_violation: true,
+        },
+        ExtractedRule {
+            id: 7,
+            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
+            description: "Format code with prettier on save".to_string(),
+            severity: Severity::Info,
+            category: "formatting".to_string(),
+            when: "file-change".to_string(),
+            block_on_violation: false,
+        },
+        ExtractedRule {
+            id: 8,
+            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
+            description: "No force-push to protected branches".to_string(),
+            severity: Severity::Critical,
+            category: "git".to_string(),
+            when: "pre-commit".to_string(),
+            block_on_violation: true,
+        },
+    ];
+    
+    state.rules = mock_rules;
+    
+    // Select all by default except one
+    for i in 0..state.rules.len() {
+        if i != 7 { // Leave one unselected
+            state.selected.insert(i);
+        }
+    }
+    
+    // Expand first section by default
+    state.expanded_sections.insert("CLAUDE.md".to_string());
+    state.expanded_sections.insert(".kiro/steering/agent-policy.yml".to_string());
+}

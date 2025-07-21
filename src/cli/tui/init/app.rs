@@ -212,12 +212,13 @@ impl App {
                         WizardState::Compilation(compilation)
                     }
                     WizardState::Compilation(_) => {
+                        let output_dir = super::yaml_writer::get_output_dir();
                         WizardState::Success(SuccessState {
                             total_rules: 52, // TODO: Get from actual data
                             critical_count: 18,
                             warning_count: 23,
                             info_count: 11,
-                            config_location: std::path::PathBuf::from("guardrails/cupcake.yaml"),
+                            config_location: output_dir.join("cupcake.yaml"),
                         })
                     }
                     WizardState::Success(_) => {
@@ -244,43 +245,34 @@ impl App {
     fn spawn_background_tasks(&self, event_tx: tokio::sync::mpsc::UnboundedSender<AppEvent>) {
         // File discovery task
         tokio::spawn(async move {
-            // Simulate file discovery
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            // Use real file discovery
+            let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             
-            // Send some mock files
-            let files = vec![
-                RuleFile {
-                    path: "CLAUDE.md".into(),
-                    agent: Agent::Claude,
-                    is_directory: false,
-                    children: vec![],
-                },
-                RuleFile {
-                    path: ".cursor/rules".into(),
-                    agent: Agent::Cursor,
-                    is_directory: false,
-                    children: vec![],
-                },
-                RuleFile {
-                    path: ".windsurf/rules/".into(),
-                    agent: Agent::Windsurf,
-                    is_directory: true,
-                    children: vec![
-                        ".windsurf/rules/formatting.md".into(),
-                        ".windsurf/rules/security.md".into(),
-                        ".windsurf/rules/performance.md".into(),
-                    ],
-                },
-            ];
-
-            for (i, file) in files.into_iter().enumerate() {
-                let _ = event_tx.send(AppEvent::FileFound(file));
-                let progress = (i + 1) as f64 / 3.0;
-                let _ = event_tx.send(AppEvent::ScanProgress(progress));
-                tokio::time::sleep(Duration::from_millis(200)).await;
+            match super::discovery::discover_files(&current_dir).await {
+                Ok(files) => {
+                    let total = files.len();
+                    if total == 0 {
+                        // No files found, send a placeholder
+                        let _ = event_tx.send(AppEvent::ScanProgress(1.0));
+                        let _ = event_tx.send(AppEvent::ScanComplete);
+                    } else {
+                        // Send discovered files
+                        for (i, file) in files.into_iter().enumerate() {
+                            let _ = event_tx.send(AppEvent::FileFound(file));
+                            let progress = (i + 1) as f64 / total as f64;
+                            let _ = event_tx.send(AppEvent::ScanProgress(progress));
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                        let _ = event_tx.send(AppEvent::ScanComplete);
+                    }
+                }
+                Err(e) => {
+                    // Log error but continue with empty list
+                    eprintln!("File discovery error: {}", e);
+                    let _ = event_tx.send(AppEvent::ScanProgress(1.0));
+                    let _ = event_tx.send(AppEvent::ScanComplete);
+                }
             }
-
-            let _ = event_tx.send(AppEvent::ScanComplete);
         });
     }
 
@@ -325,7 +317,7 @@ impl App {
                             state.selected_index -= 1;
                             // Load preview for new selection
                             if let Some(file) = state.files.get(state.selected_index) {
-                                state.preview_content = Some(super::preview::mock_preview(&file.path));
+                                state.preview_content = load_file_preview(&file.path);
                             }
                         }
                     }
@@ -334,7 +326,7 @@ impl App {
                             state.selected_index += 1;
                             // Load preview for new selection
                             if let Some(file) = state.files.get(state.selected_index) {
-                                state.preview_content = Some(super::preview::mock_preview(&file.path));
+                                state.preview_content = load_file_preview(&file.path);
                             }
                         }
                     }
@@ -372,7 +364,7 @@ impl App {
                 state.files.push(file);
                 // Load preview for first file
                 if state.files.len() == 1 {
-                    state.preview_content = Some(super::preview::mock_preview(&state.files[0].path));
+                    state.preview_content = load_file_preview(&state.files[0].path);
                 }
             }
             AppEvent::ScanProgress(progress) => {
@@ -682,11 +674,22 @@ impl App {
                 
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.3 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Writing blocking-policies.yml...".to_string()));
+                let _ = event_tx.send(AppEvent::CompilationLog("Creating guardrails directory...".to_string()));
+                
+                // Actually generate stub YAML files
+                let output_dir = super::yaml_writer::get_output_dir();
+                match super::yaml_writer::generate_stub_files(&output_dir, 52) {
+                    Ok(_) => {
+                        let _ = event_tx.send(AppEvent::CompilationLog(format!("✓ Created {}", output_dir.display())));
+                    }
+                    Err(e) => {
+                        let _ = event_tx.send(AppEvent::CompilationLog(format!("⚠️  Failed to create files: {}", e)));
+                    }
+                }
                 
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.6 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Optimizing regex patterns...".to_string()));
+                let _ = event_tx.send(AppEvent::CompilationLog("Writing policy files...".to_string()));
                 
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.9 });
@@ -702,7 +705,17 @@ impl App {
                 
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.25 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Created .claude/hooks/ directory".to_string()));
+                let _ = event_tx.send(AppEvent::CompilationLog("Creating .claude directory...".to_string()));
+                
+                // Actually update Claude settings
+                match super::claude_settings::update_claude_settings() {
+                    Ok(_) => {
+                        let _ = event_tx.send(AppEvent::CompilationLog("✓ Updated .claude/settings.local.json".to_string()));
+                    }
+                    Err(e) => {
+                        let _ = event_tx.send(AppEvent::CompilationLog(format!("⚠️  Failed to update settings: {}", e)));
+                    }
+                }
                 
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.5 });
@@ -734,6 +747,47 @@ impl App {
         }
         
         Ok(())
+    }
+}
+
+/// Load file preview synchronously
+fn load_file_preview(path: &PathBuf) -> Option<String> {
+    if path.is_dir() {
+        // Show directory contents
+        if let Ok(entries) = std::fs::read_dir(path) {
+            let mut contents = vec![format!("📁 Directory: {}\n", path.display())];
+            let mut count = 0;
+            for entry in entries.flatten() {
+                if count >= 20 { 
+                    contents.push("... (more files)".to_string());
+                    break;
+                }
+                let name = entry.file_name().to_string_lossy().to_string();
+                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    contents.push(format!("  📁 {}/", name));
+                } else {
+                    contents.push(format!("  📄 {}", name));
+                }
+                count += 1;
+            }
+            Some(contents.join("\n"))
+        } else {
+            Some(format!("Cannot read directory: {}", path.display()))
+        }
+    } else {
+        // Read file contents
+        match std::fs::read_to_string(path) {
+            Ok(content) => {
+                let lines: Vec<&str> = content.lines().take(50).collect();
+                let preview = lines.join("\n");
+                if content.lines().count() > 50 {
+                    Some(format!("{}\n\n... ({} more lines)", preview, content.lines().count() - 50))
+                } else {
+                    Some(preview)
+                }
+            }
+            Err(_) => Some(format!("Cannot preview: {}", path.display()))
+        }
     }
 }
 

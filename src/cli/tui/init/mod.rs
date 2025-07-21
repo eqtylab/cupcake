@@ -8,6 +8,8 @@ pub mod theme;
 pub mod discovery;
 pub mod preview;
 pub mod modal;
+pub mod yaml_writer;
+pub mod claude_settings;
 
 use crate::Result;
 

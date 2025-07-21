@@ -255,3 +255,50 @@ Phase 5 is complete. The TUI now has:
 - Smooth transitions throughout the wizard
 
 Next: Begin Phase 6 - Polish and integration
+
+## 2025-01-21T19:00:00Z
+
+Completed Phase 6:
+
+1. Replaced stub init command:
+   - Modified InitCommand to launch TUI wizard
+   - Added tokio runtime for async execution
+   - Removed old stub implementation entirely
+
+2. Implemented real file discovery:
+   - Updated app.rs to use actual discover_files function
+   - Scans current directory for real CLAUDE.md, .cursor/rules, etc.
+   - File preview now reads actual file contents (first 50 lines)
+   - Directory preview shows actual directory contents
+
+3. Created stub YAML generation:
+   - yaml_writer module generates real files on disk
+   - Creates guardrails/cupcake.yaml with proper structure
+   - Generates 3 stub policy files in guardrails/policies/
+   - Files are actually written during compilation phase
+
+4. Added Claude Code settings update:
+   - claude_settings module creates .claude/settings.local.json
+   - Stub implementation writes hook configuration
+   - Real hook commands reference cupcake run
+
+5. Basic error handling:
+   - File discovery errors are caught and logged
+   - YAML generation errors shown in compilation logs
+   - Settings update errors displayed to user
+   - Graceful fallbacks for all file operations
+
+Phase 6 is complete. The TUI wizard now:
+- Discovers real files in the filesystem
+- Shows actual file contents in preview
+- Generates real (stub) YAML files on disk
+- Updates Claude Code settings with hooks
+- Provides a complete end-to-end experience
+
+The wizard is fully functional with stub data. Next plan will:
+- Integrate real LLM for rule extraction
+- Generate actual policies from extracted rules
+- Add proper error recovery and validation
+- Implement the full cupcake run command integration
+
+Plan 017 is now complete!

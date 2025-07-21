@@ -22,7 +22,7 @@ fn test_array_mode_no_shell_escalation() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{malicious_var}}".to_string()]),
         working_dir: None,
@@ -34,7 +34,7 @@ fn test_array_mode_no_shell_escalation() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -92,7 +92,7 @@ fn test_allow_shell_false_cannot_be_bypassed() {
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
     
     // Test array mode still works
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["test".to_string()]),
         working_dir: None,
@@ -104,7 +104,7 @@ fn test_allow_shell_false_cannot_be_bypassed() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_result = executor.build_graph(&array_spec);
     assert!(array_result.is_ok());
@@ -137,7 +137,7 @@ fn test_consistent_security_across_modes() {
     let executor = CommandExecutor::new(vars);
     
     // Test array mode
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{malicious_input}}".to_string()]),
         working_dir: None,
@@ -149,7 +149,7 @@ fn test_consistent_security_across_modes() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_graph = executor.build_graph(&array_spec).unwrap();
     let array_node = &array_graph.nodes[0];
@@ -184,7 +184,7 @@ fn test_shell_mode_governance_difference() {
     let executor = CommandExecutor::with_settings(vars, settings);
     
     // Test array mode - input becomes literal
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["sh".to_string()],
         args: Some(vec!["-c".to_string(), "{{shell_input}}".to_string()]),
         working_dir: None,
@@ -196,7 +196,7 @@ fn test_shell_mode_governance_difference() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_graph = executor.build_graph(&array_spec).unwrap();
     let array_node = &array_graph.nodes[0];
@@ -227,7 +227,7 @@ fn test_mode_boundaries_with_complex_scenarios() {
     let executor = CommandExecutor::new(vars);
     
     // In array mode, shell operators become literal
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{complex_input}}".to_string()]),
         working_dir: None,
@@ -239,7 +239,7 @@ fn test_mode_boundaries_with_complex_scenarios() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_graph = executor.build_graph(&array_spec).unwrap();
     let array_node = &array_graph.nodes[0];
@@ -271,7 +271,7 @@ fn test_template_consistency_across_modes() {
     let executor = CommandExecutor::new(vars);
     
     // Test array mode
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["User {{user_name}} accessing {{file_path}}".to_string()]),
         working_dir: None,
@@ -283,7 +283,7 @@ fn test_template_consistency_across_modes() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_graph = executor.build_graph(&array_spec).unwrap();
     let array_node = &array_graph.nodes[0];
@@ -313,7 +313,7 @@ fn test_no_privilege_escalation_between_modes() {
     let executor = CommandExecutor::new(vars);
     
     // Array mode should make sudo command literal
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{escalation_attempt}}".to_string()]),
         working_dir: None,
@@ -325,7 +325,7 @@ fn test_no_privilege_escalation_between_modes() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_graph = executor.build_graph(&array_spec).unwrap();
     let array_node = &array_graph.nodes[0];

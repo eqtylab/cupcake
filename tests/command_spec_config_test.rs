@@ -8,7 +8,6 @@ use cupcake::config::actions::{
 };
 use cupcake::config::conditions::Condition;
 use serde_yaml_ng;
-use std::collections::HashMap;
 
 #[cfg(test)]
 mod command_spec_tests {
@@ -45,7 +44,7 @@ mod command_spec_tests {
     /// Test CommandSpec enum with Array variant
     #[test]
     fn test_command_spec_array_variant() {
-        let command_spec = CommandSpec::Array(ArrayCommandSpec {
+        let command_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["npm".to_string()],
             args: Some(vec!["test".to_string()]),
             working_dir: None,
@@ -57,7 +56,7 @@ mod command_spec_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         match command_spec {
             CommandSpec::Array(spec) => {
@@ -72,7 +71,7 @@ mod command_spec_tests {
     /// Test YAML serialization/deserialization of basic ArrayCommandSpec
     #[test]
     fn test_array_command_spec_yaml_serialization() {
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["cargo".to_string()],
             args: Some(vec!["build".to_string(), "--release".to_string()]),
             working_dir: Some("project".to_string()),
@@ -93,7 +92,7 @@ mod command_spec_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         // Serialize to YAML
         let yaml = serde_yaml_ng::to_string(&spec).expect("Failed to serialize to YAML");
@@ -181,7 +180,7 @@ mod command_spec_tests {
     #[test]
     fn test_action_run_command_with_spec() {
         let action = Action::RunCommand {
-            spec: CommandSpec::Array(ArrayCommandSpec {
+            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
                 command: vec!["docker".to_string()],
                 args: Some(vec![
                     "build".to_string(),
@@ -201,7 +200,7 @@ mod command_spec_tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Docker build failed".to_string()),
             background: false,
@@ -223,7 +222,7 @@ mod command_spec_tests {
     #[test]
     fn test_condition_check_with_spec() {
         let condition = Condition::Check {
-            spec: CommandSpec::Array(ArrayCommandSpec {
+            spec: Box::new(CommandSpec::Array(Box::new(ArrayCommandSpec {
                 command: vec!["test".to_string()],
                 args: Some(vec!["-f".to_string(), "{{file_path}}".to_string()]),
                 working_dir: None,
@@ -235,7 +234,7 @@ mod command_spec_tests {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         };
 
@@ -271,7 +270,7 @@ mod command_spec_tests {
         };
 
         // Serialize and verify template variables are preserved exactly
-        let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(spec))
+        let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(spec)))
             .expect("Failed to serialize");
         
         assert!(yaml.contains("{{tool_input.file_path}}"));
@@ -366,7 +365,7 @@ onFailure:
             on_failure: None,
         };
 
-        let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(minimal))
+        let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(minimal)))
             .expect("Failed to serialize minimal spec");
         let _: CommandSpec = serde_yaml_ng::from_str(&yaml)
             .expect("Failed to deserialize minimal spec");
@@ -386,7 +385,7 @@ onFailure:
             on_failure: None,
         };
 
-        let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(with_empty_env))
+        let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(with_empty_env)))
             .expect("Failed to serialize with empty env");
         let _: CommandSpec = serde_yaml_ng::from_str(&yaml)
             .expect("Failed to deserialize with empty env");

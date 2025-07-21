@@ -179,7 +179,7 @@ echo "Cleanup complete"
         assert!(graph.nodes[0].command.program == "/bin/sh");
         
         // Compare with array mode
-        let array_spec = CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+        let array_spec = CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
             command: vec!["echo".to_string()],
             args: Some(vec!["test".to_string()]),
             working_dir: None,
@@ -191,7 +191,7 @@ echo "Cleanup complete"
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
         let array_graph = executor.build_graph(&array_spec).unwrap();
         assert!(array_graph.nodes[0].command.program == "echo");
     }

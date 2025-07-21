@@ -5,14 +5,16 @@ This guide explains the condition types (evaluations) and action types available
 ## Quick Reference
 
 ### Condition Types
+
 1. **pattern** - Regex matching on any field
-2. **match** - Exact value comparison on any field  
+2. **match** - Exact value comparison on any field
 3. **check** - Run a command and check exit code
 4. **and** - All conditions must be true
 5. **or** - Any condition must be true
 6. **not** - Inverts a condition
 
 ### Action Types
+
 1. **provide_feedback** - Show message (never blocks)
 2. **block_with_feedback** - Block operation with message
 3. **approve** - Auto-approve (bypass permission prompt)
@@ -21,6 +23,7 @@ This guide explains the condition types (evaluations) and action types available
 6. **conditional** - If/then/else based on a condition
 
 ### When Actions Execute
+
 Actions execute when **ALL conditions match** (implicit AND between conditions).
 
 ## Visual Overview
@@ -37,10 +40,10 @@ sequenceDiagram
 
     Claude->>Hook: Tool Request (e.g., Edit file)
     Hook->>Cupcake: PreToolUse Event + JSON Data
-    
+
     Note over Cupcake: Load & Filter Policies
     Cupcake->>Policy: Evaluate Conditions
-    
+
     alt All Conditions Match
         Policy->>Action: Execute Action
         alt Hard Action (Block)
@@ -66,7 +69,7 @@ flowchart TD
     Start[Hook Event Received] --> Load[Load Policies]
     Load --> Filter[Filter by Event & Tool]
     Filter --> Pass1[Pass 1: Collect Feedback]
-    
+
     Pass1 --> Eval1[Evaluate Each Policy]
     Eval1 --> Match1{Conditions Match?}
     Match1 -->|Yes| Soft{Soft Action?}
@@ -76,7 +79,7 @@ flowchart TD
     Collect --> Next1
     Next1 -->|More Policies| Eval1
     Next1 -->|Done| Pass2[Pass 2: Find Hard Action]
-    
+
     Pass2 --> Eval2[Evaluate Each Policy]
     Eval2 --> Match2{Conditions Match?}
     Match2 -->|Yes| Hard{Hard Action?}
@@ -85,7 +88,7 @@ flowchart TD
     Hard -->|No| Next2
     Next2 -->|More Policies| Eval2
     Next2 -->|Done| Combine[Combine Results]
-    
+
     Execute --> Combine
     Combine --> Response[Return to Claude]
 ```
@@ -98,32 +101,32 @@ flowchart LR
         Event[Hook Event Data]
         Context[Evaluation Context]
     end
-    
+
     subgraph Conditions
         Pattern[Pattern<br/>Regex Match]
         Match[Match<br/>Exact Compare]
         Check[Check<br/>Run Command]
     end
-    
+
     subgraph Logical
         And[AND<br/>All True]
         Or[OR<br/>Any True]
         Not[NOT<br/>Invert]
     end
-    
+
     Event --> Extract[Extract Fields]
     Extract --> Pattern
     Extract --> Match
     Extract --> Check
-    
+
     Pattern --> Result{Match?}
     Match --> Result
     Check --> Result
-    
+
     Result --> And
     Result --> Or
     Result --> Not
-    
+
     And --> Final[Final Result]
     Or --> Final
     Not --> Final
@@ -134,28 +137,28 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
     [*] --> ConditionsMatch: All Conditions True
-    
+
     ConditionsMatch --> ProvideFeedback: Soft Action
     ConditionsMatch --> BlockWithFeedback: Hard Action
     ConditionsMatch --> Approve: Hard Action
     ConditionsMatch --> RunCommand: Variable
     ConditionsMatch --> UpdateState: Soft Action
     ConditionsMatch --> Conditional: Variable
-    
+
     ProvideFeedback --> Continue: Never Blocks
     BlockWithFeedback --> Stop: Always Blocks
     Approve --> Continue: Auto-Approve
-    
+
     RunCommand --> CheckExitCode: Execute
     CheckExitCode --> Continue: on_failure=continue
     CheckExitCode --> Stop: on_failure=block & failed
-    
+
     UpdateState --> Continue: Record Event
-    
+
     Conditional --> IfBranch: Evaluate Condition
     IfBranch --> ThenAction: True
     IfBranch --> ElseAction: False
-    
+
     Continue --> [*]: Operation Proceeds
     Stop --> [*]: Operation Blocked
 ```
@@ -167,18 +170,18 @@ graph TD
     subgraph "Policy Definition"
         Policy[Policy Name & Description]
         Policy --> Event[Hook Event<br/>PreToolUse, PostToolUse, etc.]
-        Policy --> Matcher[Tool Matcher<br/>Bash, Edit|Write, etc.]
+        Policy --> Matcher[Tool Matcher<br/>Bash - Edit,Write, etc.]
         Policy --> Conditions[Conditions Array]
         Policy --> Action[Action Definition]
     end
-    
+
     subgraph "Condition Types"
         Conditions --> C1[Pattern<br/>field ~ regex]
         Conditions --> C2[Match<br/>field = value]
         Conditions --> C3[Check<br/>command result]
         Conditions --> C4[And/Or/Not<br/>logical ops]
     end
-    
+
     subgraph "Action Types"
         Action --> A1[provide_feedback]
         Action --> A2[block_with_feedback]
@@ -187,7 +190,7 @@ graph TD
         Action --> A5[update_state]
         Action --> A6[conditional]
     end
-    
+
     style Policy fill:#f9f,stroke:#333,stroke-width:2px
     style Conditions fill:#bbf,stroke:#333,stroke-width:2px
     style Action fill:#bfb,stroke:#333,stroke-width:2px
@@ -200,6 +203,7 @@ graph TD
 Conditions determine whether a policy applies to the current operation. Cupcake uses a simple 3-primitive model that can express any logic:
 
 #### Pattern Condition
+
 Matches field values using regular expressions.
 
 ```yaml
@@ -210,6 +214,7 @@ conditions:
 ```
 
 Common fields:
+
 - `tool_input.command` - Bash command being run
 - `tool_input.file_path` - File being edited/written
 - `tool_name` - Name of the tool (Bash, Write, Edit, etc.)
@@ -218,6 +223,7 @@ Common fields:
 - `env.VARIABLE` - Environment variables
 
 #### Match Condition
+
 Exact string comparison on any field.
 
 ```yaml
@@ -228,6 +234,7 @@ conditions:
 ```
 
 #### Check Condition
+
 Executes a command and evaluates based on exit code.
 
 ```yaml
@@ -236,10 +243,11 @@ conditions:
     spec:
       mode: array
       command: ["test", "-f", "package.json"]
-    expect_success: true  # true = exit 0 means match
+    expect_success: true # true = exit 0 means match
 ```
 
 Check conditions support three command modes:
+
 - `array` - Most secure, no shell interpretation
 - `string` - Shell-like syntax, parsed to array
 - `shell` - Real shell execution (requires `allow_shell: true`)
@@ -284,16 +292,18 @@ conditions:
 Actions define what happens when all conditions match.
 
 #### Provide Feedback
+
 Shows a message to Claude without blocking the operation. Used for suggestions and reminders.
 
 ```yaml
 action:
   type: "provide_feedback"
   message: "Remember to run tests before committing!"
-  include_context: false  # Whether to include tool details
+  include_context: false # Whether to include tool details
 ```
 
 #### Block with Feedback
+
 Prevents the operation and tells Claude why. Claude will try to correct and continue.
 
 ```yaml
@@ -304,15 +314,17 @@ action:
 ```
 
 #### Approve
+
 Auto-approves the tool use, bypassing Claude Code's permission prompt.
 
 ```yaml
 action:
   type: "approve"
-  reason: "Auto-approved: editing test files"  # Shown to user
+  reason: "Auto-approved: editing test files" # Shown to user
 ```
 
 #### Run Command
+
 Executes a command. Can block based on the command's success/failure.
 
 ```yaml
@@ -321,16 +333,18 @@ action:
   spec:
     mode: array
     command: ["cargo", "fmt", "--check"]
-  on_failure: "block"  # or "continue"
+  on_failure: "block" # or "continue"
   on_failure_feedback: "Please run 'cargo fmt' to format the code"
-  background: false  # Run synchronously
+  background: false # Run synchronously
 ```
 
 The `on_failure` options:
+
 - `"block"` - If command exits non-zero, block the operation
 - `"continue"` - Run command but don't block on failure
 
 #### Update State
+
 Records custom events to Cupcake's state system for use in future conditions.
 
 ```yaml
@@ -345,6 +359,7 @@ action:
 Note: Tool usage (Read, Write, Bash, etc.) is automatically tracked. Use update_state only for custom business logic events.
 
 #### Conditional
+
 Executes different actions based on a condition.
 
 ```yaml
@@ -384,6 +399,7 @@ This ensures Claude receives all relevant feedback, not just the first match.
 ### Examples
 
 #### Example 1: Enforce Code Formatting
+
 ```yaml
 PreToolUse:
   "Edit|Write":
@@ -402,6 +418,7 @@ PreToolUse:
 ```
 
 #### Example 2: Prevent Accidental Deletions
+
 ```yaml
 PreToolUse:
   "Bash":
@@ -417,6 +434,7 @@ PreToolUse:
 ```
 
 #### Example 3: Context-Aware Approval
+
 ```yaml
 PreToolUse:
   "Write":
@@ -435,11 +453,13 @@ PreToolUse:
 Common fields available in conditions:
 
 **All Events:**
+
 - `event_type` - The hook event name
 - `session_id` - Unique session identifier
 - `env.*` - Environment variables (e.g., `env.USER`)
 
 **Tool Events (PreToolUse/PostToolUse):**
+
 - `tool_name` - Tool being invoked (Bash, Write, Edit, etc.)
 - `tool_input.*` - Tool-specific inputs:
   - `tool_input.command` - Bash command
@@ -448,11 +468,13 @@ Common fields available in conditions:
   - `tool_input.description` - Command description
 
 **UserPromptSubmit:**
+
 - `prompt` - The user's input text
 
 ### Template Variables
 
 Use template variables in action messages and command arguments:
+
 - `{{tool_name}}` - Current tool name
 - `{{tool_input.file_path}}` - File being edited
 - `{{session_id}}` - Current session ID

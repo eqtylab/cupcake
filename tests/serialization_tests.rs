@@ -175,7 +175,7 @@ fn test_condition_variants_yaml_serialization() {
             regex: "\\.rs$".to_string(),
         },
         Condition::Check {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["{{tool_input.file_path}}".to_string()]),
                 working_dir: None,
@@ -189,7 +189,7 @@ fn test_condition_variants_yaml_serialization() {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         },
         Condition::Pattern {
@@ -215,7 +215,7 @@ fn test_condition_variants_yaml_serialization() {
             ],
         },
         Condition::Check {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["test".to_string()],
                 args: Some(vec!["$(date +%H)".to_string(), "-ge".to_string(), "09".to_string()]),
                 working_dir: None,
@@ -239,11 +239,11 @@ fn test_condition_variants_yaml_serialization() {
                     on_failure: None,
                 }]),
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         },
         Condition::Check {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["sh".to_string()],
                 args: Some(vec!["-c".to_string(), "case $(date +%a) in Mon|Tue|Wed) exit 0 ;; *) exit 1 ;; esac".to_string()]),
                 working_dir: None,
@@ -255,7 +255,7 @@ fn test_condition_variants_yaml_serialization() {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         },
     ];
@@ -283,7 +283,7 @@ fn test_action_variants_yaml_serialization() {
             reason: Some("Auto-approved".to_string()),
         },
         Action::RunCommand {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -295,7 +295,7 @@ fn test_action_variants_yaml_serialization() {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Command failed".to_string()),
             background: false,
@@ -422,7 +422,7 @@ fn test_complex_yaml_policy_serialization() {
                         },
                         Condition::Not {
                             condition: Box::new(Condition::Check {
-                                spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+                                spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                                     command: vec!["test".to_string()],
                                     args: Some(vec!["-f".to_string(), "SAFETY.md".to_string()]),
                                     working_dir: None,
@@ -434,7 +434,7 @@ fn test_complex_yaml_policy_serialization() {
                                     merge_stderr: None,
                                     on_success: None,
                                     on_failure: None,
-                                }),
+                                }))),
                                 expect_success: true,
                             }),
                         },
@@ -444,7 +444,7 @@ fn test_complex_yaml_policy_serialization() {
         }],
         action: Action::Conditional {
             if_condition: Condition::Check {
-                spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+                spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                     command: vec!["test".to_string()],
                     args: Some(vec!["$(date +%H)".to_string(), "-ge".to_string(), "09".to_string()]),
                     working_dir: None,
@@ -468,7 +468,7 @@ fn test_complex_yaml_policy_serialization() {
                         on_failure: None,
                     }]),
                     on_failure: None,
-                }),
+                }))),
                 expect_success: true,
             },
             then_action: Box::new(Action::BlockWithFeedback {
@@ -526,7 +526,7 @@ fn test_round_trip_yaml_serialization() {
                 regex: "\\.rs$".to_string(),
             }],
             action: Action::RunCommand {
-                spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+                spec: cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                     command: vec!["rustfmt".to_string()],
                     args: Some(vec!["{{tool_input.file_path}}".to_string()]),
                     working_dir: None,
@@ -538,7 +538,7 @@ fn test_round_trip_yaml_serialization() {
                     merge_stderr: None,
                     on_success: None,
                     on_failure: None,
-                }),
+                })),
                 on_failure: OnFailureBehavior::Continue,
                 on_failure_feedback: None,
                 background: true,

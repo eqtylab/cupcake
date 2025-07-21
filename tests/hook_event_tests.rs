@@ -343,6 +343,7 @@ fn test_common_event_data() {
     let common_data = CommonEventData {
         session_id: "test-session-common".to_string(),
         transcript_path: "/path/to/transcript.md".to_string(),
+        cwd: "/home/user/project".to_string(),
     };
 
     let json = serde_json::to_string(&common_data).expect("Failed to serialize common event data");

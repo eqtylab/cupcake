@@ -30,7 +30,7 @@ fn test_advanced_template_injection_array_mode() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
             "cmd: {{command_injection}}".to_string(),
@@ -49,7 +49,7 @@ fn test_advanced_template_injection_array_mode() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -76,7 +76,7 @@ fn test_template_context_boundaries() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()], // No templates in command - this is enforced
         args: Some(vec!["{{safe_arg}}".to_string()]), // Templates allowed in args
         working_dir: Some("{{working_dir}}".to_string()), // Templates allowed in working_dir
@@ -93,7 +93,7 @@ fn test_template_context_boundaries() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -115,7 +115,7 @@ fn test_variable_substitution_security_contexts() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["env".to_string()],
         args: Some(vec![
             "ARG={{malicious_arg}}".to_string(),
@@ -134,7 +134,7 @@ fn test_variable_substitution_security_contexts() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -154,7 +154,7 @@ fn test_cross_context_contamination_prevention() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{cross_contamination}}".to_string()]),
         working_dir: None,
@@ -166,7 +166,7 @@ fn test_cross_context_contamination_prevention() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -231,7 +231,7 @@ fn test_template_variable_isolation() {
     let executor = CommandExecutor::new(vars.clone());
     
     // Test in array mode
-    let array_spec = CommandSpec::Array(ArrayCommandSpec {
+    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{shared_var}}".to_string()]),
         working_dir: None,
@@ -243,7 +243,7 @@ fn test_template_variable_isolation() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let array_graph = executor.build_graph(&array_spec).unwrap();
     let array_node = &array_graph.nodes[0];
@@ -278,7 +278,7 @@ fn test_complex_template_variable_names() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
             "File: {{tool_input.file_path}}".to_string(),
@@ -294,7 +294,7 @@ fn test_complex_template_variable_names() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -319,7 +319,7 @@ fn test_malicious_template_variable_names() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
             "{{normal_var}}".to_string(),
@@ -334,7 +334,7 @@ fn test_malicious_template_variable_names() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -354,7 +354,7 @@ fn test_template_injection_binary_special_chars() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
             "Binary: {{binary_data}}".to_string(),
@@ -370,7 +370,7 @@ fn test_template_injection_binary_special_chars() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];

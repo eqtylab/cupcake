@@ -21,7 +21,7 @@ async fn test_custom_timeout_short() {
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
     
     // Command that takes longer than 100ms
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["sleep".to_string()],
         args: Some(vec!["0.2".to_string()]), // Sleep for 200ms
         working_dir: None,
@@ -33,7 +33,7 @@ async fn test_custom_timeout_short() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let result = executor.execute_spec(&spec).await;
     assert!(result.is_err());
@@ -56,7 +56,7 @@ async fn test_custom_timeout_long() {
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
     
     // Command that completes quickly
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["quick test".to_string()]),
         working_dir: None,
@@ -68,7 +68,7 @@ async fn test_custom_timeout_long() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let result = executor.execute_spec(&spec).await.unwrap();
     assert_eq!(result.exit_code, 0);
@@ -84,7 +84,7 @@ async fn test_default_timeout() {
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
     
     // Quick command should complete within default timeout
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["default timeout test".to_string()]),
         working_dir: None,
@@ -96,7 +96,7 @@ async fn test_default_timeout() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let result = executor.execute_spec(&spec).await.unwrap();
     assert_eq!(result.exit_code, 0);

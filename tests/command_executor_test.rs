@@ -27,7 +27,7 @@ mod command_executor_tests {
     fn test_simple_command_graph_construction() {
         let executor = CommandExecutor::new(create_test_template_vars());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["echo".to_string()],
             args: Some(vec!["Hello World".to_string()]),
             working_dir: None,
@@ -39,7 +39,7 @@ mod command_executor_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         
@@ -58,7 +58,7 @@ mod command_executor_tests {
     fn test_template_substitution_in_command() {
         let executor = CommandExecutor::new(create_test_template_vars());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["cat".to_string()],
             args: Some(vec!["{{file_path}}".to_string()]),
             working_dir: Some("/home/{{user_name}}".to_string()),
@@ -73,7 +73,7 @@ mod command_executor_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
@@ -89,7 +89,7 @@ mod command_executor_tests {
     fn test_pipe_chain_construction() {
         let executor = CommandExecutor::new(create_test_template_vars());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["find".to_string()],
             args: Some(vec!["/tmp".to_string(), "-name".to_string(), "*.log".to_string()]),
             working_dir: None,
@@ -111,7 +111,7 @@ mod command_executor_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
@@ -149,7 +149,7 @@ mod command_executor_tests {
     fn test_redirect_operations_construction() {
         let executor = CommandExecutor::new(create_test_template_vars());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["cargo".to_string()],
             args: Some(vec!["build".to_string(), "--release".to_string()]),
             working_dir: Some("project".to_string()),
@@ -166,7 +166,7 @@ mod command_executor_tests {
             merge_stderr: Some(true),
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
@@ -197,7 +197,7 @@ mod command_executor_tests {
     fn test_conditional_execution_construction() {
         let executor = CommandExecutor::new(create_test_template_vars());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["test".to_string()],
             args: Some(vec!["-f".to_string(), "{{file_path}}".to_string()]),
             working_dir: None,
@@ -250,7 +250,7 @@ mod command_executor_tests {
                     on_failure: None,
                 },
             ]),
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
@@ -280,7 +280,7 @@ mod command_executor_tests {
     fn test_complex_composition() {
         let executor = CommandExecutor::new(create_test_template_vars());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["docker".to_string()],
             args: Some(vec!["ps".to_string(), "-a".to_string()]),
             working_dir: None,
@@ -326,7 +326,7 @@ mod command_executor_tests {
                 on_success: None,
                 on_failure: None,
             }]),
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
@@ -350,7 +350,7 @@ mod command_executor_tests {
         
         let executor = CommandExecutor::new(vars);
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["echo".to_string()],
             args: Some(vec!["Processing {{user_input}}".to_string(), "from {{file_path}}".to_string()]),
             working_dir: None,
@@ -362,7 +362,7 @@ mod command_executor_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
@@ -382,7 +382,7 @@ mod command_executor_tests {
     fn test_error_handling_empty_command() {
         let executor = CommandExecutor::new(HashMap::new());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec![], // Invalid: empty command
             args: None,
             working_dir: None,
@@ -394,7 +394,7 @@ mod command_executor_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let result = executor.build_graph(&spec);
         assert!(result.is_err());
@@ -412,7 +412,7 @@ mod command_executor_tests {
         let executor = CommandExecutor::new(create_test_template_vars());
         
         // Test deeply nested conditional execution
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["git".to_string()],
             args: Some(vec!["status".to_string(), "--porcelain".to_string()]),
             working_dir: None,
@@ -472,7 +472,7 @@ mod command_executor_tests {
                 on_success: None,
                 on_failure: None,
             }]),
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         
@@ -490,7 +490,7 @@ mod command_executor_tests {
     async fn test_execute_graph_placeholder() {
         let executor = CommandExecutor::new(HashMap::new());
         
-        let spec = CommandSpec::Array(ArrayCommandSpec {
+        let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
             command: vec!["echo".to_string()],
             args: Some(vec!["test".to_string()]),
             working_dir: None,
@@ -502,7 +502,7 @@ mod command_executor_tests {
             merge_stderr: None,
             on_success: None,
             on_failure: None,
-        });
+        }));
 
         let graph = executor.build_graph(&spec).unwrap();
         let result = executor.execute_graph(&graph).await.unwrap();

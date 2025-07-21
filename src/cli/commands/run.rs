@@ -489,6 +489,7 @@ mod tests {
             "hook_event_name": "PreToolUse",
             "session_id": "test-session-123",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/home/user/project",
             "tool_name": "Bash",
             "tool_input": {
                 "command": "echo 'Hello, World!'",
@@ -521,6 +522,7 @@ mod tests {
             "hook_event_name": "Notification",
             "session_id": "test-session-456",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/home/user/project",
             "message": "Claude needs your permission to use Bash"
         }
         "#;

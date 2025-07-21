@@ -45,7 +45,7 @@ async fn test_audit_logs_to_file() {
     let executor = CommandExecutor::with_settings(vars, settings);
     
     // Execute a simple command
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["{{greeting}}".to_string(), "world".to_string()]),
         working_dir: None,
@@ -57,7 +57,7 @@ async fn test_audit_logs_to_file() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let result = executor.execute_spec(&spec).await.unwrap();
     assert_eq!(result.exit_code, 0);
@@ -155,7 +155,7 @@ async fn test_audit_disabled() {
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
     
     // Execute a simple command
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["test".to_string()]),
         working_dir: None,
@@ -167,7 +167,7 @@ async fn test_audit_disabled() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let result = executor.execute_spec(&spec).await.unwrap();
     assert_eq!(result.exit_code, 0);

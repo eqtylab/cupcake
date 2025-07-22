@@ -89,10 +89,19 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
             style = style.fg(Color::Green);
         }
         
-        // Main file line
+        // Main file line - show relative path
+        let display_path = if file.path.is_absolute() {
+            std::env::current_dir()
+                .ok()
+                .and_then(|cwd| file.path.strip_prefix(cwd).ok())
+                .unwrap_or(&file.path)
+        } else {
+            &file.path
+        };
+        
         let line = Line::from(vec![
             Span::raw(checkbox),
-            Span::raw(format!("{:<30} ", file.path.display())),
+            Span::raw(format!("{:<30} ", display_path.display())),
             Span::styled(badge, Style::default().fg(Color::Cyan)),
         ]);
         
@@ -155,7 +164,15 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
 /// Render the preview pane
 fn render_preview_pane(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
     let title = if let Some(file) = state.files.get(state.selected_index) {
-        format!(" Preview - {} ", file.path.display())
+        let display_path = if file.path.is_absolute() {
+            std::env::current_dir()
+                .ok()
+                .and_then(|cwd| file.path.strip_prefix(cwd).ok())
+                .unwrap_or(&file.path)
+        } else {
+            &file.path
+        };
+        format!(" Preview - {} ", display_path.display())
     } else {
         " Preview ".to_string()
     };

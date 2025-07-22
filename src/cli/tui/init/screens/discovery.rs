@@ -158,10 +158,10 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
     
     // Create list widget with helpful title
     let title = if state.selected.is_empty() {
-        " Select files containing your rules (Enter to select) ".to_string()
+        " Rule Files ".to_string()
     } else {
         let count = state.selected.len();
-        format!(" {} file{} selected ", count, if count == 1 { "" } else { "s" })
+        format!(" {} selected ", count)
     };
     
     let list = List::new(items)
@@ -188,7 +188,7 @@ fn render_preview_pane(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         } else {
             &file.path
         };
-        format!(" Preview - {} ", display_path.display())
+        format!(" {} ", display_path.display())
     } else {
         " Preview ".to_string()
     };

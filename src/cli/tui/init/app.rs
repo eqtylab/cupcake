@@ -152,8 +152,8 @@ impl App {
                     // Handle Ctrl+C - exit on double press
                     let now = std::time::Instant::now();
                     if let Some(last) = self.last_ctrl_c {
-                        if now.duration_since(last).as_millis() < 500 {
-                            // Double Ctrl+C within 500ms - exit
+                        if now.duration_since(last).as_millis() < 1000 {
+                            // Double Ctrl+C within 1 second - exit
                             self.should_quit = true;
                             return Ok(None);
                         }

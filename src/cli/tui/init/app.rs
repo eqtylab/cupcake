@@ -330,7 +330,7 @@ impl App {
                             }
                         }
                     }
-                    KeyCode::Char(' ') => {
+                    KeyCode::Enter => {
                         // Toggle selection
                         if let Some(file) = state.files.get(state.selected_index) {
                             if state.selected.contains(&file.path) {
@@ -340,8 +340,7 @@ impl App {
                             }
                         }
                     }
-                    // Tab key removed - preview auto-shows for selected file
-                    KeyCode::Enter => {
+                    KeyCode::Char(' ') => {
                         // Continue if we have selections
                         if !state.selected.is_empty() {
                             return Ok(Some(StateTransition::Continue));
@@ -428,7 +427,7 @@ impl App {
                                 state.selected_index += 1;
                             }
                         }
-                        KeyCode::Char(' ') => {
+                        KeyCode::Enter => {
                             // Toggle selection for current rule
                             if state.selected.contains(&state.selected_index) {
                                 state.selected.remove(&state.selected_index);
@@ -441,7 +440,7 @@ impl App {
                             // Edit current rule
                             // TODO: Open edit modal
                         }
-                        KeyCode::Enter => {
+                        KeyCode::Char(' ') => {
                             // Continue to compilation
                             return Ok(Some(StateTransition::Continue));
                         }

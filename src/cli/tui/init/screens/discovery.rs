@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
 };
@@ -132,20 +132,30 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
     // Add status line if complete
     if state.scan_complete && !state.files.is_empty() {
         items.push(ListItem::new("")); // Empty line
+        
         let selected_count = state.selected.len();
-        let total_files = count_total_files(&state.files, &state.selected);
-        let status = format!("Selected: {} sources ({} files)", selected_count, total_files);
-        items.push(ListItem::new(Line::from(vec![
-            Span::styled(status, Style::default().fg(Color::Magenta)),
-        ])));
+        if selected_count > 0 {
+            let total_files = count_total_files(&state.files, &state.selected);
+            let status = format!("Selected: {} sources ({} files)", selected_count, total_files);
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled(status, Style::default().fg(Color::Magenta)),
+            ])));
+            
+            // Add continue prompt
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled("[ Press ", Style::default().fg(Color::Green)),
+                Span::styled("Space", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(" to continue ]", Style::default().fg(Color::Green)),
+            ])));
+        }
     }
     
     // Create list widget with helpful title
     let title = if state.selected.is_empty() {
-        " Select files containing your rules (Space to select) ".to_string()
+        " Select files containing your rules (Enter to select) ".to_string()
     } else {
         let count = state.selected.len();
-        format!(" {} file{} selected - Press Enter when ready ", count, if count == 1 { "" } else { "s" })
+        format!(" {} file{} selected ", count, if count == 1 { "" } else { "s" })
     };
     
     let list = List::new(items)
@@ -207,11 +217,11 @@ fn render_help_bar(frame: &mut Frame, area: Rect) {
         Span::raw(" Move  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
-        Span::styled("Space", Style::default().fg(Color::Cyan)),
+        Span::styled("Enter", Style::default().fg(Color::Cyan)),
         Span::raw(" Select  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
-        Span::styled("Enter", Style::default().fg(Color::Cyan)),
+        Span::styled("Space", Style::default().fg(Color::Cyan)),
         Span::raw(" Continue  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),

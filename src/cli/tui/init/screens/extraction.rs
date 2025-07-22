@@ -176,7 +176,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Span::raw("  Press "),
         Span::styled("Enter", Style::default().fg(Color::Cyan)),
         Span::raw(" when complete  •  "),
-        Span::styled("Esc", Style::default().fg(Color::Cyan)),
+        Span::styled("Esc or Q", Style::default().fg(Color::Cyan)),
         Span::raw(" Exit"),
     ]);
     

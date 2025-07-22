@@ -176,7 +176,7 @@ fn render_help(frame: &mut Frame, area: Rect, state: &CompilationState) {
             Span::raw(" "),
             Span::styled("Creating policies...", Style::default().fg(Color::Yellow)),
             Span::raw("  Press "),
-            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::styled("Esc or Q", Style::default().fg(Color::Cyan)),
             Span::raw(" to exit"),
         ])
     };

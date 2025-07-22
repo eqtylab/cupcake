@@ -189,7 +189,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Span::raw(" Continue  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
-        Span::styled("Esc", Style::default().fg(Color::Cyan)),
+        Span::styled("Esc or Q", Style::default().fg(Color::Cyan)),
         Span::raw(" Exit"),
     ]);
     

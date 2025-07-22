@@ -232,9 +232,7 @@ fn render_help_bar(frame: &mut Frame, area: Rect) {
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
         Span::styled("Esc", Style::default().fg(Color::Cyan)),
-        Span::raw(" Exit  "),
-        Span::styled("[q]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Quit"),
+        Span::raw(" Exit"),
     ];
     
     let help = Paragraph::new(Line::from(help_text))

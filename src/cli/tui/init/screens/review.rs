@@ -190,7 +190,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
         Span::styled("Esc", Style::default().fg(Color::Cyan)),
-        Span::raw(" Back"),
+        Span::raw(" Exit"),
     ]);
     
     let help = Paragraph::new(help_text)

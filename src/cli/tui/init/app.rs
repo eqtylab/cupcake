@@ -23,6 +23,10 @@ pub struct App {
     theme: Theme,
     /// Event sender for background tasks
     event_tx: Option<tokio::sync::mpsc::UnboundedSender<AppEvent>>,
+    /// Track Ctrl+C presses for double-press exit
+    ctrl_c_count: u8,
+    /// Last time Ctrl+C was pressed
+    last_ctrl_c: Option<std::time::Instant>,
 }
 
 impl App {
@@ -33,6 +37,8 @@ impl App {
             should_quit: false,
             theme: Theme::default(),
             event_tx: None,
+            ctrl_c_count: 0,
+            last_ctrl_c: None,
         }
     }
 
@@ -138,16 +144,22 @@ impl App {
         // Handle global keys first
         if let AppEvent::Key(key) = &event {
             match key.code {
-                KeyCode::Char('q') | KeyCode::Char('Q') => {
-                    if self.state.can_quit() {
-                        self.should_quit = true;
-                        return Ok(None);
-                    }
+                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                    self.should_quit = true;
+                    return Ok(None);
                 }
-                KeyCode::Esc => {
-                    if self.state.can_go_back() {
-                        return Ok(Some(StateTransition::Back));
+                KeyCode::Char('c') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
+                    // Handle Ctrl+C - exit on double press
+                    let now = std::time::Instant::now();
+                    if let Some(last) = self.last_ctrl_c {
+                        if now.duration_since(last).as_millis() < 500 {
+                            // Double Ctrl+C within 500ms - exit
+                            self.should_quit = true;
+                            return Ok(None);
+                        }
                     }
+                    self.ctrl_c_count = 1;
+                    self.last_ctrl_c = Some(now);
                 }
                 _ => {}
             }

@@ -177,9 +177,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Span::styled("Enter", Style::default().fg(Color::Cyan)),
         Span::raw(" when complete  •  "),
         Span::styled("Esc", Style::default().fg(Color::Cyan)),
-        Span::raw(" Pause  "),
-        Span::styled("[Esc]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Cancel"),
+        Span::raw(" Exit"),
     ]);
     
     let help = Paragraph::new(help_text)

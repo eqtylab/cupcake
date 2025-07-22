@@ -22,13 +22,13 @@ impl DiscoveryPattern {
         vec![
             // Claude
             DiscoveryPattern {
-                patterns: vec!["CLAUDE.md", "claude.md", "CLAUDE.MD"],
+                patterns: vec!["CLAUDE.md"],
                 agent: Agent::Claude,
                 is_directory: false,
             },
             // Cursor
             DiscoveryPattern {
-                patterns: vec![".cursor/rules", ".cursor/RULES"],
+                patterns: vec![".cursor/rules", ".cursor/RULES", ".cursorrules"],
                 agent: Agent::Cursor,
                 is_directory: false,
             },
@@ -77,6 +77,9 @@ fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
     let mut discovered = Vec::new();
     let mut seen = HashMap::new();
     
+    // For case-insensitive deduplication on macOS
+    let mut seen_canonical = HashMap::new();
+    
     for pattern in DiscoveryPattern::all() {
         for glob_pattern in pattern.patterns {
             // Try both relative and absolute patterns
@@ -86,8 +89,11 @@ fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
             // Use glob for pattern matching
             if let Ok(entries) = glob(&pattern_str) {
                 for entry in entries.flatten() {
-                    // Skip if we've already seen this file
-                    if seen.contains_key(&entry) {
+                    // Get canonical path for deduplication
+                    let canonical = entry.canonicalize().unwrap_or(entry.clone());
+                    
+                    // Skip if we've already seen this file (case-insensitive check)
+                    if seen_canonical.contains_key(&canonical) {
                         continue;
                     }
                     
@@ -110,7 +116,8 @@ fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
                         rule_file.children = discover_children(&entry)?;
                     }
                     
-                    seen.insert(entry, discovered.len());
+                    seen.insert(entry.clone(), discovered.len());
+                    seen_canonical.insert(canonical, discovered.len());
                     discovered.push(rule_file);
                 }
             }

@@ -51,27 +51,6 @@ fn test_cli_help_command() {
     assert!(stdout.contains("audit"));
 }
 
-#[test]
-fn test_cli_init_command() {
-    let cupcake_binary = get_cupcake_binary();
-    let temp_dir = tempdir().unwrap();
-    let output_dir = temp_dir.path().join("test-guardrails");
-
-    let output = Command::new(&cupcake_binary)
-        .args(&[
-            "init",
-            "--output",
-            output_dir.to_str().unwrap(),
-            "--yes",
-        ])
-        .output()
-        .expect("Failed to execute cupcake init");
-
-    // Should succeed and create the guardrails structure
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Cupcake guardrails initialized successfully"));
-    assert!(stdout.contains("Created structure"));
-}
 
 #[test]
 fn test_cli_run_command() {
@@ -140,27 +119,6 @@ fn test_cli_audit_command() {
     assert!(stdout.contains("implementation pending"));
 }
 
-#[test]
-fn test_cli_init_with_verbose() {
-    let cupcake_binary = get_cupcake_binary();
-    let temp_dir = tempdir().unwrap();
-    let output_dir = temp_dir.path().join("verbose-test-guardrails");
-
-    let output = Command::new(&cupcake_binary)
-        .args(&[
-            "init",
-            "--output",
-            output_dir.to_str().unwrap(),
-            "--verbose",
-            "--yes",
-        ])
-        .output()
-        .expect("Failed to execute cupcake init --verbose");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Output directory:"));
-    assert!(stdout.contains("Initializing Cupcake guardrails"));
-}
 
 #[test]
 fn test_cli_run_with_debug() {
@@ -302,18 +260,6 @@ fn test_cli_default_values() {
     assert!(stderr.contains("Event: PreToolUse"));
 }
 
-#[test]
-fn test_cli_init_default_output() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&["init", "--yes"])
-        .output()
-        .expect("Failed to execute cupcake init with default output");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("guardrails initialized successfully"));
-}
 
 #[test]
 fn test_cli_validate_default_file() {

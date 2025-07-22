@@ -40,6 +40,7 @@ fn test_run_command_stdin_parsing() {
         "hook_event_name": "PreToolUse",
         "session_id": "test-session-integration",
         "transcript_path": "/tmp/test-transcript.jsonl",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "echo 'Integration test'",
@@ -129,6 +130,7 @@ PreToolUse:
         "hook_event_name": "PreToolUse",
         "session_id": "test-eval-session",
         "transcript_path": "/tmp/test-transcript.jsonl",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "rm -rf /",
@@ -189,6 +191,7 @@ PreToolUse:
         "hook_event_name": "PreToolUse",
         "session_id": "test-eval-session-2",
         "transcript_path": "/tmp/test-transcript.jsonl",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "echo 'safe command'",

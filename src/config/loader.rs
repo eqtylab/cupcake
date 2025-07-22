@@ -60,12 +60,33 @@ impl PolicyLoader {
         // Try parsing as RootConfig first, then fall back to PolicyFragment
         match serde_yaml_ng::from_str::<RootConfig>(&content) {
             Ok(root_config) => {
-                let settings = root_config.settings.clone();
-                let policies = self.load_from_root_config(root_config, config_path)?;
-                Ok(LoadedConfiguration {
-                    settings,
-                    policies,
-                })
+                // Check if this is actually a meaningful RootConfig (has imports or non-default settings)
+                if root_config.has_meaningful_content() {
+                    let settings = root_config.settings.clone();
+                    let policies = self.load_from_root_config(root_config, config_path)?;
+                    Ok(LoadedConfiguration {
+                        settings,
+                        policies,
+                    })
+                } else {
+                    // This looks like a PolicyFragment that just happened to parse as RootConfig
+                    match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                        Ok(fragment) => {
+                            let policies = self.load_from_policy_fragment(fragment)?;
+                            Ok(LoadedConfiguration {
+                                settings: Settings::default(),
+                                policies,
+                            })
+                        }
+                        Err(e) => {
+                            Err(CupcakeError::Config(format!(
+                                "Config file {} could not be parsed as PolicyFragment: {}",
+                                config_path.display(),
+                                e
+                            )))
+                        }
+                    }
+                }
             }
             Err(_) => {
                 // Failed as RootConfig, try as PolicyFragment

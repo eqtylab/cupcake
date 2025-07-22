@@ -11,6 +11,7 @@ fn test_hook_event_deserialization() {
         "hook_event_name": "PreToolUse",
         "session_id": "test-session-123",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "cargo build",
@@ -44,6 +45,7 @@ fn test_post_tool_use_event() {
         "hook_event_name": "PostToolUse",
         "session_id": "test-session-456",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "tool_name": "Read",
         "tool_input": {
             "file_path": "/path/to/file.rs",
@@ -82,6 +84,7 @@ fn test_notification_event() {
         "hook_event_name": "Notification",
         "session_id": "test-session-789",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "message": "Claude needs permission to use the Bash tool"
     }
     "#;
@@ -105,6 +108,7 @@ fn test_stop_event() {
         "hook_event_name": "Stop",
         "session_id": "test-session-stop",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "stop_hook_active": false
     }
     "#;
@@ -131,6 +135,7 @@ fn test_subagent_stop_event() {
         "hook_event_name": "SubagentStop",
         "session_id": "test-session-subagent",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "stop_hook_active": true
     }
     "#;
@@ -157,6 +162,7 @@ fn test_pre_compact_event() {
         "hook_event_name": "PreCompact",
         "session_id": "test-session-compact",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "trigger": "manual",
         "custom_instructions": "Save important context"
     }
@@ -189,6 +195,7 @@ fn test_pre_compact_auto_trigger() {
         "hook_event_name": "PreCompact",
         "session_id": "test-session-auto",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "trigger": "auto"
     }
     "#;
@@ -217,6 +224,7 @@ fn test_hook_event_helper_methods() {
         "hook_event_name": "PreToolUse",
         "session_id": "test-session",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "echo hello"
@@ -239,6 +247,7 @@ fn test_hook_event_helper_methods() {
         "hook_event_name": "Notification",
         "session_id": "test-session",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "message": "Test notification"
     }
     "#;
@@ -255,6 +264,7 @@ fn test_hook_event_helper_methods() {
         "hook_event_name": "Stop",
         "session_id": "test-session",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "stop_hook_active": false
     }
     "#;
@@ -273,6 +283,7 @@ fn test_tool_input_parsing() {
         "hook_event_name": "PreToolUse",
         "session_id": "test-session",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "cargo test",
@@ -297,6 +308,7 @@ fn test_tool_input_parsing() {
         "hook_event_name": "PreToolUse",
         "session_id": "test-session",
         "transcript_path": "/path/to/transcript.md",
+        "cwd": "/tmp",
         "tool_name": "Read",
         "tool_input": {
             "file_path": "/path/to/file.rs",

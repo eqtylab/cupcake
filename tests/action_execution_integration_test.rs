@@ -103,6 +103,7 @@ PreToolUse:
             "hook_event_name": "PostToolUse",
             "session_id": "test-session-update-state",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/tmp",
             "tool_name": "Read",
             "tool_input": {
                 "file_path": "/tmp/test.txt"
@@ -208,6 +209,7 @@ PreToolUse:
             "hook_event_name": "PreToolUse",
             "session_id": "test-session-run-success",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/tmp",
             "tool_name": "Bash",
             "tool_input": {
                 "command": "echo test"
@@ -275,6 +277,7 @@ PreToolUse:
             "hook_event_name": "PreToolUse",
             "session_id": "test-session-run-failure",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/tmp",
             "tool_name": "Bash",
             "tool_input": {
                 "command": "echo test"

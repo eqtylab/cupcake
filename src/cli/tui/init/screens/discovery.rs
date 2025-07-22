@@ -142,7 +142,7 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
     
     // Create list widget with helpful title
     let title = if state.selected.is_empty() {
-        " Select files containing your rules (Space to select) "
+        " Select files containing your rules (Space to select) ".to_string()
     } else {
         let count = state.selected.len();
         format!(" {} file{} selected - Press Enter when ready ", count, if count == 1 { "" } else { "s" })

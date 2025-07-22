@@ -437,8 +437,6 @@ impl App {
                             }
                         }
                         // Search and bulk select shortcuts removed for simplicity
-                            state.selected.clear();
-                        }
                         KeyCode::Char('e') => {
                             // Edit current rule
                             // TODO: Open edit modal

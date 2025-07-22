@@ -78,7 +78,7 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         let is_selected = state.selected.contains(&file.path);
         let is_focused = idx == state.selected_index;
         
-        let checkbox = if is_selected { "☑ " } else { "☐ " };
+        let checkbox = if is_selected { "[✓] " } else { "[ ] " };
         let badge = format!("[{}]", file.agent.as_str());
         
         let mut style = Style::default();
@@ -99,8 +99,14 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
             &file.path
         };
         
+        let checkbox_span = if is_selected {
+            Span::styled(checkbox, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        } else {
+            Span::styled(checkbox, Style::default().fg(Color::DarkGray))
+        };
+        
         let line = Line::from(vec![
-            Span::raw(checkbox),
+            checkbox_span,
             Span::raw(format!("{:<30} ", display_path.display())),
             Span::styled(badge, Style::default().fg(Color::Cyan)),
         ]);

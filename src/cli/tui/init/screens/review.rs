@@ -111,7 +111,7 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
                     let is_selected = state.selected.contains(idx);
                     let is_focused = state.selected_index == current_line;
                     
-                    let checkbox = if is_selected { "☑" } else { "☐" };
+                    let checkbox = if is_selected { "[✓]" } else { "[ ]" };
                     let severity_badge = match rule.severity {
                         Severity::Critical => Span::styled("🔴 Critical", Style::default().fg(Color::Red)),
                         Severity::Warning => Span::styled("🟡 Warning", Style::default().fg(Color::Yellow)),
@@ -125,8 +125,14 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
                         description = description.replace(&search_term, &format!("»{}«", &search_term));
                     }
                     
+                    let checkbox_span = if is_selected {
+                        Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                    } else {
+                        Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::DarkGray))
+                    };
+                    
                     let line = Line::from(vec![
-                        Span::raw(format!("  {} ", checkbox)),
+                        checkbox_span,
                         Span::raw(format!("{:<50} ", description)),
                         severity_badge,
                     ]);

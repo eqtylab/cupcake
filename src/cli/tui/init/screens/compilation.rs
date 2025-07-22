@@ -12,7 +12,7 @@ use crate::cli::tui::init::state::{CompilationState, PhaseStatus};
 pub fn render(frame: &mut Frame, state: &CompilationState) {
     // Main container
     let main_block = Block::default()
-        .title(" Finalizing Configuration ")
+        .title(" Creating your security policies... ")
         .borders(Borders::ALL);
     
     let inner = main_block.inner(frame.area());
@@ -161,25 +161,25 @@ fn render_log_viewer(frame: &mut Frame, area: Rect, state: &CompilationState) {
 }
 
 fn render_help(frame: &mut Frame, area: Rect, state: &CompilationState) {
-    let help_text = Line::from(vec![
-        Span::raw(" "),
-        Span::styled("[l]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Toggle logs  "),
-        Span::styled("[v]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Verbose  "),
-        if state.phases.iter().any(|p| matches!(p.status, PhaseStatus::Failed(_))) {
-            Span::styled("[r]", Style::default().fg(Color::Cyan))
-        } else {
-            Span::raw("")
-        },
-        if state.phases.iter().any(|p| matches!(p.status, PhaseStatus::Failed(_))) {
-            Span::raw(" Retry  ")
-        } else {
-            Span::raw("")
-        },
-        Span::styled("[Esc]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Cancel"),
-    ]);
+    let is_complete = state.phases.iter().all(|p| matches!(p.status, PhaseStatus::Complete));
+    
+    let help_text = if is_complete {
+        Line::from(vec![
+            Span::raw(" "),
+            Span::styled("✓ Complete!", Style::default().fg(Color::Green)),
+            Span::raw("  Press "),
+            Span::styled("Enter", Style::default().fg(Color::Cyan)),
+            Span::raw(" to continue"),
+        ])
+    } else {
+        Line::from(vec![
+            Span::raw(" "),
+            Span::styled("Creating policies...", Style::default().fg(Color::Yellow)),
+            Span::raw("  Press "),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::raw(" to cancel"),
+        ])
+    };
     
     let help = Paragraph::new(help_text)
         .style(Style::default().bg(Color::DarkGray));

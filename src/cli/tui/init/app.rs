@@ -340,23 +340,14 @@ impl App {
                             }
                         }
                     }
-                    KeyCode::Tab => {
-                        // Switch pane focus
-                        state.focused_pane = match state.focused_pane {
-                            Pane::FileList => Pane::Preview,
-                            Pane::Preview => Pane::FileList,
-                        };
-                    }
+                    // Tab key removed - preview auto-shows for selected file
                     KeyCode::Enter => {
                         // Continue if we have selections
                         if !state.selected.is_empty() {
                             return Ok(Some(StateTransition::Continue));
                         }
                     }
-                    KeyCode::Char('c') | KeyCode::Char('C') => {
-                        // Open custom prompt modal
-                        state.show_custom_prompt = true;
-                    }
+                    // Custom prompt modal removed for simplicity
                     _ => {}
                 }
             }
@@ -433,24 +424,19 @@ impl App {
                             }
                         }
                         KeyCode::Down => {
-                            state.selected_index += 1; // TODO: Add bounds check
+                            if state.selected_index < state.rules.len().saturating_sub(1) {
+                                state.selected_index += 1;
+                            }
                         }
                         KeyCode::Char(' ') => {
                             // Toggle selection for current rule
-                            // TODO: Map line index to rule index
-                        }
-                        KeyCode::Char('/') => {
-                            state.search_active = true;
-                            state.search_input.reset();
-                        }
-                        KeyCode::Char('a') => {
-                            // Select all
-                            for i in 0..state.rules.len() {
-                                state.selected.insert(i);
+                            if state.selected.contains(&state.selected_index) {
+                                state.selected.remove(&state.selected_index);
+                            } else {
+                                state.selected.insert(state.selected_index);
                             }
                         }
-                        KeyCode::Char('n') => {
-                            // Select none
+                        // Search and bulk select shortcuts removed for simplicity
                             state.selected.clear();
                         }
                         KeyCode::Char('e') => {
@@ -595,7 +581,7 @@ impl App {
     fn handle_success_event(&mut self, event: AppEvent) -> Result<Option<StateTransition>> {
         if let AppEvent::Key(key) = event {
             match key.code {
-                KeyCode::Enter | KeyCode::Char('t') | KeyCode::Char('s') | KeyCode::Char('d') => {
+                KeyCode::Enter => {
                     self.should_quit = true;
                 }
                 _ => {}

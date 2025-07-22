@@ -12,7 +12,7 @@ use crate::cli::tui::init::state::{ExtractionState, TaskStatus};
 pub fn render(frame: &mut Frame, state: &ExtractionState) {
     // Main container
     let main_block = Block::default()
-        .title(" Extracting Rules ")
+        .title(" Analyzing your files for security rules... ")
         .borders(Borders::ALL);
     
     let inner = main_block.inner(frame.area());
@@ -172,9 +172,11 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
         Span::raw(" "),
-        Span::styled("[r]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Retry failed  "),
-        Span::styled("[p]", Style::default().fg(Color::Cyan)),
+        Span::styled("Processing...", Style::default().fg(Color::Yellow)),
+        Span::raw("  Press "),
+        Span::styled("Enter", Style::default().fg(Color::Cyan)),
+        Span::raw(" when complete  •  "),
+        Span::styled("Esc", Style::default().fg(Color::Cyan)),
         Span::raw(" Pause  "),
         Span::styled("[Esc]", Style::default().fg(Color::Cyan)),
         Span::raw(" Cancel"),

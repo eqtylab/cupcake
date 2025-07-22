@@ -131,10 +131,17 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         ])));
     }
     
-    // Create list widget
+    // Create list widget with helpful title
+    let title = if state.selected.is_empty() {
+        " Select files containing your rules (Space to select) "
+    } else {
+        let count = state.selected.len();
+        format!(" {} file{} selected - Press Enter when ready ", count, if count == 1 { "" } else { "s" })
+    };
+    
     let list = List::new(items)
         .block(Block::default()
-            .title(" Select Rule Sources ")
+            .title(title)
             .borders(Borders::ALL)
             .border_style(if state.focused_pane == Pane::FileList {
                 Style::default().fg(Color::Blue)
@@ -179,14 +186,20 @@ fn render_preview_pane(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
 fn render_help_bar(frame: &mut Frame, area: Rect) {
     let help_text = vec![
         Span::raw(" "),
-        Span::styled("[↑↓]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Navigate  "),
-        Span::styled("[Space]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Toggle  "),
-        Span::styled("[Tab]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Switch Pane  "),
-        Span::styled("[Enter]", Style::default().fg(Color::Cyan)),
+        Span::styled("↑↓", Style::default().fg(Color::Cyan)),
+        Span::raw(" Move  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("Space", Style::default().fg(Color::Cyan)),
+        Span::raw(" Select  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("Enter", Style::default().fg(Color::Cyan)),
         Span::raw(" Continue  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("Esc", Style::default().fg(Color::Cyan)),
+        Span::raw(" Exit  "),
         Span::styled("[q]", Style::default().fg(Color::Cyan)),
         Span::raw(" Quit"),
     ];

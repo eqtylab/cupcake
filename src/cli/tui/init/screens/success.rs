@@ -12,7 +12,7 @@ use crate::cli::tui::init::state::SuccessState;
 pub fn render(frame: &mut Frame, state: &SuccessState) {
     // Main container with success styling
     let main_block = Block::default()
-        .title(" ✅ Cupcake Successfully Initialized ")
+        .title(" ✅ Setup Complete! ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Green));
     
@@ -160,14 +160,10 @@ fn render_try_commands(frame: &mut Frame, area: Rect) {
 fn render_help_bar(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
         Span::raw(" "),
-        Span::styled("[Enter]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Exit  "),
-        Span::styled("[t]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Test now  "),
-        Span::styled("[s]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Show status  "),
-        Span::styled("[d]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Documentation"),
+        Span::styled("✓ Success!", Style::default().fg(Color::Green)),
+        Span::raw("  Press "),
+        Span::styled("Enter", Style::default().fg(Color::Cyan)),
+        Span::raw(" to exit"),
     ]);
     
     let help = Paragraph::new(help_text)

@@ -40,18 +40,11 @@ fn render_header(frame: &mut Frame, area: Rect, state: &ReviewState) {
     
     let header = Line::from(vec![
         Span::raw(format!(" {} rules found • {} selected", total_rules, selected_rules)),
-        Span::raw("              "),
-        Span::styled("[/]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Search  "),
-        Span::styled("[a]", Style::default().fg(Color::Cyan)),
-        Span::raw(" All  "),
-        Span::styled("[n]", Style::default().fg(Color::Cyan)),
-        Span::raw(" None "),
     ]);
     
     let paragraph = Paragraph::new(header)
         .block(Block::default()
-            .title(" Review Extracted Rules ")
+            .title(format!(" Choose which rules to enforce ({} of {} selected) ", selected_rules, total_rules))
             .borders(Borders::ALL));
     
     frame.render_widget(paragraph, area);
@@ -178,15 +171,19 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
         Span::raw(" "),
-        Span::styled("[↑↓]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Navigate  "),
-        Span::styled("[Space]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Toggle  "),
-        Span::styled("[e]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Edit  "),
-        Span::styled("[Enter]", Style::default().fg(Color::Cyan)),
+        Span::styled("↑↓", Style::default().fg(Color::Cyan)),
+        Span::raw(" Move  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("Space", Style::default().fg(Color::Cyan)),
+        Span::raw(" Select  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("Enter", Style::default().fg(Color::Cyan)),
         Span::raw(" Continue  "),
-        Span::styled("[q]", Style::default().fg(Color::Cyan)),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("Esc", Style::default().fg(Color::Cyan)),
         Span::raw(" Back"),
     ]);
     

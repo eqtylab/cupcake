@@ -82,13 +82,13 @@ fn render_with_ascii(frame: &mut Frame, area: Rect, state: &LandingState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),      // Top padding
+            Constraint::Length(1),      // Top padding
             Constraint::Length(44),     // ASCII art
-            Constraint::Length(2),      // Space
-            Constraint::Length(3),      // Title
-            Constraint::Length(2),      // Space
-            Constraint::Length(3),      // Description
-            Constraint::Length(2),      // Space
+            Constraint::Length(1),      // Space
+            Constraint::Length(2),      // Title
+            Constraint::Length(1),      // Space
+            Constraint::Length(1),      // Description
+            Constraint::Length(1),      // Space
             Constraint::Min(0),         // Mode selection
         ])
         .split(area);
@@ -132,9 +132,9 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(10),     // ASCII logo
-            Constraint::Length(2),      // Space
-            Constraint::Length(4),      // Title & subtitle
-            Constraint::Length(2),      // Space
+            Constraint::Length(1),      // Space
+            Constraint::Length(3),      // Title & subtitle
+            Constraint::Length(1),      // Space
             Constraint::Min(0),         // Simple description
         ])
         .split(area);
@@ -165,7 +165,6 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
         Line::from(vec![
             Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
         ]),
-        Line::from(""),
         Line::from("Policy Enforcement for AI Coding Agents"),
     ];
     
@@ -180,16 +179,12 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
 
 fn render_description(frame: &mut Frame, area: Rect) {
     let description = vec![
-        Line::from(""),
-        Line::from(""),
         Line::from(vec![
             Span::raw("Transform your "),
             Span::styled("AI coding rules", Style::default().fg(Color::Yellow)),
             Span::raw(" into "),
             Span::styled("enforceable policies", Style::default().fg(Color::Green)),
         ]),
-        Line::from(""),
-        Line::from(""),
     ];
 
     let desc_widget = Paragraph::new(description)
@@ -202,9 +197,9 @@ fn render_simple_description(frame: &mut Frame, area: Rect, state: &LandingState
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),      // Simple message
+            Constraint::Length(1),      // Simple message
             Constraint::Length(1),      // Space
-            Constraint::Length(5),      // Mode selection
+            Constraint::Min(0),         // Mode selection
         ])
         .split(area);
     
@@ -232,7 +227,6 @@ fn render_simple_description(frame: &mut Frame, area: Rect, state: &LandingState
 fn render_mode_selection(frame: &mut Frame, area: Rect, state: &LandingState) {
     let mode_text = if state.auto_discovery {
         vec![
-            Line::from(""),
             Line::from(vec![
                 Span::styled("▶ Auto-discover", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 Span::raw("  "),
@@ -251,7 +245,6 @@ fn render_mode_selection(frame: &mut Frame, area: Rect, state: &LandingState) {
         ]
     } else {
         vec![
-            Line::from(""),
             Line::from(vec![
                 Span::raw("  Auto-discover"),
                 Span::raw("  "),

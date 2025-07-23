@@ -180,10 +180,10 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
 fn render_description(frame: &mut Frame, area: Rect) {
     let description = vec![
         Line::from(vec![
-            Span::raw("Transform your "),
-            Span::styled("AI coding rules", Style::default().fg(Color::Yellow)),
-            Span::raw(" into "),
-            Span::styled("enforceable policies", Style::default().fg(Color::Green)),
+            Span::raw("Turn your "),
+            Span::styled("rules", Style::default().fg(Color::Yellow)),
+            Span::raw(" into enforced policies. "),
+            Span::styled("You decide which hooks to keep.", Style::default().fg(Color::Green)),
         ]),
     ];
 
@@ -197,7 +197,7 @@ fn render_simple_description(frame: &mut Frame, area: Rect, state: &LandingState
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),      // Simple message
+            Constraint::Length(6),      // Simple message
             Constraint::Length(1),      // Space
             Constraint::Min(0),         // Mode selection
         ])
@@ -207,10 +207,20 @@ fn render_simple_description(frame: &mut Frame, area: Rect, state: &LandingState
     let description = vec![
         Line::from(vec![
             Span::raw("Turn your "),
-            Span::styled("CLAUDE.md", Style::default().fg(Color::Yellow)),
-            Span::raw(" and "),
-            Span::styled(".cursorrules", Style::default().fg(Color::Yellow)),
-            Span::raw(" into enforced policies"),
+            Span::styled("rules", Style::default().fg(Color::Yellow)),
+            Span::raw(" into enforced policies and performance improvements."),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("Cupcake will auto-create policies and hooks from your existing rules."),
+        ]),
+        Line::from(vec![
+            Span::styled("You decide which hooks to keep", Style::default().fg(Color::Green)),
+            Span::raw("."),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("You can also use an intelligent rules/hook builder from scratch."),
         ]),
     ];
 

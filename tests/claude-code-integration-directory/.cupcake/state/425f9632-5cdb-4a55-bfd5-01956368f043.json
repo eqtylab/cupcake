@@ -1,0 +1,25 @@
+{
+  "session_id": "425f9632-5cdb-4a55-bfd5-01956368f043",
+  "created_at": "2025-07-22T18:01:11.404091Z",
+  "updated_at": "2025-07-22T18:01:11.404091Z",
+  "entries": [
+    {
+      "timestamp": "2025-07-22T18:01:11.404081Z",
+      "event": {
+        "type": "tool_usage",
+        "tool_name": "Bash",
+        "input": {
+          "description": "Echo hello world to console",
+          "command": "echo \"hello world\""
+        },
+        "success": true,
+        "output": {
+          "interrupted": false,
+          "isImage": false,
+          "stderr": "",
+          "stdout": "hello world"
+        }
+      }
+    }
+  ]
+}

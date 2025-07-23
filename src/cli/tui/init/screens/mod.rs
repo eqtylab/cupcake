@@ -1,4 +1,5 @@
 /// Screen modules for the init wizard
+pub mod landing;
 pub mod discovery;
 pub mod extraction;
 pub mod review;

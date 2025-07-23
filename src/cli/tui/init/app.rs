@@ -33,7 +33,7 @@ impl App {
     /// Create a new app instance
     pub fn new() -> Self {
         Self {
-            state: WizardState::Discovery(DiscoveryState::default()),
+            state: WizardState::Landing(LandingState::default()),
             should_quit: false,
             theme: Theme::default(),
             event_tx: None,
@@ -52,8 +52,7 @@ impl App {
         let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
         self.event_tx = Some(event_tx.clone());
 
-        // Spawn background tasks
-        self.spawn_background_tasks(event_tx.clone());
+        // Don't spawn background tasks yet - wait for Discovery state
 
         // Spawn input handler
         let input_tx = event_tx.clone();
@@ -121,6 +120,9 @@ impl App {
     /// Render the current state
     fn render(&mut self, frame: &mut Frame) {
         match &self.state {
+            WizardState::Landing(state) => {
+                super::screens::landing::render(frame, state);
+            }
             WizardState::Discovery(state) => {
                 super::screens::discovery::render(frame, state);
             }
@@ -168,6 +170,12 @@ impl App {
         // Route to state-specific handler
         use WizardState::*;
         match self.state {
+            Landing(_) => {
+                if let Landing(ref mut state) = self.state {
+                    return Self::handle_landing_event(state, event);
+                }
+                Ok(None)
+            }
             Discovery(_) => {
                 if let Discovery(ref mut state) = self.state {
                     return Self::handle_discovery_event(state, event);
@@ -201,6 +209,20 @@ impl App {
         match transition {
             StateTransition::Continue => {
                 self.state = match &self.state {
+                    WizardState::Landing(landing) => {
+                        if landing.auto_discovery {
+                            // Start file discovery in next state
+                            let discovery_state = DiscoveryState::default();
+                            // Spawn file discovery task
+                            if let Some(tx) = &self.event_tx {
+                                self.spawn_file_discovery(tx.clone());
+                            }
+                            WizardState::Discovery(discovery_state)
+                        } else {
+                            // TODO: Manual rule creation mode
+                            WizardState::Discovery(DiscoveryState::default())
+                        }
+                    }
                     WizardState::Discovery(discovery) => {
                         // Pass custom instructions if provided
                         let mut extraction = ExtractionState::default();
@@ -253,9 +275,8 @@ impl App {
         Ok(())
     }
 
-    /// Spawn background tasks
-    fn spawn_background_tasks(&self, event_tx: tokio::sync::mpsc::UnboundedSender<AppEvent>) {
-        // File discovery task
+    /// Spawn file discovery task
+    fn spawn_file_discovery(&self, event_tx: tokio::sync::mpsc::UnboundedSender<AppEvent>) {
         tokio::spawn(async move {
             // Use real file discovery
             let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -288,6 +309,25 @@ impl App {
         });
     }
 
+    fn handle_landing_event(state: &mut LandingState, event: AppEvent) -> Result<Option<StateTransition>> {
+        match event {
+            AppEvent::Key(key) => {
+                match key.code {
+                    KeyCode::Char(' ') => {
+                        // Start the wizard
+                        return Ok(Some(StateTransition::Continue));
+                    }
+                    KeyCode::Tab => {
+                        // Toggle between auto-discovery and manual mode
+                        state.auto_discovery = !state.auto_discovery;
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        Ok(None)
+    }
 
     fn handle_discovery_event(state: &mut DiscoveryState, event: AppEvent) -> Result<Option<StateTransition>> {
         match event {

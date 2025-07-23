@@ -5,11 +5,26 @@ use tui_input::Input;
 /// Main state machine for the wizard
 #[derive(Debug)]
 pub enum WizardState {
+    Landing(LandingState),
     Discovery(DiscoveryState),
     Extraction(ExtractionState),
     Review(ReviewState),
     Compilation(CompilationState),
     Success(SuccessState),
+}
+
+/// State for landing screen
+#[derive(Debug)]
+pub struct LandingState {
+    pub auto_discovery: bool,
+}
+
+impl Default for LandingState {
+    fn default() -> Self {
+        Self {
+            auto_discovery: true,
+        }
+    }
 }
 
 /// State for file discovery screen
@@ -227,6 +242,7 @@ impl WizardState {
     /// Get the name of the current state
     pub fn name(&self) -> &'static str {
         match self {
+            WizardState::Landing(_) => "Welcome",
             WizardState::Discovery(_) => "Discovery",
             WizardState::Extraction(_) => "Extraction",
             WizardState::Review(_) => "Review",

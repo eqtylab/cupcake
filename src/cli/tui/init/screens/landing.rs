@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph},
 };
 
 use crate::cli::tui::init::state::LandingState;
@@ -58,9 +58,7 @@ pub fn render(frame: &mut Frame, state: &LandingState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),      // Top padding
             Constraint::Min(0),         // Main content
-            Constraint::Length(3),      // Options
             Constraint::Length(1),      // Help bar
         ])
         .split(frame.area());
@@ -68,169 +66,227 @@ pub fn render(frame: &mut Frame, state: &LandingState) {
     // Check if terminal is large enough for ASCII art
     let ascii_width = 120;
     let ascii_height = 43;
-    let show_ascii = frame.area().width >= ascii_width && frame.area().height >= (ascii_height + 10);
+    let show_ascii = frame.area().width >= ascii_width && frame.area().height >= (ascii_height + 15);
 
     if show_ascii {
-        render_with_ascii(frame, chunks[1], state);
+        render_with_ascii(frame, chunks[0], state);
     } else {
-        render_simple(frame, chunks[1], state);
+        render_simple(frame, chunks[0], state);
     }
 
-    // Render options
-    render_options(frame, chunks[2], state);
-
     // Render help bar
-    render_help(frame, chunks[3]);
+    render_help(frame, chunks[1]);
 }
 
 fn render_with_ascii(frame: &mut Frame, area: Rect, state: &LandingState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(2),      // Top padding
             Constraint::Length(44),     // ASCII art
-            Constraint::Length(1),      // Space
+            Constraint::Length(2),      // Space
             Constraint::Length(3),      // Title
-            Constraint::Length(1),      // Space
-            Constraint::Min(0),         // Description
+            Constraint::Length(2),      // Space
+            Constraint::Length(3),      // Description
+            Constraint::Length(2),      // Space
+            Constraint::Min(0),         // Mode selection
         ])
         .split(area);
 
     // Render ASCII art
     let ascii_lines: Vec<Line> = CUPCAKE_ASCII
         .lines()
-        .map(|line| Line::from(Span::raw(line)))
+        .map(|line| Line::from(Span::styled(line, Style::default().fg(Color::Magenta))))
         .collect();
     
     let ascii = Paragraph::new(ascii_lines)
-        .alignment(Alignment::Center)
-        .style(Style::default().fg(Color::Magenta));
+        .alignment(Alignment::Center);
     
-    frame.render_widget(ascii, chunks[0]);
+    frame.render_widget(ascii, chunks[1]);
 
     // Render title
     let title_lines = vec![
         Line::from(vec![
             Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
         ]),
+        Line::from(""),
         Line::from(vec![
             Span::raw("Policy Enforcement for AI Coding Agents"),
         ]),
     ];
     
     let title = Paragraph::new(title_lines)
-        .alignment(Alignment::Center)
-        .style(Style::default().fg(Color::White));
+        .alignment(Alignment::Center);
     
-    frame.render_widget(title, chunks[2]);
+    frame.render_widget(title, chunks[3]);
 
     // Render description
-    render_description(frame, chunks[4]);
+    render_description(frame, chunks[5]);
+    
+    // Mode selection
+    render_mode_selection(frame, chunks[7], state);
 }
 
-fn render_simple(frame: &mut Frame, area: Rect, _state: &LandingState) {
+fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(5),      // Simple logo
-            Constraint::Length(1),      // Space
-            Constraint::Min(0),         // Description
+            Constraint::Length(10),     // ASCII logo
+            Constraint::Length(2),      // Space
+            Constraint::Length(4),      // Title & subtitle
+            Constraint::Length(2),      // Space
+            Constraint::Min(0),         // Simple description
         ])
         .split(area);
 
-    // Simple text logo for small terminals
-    let logo_lines = vec![
-        Line::from(""),
+    // Simple ASCII art
+    let simple_ascii = r#"      ,
+            |`-.__
+            / ' _/
+           ****` 
+          /    }
+         /  \ /
+     \ /`   \\
+      `\    /_\
+       `~~~~~``~`"#;
+    
+    let ascii_lines: Vec<Line> = simple_ascii
+        .lines()
+        .map(|line| Line::from(Span::styled(line, Style::default().fg(Color::Magenta))))
+        .collect();
+    
+    let ascii = Paragraph::new(ascii_lines)
+        .alignment(Alignment::Center);
+    
+    frame.render_widget(ascii, chunks[0]);
+
+    // Title
+    let title_lines = vec![
         Line::from(vec![
-            Span::styled("🧁 CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+            Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
         Line::from("Policy Enforcement for AI Coding Agents"),
     ];
     
-    let logo = Paragraph::new(logo_lines)
+    let title = Paragraph::new(title_lines)
         .alignment(Alignment::Center);
     
-    frame.render_widget(logo, chunks[0]);
+    frame.render_widget(title, chunks[2]);
 
-    // Render description
-    render_description(frame, chunks[2]);
+    // Simple description
+    render_simple_description(frame, chunks[4], state);
 }
 
 fn render_description(frame: &mut Frame, area: Rect) {
     let description = vec![
         Line::from(""),
+        Line::from(""),
         Line::from(vec![
-            Span::styled("Welcome to Cupcake Init Wizard", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("Transform your "),
+            Span::styled("AI coding rules", Style::default().fg(Color::Yellow)),
+            Span::raw(" into "),
+            Span::styled("enforceable policies", Style::default().fg(Color::Green)),
         ]),
         Line::from(""),
-        Line::from("This wizard will help you:"),
         Line::from(""),
-        Line::from("  1. Discover existing AI agent rule files (CLAUDE.md, .cursorrules, etc.)"),
-        Line::from("  2. Extract security and coding rules from your documentation"),
-        Line::from("  3. Convert natural language rules into enforceable policies"),
-        Line::from("  4. Configure hooks for your AI coding environment"),
-        Line::from(""),
-        Line::from("Cupcake ensures your AI agents follow your team's standards by:"),
-        Line::from("  • Blocking dangerous operations before they execute"),
-        Line::from("  • Providing warnings for questionable practices"),
-        Line::from("  • Enforcing consistent coding patterns"),
-        Line::from("  • Creating an audit trail of AI actions"),
     ];
 
     let desc_widget = Paragraph::new(description)
-        .block(Block::default()
-            .borders(Borders::NONE))
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
+        .alignment(Alignment::Center);
     
     frame.render_widget(desc_widget, area);
 }
 
-fn render_options(frame: &mut Frame, area: Rect, state: &LandingState) {
-    let options = if state.auto_discovery {
+fn render_simple_description(frame: &mut Frame, area: Rect, state: &LandingState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),      // Simple message
+            Constraint::Length(1),      // Space
+            Constraint::Length(5),      // Mode selection
+        ])
+        .split(area);
+    
+    // Simple message
+    let description = vec![
+        Line::from(vec![
+            Span::raw("Turn your "),
+            Span::styled("CLAUDE.md", Style::default().fg(Color::Yellow)),
+            Span::raw(" and "),
+            Span::styled(".cursorrules", Style::default().fg(Color::Yellow)),
+            Span::raw(" into enforced policies"),
+        ]),
+    ];
+
+    let desc_widget = Paragraph::new(description)
+        .alignment(Alignment::Center);
+    
+    frame.render_widget(desc_widget, chunks[0]);
+    
+    // Mode selection with clear visual
+    render_mode_selection(frame, chunks[2], state);
+}
+
+
+fn render_mode_selection(frame: &mut Frame, area: Rect, state: &LandingState) {
+    let mode_text = if state.auto_discovery {
         vec![
+            Line::from(""),
             Line::from(vec![
+                Span::styled("▶ Auto-discover", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 Span::raw("  "),
-                Span::styled("[✓]", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::raw(" Auto-discovery mode  "),
-                Span::styled("[ ]", Style::default().fg(Color::DarkGray)),
-                Span::raw(" Manual rule creation"),
+                Span::styled("existing rule files", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(vec![
+                Span::raw("  Manual create"),
+                Span::raw("  "),
+                Span::styled("write rules from scratch", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("Tab", Style::default().fg(Color::Cyan)),
+                Span::raw(" to switch modes"),
             ]),
         ]
     } else {
         vec![
+            Line::from(""),
             Line::from(vec![
+                Span::raw("  Auto-discover"),
                 Span::raw("  "),
-                Span::styled("[ ]", Style::default().fg(Color::DarkGray)),
-                Span::raw(" Auto-discovery mode  "),
-                Span::styled("[✓]", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::raw(" Manual rule creation"),
+                Span::styled("existing rule files", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(vec![
+                Span::styled("▶ Manual create", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("  "),
+                Span::styled("write rules from scratch", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("Tab", Style::default().fg(Color::Cyan)),
+                Span::raw(" to switch modes"),
             ]),
         ]
     };
 
-    let options_widget = Paragraph::new(options)
-        .alignment(Alignment::Center);
+    let mode_widget = Paragraph::new(mode_text)
+        .alignment(Alignment::Center)
+        .block(Block::default()
+            .borders(Borders::NONE));
     
-    frame.render_widget(options_widget, area);
+    frame.render_widget(mode_widget, area);
 }
 
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
-        Span::raw(" "),
-        Span::styled("Space", Style::default().fg(Color::Cyan)),
-        Span::raw(" Start  "),
-        Span::styled("•", Style::default().fg(Color::DarkGray)),
-        Span::raw("  "),
-        Span::styled("Tab", Style::default().fg(Color::Cyan)),
-        Span::raw(" Switch mode  "),
-        Span::styled("•", Style::default().fg(Color::DarkGray)),
-        Span::raw("  "),
-        Span::styled("Esc or Q", Style::default().fg(Color::Cyan)),
-        Span::raw(" Exit"),
+        Span::raw(" Press "),
+        Span::styled("Space", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::raw(" to begin"),
     ]);
     
     let help = Paragraph::new(help_text)
+        .alignment(Alignment::Center)
         .style(Style::default().bg(Color::DarkGray));
     
     frame.render_widget(help, area);

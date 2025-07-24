@@ -65,7 +65,6 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     // Table headers
     let headers = Row::new(vec![
         "File",
-        "Progress",
         "Status",
         "Time",
         "Rules",
@@ -91,7 +90,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         
         let status_text = match &task.status {
             TaskStatus::Queued => "Queued".to_string(),
-            TaskStatus::InProgress => format!("Extract {:.0}%", task.progress * 100.0),
+            TaskStatus::InProgress => "Extracting...".to_string(),
             TaskStatus::Complete => "Complete".to_string(),
             TaskStatus::Failed(err) => format!("Failed: {}", err),
         };
@@ -112,7 +111,6 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         
         Row::new(vec![
             task.file_name.clone(),
-            format!("{:<12}", create_progress_bar(task.progress)),
             format!("{} {}", status_icon, status_text),
             time_text,
             rules_text,
@@ -123,10 +121,9 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     let table = Table::new(
         rows,
         &[
+            Constraint::Percentage(40),
             Constraint::Percentage(35),
-            Constraint::Length(14),
-            Constraint::Percentage(25),
-            Constraint::Length(8),
+            Constraint::Length(10),
             Constraint::Length(8),
         ]
     )
@@ -185,8 +182,3 @@ fn render_help(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
-fn create_progress_bar(progress: f64) -> String {
-    let filled = (progress * 12.0) as usize;
-    let empty = 12 - filled;
-    format!("{}{}", "█".repeat(filled), "░".repeat(empty))
-}

@@ -269,18 +269,15 @@ impl App {
                             .map(|(_, rule)| rule)
                             .collect();
                         
-                        let critical_count = selected_rules.iter()
+                        compilation.critical_count = selected_rules.iter()
                             .filter(|r| matches!(r.severity, Severity::Critical))
                             .count();
-                        let warning_count = selected_rules.iter()
+                        compilation.warning_count = selected_rules.iter()
                             .filter(|r| matches!(r.severity, Severity::Warning))
                             .count();
-                        let info_count = selected_rules.iter()
+                        compilation.info_count = selected_rules.iter()
                             .filter(|r| matches!(r.severity, Severity::Info))
                             .count();
-                        
-                        // Store counts in compilation state for later use
-                        compilation.logs.push(format!("rule_counts:{}:{}:{}", critical_count, warning_count, info_count));
                         
                         self.start_compilation(&mut compilation)?;
                         WizardState::Compilation(compilation)
@@ -288,28 +285,11 @@ impl App {
                     WizardState::Compilation(compilation) => {
                         let output_dir = super::yaml_writer::get_output_dir();
                         
-                        // Extract rule counts from compilation logs
-                        let (critical_count, warning_count, info_count) = compilation.logs.iter()
-                            .find(|log| log.starts_with("rule_counts:"))
-                            .and_then(|log| {
-                                let parts: Vec<&str> = log.split(':').collect();
-                                if parts.len() >= 4 {
-                                    Some((
-                                        parts[1].parse().unwrap_or(0),
-                                        parts[2].parse().unwrap_or(0),
-                                        parts[3].parse().unwrap_or(0),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or((0, 0, 0));
-                        
                         WizardState::Success(SuccessState {
-                            total_rules: critical_count + warning_count + info_count,
-                            critical_count,
-                            warning_count,
-                            info_count,
+                            total_rules: compilation.critical_count + compilation.warning_count + compilation.info_count,
+                            critical_count: compilation.critical_count,
+                            warning_count: compilation.warning_count,
+                            info_count: compilation.info_count,
                             config_location: output_dir.join("cupcake.yaml"),
                         })
                     }
@@ -535,16 +515,6 @@ impl App {
                 }
                 // Store extracted rules
                 state.extracted_rules.extend(rules);
-                
-                // Check if all tasks are complete
-                let all_complete = state.tasks.iter()
-                    .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
-                
-                if all_complete {
-                    // Auto-continue after a brief delay
-                    // In a real app, you might want to wait for user confirmation
-                    return Ok(Some(StateTransition::Continue));
-                }
             }
             AppEvent::ExtractionFailed { file, error } => {
                 // Update task status with error

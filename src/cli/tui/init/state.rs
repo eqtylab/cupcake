@@ -84,6 +84,10 @@ pub struct CompilationState {
     pub overall_progress: f64,
     pub show_logs: bool,
     pub logs: Vec<String>,
+    /// Rule counts for success screen
+    pub critical_count: usize,
+    pub warning_count: usize,
+    pub info_count: usize,
 }
 
 /// State for success screen

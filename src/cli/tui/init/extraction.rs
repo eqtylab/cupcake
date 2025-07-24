@@ -5,7 +5,7 @@
 //! back to the main UI thread.
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::time::sleep;
 use anyhow::Result;
 
@@ -24,8 +24,6 @@ pub fn spawn_extraction_task(
     event_tx: tokio::sync::mpsc::UnboundedSender<AppEvent>,
 ) {
     tokio::spawn(async move {
-        let start_time = Instant::now();
-        
         // Send start event
         let _ = event_tx.send(AppEvent::ExtractionStarted {
             file: file_path.clone(),
@@ -63,17 +61,14 @@ async fn extract_rules_from_file(
         Duration::from_millis(800) // Regular files
     };
     
-    // Simulate progress updates
-    let steps = 10;
-    for i in 1..=steps {
-        sleep(extraction_time / steps).await;
-        
-        let progress = i as f64 / steps as f64;
-        let _ = event_tx.send(AppEvent::ExtractionProgress {
-            file: file_path.clone(),
-            progress,
-        });
-    }
+    // Simple loading - just show we're working
+    sleep(extraction_time).await;
+    
+    // Send a single progress update to show we're still alive
+    let _ = event_tx.send(AppEvent::ExtractionProgress {
+        file: file_path.clone(),
+        progress: 1.0,
+    });
     
     // Generate stub rules based on file
     let rules = generate_stub_rules(file_path);
@@ -91,8 +86,8 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
         .to_string_lossy()
         .to_string();
     
-    // Base ID on file path hash to ensure consistency
-    let base_id = file_path.to_string_lossy().len() * 100;
+    // IDs will be reassigned in compile_rules() anyway
+    let base_id = 0;
     
     // Generate different rules based on file type
     if file_name.contains("CLAUDE") || file_name.contains("AGENT") {

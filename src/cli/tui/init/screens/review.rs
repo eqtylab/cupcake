@@ -40,6 +40,11 @@ fn render_header(frame: &mut Frame, area: Rect, state: &ReviewState) {
     
     let header = Line::from(vec![
         Span::raw(format!(" {} rules found • {} selected", total_rules, selected_rules)),
+        Span::raw("  •  "),
+        Span::styled("✓", Style::default().fg(Color::Green)),
+        Span::raw(" = Recommended for policy  "),
+        Span::styled("○", Style::default().fg(Color::DarkGray)),
+        Span::raw(" = Optional"),
     ]);
     
     let paragraph = Paragraph::new(header)
@@ -113,9 +118,15 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
                     
                     let checkbox = if is_selected { "[✓]" } else { "[ ]" };
                     let severity_badge = match rule.severity {
-                        Severity::Critical => Span::styled("🔴 Critical", Style::default().fg(Color::Red)),
-                        Severity::Warning => Span::styled("🟡 Warning", Style::default().fg(Color::Yellow)),
-                        Severity::Info => Span::styled("🔵 Info", Style::default().fg(Color::Blue)),
+                        Severity::High => Span::styled("🔴 High", Style::default().fg(Color::Red)),
+                        Severity::Medium => Span::styled("🟡 Medium", Style::default().fg(Color::Yellow)),
+                        Severity::Low => Span::styled("🔵 Low", Style::default().fg(Color::Blue)),
+                    };
+                    
+                    let policy_indicator = if rule.policy_decision.to_policy {
+                        Span::styled(" ✓", Style::default().fg(Color::Green))
+                    } else {
+                        Span::styled(" ○", Style::default().fg(Color::DarkGray))
                     };
                     
                     let mut description = rule.description.clone();
@@ -135,6 +146,7 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
                         checkbox_span,
                         Span::raw(format!("{:<50} ", description)),
                         severity_badge,
+                        policy_indicator,
                     ]);
                     
                     let mut style = Style::default();
@@ -263,9 +275,9 @@ fn render_edit_modal(frame: &mut Frame, area: Rect, rule: &ExtractedRule, form: 
     
     // Severity dropdown
     let severity_text = match form.severity {
-        Severity::Critical => "🔴 Critical",
-        Severity::Warning => "🟡 Warning",
-        Severity::Info => "🔵 Info",
+        Severity::High => "🔴 High",
+        Severity::Medium => "🟡 Medium",
+        Severity::Low => "🔵 Low",
     };
     render_field(frame, chunks[2], "Severity:", severity_text, form.current_field == FormField::Severity);
     

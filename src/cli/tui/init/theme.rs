@@ -66,9 +66,9 @@ impl Theme {
     pub fn severity_emoji(severity: &crate::cli::tui::init::state::Severity) -> &'static str {
         use crate::cli::tui::init::state::Severity;
         match severity {
-            Severity::Critical => "🔴",
-            Severity::Warning => "🟡",
-            Severity::Info => "🔵",
+            Severity::High => "🔴",
+            Severity::Medium => "🟡",
+            Severity::Low => "🔵",
         }
     }
 
@@ -76,9 +76,9 @@ impl Theme {
     pub fn severity_style(&self, severity: &crate::cli::tui::init::state::Severity) -> Style {
         use crate::cli::tui::init::state::Severity;
         match severity {
-            Severity::Critical => self.critical,
-            Severity::Warning => self.warning,
-            Severity::Info => self.info,
+            Severity::High => self.critical,
+            Severity::Medium => self.warning,
+            Severity::Low => self.info,
         }
     }
 

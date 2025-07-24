@@ -270,13 +270,13 @@ impl App {
                             .collect();
                         
                         compilation.critical_count = selected_rules.iter()
-                            .filter(|r| matches!(r.severity, Severity::Critical))
+                            .filter(|r| matches!(r.severity, Severity::High))
                             .count();
                         compilation.warning_count = selected_rules.iter()
-                            .filter(|r| matches!(r.severity, Severity::Warning))
+                            .filter(|r| matches!(r.severity, Severity::Medium))
                             .count();
                         compilation.info_count = selected_rules.iter()
-                            .filter(|r| matches!(r.severity, Severity::Info))
+                            .filter(|r| matches!(r.severity, Severity::Low))
                             .count();
                         
                         self.start_compilation(&mut compilation)?;

@@ -178,14 +178,22 @@ pub struct ExtractedRule {
     pub category: String,
     pub when: String,
     pub block_on_violation: bool,
+    pub policy_decision: PolicyDecision,
 }
 
 /// Rule severity levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
-    Critical,
-    Warning,
-    Info,
+    High,
+    Medium,
+    Low,
+}
+
+/// Decision about whether to convert rule to policy
+#[derive(Debug, Clone)]
+pub struct PolicyDecision {
+    pub to_policy: bool,
+    pub rationale: String,
 }
 
 /// Form for editing a rule
@@ -217,7 +225,7 @@ impl Default for FormField {
 
 impl Default for Severity {
     fn default() -> Self {
-        Severity::Warning
+        Severity::Medium
     }
 }
 

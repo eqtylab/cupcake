@@ -10,7 +10,7 @@ use tokio::time::sleep;
 use anyhow::Result;
 
 use crate::cli::tui::init::events::AppEvent;
-use crate::cli::tui::init::state::{ExtractedRule, Severity};
+use crate::cli::tui::init::state::{ExtractedRule, Severity, PolicyDecision};
 
 /// Extract rules from a single file
 /// 
@@ -76,6 +76,32 @@ async fn extract_rules_from_file(
     Ok(rules)
 }
 
+/// Create a policy decision based on severity and category
+fn make_policy_decision(severity: Severity, category: &str) -> PolicyDecision {
+    match (severity, category) {
+        (Severity::High, _) => PolicyDecision {
+            to_policy: true,
+            rationale: "High severity rules should always be enforced".to_string(),
+        },
+        (Severity::Medium, "security" | "testing") => PolicyDecision {
+            to_policy: true,
+            rationale: "Security and testing rules are critical for code quality".to_string(),
+        },
+        (Severity::Medium, _) => PolicyDecision {
+            to_policy: true,
+            rationale: "Recommended for maintaining code standards".to_string(),
+        },
+        (Severity::Low, "formatting" | "code-style") => PolicyDecision {
+            to_policy: false,
+            rationale: "Style preferences can be project-specific".to_string(),
+        },
+        (Severity::Low, _) => PolicyDecision {
+            to_policy: false,
+            rationale: "Optional - enable based on team preferences".to_string(),
+        },
+    }
+}
+
 /// Generate stub rules for a file
 /// 
 /// In the real implementation, this would call an LLM to extract rules.
@@ -96,28 +122,31 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
                 id: base_id,
                 source_file: file_path.clone(),
                 description: "Always run tests before committing code".to_string(),
-                severity: Severity::Critical,
+                severity: Severity::High,
                 category: "testing".to_string(),
                 when: "pre-commit".to_string(),
                 block_on_violation: true,
+                policy_decision: make_policy_decision(Severity::High, "testing"),
             },
             ExtractedRule {
                 id: base_id + 1,
                 source_file: file_path.clone(),
                 description: "Use TypeScript strict mode in all files".to_string(),
-                severity: Severity::Warning,
+                severity: Severity::Medium,
                 category: "code-style".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Medium, "code-style"),
             },
             ExtractedRule {
                 id: base_id + 2,
                 source_file: file_path.clone(),
                 description: "Document all public API functions".to_string(),
-                severity: Severity::Info,
+                severity: Severity::Low,
                 category: "documentation".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Low, "documentation"),
             },
         ]
     } else if file_name.contains("cursor") || file_name.contains("rules") {
@@ -126,19 +155,21 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
                 id: base_id,
                 source_file: file_path.clone(),
                 description: "No console.log statements in production code".to_string(),
-                severity: Severity::Critical,
+                severity: Severity::High,
                 category: "code-quality".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: true,
+                policy_decision: make_policy_decision(Severity::High, "code-quality"),
             },
             ExtractedRule {
                 id: base_id + 1,
                 source_file: file_path.clone(),
                 description: "Prefer async/await over raw promises".to_string(),
-                severity: Severity::Info,
+                severity: Severity::Low,
                 category: "code-style".to_string(),
                 when: "tool-call".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Low, "code-style"),
             },
         ]
     } else if file_name.contains("kiro") || file_name.contains("steering") {
@@ -147,28 +178,31 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
                 id: base_id,
                 source_file: file_path.clone(),
                 description: "Require pull request approval before merging".to_string(),
-                severity: Severity::Critical,
+                severity: Severity::High,
                 category: "workflow".to_string(),
                 when: "pre-commit".to_string(),
                 block_on_violation: true,
+                policy_decision: make_policy_decision(Severity::High, "workflow"),
             },
             ExtractedRule {
                 id: base_id + 1,
                 source_file: file_path.clone(),
                 description: "All CI tests must pass before merge".to_string(),
-                severity: Severity::Critical,
+                severity: Severity::High,
                 category: "testing".to_string(),
                 when: "pre-commit".to_string(),
                 block_on_violation: true,
+                policy_decision: make_policy_decision(Severity::High, "testing"),
             },
             ExtractedRule {
                 id: base_id + 2,
                 source_file: file_path.clone(),
                 description: "Format code with prettier on save".to_string(),
-                severity: Severity::Info,
+                severity: Severity::Low,
                 category: "formatting".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Low, "formatting"),
             },
         ]
     } else if file_name.contains("copilot") {
@@ -177,19 +211,21 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
                 id: base_id,
                 source_file: file_path.clone(),
                 description: "Follow security best practices for authentication".to_string(),
-                severity: Severity::Critical,
+                severity: Severity::High,
                 category: "security".to_string(),
                 when: "tool-call".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::High, "security"),
             },
             ExtractedRule {
                 id: base_id + 1,
                 source_file: file_path.clone(),
                 description: "Use environment variables for sensitive config".to_string(),
-                severity: Severity::Warning,
+                severity: Severity::Medium,
                 category: "security".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Medium, "security"),
             },
         ]
     } else if file_name.contains("GEMINI") {
@@ -198,19 +234,21 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
                 id: base_id,
                 source_file: file_path.clone(),
                 description: "Optimize for mobile-first responsive design".to_string(),
-                severity: Severity::Warning,
+                severity: Severity::Medium,
                 category: "ui-ux".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Medium, "ui-ux"),
             },
             ExtractedRule {
                 id: base_id + 1,
                 source_file: file_path.clone(),
                 description: "Ensure accessibility compliance (WCAG 2.1)".to_string(),
-                severity: Severity::Critical,
+                severity: Severity::High,
                 category: "accessibility".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::High, "accessibility"),
             },
         ]
     } else {
@@ -220,10 +258,11 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
                 id: base_id,
                 source_file: file_path.clone(),
                 description: "Follow project coding standards".to_string(),
-                severity: Severity::Info,
+                severity: Severity::Low,
                 category: "general".to_string(),
                 when: "file-change".to_string(),
                 block_on_violation: false,
+                policy_decision: make_policy_decision(Severity::Low, "general"),
             },
         ]
     }
@@ -249,10 +288,26 @@ pub fn compile_rules(all_rules: Vec<ExtractedRule>) -> Vec<ExtractedRule> {
         }
     }
     
-    // Sort by severity (Critical first) then by category
+    // Sort by policy recommendation first, then severity (High first), then by category
     unique_rules.sort_by(|a, b| {
-        match (a.severity as u8).cmp(&(b.severity as u8)) {
-            std::cmp::Ordering::Equal => a.category.cmp(&b.category),
+        match b.policy_decision.to_policy.cmp(&a.policy_decision.to_policy) {
+            std::cmp::Ordering::Equal => {
+                // High=0, Medium=1, Low=2 for proper ordering
+                let a_priority = match a.severity {
+                    Severity::High => 0,
+                    Severity::Medium => 1,
+                    Severity::Low => 2,
+                };
+                let b_priority = match b.severity {
+                    Severity::High => 0,
+                    Severity::Medium => 1,
+                    Severity::Low => 2,
+                };
+                match a_priority.cmp(&b_priority) {
+                    std::cmp::Ordering::Equal => a.category.cmp(&b.category),
+                    other => other,
+                }
+            }
             other => other,
         }
     });

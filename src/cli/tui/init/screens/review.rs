@@ -18,52 +18,33 @@ pub fn render(frame: &mut Frame, state: &ReviewState) {
     let inner = main_block.inner(frame.area());
     frame.render_widget(main_block, frame.area());
     
-    // Check if we have an expanded rule
-    if let Some(expanded_idx) = state.expanded_rule {
-        // Split screen: table on left, details on right
-        let horizontal_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(60),  // Table
-                Constraint::Percentage(40),  // Details
-            ])
-            .split(inner);
-        
-        // Layout for table side
-        let table_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),      // Header
-                Constraint::Min(10),        // Rule table
-                Constraint::Length(3),      // Status
-                Constraint::Length(1),      // Help
-            ])
-            .split(horizontal_chunks[0]);
-        
-        render_header(frame, table_chunks[0], state);
-        render_rule_table(frame, table_chunks[1], state);
-        render_status(frame, table_chunks[2], state);
-        render_help(frame, table_chunks[3]);
-        
-        // Render expanded details on the right
-        render_expanded_details(frame, horizontal_chunks[1], state, expanded_idx);
-    } else {
-        // Normal full-width table view
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),      // Header
-                Constraint::Min(10),        // Rule table
-                Constraint::Length(3),      // Status
-                Constraint::Length(1),      // Help
-            ])
-            .split(inner);
-        
-        render_header(frame, chunks[0], state);
-        render_rule_table(frame, chunks[1], state);
-        render_status(frame, chunks[2], state);
-        render_help(frame, chunks[3]);
-    }
+    // Always split screen: table on left, preview on right
+    let horizontal_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(60),  // Table
+            Constraint::Percentage(40),  // Preview
+        ])
+        .split(inner);
+    
+    // Layout for table side
+    let table_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),      // Header
+            Constraint::Min(10),        // Rule table
+            Constraint::Length(3),      // Status
+            Constraint::Length(1),      // Help
+        ])
+        .split(horizontal_chunks[0]);
+    
+    render_header(frame, table_chunks[0], state);
+    render_rule_table(frame, table_chunks[1], state);
+    render_status(frame, table_chunks[2], state);
+    render_help(frame, table_chunks[3]);
+    
+    // Always render preview details on the right
+    render_preview(frame, horizontal_chunks[1], state);
 }
 
 fn render_header(frame: &mut Frame, area: Rect, _state: &ReviewState) {
@@ -119,10 +100,10 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         let checkbox = if is_selected { "[✓]" } else { "[ ]" };
         let number = format!("  {} {}", checkbox, display_idx + 1);
         
-        // Adjust truncation based on whether we have expanded view
-        let rule_truncate_len = if state.expanded_rule.is_some() { 35 } else { 45 };
-        let hook_truncate_len = if state.expanded_rule.is_some() { 25 } else { 30 };
-        let rationale_truncate_len = if state.expanded_rule.is_some() { 25 } else { 35 };
+        // Use narrower truncation since we always have preview
+        let rule_truncate_len = 35;
+        let hook_truncate_len = 25;
+        let rationale_truncate_len = 25;
         
         // Truncate long descriptions for table display
         let rule_desc = if rule.description.len() > rule_truncate_len {
@@ -196,28 +177,15 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         .style(row_style)
     }).collect();
     
-    // Adjust table constraints based on whether we have expanded view
-    let table_constraints = if state.expanded_rule.is_some() {
-        // Narrower columns when showing details panel
-        vec![
-            Constraint::Length(8),      // # with checkbox
-            Constraint::Percentage(30), // Rule (more width)
-            Constraint::Percentage(25), // Hook Action
-            Constraint::Length(8),      // Severity
-            Constraint::Percentage(25), // Rationale
-            Constraint::Percentage(12), // Source
-        ]
-    } else {
-        // Wider columns when full screen
-        vec![
-            Constraint::Length(8),      // # with checkbox
-            Constraint::Percentage(30), // Rule (more width)
-            Constraint::Percentage(23), // Hook Action
-            Constraint::Length(8),      // Severity
-            Constraint::Percentage(25), // Rationale
-            Constraint::Percentage(14), // Source
-        ]
-    };
+    // Table constraints for split view
+    let table_constraints = vec![
+        Constraint::Length(8),      // # with checkbox
+        Constraint::Percentage(30), // Rule (more width)
+        Constraint::Percentage(25), // Hook Action
+        Constraint::Length(8),      // Severity
+        Constraint::Percentage(25), // Rationale
+        Constraint::Percentage(12), // Source
+    ];
     
     let table = Table::new(rows, &table_constraints)
     .header(headers)
@@ -279,10 +247,6 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Span::raw(" Toggle selection  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
-        Span::styled("x", Style::default().fg(Color::Cyan)),
-        Span::raw(" Expand details  "),
-        Span::styled("•", Style::default().fg(Color::DarkGray)),
-        Span::raw("  "),
         Span::styled("a", Style::default().fg(Color::Cyan)),
         Span::raw(" Select all  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
@@ -305,7 +269,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
-fn render_expanded_details(frame: &mut Frame, area: Rect, state: &ReviewState, expanded_idx: usize) {
+fn render_preview(frame: &mut Frame, area: Rect, state: &ReviewState) {
     // Get the sorted rules to find the actual rule
     let mut sorted_rules: Vec<(usize, &ExtractedRule)> = state.rules.iter()
         .enumerate()
@@ -324,7 +288,7 @@ fn render_expanded_details(frame: &mut Frame, area: Rect, state: &ReviewState, e
         }
     });
     
-    if let Some((_, rule)) = sorted_rules.get(expanded_idx) {
+    if let Some((_, rule)) = sorted_rules.get(state.selected_index) {
         let block = Block::default()
             .title(" Rule Details ")
             .borders(Borders::ALL)
@@ -404,5 +368,20 @@ fn render_expanded_details(frame: &mut Frame, area: Rect, state: &ReviewState, e
             .style(Style::default().fg(Color::White));
         
         frame.render_widget(paragraph, inner);
+    } else {
+        // No rules or invalid index
+        let block = Block::default()
+            .title(" Rule Details ")
+            .borders(Borders::ALL)
+            .style(Style::default().fg(Color::DarkGray));
+        
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        
+        let empty_text = Paragraph::new("No rule selected")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(ratatui::layout::Alignment::Center);
+        
+        frame.render_widget(empty_text, inner);
     }
 }

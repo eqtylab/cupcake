@@ -33,7 +33,7 @@ pub fn render(frame: &mut Frame, state: &ReviewState) {
         .constraints([
             Constraint::Length(3),      // Header
             Constraint::Min(10),        // Rule table
-            Constraint::Length(3),      // Status
+            Constraint::Length(4),      // Status (increased for more space)
             Constraint::Length(1),      // Help
         ])
         .split(horizontal_chunks[0]);

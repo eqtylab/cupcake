@@ -317,8 +317,8 @@ impl App {
                         // Start the wizard
                         return Ok(Some(StateTransition::Continue));
                     }
-                    KeyCode::Tab => {
-                        // Toggle between auto-discovery and manual mode
+                    KeyCode::Up | KeyCode::Down => {
+                        // Toggle between auto-discovery and manual mode using arrow keys
                         state.auto_discovery = !state.auto_discovery;
                     }
                     _ => {}

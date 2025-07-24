@@ -357,10 +357,19 @@ fn render_preview(frame: &mut Frame, area: Rect, state: &ReviewState) {
         lines.push(Line::from(rule.policy_decision.rationale.clone()));
         lines.push(Line::from(""));
         
-        // Source file
+        // Source file (relative path)
+        let source_path = if rule.source_file.is_absolute() {
+            std::env::current_dir()
+                .ok()
+                .and_then(|cwd| rule.source_file.strip_prefix(cwd).ok())
+                .unwrap_or(&rule.source_file)
+        } else {
+            &rule.source_file
+        };
+        
         lines.push(Line::from(vec![
             Span::styled("Source: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::raw(rule.source_file.to_string_lossy()),
+            Span::raw(source_path.to_string_lossy()),
         ]));
         
         let paragraph = Paragraph::new(lines)

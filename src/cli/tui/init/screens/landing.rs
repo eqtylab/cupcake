@@ -231,20 +231,22 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     
-    // Description
-    lines.push(Line::from("Turn your rules into enforced policies and performance improvements."));
-    lines.push(Line::from("Cupcake will auto-create policies and hooks from your existing rules."));
-    lines.push(Line::from("You decide which hooks to keep. You can also use an intelligent rules/hook builder from scratch."));
+    // Description - center these lines
+    lines.push(Line::from(""));
+    lines.push(Line::from("        Turn your rules into enforced policies and performance improvements."));
+    lines.push(Line::from("        Cupcake will auto-create policies and hooks from your existing rules."));
+    lines.push(Line::from("  You decide which hooks to keep. You can also use an intelligent rules/hook builder from scratch."));
     
     // Add spacing
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     
-    // Mode selection
+    // Mode selection - centered
     let auto_icon = if state.auto_discovery { "▶" } else { "  " };
     let manual_icon = if !state.auto_discovery { "▶" } else { "  " };
     
     lines.push(Line::from(vec![
+        Span::raw("                        "),
         Span::raw(auto_icon),
         Span::raw(" "),
         Span::styled("Auto-discover", if state.auto_discovery {
@@ -256,6 +258,7 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     ]));
     
     lines.push(Line::from(vec![
+        Span::raw("                        "),
         Span::raw(manual_icon),
         Span::raw(" "),
         Span::styled("Manual create", if !state.auto_discovery {
@@ -267,18 +270,35 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     ]));
     
     lines.push(Line::from(""));
-    lines.push(Line::from("↑↓ to switch modes"));
+    lines.push(Line::from("                                 ↑↓ to switch modes"));
     
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     
-    lines.push(Line::from(Span::styled("Press Space to begin", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+    lines.push(Line::from(vec![
+        Span::raw("                              "),
+        Span::styled("Press Space to begin", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+    ]));
     
+    // Create a centered container for the content
+    let content_width = 80; // Width of our content block
+    let horizontal_padding = content_area.width.saturating_sub(content_width) / 2;
+    
+    let centered_content = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(horizontal_padding),
+            Constraint::Length(content_width),
+            Constraint::Length(horizontal_padding),
+        ])
+        .split(content_area)[1];
+    
+    // Render with left alignment within the centered container
     let paragraph = Paragraph::new(lines)
-        .alignment(Alignment::Center);
+        .alignment(Alignment::Left);
     
-    frame.render_widget(paragraph, content_area);
+    frame.render_widget(paragraph, centered_content);
 }
 
 fn render_description(frame: &mut Frame, area: Rect) {

@@ -24,7 +24,7 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
         .constraints([
             Constraint::Length(3),      // Header
             Constraint::Min(10),        // Table (including compilation row)
-            Constraint::Length(3),      // Tip (with padding)
+            Constraint::Length(4),      // Tip (with more padding)
             Constraint::Length(1),      // Help
         ])
         .split(inner);
@@ -47,6 +47,7 @@ fn render_header(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     let content = vec![
         Line::from(""),
         Line::from(vec![
+            Span::raw("  "),  // Left padding to align with table
             Span::raw(format!("Processing {} files in parallel...", file_count)),
             Span::raw("           "),
             Span::styled("Sonnet 4", Style::default().fg(Color::Cyan)),
@@ -58,8 +59,9 @@ fn render_header(frame: &mut Frame, area: Rect, state: &ExtractionState) {
 }
 
 fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
-    // Table headers
+    // Table headers with padding
     let headers = Row::new(vec![
+        "  #",  // Number column with padding
         "File",
         "Status",
         "Time",
@@ -69,7 +71,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     .bottom_margin(1);
     
     // Table rows
-    let mut rows: Vec<Row> = state.tasks.iter().map(|task| {
+    let mut rows: Vec<Row> = state.tasks.iter().enumerate().map(|(idx, task)| {
         let status_icon = match &task.status {
             TaskStatus::Queued => "⏳",
             TaskStatus::InProgress => {
@@ -119,7 +121,10 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             _ => "--".to_string(),
         };
         
+        let number = format!("  {}.", idx + 1);
+        
         Row::new(vec![
+            number,
             task.file_name.clone(),
             format!("{} {}", status_icon, status_text),
             time_text,
@@ -135,6 +140,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     // Add separator row
     if !state.tasks.is_empty() {
         rows.push(Row::new(vec![
+            "  ─".to_string(),  // Separator for number column
             "─".repeat(40),
             "─".repeat(35),
             "─".repeat(10),
@@ -203,6 +209,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         };
         
         rows.push(Row::new(vec![
+            "    ".to_string(),  // Empty space for number column
             "Compile to single rule set".to_string(),
             compile_status_text,
             compile_time_text,
@@ -213,10 +220,11 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     let table = Table::new(
         rows,
         &[
-            Constraint::Percentage(40),
-            Constraint::Percentage(35),
-            Constraint::Length(10),
-            Constraint::Length(8),
+            Constraint::Length(5),      // Number column
+            Constraint::Percentage(40), // File
+            Constraint::Percentage(30), // Status (reduced to make room)
+            Constraint::Length(10),     // Time
+            Constraint::Length(8),      // Rules
         ]
     )
     .header(headers)
@@ -246,21 +254,25 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
                 Span::styled("Enter", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Span::raw(" to continue to rule review."),
             ]),
+            Line::from(""),  // Extra padding at bottom
         ]
     } else if all_complete && !state.extracted_rules.is_empty() {
         vec![
             Line::from(""),  // Empty line for padding
             Line::from("⟳ Compiling rules into single set..."),
+            Line::from(""),  // Extra padding at bottom
         ]
     } else if state.custom_instructions.is_some() {
         vec![
             Line::from(""),  // Empty line for padding
             Line::from("💡 Using custom extraction instructions"),
+            Line::from(""),  // Extra padding at bottom
         ]
     } else {
         vec![
             Line::from(""),  // Empty line for padding
             Line::from("💡 Using default extraction settings"),
+            Line::from(""),  // Extra padding at bottom
         ]
     };
     

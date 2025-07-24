@@ -395,31 +395,88 @@ impl App {
                 
                 // Normal discovery screen key handling
                 match key.code {
+                    KeyCode::Tab | KeyCode::Left | KeyCode::Right => {
+                        // Toggle between file list and preview panes
+                        state.focused_pane = match state.focused_pane {
+                            Pane::FileList => Pane::Preview,
+                            Pane::Preview => Pane::FileList,
+                        };
+                    }
                     KeyCode::Up => {
-                        if state.selected_index > 0 {
-                            state.selected_index -= 1;
-                            // Load preview for new selection
-                            if let Some(file) = state.files.get(state.selected_index) {
-                                state.preview_content = load_file_preview(&file.path);
+                        match state.focused_pane {
+                            Pane::FileList => {
+                                if state.selected_index > 0 {
+                                    state.selected_index -= 1;
+                                    // Load preview for new selection and reset scroll
+                                    if let Some(file) = state.files.get(state.selected_index) {
+                                        state.preview_content = load_file_preview(&file.path);
+                                        state.preview_scroll_offset = 0;
+                                    }
+                                }
+                            }
+                            Pane::Preview => {
+                                // Scroll preview up
+                                if state.preview_scroll_offset > 0 {
+                                    state.preview_scroll_offset = state.preview_scroll_offset.saturating_sub(1);
+                                }
                             }
                         }
                     }
                     KeyCode::Down => {
-                        if state.selected_index < state.files.len().saturating_sub(1) {
-                            state.selected_index += 1;
-                            // Load preview for new selection
-                            if let Some(file) = state.files.get(state.selected_index) {
-                                state.preview_content = load_file_preview(&file.path);
+                        match state.focused_pane {
+                            Pane::FileList => {
+                                if state.selected_index < state.files.len().saturating_sub(1) {
+                                    state.selected_index += 1;
+                                    // Load preview for new selection and reset scroll
+                                    if let Some(file) = state.files.get(state.selected_index) {
+                                        state.preview_content = load_file_preview(&file.path);
+                                        state.preview_scroll_offset = 0;
+                                    }
+                                }
+                            }
+                            Pane::Preview => {
+                                // Scroll preview down - we'll calculate max scroll in the render function
+                                if let Some(content) = &state.preview_content {
+                                    let line_count = content.lines().count() as u16;
+                                    // This is approximate - render function will handle actual limit
+                                    state.preview_scroll_offset = state.preview_scroll_offset.saturating_add(1);
+                                }
                             }
                         }
                     }
+                    KeyCode::PageUp => {
+                        if state.focused_pane == Pane::Preview {
+                            // Scroll up by ~10 lines
+                            state.preview_scroll_offset = state.preview_scroll_offset.saturating_sub(10);
+                        }
+                    }
+                    KeyCode::PageDown => {
+                        if state.focused_pane == Pane::Preview {
+                            // Scroll down by ~10 lines
+                            state.preview_scroll_offset = state.preview_scroll_offset.saturating_add(10);
+                        }
+                    }
+                    KeyCode::Home => {
+                        if state.focused_pane == Pane::Preview {
+                            state.preview_scroll_offset = 0;
+                        }
+                    }
+                    KeyCode::End => {
+                        if state.focused_pane == Pane::Preview {
+                            // Set to max - render function will clamp it
+                            state.preview_scroll_offset = u16::MAX;
+                        }
+                    }
                     KeyCode::Enter => {
-                        // Toggle selection
-                        if let Some(file) = state.files.get(state.selected_index) {
-                            if state.selected.contains(&file.path) {
-                                state.selected.remove(&file.path);
-                            } else {
-                                state.selected.insert(file.path.clone());
+                        // Only works in file list pane
+                        if state.focused_pane == Pane::FileList {
+                            // Toggle selection
+                            if let Some(file) = state.files.get(state.selected_index) {
+                                if state.selected.contains(&file.path) {
+                                    state.selected.remove(&file.path);
+                                } else {
+                                    state.selected.insert(file.path.clone());
+                                }
                             }
                         }
                     }

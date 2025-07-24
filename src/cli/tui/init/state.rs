@@ -40,6 +40,7 @@ pub struct DiscoveryState {
     pub selected_index: usize,
     pub focused_pane: Pane,
     pub preview_content: Option<String>,
+    pub preview_scroll_offset: u16,
 
     // Custom prompt modal
     pub show_custom_prompt: bool,

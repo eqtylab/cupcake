@@ -195,7 +195,7 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
 
 /// Render the preview pane
 fn render_preview_pane(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
-    let title = if let Some(file) = state.files.get(state.selected_index) {
+    let mut title = if let Some(file) = state.files.get(state.selected_index) {
         let display_path = if file.path.is_absolute() {
             std::env::current_dir()
                 .ok()
@@ -217,26 +217,107 @@ fn render_preview_pane(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         }
     );
     
+    // Calculate scrolling information
+    let content_lines: Vec<&str> = content.lines().collect();
+    let total_lines = content_lines.len() as u16;
+    let visible_lines = area.height.saturating_sub(2) as u16; // Account for borders
+    
+    // Clamp scroll offset to valid range
+    let max_scroll = total_lines.saturating_sub(visible_lines);
+    let actual_scroll = state.preview_scroll_offset.min(max_scroll);
+    
+    // Add scroll indicator to title if content is scrollable
+    if total_lines > visible_lines && state.focused_pane == Pane::Preview {
+        let scroll_percent = if max_scroll > 0 {
+            (actual_scroll as f32 / max_scroll as f32 * 100.0) as u16
+        } else {
+            0
+        };
+        title = format!("{} [{}%]", title.trim_end(), scroll_percent);
+    }
+    
+    // Show helper in title when preview is focused
+    if state.focused_pane == Pane::Preview && total_lines > visible_lines {
+        title = format!("{} ↑↓ to scroll", title.trim_end());
+    }
+    
     let preview = Paragraph::new(content)
         .block(Block::default()
             .title(title)
             .borders(Borders::ALL)
             .border_style(if state.focused_pane == Pane::Preview {
-                Style::default().fg(Color::Blue)
+                Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             }))
-        .wrap(Wrap { trim: true });
+        .wrap(Wrap { trim: true })
+        .scroll((actual_scroll, 0));
     
     frame.render_widget(preview, area);
+    
+    // Draw scrollbar if content is scrollable
+    if total_lines > visible_lines {
+        render_scrollbar(frame, area, actual_scroll, max_scroll, visible_lines);
+    }
+}
+
+/// Render a simple scrollbar on the right side of the preview
+fn render_scrollbar(frame: &mut Frame, area: Rect, scroll_offset: u16, max_scroll: u16, visible_lines: u16) {
+    // Calculate scrollbar position and size
+    let scrollbar_height = area.height.saturating_sub(2); // Remove borders
+    let scrollbar_x = area.x + area.width - 1; // Right edge, inside border
+    let scrollbar_y = area.y + 1; // Skip top border
+    
+    // Calculate thumb size (minimum 1)
+    let thumb_size = ((visible_lines as f32 / (max_scroll + visible_lines) as f32) * scrollbar_height as f32).max(1.0) as u16;
+    let thumb_size = thumb_size.max(1);
+    
+    // Calculate thumb position
+    let thumb_position = if max_scroll > 0 {
+        ((scroll_offset as f32 / max_scroll as f32) * (scrollbar_height - thumb_size) as f32) as u16
+    } else {
+        0
+    };
+    
+    // Draw scrollbar track and thumb
+    for i in 0..scrollbar_height {
+        let y = scrollbar_y + i;
+        let is_thumb = i >= thumb_position && i < thumb_position + thumb_size;
+        
+        let scrollbar_char = if is_thumb {
+            "█" // Solid block for thumb
+        } else {
+            "│" // Vertical line for track
+        };
+        
+        let style = if is_thumb {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        
+        frame.render_widget(
+            Paragraph::new(scrollbar_char).style(style),
+            Rect {
+                x: scrollbar_x,
+                y,
+                width: 1,
+                height: 1,
+            }
+        );
+    }
 }
 
 /// Render the help bar
 fn render_help_bar(frame: &mut Frame, area: Rect) {
     let help_text = vec![
         Span::raw(" "),
+        Span::styled("Tab/←→", Style::default().fg(Color::Yellow)),
+        Span::raw(" Switch panes  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
         Span::styled("↑↓", Style::default().fg(Color::Cyan)),
-        Span::raw(" Move  "),
+        Span::raw(" Move/Scroll  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
         Span::styled("Enter", Style::default().fg(Color::Cyan)),

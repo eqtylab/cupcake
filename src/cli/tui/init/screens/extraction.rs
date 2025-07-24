@@ -172,10 +172,10 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
         Span::raw(" "),
-        Span::styled("Processing...", Style::default().fg(Color::Yellow)),
+        Span::styled("Extracting rules...", Style::default().fg(Color::Yellow)),
         Span::raw("  Press "),
         Span::styled("Enter", Style::default().fg(Color::Cyan)),
-        Span::raw(" when complete  •  "),
+        Span::raw(" to continue when all files complete  •  "),
         Span::styled("Esc or Q", Style::default().fg(Color::Cyan)),
         Span::raw(" Exit"),
     ]);

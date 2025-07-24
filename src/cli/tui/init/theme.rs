@@ -58,6 +58,7 @@ impl Theme {
             Agent::Kiro => Color::Green,
             Agent::Copilot => Color::Yellow,
             Agent::Aider => Color::Red,
+            Agent::Gemini => Color::LightBlue,
         }
     }
 

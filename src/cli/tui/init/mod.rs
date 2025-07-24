@@ -10,6 +10,7 @@ pub mod preview;
 pub mod modal;
 pub mod yaml_writer;
 pub mod claude_settings;
+pub mod extraction;
 
 use crate::Result;
 

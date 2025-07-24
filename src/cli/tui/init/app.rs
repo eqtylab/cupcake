@@ -234,24 +234,82 @@ impl App {
                         self.start_extraction(&discovery.selected, &mut extraction)?;
                         WizardState::Extraction(extraction)
                     }
-                    WizardState::Extraction(_) => {
+                    WizardState::Extraction(extraction) => {
                         let mut review = ReviewState::default();
-                        // Populate review with mock extracted rules
-                        populate_mock_rules(&mut review);
+                        
+                        // Compile and deduplicate rules
+                        let compiled_rules = super::extraction::compile_rules(extraction.extracted_rules.clone());
+                        
+                        // Populate review with real extracted rules
+                        review.rules = compiled_rules;
+                        
+                        // Select all rules by default
+                        for i in 0..review.rules.len() {
+                            review.selected.insert(i);
+                        }
+                        
+                        // Group by source file for expanded sections
+                        for rule in &review.rules {
+                            let file_name = rule.source_file.file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            review.expanded_sections.insert(file_name);
+                        }
+                        
                         WizardState::Review(review)
                     }
-                    WizardState::Review(_) => {
+                    WizardState::Review(review) => {
                         let mut compilation = CompilationState::default();
+                        
+                        // Store rule counts for success screen
+                        let selected_rules: Vec<_> = review.rules.iter()
+                            .enumerate()
+                            .filter(|(idx, _)| review.selected.contains(idx))
+                            .map(|(_, rule)| rule)
+                            .collect();
+                        
+                        let critical_count = selected_rules.iter()
+                            .filter(|r| matches!(r.severity, Severity::Critical))
+                            .count();
+                        let warning_count = selected_rules.iter()
+                            .filter(|r| matches!(r.severity, Severity::Warning))
+                            .count();
+                        let info_count = selected_rules.iter()
+                            .filter(|r| matches!(r.severity, Severity::Info))
+                            .count();
+                        
+                        // Store counts in compilation state for later use
+                        compilation.logs.push(format!("rule_counts:{}:{}:{}", critical_count, warning_count, info_count));
+                        
                         self.start_compilation(&mut compilation)?;
                         WizardState::Compilation(compilation)
                     }
-                    WizardState::Compilation(_) => {
+                    WizardState::Compilation(compilation) => {
                         let output_dir = super::yaml_writer::get_output_dir();
+                        
+                        // Extract rule counts from compilation logs
+                        let (critical_count, warning_count, info_count) = compilation.logs.iter()
+                            .find(|log| log.starts_with("rule_counts:"))
+                            .and_then(|log| {
+                                let parts: Vec<&str> = log.split(':').collect();
+                                if parts.len() >= 4 {
+                                    Some((
+                                        parts[1].parse().unwrap_or(0),
+                                        parts[2].parse().unwrap_or(0),
+                                        parts[3].parse().unwrap_or(0),
+                                    ))
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or((0, 0, 0));
+                        
                         WizardState::Success(SuccessState {
-                            total_rules: 52, // TODO: Get from actual data
-                            critical_count: 18,
-                            warning_count: 23,
-                            info_count: 11,
+                            total_rules: critical_count + warning_count + info_count,
+                            critical_count,
+                            warning_count,
+                            info_count,
                             config_location: output_dir.join("cupcake.yaml"),
                         })
                     }
@@ -426,15 +484,76 @@ impl App {
         Ok(None)
     }
 
-    fn handle_extraction_event(_state: &mut ExtractionState, event: AppEvent) -> Result<Option<StateTransition>> {
+    fn handle_extraction_event(state: &mut ExtractionState, event: AppEvent) -> Result<Option<StateTransition>> {
         match event {
             AppEvent::Key(key) => {
                 match key.code {
                     KeyCode::Enter => {
-                        // Continue to review
-                        return Ok(Some(StateTransition::Continue));
+                        // Only allow continue when all tasks are complete
+                        let all_complete = state.tasks.iter()
+                            .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+                        
+                        if all_complete {
+                            return Ok(Some(StateTransition::Continue));
+                        }
                     }
                     _ => {}
+                }
+            }
+            AppEvent::ExtractionStarted { file } => {
+                // Update task status to InProgress
+                if let Some(task) = state.tasks.iter_mut().find(|t| t.file_path == file) {
+                    task.status = TaskStatus::InProgress;
+                    task.progress = 0.0;
+                    // Track start time
+                    state.task_start_times.insert(file, std::time::Instant::now());
+                }
+            }
+            AppEvent::ExtractionProgress { file, progress } => {
+                // Update task progress
+                if let Some(task) = state.tasks.iter_mut().find(|t| t.file_path == file) {
+                    task.progress = progress;
+                    // Update elapsed time
+                    if let Some(start_time) = state.task_start_times.get(&file) {
+                        task.elapsed_ms = start_time.elapsed().as_millis() as u64;
+                    }
+                }
+                // Update overall progress
+                let total_progress: f64 = state.tasks.iter().map(|t| t.progress).sum();
+                state.overall_progress = total_progress / state.tasks.len() as f64;
+            }
+            AppEvent::ExtractionComplete { file, rules } => {
+                // Update task status and rule count
+                if let Some(task) = state.tasks.iter_mut().find(|t| t.file_path == file) {
+                    task.status = TaskStatus::Complete;
+                    task.progress = 1.0;
+                    task.rules_found = rules.len();
+                    // Final elapsed time update
+                    if let Some(start_time) = state.task_start_times.get(&file) {
+                        task.elapsed_ms = start_time.elapsed().as_millis() as u64;
+                    }
+                }
+                // Store extracted rules
+                state.extracted_rules.extend(rules);
+                
+                // Check if all tasks are complete
+                let all_complete = state.tasks.iter()
+                    .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+                
+                if all_complete {
+                    // Auto-continue after a brief delay
+                    // In a real app, you might want to wait for user confirmation
+                    return Ok(Some(StateTransition::Continue));
+                }
+            }
+            AppEvent::ExtractionFailed { file, error } => {
+                // Update task status with error
+                if let Some(task) = state.tasks.iter_mut().find(|t| t.file_path == file) {
+                    task.status = TaskStatus::Failed(error);
+                    // Final elapsed time update
+                    if let Some(start_time) = state.task_start_times.get(&file) {
+                        task.elapsed_ms = start_time.elapsed().as_millis() as u64;
+                    }
                 }
             }
             _ => {}
@@ -641,7 +760,7 @@ impl App {
 
     fn start_extraction(&self, selected_files: &HashSet<PathBuf>, state: &mut ExtractionState) -> Result<()> {
         // Create extraction tasks for selected files
-        for (idx, path) in selected_files.iter().enumerate() {
+        for path in selected_files.iter() {
             let file_name = path.file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -650,24 +769,25 @@ impl App {
             let task = ExtractionTask {
                 file_path: path.clone(),
                 file_name,
-                status: if idx < 2 {
-                    // Start first two immediately
-                    TaskStatus::InProgress
-                } else {
-                    TaskStatus::Queued
-                },
-                progress: if idx == 0 { 0.72 } else if idx == 1 { 0.15 } else { 0.0 },
-                elapsed_ms: if idx == 0 { 189 } else if idx == 1 { 54 } else { 0 },
-                rules_found: if idx == 0 { 8 } else { 0 },
+                status: TaskStatus::Queued,
+                progress: 0.0,
+                elapsed_ms: 0,
+                rules_found: 0,
             };
             
             state.tasks.push(task);
         }
         
         // Set overall progress
-        state.overall_progress = 0.35;
+        state.overall_progress = 0.0;
         
-        // TODO: Actually spawn extraction tasks
+        // Spawn extraction tasks
+        if let Some(tx) = &self.event_tx {
+            for path in selected_files {
+                super::extraction::spawn_extraction_task(path.clone(), tx.clone());
+            }
+        }
+        
         Ok(())
     }
 
@@ -826,107 +946,3 @@ fn load_file_preview(path: &PathBuf) -> Option<String> {
     }
 }
 
-/// Populate review state with mock rules for testing
-fn populate_mock_rules(state: &mut ReviewState) {
-    use std::path::PathBuf;
-    
-    let mock_rules = vec![
-        // Claude rules
-        ExtractedRule {
-            id: 0,
-            source_file: PathBuf::from("CLAUDE.md"),
-            description: "Always run tests before committing".to_string(),
-            severity: Severity::Critical,
-            category: "testing".to_string(),
-            when: "pre-commit".to_string(),
-            block_on_violation: true,
-        },
-        ExtractedRule {
-            id: 1,
-            source_file: PathBuf::from("CLAUDE.md"),
-            description: "Use TypeScript strict mode".to_string(),
-            severity: Severity::Warning,
-            category: "code-style".to_string(),
-            when: "tool-call".to_string(),
-            block_on_violation: false,
-        },
-        ExtractedRule {
-            id: 2,
-            source_file: PathBuf::from("CLAUDE.md"),
-            description: "Document all public APIs".to_string(),
-            severity: Severity::Info,
-            category: "documentation".to_string(),
-            when: "file-change".to_string(),
-            block_on_violation: false,
-        },
-        // Cursor rules
-        ExtractedRule {
-            id: 3,
-            source_file: PathBuf::from(".cursor/rules"),
-            description: "No console.log in production code".to_string(),
-            severity: Severity::Critical,
-            category: "code-quality".to_string(),
-            when: "file-change".to_string(),
-            block_on_violation: true,
-        },
-        ExtractedRule {
-            id: 4,
-            source_file: PathBuf::from(".cursor/rules"),
-            description: "Prefer async/await over promises".to_string(),
-            severity: Severity::Info,
-            category: "code-style".to_string(),
-            when: "tool-call".to_string(),
-            block_on_violation: false,
-        },
-        // Kiro rules
-        ExtractedRule {
-            id: 5,
-            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
-            description: "Require PR approval before merging".to_string(),
-            severity: Severity::Critical,
-            category: "workflow".to_string(),
-            when: "pre-commit".to_string(),
-            block_on_violation: true,
-        },
-        ExtractedRule {
-            id: 6,
-            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
-            description: "All tests must pass in CI".to_string(),
-            severity: Severity::Critical,
-            category: "testing".to_string(),
-            when: "pre-commit".to_string(),
-            block_on_violation: true,
-        },
-        ExtractedRule {
-            id: 7,
-            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
-            description: "Format code with prettier on save".to_string(),
-            severity: Severity::Info,
-            category: "formatting".to_string(),
-            when: "file-change".to_string(),
-            block_on_violation: false,
-        },
-        ExtractedRule {
-            id: 8,
-            source_file: PathBuf::from(".kiro/steering/agent-policy.yml"),
-            description: "No force-push to protected branches".to_string(),
-            severity: Severity::Critical,
-            category: "git".to_string(),
-            when: "pre-commit".to_string(),
-            block_on_violation: true,
-        },
-    ];
-    
-    state.rules = mock_rules;
-    
-    // Select all by default except one
-    for i in 0..state.rules.len() {
-        if i != 7 { // Leave one unselected
-            state.selected.insert(i);
-        }
-    }
-    
-    // Expand first section by default
-    state.expanded_sections.insert("CLAUDE.md".to_string());
-    state.expanded_sections.insert(".kiro/steering/agent-policy.yml".to_string());
-}

@@ -22,7 +22,7 @@ impl DiscoveryPattern {
         vec![
             // Claude
             DiscoveryPattern {
-                patterns: vec!["CLAUDE.md"],
+                patterns: vec!["CLAUDE.md", "AGENT.md", "AGENTS.md"],
                 agent: Agent::Claude,
                 is_directory: false,
             },
@@ -54,6 +54,12 @@ impl DiscoveryPattern {
             DiscoveryPattern {
                 patterns: vec![".aider.conf.yml", ".aider.conf.yaml", ".aider"],
                 agent: Agent::Aider,
+                is_directory: false,
+            },
+            // Gemini
+            DiscoveryPattern {
+                patterns: vec!["GEMINI.md"],
+                agent: Agent::Gemini,
                 is_directory: false,
             },
         ]

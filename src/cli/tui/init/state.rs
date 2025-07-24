@@ -52,6 +52,10 @@ pub struct ExtractionState {
     pub tasks: Vec<ExtractionTask>,
     pub overall_progress: f64,
     pub custom_instructions: Option<String>,
+    /// All extracted rules from completed tasks
+    pub extracted_rules: Vec<ExtractedRule>,
+    /// Track task start times for elapsed calculation
+    pub task_start_times: std::collections::HashMap<PathBuf, std::time::Instant>,
 }
 
 /// State for rule review screen
@@ -110,6 +114,7 @@ pub enum Agent {
     Kiro,
     Copilot,
     Aider,
+    Gemini,
 }
 
 impl Agent {
@@ -121,6 +126,7 @@ impl Agent {
             Agent::Kiro => "Kiro",
             Agent::Copilot => "Copilot",
             Agent::Aider => "Aider",
+            Agent::Gemini => "Gemini",
         }
     }
 }

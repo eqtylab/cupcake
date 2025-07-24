@@ -162,10 +162,72 @@ Based on user feedback, made several UX improvements to the TUI landing screen:
 - `src/cli/tui/init/state.rs` - Added LandingState
 - `src/cli/tui/init/screens/mod.rs` - Added landing module
 
-## Status: Complete
+## 2025-01-24T00:30:00Z
 
-Manual testing infrastructure is properly organized in the tests directory. The `tests/test-tui.sh` script provides a fast, repeatable way to test the TUI with realistic full-stack content and automatic cleanup.
+### Added Support for Additional Agent Files
 
-Landing screen and keyboard navigation improvements have been implemented based on user feedback, making the TUI more intuitive for non-CLI users.
+1. **Claude/Generic AI Files**
+   - Added support for `AGENT.md` and `AGENTS.md` (industry standard files)
+   - These are discovered alongside `CLAUDE.md`
 
-Next developer can immediately start testing by running `cd tests && ./test-tui.sh` and will get a complete workflow with clear feedback on what the TUI generates.
+2. **Gemini Support**
+   - Added new Agent type: `Agent::Gemini`
+   - Discovery pattern for `GEMINI.md`
+   - Added color theme support (LightBlue)
+
+### Files Modified
+- `src/cli/tui/init/discovery.rs` - Added new file patterns
+- `src/cli/tui/init/state.rs` - Added Gemini agent type
+- `src/cli/tui/init/theme.rs` - Added Gemini color
+
+## 2025-01-24T01:00:00Z
+
+### Concurrent Rule Extraction Implementation
+
+Replaced mock extraction with real concurrent processing system:
+
+1. **Created Extraction Module** (`src/cli/tui/init/extraction.rs`)
+   - `spawn_extraction_task()` - Launches async task for each file
+   - Simulates extraction with realistic delays based on file type
+   - Generates contextual stub rules based on file patterns
+   - `compile_rules()` - Deduplicates and prioritizes extracted rules
+
+2. **Event-Driven Updates**
+   - Each extraction task sends real-time events:
+     - ExtractionStarted
+     - ExtractionProgress (with 10 progress steps)
+     - ExtractionComplete (with extracted rules)
+     - ExtractionFailed (on errors)
+   - Main thread updates UI based on events
+
+3. **State Management**
+   - Added `extracted_rules` storage to ExtractionState
+   - Added `task_start_times` for accurate elapsed time tracking
+   - Proper progress calculation across all concurrent tasks
+
+4. **Removed All Mock Code**
+   - Deleted `populate_mock_rules()` function
+   - Replaced mock task creation with real concurrent spawning
+   - Rules now flow from extraction → compilation → review
+
+5. **Industry-Standard Architecture**
+   - Uses Rust's `tokio::spawn` for concurrent tasks (like goroutines)
+   - Event channel for task→UI communication
+   - Proper error handling and state tracking
+   - Each file processed independently and concurrently
+
+### Files Modified
+- `src/cli/tui/init/extraction.rs` - New concurrent extraction module
+- `src/cli/tui/init/app.rs` - Real extraction task spawning and event handling
+- `src/cli/tui/init/state.rs` - Added extraction result storage
+- `src/cli/tui/init/mod.rs` - Added extraction module
+- `src/cli/tui/init/screens/extraction.rs` - Updated help text
+
+## Status: In Progress
+
+Manual testing infrastructure is complete. Landing screen and keyboard navigation improvements are implemented. Concurrent extraction system is now functional with stub rule generation.
+
+Next steps in Plan 018:
+- Phase 2: Replace stub extraction with real LLM integration
+- Phase 3: Generate valid YAML policies from extracted rules
+- Phase 4: Meta-prompt system for quality extraction

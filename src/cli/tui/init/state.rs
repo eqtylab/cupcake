@@ -184,6 +184,7 @@ pub struct ExtractedRule {
     pub id: usize,
     pub source_file: PathBuf,
     pub description: String,
+    pub hook_description: String,  // What the hook will do when triggered
     pub severity: Severity,
     pub category: String,
     pub when: String,

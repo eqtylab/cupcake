@@ -437,7 +437,7 @@ impl App {
                             Pane::Preview => {
                                 // Scroll preview down - we'll calculate max scroll in the render function
                                 if let Some(content) = &state.preview_content {
-                                    let line_count = content.lines().count() as u16;
+                                    let _line_count = content.lines().count() as u16;
                                     // This is approximate - render function will handle actual limit
                                     state.preview_scroll_offset = state.preview_scroll_offset.saturating_add(1);
                                 }
@@ -625,63 +625,49 @@ impl App {
     fn handle_review_event(state: &mut ReviewState, event: AppEvent) -> Result<Option<StateTransition>> {
         match event {
             AppEvent::Key(key) => {
-                if state.search_active {
-                    // Handle search input
-                    match key.code {
-                        KeyCode::Enter | KeyCode::Esc => {
-                            state.search_active = false;
-                            // Update filtered indices based on search
-                            if !state.search_input.value().is_empty() {
-                                let search_term = state.search_input.value().to_lowercase();
-                                state.filtered_indices = state.rules.iter()
-                                    .enumerate()
-                                    .filter(|(_, rule)| {
-                                        rule.description.to_lowercase().contains(&search_term)
-                                    })
-                                    .map(|(idx, _)| idx)
-                                    .collect();
-                            }
-                        }
-                        _ => {
-                            state.search_input.handle_event(&Event::Key(key));
+                match key.code {
+                    KeyCode::Up => {
+                        // Since rules are sorted by severity, we need to find actual rule indices
+                        let _sorted_indices = Self::get_sorted_rule_indices(&state.rules);
+                        
+                        if state.selected_index > 0 {
+                            state.selected_index -= 1;
                         }
                     }
-                } else {
-                    // Normal navigation
-                    match key.code {
-                        KeyCode::Up => {
-                            if state.selected_index > 0 {
-                                state.selected_index -= 1;
-                                // Update selected_line based on rule index
-                                state.selected_line = Self::rule_index_to_line(&state.rules, state.selected_index);
-                            }
+                    KeyCode::Down => {
+                        if state.selected_index < state.rules.len().saturating_sub(1) {
+                            state.selected_index += 1;
                         }
-                        KeyCode::Down => {
-                            if state.selected_index < state.rules.len().saturating_sub(1) {
-                                state.selected_index += 1;
-                                // Update selected_line based on rule index
-                                state.selected_line = Self::rule_index_to_line(&state.rules, state.selected_index);
-                            }
-                        }
-                        KeyCode::Enter => {
+                    }
+                    KeyCode::Enter => {
+                        // Get the actual rule index from sorted display index
+                        let sorted_indices = Self::get_sorted_rule_indices(&state.rules);
+                        if let Some((actual_idx, _)) = sorted_indices.get(state.selected_index) {
                             // Toggle selection for current rule
-                            if state.selected.contains(&state.selected_index) {
-                                state.selected.remove(&state.selected_index);
+                            if state.selected.contains(actual_idx) {
+                                state.selected.remove(actual_idx);
                             } else {
-                                state.selected.insert(state.selected_index);
+                                state.selected.insert(*actual_idx);
                             }
                         }
-                        // Search and bulk select shortcuts removed for simplicity
-                        KeyCode::Char('e') => {
-                            // Edit current rule
-                            // TODO: Open edit modal
+                    }
+                    KeyCode::Char('a') => {
+                        // Select all rules
+                        for i in 0..state.rules.len() {
+                            state.selected.insert(i);
                         }
-                        KeyCode::Char(' ') => {
-                            // Continue to compilation
+                    }
+                    KeyCode::Char('n') => {
+                        // Select none
+                        state.selected.clear();
+                    }
+                    KeyCode::Char(' ') => {
+                        // Continue to compilation only if we have selections
+                        if !state.selected.is_empty() {
                             return Ok(Some(StateTransition::Continue));
                         }
-                        _ => {}
                     }
+                    _ => {}
                 }
             }
             _ => {}
@@ -971,30 +957,26 @@ impl App {
 }
 
 impl App {
-    /// Convert rule index to line number in the rendered list
-    fn rule_index_to_line(rules: &[ExtractedRule], rule_idx: usize) -> usize {
-        let mut line = 0;
-        let mut current_source = None;
+    /// Get sorted rule indices matching the display order in the review screen
+    fn get_sorted_rule_indices(rules: &[ExtractedRule]) -> Vec<(usize, &ExtractedRule)> {
+        let mut sorted_rules: Vec<(usize, &ExtractedRule)> = rules.iter()
+            .enumerate()
+            .collect();
         
-        for (idx, rule) in rules.iter().enumerate() {
-            let source = rule.source_file.to_string_lossy().to_string();
+        sorted_rules.sort_by(|a, b| {
+            let severity_order = |s: &Severity| match s {
+                Severity::High => 0,
+                Severity::Medium => 1,
+                Severity::Low => 2,
+            };
             
-            // Add header line if new source
-            if current_source.as_ref() != Some(&source) {
-                if idx > 0 {
-                    line += 1; // Spacing between sections
-                }
-                line += 1; // Header line
-                current_source = Some(source);
+            match severity_order(&a.1.severity).cmp(&severity_order(&b.1.severity)) {
+                std::cmp::Ordering::Equal => a.1.id.cmp(&b.1.id),
+                other => other,
             }
-            
-            if idx == rule_idx {
-                return line;
-            }
-            line += 1;
-        }
+        });
         
-        line
+        sorted_rules
     }
 }
 

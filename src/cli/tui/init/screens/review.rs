@@ -1,202 +1,241 @@
-//! Rule review and editing screen
+//! Rule review screen - clean table view
 
-use std::collections::HashMap;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Borders, Paragraph, Row, Table},
 };
-use crate::cli::tui::init::state::{ReviewState, Severity, ExtractedRule, RuleEditForm, FormField};
+use crate::cli::tui::init::state::{ReviewState, Severity, ExtractedRule};
 
 pub fn render(frame: &mut Frame, state: &ReviewState) {
+    // Main container
+    let main_block = Block::default()
+        .title(format!(" Review Extracted Rules ({} of {} selected) ", state.selected.len(), state.rules.len()))
+        .borders(Borders::ALL);
+    
+    let inner = main_block.inner(frame.area());
+    frame.render_widget(main_block, frame.area());
+    
+    // Layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),      // Header
-            Constraint::Length(3),      // Search bar
-            Constraint::Min(10),        // Rule list
+            Constraint::Length(3),      // Header
+            Constraint::Min(10),        // Rule table
+            Constraint::Length(3),      // Status
             Constraint::Length(1),      // Help
         ])
-        .split(frame.area());
+        .split(inner);
     
     render_header(frame, chunks[0], state);
-    render_search_bar(frame, chunks[1], state);
-    render_rule_list(frame, chunks[2], state);
+    render_rule_table(frame, chunks[1], state);
+    render_status(frame, chunks[2], state);
     render_help(frame, chunks[3]);
-    
-    // Render edit modal if active
-    if let Some(rule_idx) = state.editing_rule {
-        if let Some(rule) = state.rules.get(rule_idx) {
-            render_edit_modal(frame, frame.area(), rule, &state.edit_form);
-        }
-    }
 }
 
-fn render_header(frame: &mut Frame, area: Rect, state: &ReviewState) {
-    let total_rules = state.rules.len();
-    let selected_rules = state.selected.len();
+fn render_header(frame: &mut Frame, area: Rect, _state: &ReviewState) {
+    let content = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("  Review the extracted rules below. "),
+            Span::styled("Selected rules will be converted to Cupcake policies.", Style::default().fg(Color::Green)),
+        ]),
+    ];
     
-    let header = Line::from(vec![
-        Span::raw(format!(" {} rules found • {} selected", total_rules, selected_rules)),
-        Span::raw("  •  "),
-        Span::styled("✓", Style::default().fg(Color::Green)),
-        Span::raw(" = Recommended for policy  "),
-        Span::styled("○", Style::default().fg(Color::DarkGray)),
-        Span::raw(" = Optional"),
-    ]);
-    
-    let paragraph = Paragraph::new(header)
-        .block(Block::default()
-            .title(format!(" Choose which rules to enforce ({} of {} selected) ", selected_rules, total_rules))
-            .borders(Borders::ALL));
-    
+    let paragraph = Paragraph::new(content);
     frame.render_widget(paragraph, area);
 }
 
-fn render_search_bar(frame: &mut Frame, area: Rect, state: &ReviewState) {
-    if state.search_active {
-        let input = Paragraph::new(Line::from(vec![
-            Span::raw("Search: "),
-            Span::raw(state.search_input.value()),
-            Span::styled("█", Style::default().fg(Color::White)),
-            Span::raw(format!("                              {} matches", 
-                state.filtered_indices.len())),
-        ]))
-        .block(Block::default().borders(Borders::ALL));
+fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
+    // Sort rules by severity (High -> Medium -> Low) and then by ID
+    let mut sorted_rules: Vec<(usize, &ExtractedRule)> = state.rules.iter()
+        .enumerate()
+        .collect();
+    
+    sorted_rules.sort_by(|a, b| {
+        let severity_order = |s: &Severity| match s {
+            Severity::High => 0,
+            Severity::Medium => 1,
+            Severity::Low => 2,
+        };
         
-        frame.render_widget(input, area);
-    }
+        match severity_order(&a.1.severity).cmp(&severity_order(&b.1.severity)) {
+            std::cmp::Ordering::Equal => a.1.id.cmp(&b.1.id),
+            other => other,
+        }
+    });
+    
+    // Table headers with padding
+    let headers = Row::new(vec![
+        "  #",
+        "Rule",
+        "Hook Action",
+        "Severity",
+        "Rationale",
+        "Source",
+    ])
+    .style(Style::default().add_modifier(Modifier::BOLD))
+    .bottom_margin(1);
+    
+    // Table rows
+    let rows: Vec<Row> = sorted_rules.iter().enumerate().map(|(display_idx, (actual_idx, rule))| {
+        let is_selected = state.selected.contains(actual_idx);
+        let is_focused = state.selected_index == display_idx;
+        
+        // Checkbox with number
+        let checkbox = if is_selected { "[✓]" } else { "[ ]" };
+        let number = format!("  {} {}", checkbox, display_idx + 1);
+        
+        // Truncate long descriptions for table display
+        let rule_desc = if rule.description.len() > 30 {
+            format!("{}...", &rule.description[..27])
+        } else {
+            rule.description.clone()
+        };
+        
+        let hook_desc = if rule.hook_description.len() > 35 {
+            format!("{}...", &rule.hook_description[..32])
+        } else {
+            rule.hook_description.clone()
+        };
+        
+        // Severity with color
+        let severity_text = match rule.severity {
+            Severity::High => "High",
+            Severity::Medium => "Medium",
+            Severity::Low => "Low",
+        };
+        
+        // Truncate rationale
+        let rationale = if rule.policy_decision.rationale.len() > 40 {
+            format!("{}...", &rule.policy_decision.rationale[..37])
+        } else {
+            rule.policy_decision.rationale.clone()
+        };
+        
+        // Get relative path for source
+        let source_path = if rule.source_file.is_absolute() {
+            std::env::current_dir()
+                .ok()
+                .and_then(|cwd| rule.source_file.strip_prefix(cwd).ok())
+                .unwrap_or(&rule.source_file)
+        } else {
+            &rule.source_file
+        };
+        
+        let source_str = source_path.to_string_lossy();
+        let source_display = if source_str.len() > 20 {
+            format!("...{}", &source_str[source_str.len()-17..])
+        } else {
+            source_str.to_string()
+        };
+        
+        // Style based on selection and focus
+        let row_color = if is_selected {
+            Color::Green
+        } else {
+            match rule.severity {
+                Severity::High => Color::Red,
+                Severity::Medium => Color::Yellow,
+                Severity::Low => Color::Blue,
+            }
+        };
+        
+        let row_style = if is_focused {
+            Style::default().fg(row_color).bg(Color::DarkGray)
+        } else {
+            Style::default().fg(row_color)
+        };
+        
+        Row::new(vec![
+            number,
+            rule_desc,
+            hook_desc,
+            severity_text.to_string(),
+            rationale,
+            source_display,
+        ])
+        .style(row_style)
+    }).collect();
+    
+    let table = Table::new(
+        rows,
+        &[
+            Constraint::Length(8),      // # with checkbox
+            Constraint::Percentage(20), // Rule
+            Constraint::Percentage(25), // Hook Action
+            Constraint::Length(8),      // Severity
+            Constraint::Percentage(30), // Rationale
+            Constraint::Percentage(17), // Source
+        ]
+    )
+    .header(headers)
+    .block(Block::default().borders(Borders::TOP));
+    
+    frame.render_widget(table, area);
 }
 
-fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
-    // First, expand all sections by default to simplify navigation
-    // This avoids the complex expand/collapse logic
+fn render_status(frame: &mut Frame, area: Rect, state: &ReviewState) {
+    let high_count = state.rules.iter().filter(|r| matches!(r.severity, Severity::High)).count();
+    let medium_count = state.rules.iter().filter(|r| matches!(r.severity, Severity::Medium)).count();
+    let low_count = state.rules.iter().filter(|r| matches!(r.severity, Severity::Low)).count();
     
-    let mut items = Vec::new();
-    let mut current_line = 0;
+    let selected_high = state.selected.iter()
+        .filter_map(|idx| state.rules.get(*idx))
+        .filter(|r| matches!(r.severity, Severity::High))
+        .count();
+    let selected_medium = state.selected.iter()
+        .filter_map(|idx| state.rules.get(*idx))
+        .filter(|r| matches!(r.severity, Severity::Medium))
+        .count();
+    let selected_low = state.selected.iter()
+        .filter_map(|idx| state.rules.get(*idx))
+        .filter(|r| matches!(r.severity, Severity::Low))
+        .count();
     
-    // Group rules by source file
-    let mut grouped_rules: HashMap<String, Vec<(usize, &ExtractedRule)>> = HashMap::new();
+    let status_text = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled(format!("🔴 High: {}/{}", selected_high, high_count), Style::default().fg(Color::Red)),
+            Span::raw("    "),
+            Span::styled(format!("🟡 Medium: {}/{}", selected_medium, medium_count), Style::default().fg(Color::Yellow)),
+            Span::raw("    "),
+            Span::styled(format!("🔵 Low: {}/{}", selected_low, low_count), Style::default().fg(Color::Blue)),
+            Span::raw("    "),
+            if state.selected.is_empty() {
+                Span::styled("Select at least one rule to continue", Style::default().fg(Color::DarkGray))
+            } else {
+                Span::styled("Press Space to continue", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            },
+        ]),
+    ];
     
-    let rules_to_show: Vec<(usize, &ExtractedRule)> = if state.search_active && !state.search_input.value().is_empty() {
-        state.filtered_indices.iter()
-            .filter_map(|&idx| state.rules.get(idx).map(|r| (idx, r)))
-            .collect()
-    } else {
-        state.rules.iter().enumerate().map(|(idx, r)| (idx, r)).collect()
-    };
+    let status = Paragraph::new(status_text)
+        .block(Block::default().borders(Borders::TOP));
     
-    if rules_to_show.is_empty() {
-        items.push(ListItem::new(Line::from("  No rules found. Press Space to continue.")));
-    } else {
-        for (idx, rule) in &rules_to_show {
-            let source = rule.source_file.to_string_lossy().to_string();
-            grouped_rules.entry(source).or_insert_with(Vec::new).push((*idx, *rule));
-        }
-        
-        // Build the list items - show all rules expanded for simplicity
-        for (source, rules) in grouped_rules.iter() {
-            let selected_in_group = rules.iter().filter(|(idx, _)| state.selected.contains(idx)).count();
-            
-            // Section header
-            let section_header = Line::from(vec![
-                Span::styled(
-                    format!("■ {} ", source), 
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
-                ),
-                Span::raw(format!("({} rules, {} selected)", rules.len(), selected_in_group)),
-            ]);
-            
-            items.push(ListItem::new(section_header));
-            current_line += 1;
-            
-            // Show all rules (no expand/collapse)
-            for (idx, rule) in rules {
-                let is_selected = state.selected.contains(idx);
-                let is_focused = state.selected_line == current_line;
-                
-                let checkbox = if is_selected { "[✓]" } else { "[ ]" };
-                let severity_badge = match rule.severity {
-                    Severity::High => Span::styled("🔴 High", Style::default().fg(Color::Red)),
-                    Severity::Medium => Span::styled("🟡 Medium", Style::default().fg(Color::Yellow)),
-                    Severity::Low => Span::styled("🔵 Low", Style::default().fg(Color::Blue)),
-                };
-                
-                let policy_indicator = if rule.policy_decision.to_policy {
-                    Span::styled(" ✓", Style::default().fg(Color::Green))
-                } else {
-                    Span::styled(" ○", Style::default().fg(Color::DarkGray))
-                };
-                
-                let mut description = rule.description.clone();
-                if state.search_active && !state.search_input.value().is_empty() {
-                    // Highlight search matches
-                    let search_term = state.search_input.value().to_lowercase();
-                    description = description.replace(&search_term, &format!("»{}«", &search_term));
-                }
-                
-                let checkbox_span = if is_selected {
-                    Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
-                } else {
-                    Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::DarkGray))
-                };
-                
-                let line = Line::from(vec![
-                    checkbox_span,
-                    Span::raw(format!("{:<50} ", description)),
-                    severity_badge,
-                    policy_indicator,
-                ]);
-                
-                let mut style = Style::default();
-                if is_focused {
-                    style = style.bg(Color::DarkGray);
-                }
-                
-                items.push(ListItem::new(line).style(style));
-                current_line += 1;
-            }
-            
-            // Add spacing between sections
-            if grouped_rules.len() > 1 {
-                items.push(ListItem::new(Line::from(""))); 
-                current_line += 1;
-            }
-        }
-    }
-    
-    // Render the list
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM));
-    
-    frame.render_widget(list, area);
-    
-    // Render scrollbar
-    let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-        .begin_symbol(Some("↑"))
-        .end_symbol(Some("↓"));
-    
-    let mut scrollbar_state = ScrollbarState::new(current_line)
-        .position(state.selected_line);
-    
-    frame.render_stateful_widget(
-        scrollbar,
-        area,
-        &mut scrollbar_state,
-    );
+    frame.render_widget(status, area);
 }
 
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
         Span::raw(" "),
         Span::styled("↑↓", Style::default().fg(Color::Cyan)),
-        Span::raw(" Move  "),
+        Span::raw(" Navigate  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
         Span::styled("Enter", Style::default().fg(Color::Cyan)),
-        Span::raw(" Select  "),
+        Span::raw(" Toggle selection  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("a", Style::default().fg(Color::Cyan)),
+        Span::raw(" Select all  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
+        Span::styled("n", Style::default().fg(Color::Cyan)),
+        Span::raw(" Select none  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
         Span::styled("Space", Style::default().fg(Color::Cyan)),
@@ -211,130 +250,4 @@ fn render_help(frame: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::DarkGray));
     
     frame.render_widget(help, area);
-}
-
-fn render_edit_modal(frame: &mut Frame, area: Rect, rule: &ExtractedRule, form: &RuleEditForm) {
-    use crate::cli::tui::init::modal::{centered_rect, render_modal_background};
-    use ratatui::widgets::{Clear, BorderType};
-    
-    // Calculate modal area
-    let modal_area = centered_rect(70, 60, area);
-    
-    // Clear background for modal
-    render_modal_background(frame, modal_area);
-    frame.render_widget(Clear, modal_area);
-    
-    // Create modal block
-    let modal_block = Block::default()
-        .title(" Edit Rule ")
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::Cyan));
-    
-    let inner = modal_block.inner(modal_area);
-    frame.render_widget(modal_block, modal_area);
-    
-    // Layout for form fields
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),      // Description
-            Constraint::Length(1),      // Spacing
-            Constraint::Length(1),      // Severity
-            Constraint::Length(1),      // Category
-            Constraint::Length(1),      // When
-            Constraint::Length(1),      // Spacing
-            Constraint::Length(2),      // Block on violation
-            Constraint::Length(1),      // Spacing
-            Constraint::Length(1),      // Help
-        ])
-        .split(inner);
-    
-    // Description field
-    let desc_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(if form.current_field == FormField::Description {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default().fg(Color::DarkGray)
-        });
-    
-    let desc_paragraph = Paragraph::new(Line::from(vec![
-        Span::raw(form.description.value()),
-        if form.current_field == FormField::Description {
-            Span::styled("█", Style::default().fg(Color::White))
-        } else {
-            Span::raw("")
-        },
-    ]))
-    .block(desc_block);
-    
-    frame.render_widget(
-        Paragraph::new("Description:"),
-        Rect { y: chunks[0].y, ..chunks[0] }
-    );
-    frame.render_widget(desc_paragraph, Rect { y: chunks[0].y + 1, height: 2, ..chunks[0] });
-    
-    // Severity dropdown
-    let severity_text = match form.severity {
-        Severity::High => "🔴 High",
-        Severity::Medium => "🟡 Medium",
-        Severity::Low => "🔵 Low",
-    };
-    render_field(frame, chunks[2], "Severity:", severity_text, form.current_field == FormField::Severity);
-    
-    // Category field
-    render_field(frame, chunks[3], "Category:", &form.category, form.current_field == FormField::Category);
-    
-    // When field
-    render_field(frame, chunks[4], "When:", &form.when, form.current_field == FormField::When);
-    
-    // Block on violation checkbox
-    let block_line = Line::from(vec![
-        if form.block_on_violation {
-            Span::raw("☑ Block action on violation")
-        } else {
-            Span::raw("☐ Block action on violation")
-        },
-    ]);
-    let block_style = if form.current_field == FormField::BlockOnViolation {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default()
-    };
-    frame.render_widget(
-        Paragraph::new(vec![
-            block_line,
-            Line::from(if form.block_on_violation { "☐ Warn only" } else { "☑ Warn only" }),
-        ]).style(block_style),
-        chunks[6]
-    );
-    
-    // Help text
-    let help = Paragraph::new(Line::from(vec![
-        Span::styled("[Tab]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Next field  "),
-        Span::styled("[Ctrl+Enter]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Save  "),
-        Span::styled("[Esc]", Style::default().fg(Color::Cyan)),
-        Span::raw(" Cancel"),
-    ]))
-    .alignment(ratatui::layout::Alignment::Center);
-    
-    frame.render_widget(help, chunks[8]);
-}
-
-fn render_field(frame: &mut Frame, area: Rect, label: &str, value: &str, is_focused: bool) {
-    let line = Line::from(vec![
-        Span::raw(format!("{:<12}", label)),
-        Span::styled(
-            format!("[{:<20}▼]", value),
-            if is_focused {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default()
-            }
-        ),
-    ]);
-    frame.render_widget(Paragraph::new(line), area);
 }

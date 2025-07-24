@@ -221,8 +221,8 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         rows,
         &[
             Constraint::Length(5),      // Number column
-            Constraint::Percentage(40), // File
-            Constraint::Percentage(30), // Status (reduced to make room)
+            Constraint::Percentage(30), // File (reduced from 40%)
+            Constraint::Percentage(25), // Status
             Constraint::Length(10),     // Time
             Constraint::Length(8),      // Rules
         ]

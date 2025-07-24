@@ -134,24 +134,24 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
 }
 
 fn render_overall_progress(frame: &mut Frame, area: Rect, state: &ExtractionState) {
-    let _completed = state.tasks.iter()
+    let completed = state.tasks.iter()
         .filter(|t| matches!(t.status, TaskStatus::Complete))
         .count();
-    let _total = state.tasks.len();
-    let total_rules: usize = state.tasks.iter()
-        .filter(|t| matches!(t.status, TaskStatus::Complete))
-        .map(|t| t.rules_found)
-        .sum();
+    let total = state.tasks.len();
+    let total_rules: usize = state.extracted_rules.len();
     
-    let progress_text = format!("{} of {} rules extracted", total_rules, total_rules + 21); // Mock total
+    // Show progress as simple text, no gauge
+    let progress_text = if completed == total {
+        format!("✓ Extraction complete: {} rules found from {} files", total_rules, total)
+    } else {
+        format!("Extracting rules from {} files... {} rules found so far", total, total_rules)
+    };
     
-    let gauge = Gauge::default()
+    let paragraph = Paragraph::new(progress_text)
         .block(Block::default().borders(Borders::TOP))
-        .gauge_style(Style::default().fg(Color::Green))
-        .percent((state.overall_progress * 100.0) as u16)
-        .label(format!("Overall: {:.0}%        {}", state.overall_progress * 100.0, progress_text));
+        .style(Style::default().fg(if completed == total { Color::Green } else { Color::White }));
     
-    frame.render_widget(gauge, area);
+    frame.render_widget(paragraph, area);
 }
 
 fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {

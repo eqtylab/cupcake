@@ -248,14 +248,7 @@ impl App {
                             review.selected.insert(i);
                         }
                         
-                        // Group by source file for expanded sections
-                        for rule in &review.rules {
-                            let file_name = rule.source_file.file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
-                            review.expanded_sections.insert(file_name);
-                        }
+                        // All sections expanded by default - no need to track
                         
                         WizardState::Review(review)
                     }
@@ -561,11 +554,15 @@ impl App {
                         KeyCode::Up => {
                             if state.selected_index > 0 {
                                 state.selected_index -= 1;
+                                // Update selected_line based on rule index
+                                state.selected_line = Self::rule_index_to_line(&state.rules, state.selected_index);
                             }
                         }
                         KeyCode::Down => {
                             if state.selected_index < state.rules.len().saturating_sub(1) {
                                 state.selected_index += 1;
+                                // Update selected_line based on rule index
+                                state.selected_line = Self::rule_index_to_line(&state.rules, state.selected_index);
                             }
                         }
                         KeyCode::Enter => {
@@ -872,6 +869,34 @@ impl App {
         }
         
         Ok(())
+    }
+}
+
+impl App {
+    /// Convert rule index to line number in the rendered list
+    fn rule_index_to_line(rules: &[ExtractedRule], rule_idx: usize) -> usize {
+        let mut line = 0;
+        let mut current_source = None;
+        
+        for (idx, rule) in rules.iter().enumerate() {
+            let source = rule.source_file.to_string_lossy().to_string();
+            
+            // Add header line if new source
+            if current_source.as_ref() != Some(&source) {
+                if idx > 0 {
+                    line += 1; // Spacing between sections
+                }
+                line += 1; // Header line
+                current_source = Some(source);
+            }
+            
+            if idx == rule_idx {
+                return line;
+            }
+            line += 1;
+        }
+        
+        line
     }
 }
 

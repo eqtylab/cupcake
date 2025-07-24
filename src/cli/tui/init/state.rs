@@ -67,6 +67,7 @@ pub struct ReviewState {
 
     // UI state
     pub selected_index: usize,
+    pub selected_line: usize,  // Line index in the rendered list
     pub search_input: Input,
     pub search_active: bool,
     pub expanded_sections: HashSet<String>,

@@ -71,6 +71,12 @@ fn render_search_bar(frame: &mut Frame, area: Rect, state: &ReviewState) {
 }
 
 fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
+    // First, expand all sections by default to simplify navigation
+    // This avoids the complex expand/collapse logic
+    
+    let mut items = Vec::new();
+    let mut current_line = 0;
+    
     // Group rules by source file
     let mut grouped_rules: HashMap<String, Vec<(usize, &ExtractedRule)>> = HashMap::new();
     
@@ -82,85 +88,81 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
         state.rules.iter().enumerate().map(|(idx, r)| (idx, r)).collect()
     };
     
-    for (idx, rule) in &rules_to_show {
-        let source = rule.source_file.to_string_lossy().to_string();
-        grouped_rules.entry(source).or_insert_with(Vec::new).push((*idx, *rule));
-    }
-    
-    let mut items = Vec::new();
-    let mut current_line = 0;
-    let mut line_to_index = Vec::new();
-    
-    // Build the list items
-    for (source, rules) in grouped_rules.iter() {
-        let selected_in_group = rules.iter().filter(|(idx, _)| state.selected.contains(idx)).count();
-        let is_expanded = state.expanded_sections.contains(source);
+    if rules_to_show.is_empty() {
+        items.push(ListItem::new(Line::from("  No rules found. Press Space to continue.")));
+    } else {
+        for (idx, rule) in &rules_to_show {
+            let source = rule.source_file.to_string_lossy().to_string();
+            grouped_rules.entry(source).or_insert_with(Vec::new).push((*idx, *rule));
+        }
         
-        // Section header
-        let expand_icon = if is_expanded { "▼" } else { "▶" };
-        let section_header = Line::from(vec![
-            Span::raw(format!("{} {} ({} rules) ", expand_icon, source, rules.len())),
-            Span::raw("─".repeat(20)),
-            Span::raw(format!(" {} selected", selected_in_group)),
-        ]);
-        
-        items.push(ListItem::new(section_header).style(Style::default().add_modifier(Modifier::BOLD)));
-        line_to_index.push(None); // Section headers don't have an index
-        current_line += 1;
-        
-        // Show rules if expanded
-        if is_expanded {
+        // Build the list items - show all rules expanded for simplicity
+        for (source, rules) in grouped_rules.iter() {
+            let selected_in_group = rules.iter().filter(|(idx, _)| state.selected.contains(idx)).count();
+            
+            // Section header
+            let section_header = Line::from(vec![
+                Span::styled(
+                    format!("■ {} ", source), 
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                ),
+                Span::raw(format!("({} rules, {} selected)", rules.len(), selected_in_group)),
+            ]);
+            
+            items.push(ListItem::new(section_header));
+            current_line += 1;
+            
+            // Show all rules (no expand/collapse)
             for (idx, rule) in rules {
-                if current_line > state.selected_index.saturating_sub(5) && 
-                   current_line < state.selected_index + area.height as usize {
-                    let is_selected = state.selected.contains(idx);
-                    let is_focused = state.selected_index == current_line;
-                    
-                    let checkbox = if is_selected { "[✓]" } else { "[ ]" };
-                    let severity_badge = match rule.severity {
-                        Severity::High => Span::styled("🔴 High", Style::default().fg(Color::Red)),
-                        Severity::Medium => Span::styled("🟡 Medium", Style::default().fg(Color::Yellow)),
-                        Severity::Low => Span::styled("🔵 Low", Style::default().fg(Color::Blue)),
-                    };
-                    
-                    let policy_indicator = if rule.policy_decision.to_policy {
-                        Span::styled(" ✓", Style::default().fg(Color::Green))
-                    } else {
-                        Span::styled(" ○", Style::default().fg(Color::DarkGray))
-                    };
-                    
-                    let mut description = rule.description.clone();
-                    if state.search_active && !state.search_input.value().is_empty() {
-                        // Highlight search matches
-                        let search_term = state.search_input.value().to_lowercase();
-                        description = description.replace(&search_term, &format!("»{}«", &search_term));
-                    }
-                    
-                    let checkbox_span = if is_selected {
-                        Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
-                    } else {
-                        Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::DarkGray))
-                    };
-                    
-                    let line = Line::from(vec![
-                        checkbox_span,
-                        Span::raw(format!("{:<50} ", description)),
-                        severity_badge,
-                        policy_indicator,
-                    ]);
-                    
-                    let mut style = Style::default();
-                    if is_focused {
-                        style = style.bg(Color::DarkGray);
-                    }
-                    if is_selected {
-                        style = style.fg(Color::Green);
-                    }
-                    
-                    items.push(ListItem::new(line).style(style));
-                    line_to_index.push(Some(*idx));
-                    current_line += 1;
+                let is_selected = state.selected.contains(idx);
+                let is_focused = state.selected_line == current_line;
+                
+                let checkbox = if is_selected { "[✓]" } else { "[ ]" };
+                let severity_badge = match rule.severity {
+                    Severity::High => Span::styled("🔴 High", Style::default().fg(Color::Red)),
+                    Severity::Medium => Span::styled("🟡 Medium", Style::default().fg(Color::Yellow)),
+                    Severity::Low => Span::styled("🔵 Low", Style::default().fg(Color::Blue)),
+                };
+                
+                let policy_indicator = if rule.policy_decision.to_policy {
+                    Span::styled(" ✓", Style::default().fg(Color::Green))
+                } else {
+                    Span::styled(" ○", Style::default().fg(Color::DarkGray))
+                };
+                
+                let mut description = rule.description.clone();
+                if state.search_active && !state.search_input.value().is_empty() {
+                    // Highlight search matches
+                    let search_term = state.search_input.value().to_lowercase();
+                    description = description.replace(&search_term, &format!("»{}«", &search_term));
                 }
+                
+                let checkbox_span = if is_selected {
+                    Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                } else {
+                    Span::styled(format!("  {} ", checkbox), Style::default().fg(Color::DarkGray))
+                };
+                
+                let line = Line::from(vec![
+                    checkbox_span,
+                    Span::raw(format!("{:<50} ", description)),
+                    severity_badge,
+                    policy_indicator,
+                ]);
+                
+                let mut style = Style::default();
+                if is_focused {
+                    style = style.bg(Color::DarkGray);
+                }
+                
+                items.push(ListItem::new(line).style(style));
+                current_line += 1;
+            }
+            
+            // Add spacing between sections
+            if grouped_rules.len() > 1 {
+                items.push(ListItem::new(Line::from(""))); 
+                current_line += 1;
             }
         }
     }
@@ -177,7 +179,7 @@ fn render_rule_list(frame: &mut Frame, area: Rect, state: &ReviewState) {
         .end_symbol(Some("↓"));
     
     let mut scrollbar_state = ScrollbarState::new(current_line)
-        .position(state.selected_index);
+        .position(state.selected_line);
     
     frame.render_stateful_widget(
         scrollbar,

@@ -52,14 +52,12 @@ async fn extract_rules_from_file(
     file_path: &PathBuf,
     event_tx: &tokio::sync::mpsc::UnboundedSender<AppEvent>,
 ) -> Result<Vec<ExtractedRule>> {
-    // Determine extraction time based on file type
-    let extraction_time = if file_path.to_string_lossy().contains("CLAUDE") {
-        Duration::from_millis(1500) // Larger files take longer
-    } else if file_path.is_dir() {
-        Duration::from_millis(2000) // Directories take longest
-    } else {
-        Duration::from_millis(800) // Regular files
-    };
+    // Use file path hash to get pseudo-random but consistent extraction time
+    let path_str = file_path.to_string_lossy();
+    let hash_value: u64 = path_str.chars().map(|c| c as u64).sum();
+    
+    // Extraction time between 5-15 seconds based on file
+    let extraction_time = Duration::from_millis(5000 + (hash_value % 10000));
     
     // Simple loading - just show we're working
     sleep(extraction_time).await;

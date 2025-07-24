@@ -265,13 +265,13 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     } else if state.custom_instructions.is_some() {
         vec![
             Line::from(""),  // Empty line for padding
-            Line::from("💡 Using custom extraction instructions"),
+            Line::from("Using custom extraction instructions"),
             Line::from(""),  // Extra padding at bottom
         ]
     } else {
         vec![
             Line::from(""),  // Empty line for padding
-            Line::from("💡 Using default extraction settings"),
+            Line::from("Determining which rules to convert to hooks..."),
             Line::from(""),  // Extra padding at bottom
         ]
     };

@@ -186,25 +186,45 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     
     let content_area = outer_chunks[1];
     
-    // Create centered content
+    // Create centered content with proper ASCII art
     let mut lines = Vec::new();
     
-    // ASCII art with title on same lines
-    lines.push(Line::from(Span::styled("      ,", Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled("            |`-.__ ", Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled("            / ' _/", Style::default().fg(Color::Cyan))));
+    // ASCII art lines with proper spacing
+    let ascii_art = [
+        "            ,",
+        "            |`-.__ ",
+        "            / ' _/",
+        "           ****` ",
+        "          /    }",
+        "         /  \\ /",
+        "     \\ /`   \\\\",
+        "      `\\    /_\\",
+        "       `~~~~~``~`",
+    ];
+    
+    // First 3 lines - just ASCII
+    lines.push(Line::from(Span::styled(ascii_art[0], Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled(ascii_art[1], Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled(ascii_art[2], Style::default().fg(Color::Cyan))));
+    
+    // Line 4 - ASCII + CUPCAKE title
     lines.push(Line::from(vec![
-        Span::styled("           ****`    ", Style::default().fg(Color::Cyan)),
+        Span::styled(ascii_art[3], Style::default().fg(Color::Cyan)),
+        Span::raw("   "),
         Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
     ]));
+    
+    // Line 5 - ASCII + subtitle
     lines.push(Line::from(vec![
-        Span::styled("          /    }    ", Style::default().fg(Color::Cyan)),
+        Span::styled(ascii_art[4], Style::default().fg(Color::Cyan)),
+        Span::raw("   "),
         Span::raw("Policy Enforcement for AI Coding Agents"),
     ]));
-    lines.push(Line::from(Span::styled("         /  \\ /", Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled("     \\ /`   \\\\", Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled("      `\\    /_\\", Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled("       `~~~~~``~`", Style::default().fg(Color::Cyan))));
+    
+    // Rest of ASCII art
+    for i in 5..9 {
+        lines.push(Line::from(Span::styled(ascii_art[i], Style::default().fg(Color::Cyan))));
+    }
     
     // Add spacing
     lines.push(Line::from(""));

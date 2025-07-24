@@ -39,11 +39,14 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
     // Overall progress
     render_overall_progress(frame, chunks[2], state);
     
+    // Compilation status
+    render_compilation_status(frame, chunks[3], state);
+    
     // Tip
-    render_tip(frame, chunks[3], state);
+    render_tip(frame, chunks[4], state);
     
     // Help bar
-    render_help(frame, chunks[4]);
+    render_help(frame, chunks[5]);
 }
 
 fn render_header(frame: &mut Frame, area: Rect, state: &ExtractionState) {

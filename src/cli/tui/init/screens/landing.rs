@@ -171,69 +171,94 @@ fn render_with_ascii(frame: &mut Frame, area: Rect, state: &LandingState) {
 }
 
 fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
-    let chunks = Layout::default()
+    // Center everything vertically
+    let total_height = 30; // Approximate height of all content
+    let vertical_padding = area.height.saturating_sub(total_height) / 2;
+    
+    let outer_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(12),     // ASCII + title area
-            Constraint::Length(1),      // Space
-            Constraint::Min(0),         // Description
+            Constraint::Length(vertical_padding),
+            Constraint::Min(0),
+            Constraint::Length(vertical_padding),
         ])
         .split(area);
-
-    // Split the top area horizontally for ASCII and title
-    let top_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(20),     // ASCII art
-            Constraint::Min(0),         // Title
-        ])
-        .split(chunks[0]);
-
-    // Simple ASCII art
-    let simple_ascii = r#"      ,
-            |`-.__
-            / ' _/
-           ****` 
-          /    }
-         /  \ /
-     \ /`   \\
-      `\    /_\
-       `~~~~~``~`"#;
     
-    let ascii_lines: Vec<Line> = simple_ascii
-        .lines()
-        .map(|line| Line::from(Span::styled(line, Style::default().fg(Color::Magenta))))
-        .collect();
+    let content_area = outer_chunks[1];
     
-    let ascii = Paragraph::new(ascii_lines)
-        .alignment(Alignment::Left);
+    // Create centered content
+    let mut lines = Vec::new();
     
-    frame.render_widget(ascii, top_chunks[0]);
-
-    // Title beside ASCII
-    let title_area = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),      // Padding
-            Constraint::Length(2),      // Title text
-            Constraint::Min(0),         // Rest
-        ])
-        .split(top_chunks[1]);
+    // ASCII art with title on same lines
+    lines.push(Line::from(Span::styled("      ,", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled("            |`-.__ ", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled("            / ' _/", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(vec![
+        Span::styled("           ****`    ", Style::default().fg(Color::Cyan)),
+        Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("          /    }    ", Style::default().fg(Color::Cyan)),
+        Span::raw("Policy Enforcement for AI Coding Agents"),
+    ]));
+    lines.push(Line::from(Span::styled("         /  \\ /", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled("     \\ /`   \\\\", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled("      `\\    /_\\", Style::default().fg(Color::Cyan))));
+    lines.push(Line::from(Span::styled("       `~~~~~``~`", Style::default().fg(Color::Cyan))));
     
-    let title_lines = vec![
-        Line::from(vec![
-            Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-        ]),
-        Line::from("Policy Enforcement for AI Coding Agents"),
-    ];
+    // Add spacing
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
     
-    let title = Paragraph::new(title_lines)
-        .alignment(Alignment::Left);
+    // Description
+    lines.push(Line::from("Turn your rules into enforced policies and performance improvements."));
+    lines.push(Line::from("Cupcake will auto-create policies and hooks from your existing rules."));
+    lines.push(Line::from("You decide which hooks to keep. You can also use an intelligent rules/hook builder from scratch."));
     
-    frame.render_widget(title, title_area[1]);
-
-    // Simple description
-    render_simple_description(frame, chunks[2], state);
+    // Add spacing
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+    
+    // Mode selection
+    let auto_icon = if state.auto_discovery { "▶" } else { "  " };
+    let manual_icon = if !state.auto_discovery { "▶" } else { "  " };
+    
+    lines.push(Line::from(vec![
+        Span::raw(auto_icon),
+        Span::raw(" "),
+        Span::styled("Auto-discover", if state.auto_discovery {
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        }),
+        Span::raw("  existing rule files"),
+    ]));
+    
+    lines.push(Line::from(vec![
+        Span::raw(manual_icon),
+        Span::raw(" "),
+        Span::styled("Manual create", if !state.auto_discovery {
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        }),
+        Span::raw("  write rules from scratch"),
+    ]));
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from("↑↓ to switch modes"));
+    
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+    
+    lines.push(Line::from(Span::styled("Press Space to begin", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+    
+    let paragraph = Paragraph::new(lines)
+        .alignment(Alignment::Center);
+    
+    frame.render_widget(paragraph, content_area);
 }
 
 fn render_description(frame: &mut Frame, area: Rect) {
@@ -251,42 +276,6 @@ fn render_description(frame: &mut Frame, area: Rect) {
     
     frame.render_widget(desc_widget, area);
 }
-
-fn render_simple_description(frame: &mut Frame, area: Rect, state: &LandingState) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),      // Simple message
-            Constraint::Length(1),      // Space
-            Constraint::Min(0),         // Mode selection
-        ])
-        .split(area);
-    
-    // Simple message
-    let description = vec![
-        Line::from(vec![
-            Span::raw("Turn your "),
-            Span::styled("rules", Style::default().fg(Color::Yellow)),
-            Span::raw(" into enforced policies and performance improvements."),
-        ]),
-        Line::from(vec![
-            Span::raw("Cupcake will auto-create policies and hooks from your existing rules."),
-        ]),
-        Line::from(vec![
-            Span::styled("You decide which hooks to keep", Style::default().fg(Color::Green)),
-            Span::raw(". You can also use an intelligent rules/hook builder from scratch."),
-        ]),
-    ];
-
-    let desc_widget = Paragraph::new(description)
-        .alignment(Alignment::Center);
-    
-    frame.render_widget(desc_widget, chunks[0]);
-    
-    // Mode selection with clear visual
-    render_mode_selection(frame, chunks[2], state);
-}
-
 
 fn render_mode_selection(frame: &mut Frame, area: Rect, state: &LandingState) {
     let mode_text = if state.auto_discovery {

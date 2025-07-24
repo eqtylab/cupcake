@@ -12,7 +12,7 @@ use crate::cli::tui::init::state::{ExtractionState, TaskStatus};
 pub fn render(frame: &mut Frame, state: &ExtractionState) {
     // Main container
     let main_block = Block::default()
-        .title(" Analyzing your files for security rules... ")
+        .title(" Analyzing your rules files... ")
         .borders(Borders::ALL);
     
     let inner = main_block.inner(frame.area());

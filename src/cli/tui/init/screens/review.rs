@@ -198,39 +198,17 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
 }
 
 fn render_status(frame: &mut Frame, area: Rect, state: &ReviewState) {
-    let high_count = state.rules.iter().filter(|r| matches!(r.severity, Severity::High)).count();
-    let medium_count = state.rules.iter().filter(|r| matches!(r.severity, Severity::Medium)).count();
-    let low_count = state.rules.iter().filter(|r| matches!(r.severity, Severity::Low)).count();
-    
-    let selected_high = state.selected.iter()
-        .filter_map(|idx| state.rules.get(*idx))
-        .filter(|r| matches!(r.severity, Severity::High))
-        .count();
-    let selected_medium = state.selected.iter()
-        .filter_map(|idx| state.rules.get(*idx))
-        .filter(|r| matches!(r.severity, Severity::Medium))
-        .count();
-    let selected_low = state.selected.iter()
-        .filter_map(|idx| state.rules.get(*idx))
-        .filter(|r| matches!(r.severity, Severity::Low))
-        .count();
-    
     let status_text = vec![
         Line::from(""),
         Line::from(vec![
             Span::raw("  "),
-            Span::styled(format!("🔴 High: {}/{}", selected_high, high_count), Style::default().fg(Color::Red)),
-            Span::raw("    "),
-            Span::styled(format!("🟡 Medium: {}/{}", selected_medium, medium_count), Style::default().fg(Color::Yellow)),
-            Span::raw("    "),
-            Span::styled(format!("🔵 Low: {}/{}", selected_low, low_count), Style::default().fg(Color::Blue)),
-            Span::raw("    "),
             if state.selected.is_empty() {
                 Span::styled("Select at least one rule to continue", Style::default().fg(Color::DarkGray))
             } else {
                 Span::styled("Press Space to continue", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
             },
         ]),
+        Line::from(""),  // Extra vertical space
     ];
     
     let status = Paragraph::new(status_text)

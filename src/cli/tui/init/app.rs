@@ -519,6 +519,16 @@ impl App {
                     }
                 }
             }
+            AppEvent::Tick => {
+                // Update elapsed times for in-progress tasks to animate spinners
+                for task in state.tasks.iter_mut() {
+                    if matches!(task.status, TaskStatus::InProgress) {
+                        if let Some(start_time) = state.task_start_times.get(&task.file_path) {
+                            task.elapsed_ms = start_time.elapsed().as_millis() as u64;
+                        }
+                    }
+                }
+            }
             _ => {}
         }
         Ok(None)

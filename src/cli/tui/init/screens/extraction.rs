@@ -76,7 +76,12 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     let rows: Vec<Row> = state.tasks.iter().map(|task| {
         let status_icon = match &task.status {
             TaskStatus::Queued => "⏳",
-            TaskStatus::InProgress => "⟳",
+            TaskStatus::InProgress => {
+                // Use same animation frame as in status text
+                let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+                let frame_idx = (task.elapsed_ms / 200) as usize % spinner_frames.len();
+                spinner_frames[frame_idx]
+            },
             TaskStatus::Complete => "✓",
             TaskStatus::Failed(_) => "✗",
         };
@@ -90,15 +95,24 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         
         let status_text = match &task.status {
             TaskStatus::Queued => "Queued".to_string(),
-            TaskStatus::InProgress => "Extracting...".to_string(),
+            TaskStatus::InProgress => {
+                // Animate the spinner based on elapsed time
+                let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+                let frame_idx = (task.elapsed_ms / 200) as usize % spinner_frames.len();
+                format!("{} Extracting...", spinner_frames[frame_idx])
+            },
             TaskStatus::Complete => "Complete".to_string(),
             TaskStatus::Failed(err) => format!("Failed: {}", err),
         };
         
         let time_text = if task.elapsed_ms > 0 {
-            format!("{}ms", task.elapsed_ms)
+            if task.elapsed_ms < 1000 {
+                format!("{}ms", task.elapsed_ms)
+            } else {
+                format!("{:.1}s", task.elapsed_ms as f64 / 1000.0)
+            }
         } else {
-            "--ms".to_string()
+            "--".to_string()
         };
         
         let rules_text = match &task.status {
@@ -155,14 +169,42 @@ fn render_overall_progress(frame: &mut Frame, area: Rect, state: &ExtractionStat
 }
 
 fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
-    let tip_text = if state.custom_instructions.is_some() {
-        "💡 Tip: Extraction uses your custom instructions"
+    // Check if all tasks are complete
+    let all_complete = state.tasks.iter()
+        .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+    
+    let tip_text = if all_complete {
+        vec![
+            Line::from(vec![
+                Span::styled("✓ All files processed! ", Style::default().fg(Color::Green)),
+                Span::raw("Press "),
+                Span::styled("Enter", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::raw(" to continue to rule review."),
+            ]),
+        ]
+    } else if state.custom_instructions.is_some() {
+        vec![
+            Line::from(vec![
+                Span::raw("💡 Using custom instructions • "),
+                Span::raw("Press "),
+                Span::styled("Enter", Style::default().fg(Color::Cyan)),
+                Span::raw(" to advance when ready!"),
+            ]),
+        ]
     } else {
-        "💡 Tip: Using default extraction settings"
+        vec![
+            Line::from(vec![
+                Span::raw("💡 Using default extraction • "),
+                Span::raw("Press "),
+                Span::styled("Enter", Style::default().fg(Color::Cyan)),
+                Span::raw(" to advance when ready!"),
+            ]),
+        ]
     };
     
     let tip = Paragraph::new(tip_text)
-        .style(Style::default().fg(Color::Yellow));
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(ratatui::layout::Alignment::Center);
     frame.render_widget(tip, area);
 }
 

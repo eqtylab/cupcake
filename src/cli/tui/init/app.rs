@@ -661,6 +661,14 @@ impl App {
                         // Select none
                         state.selected.clear();
                     }
+                    KeyCode::Char('x') => {
+                        // Toggle expanded view for current rule
+                        if state.expanded_rule == Some(state.selected_index) {
+                            state.expanded_rule = None;
+                        } else {
+                            state.expanded_rule = Some(state.selected_index);
+                        }
+                    }
                     KeyCode::Char(' ') => {
                         // Continue to compilation only if we have selections
                         if !state.selected.is_empty() {

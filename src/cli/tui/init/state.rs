@@ -80,6 +80,7 @@ pub struct ReviewState {
     pub search_input: Input,
     pub search_active: bool,
     pub expanded_sections: HashSet<String>,
+    pub expanded_rule: Option<usize>,  // Display index of expanded rule
 
     // Edit modal
     pub editing_rule: Option<usize>,

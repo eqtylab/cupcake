@@ -1,11 +1,11 @@
-//! Rule review screen - clean table view
+//! Rule review screen - clean table view with expandable details
 
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Row, Table},
+    widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
 };
 use crate::cli::tui::init::state::{ReviewState, Severity, ExtractedRule};
 
@@ -18,21 +18,52 @@ pub fn render(frame: &mut Frame, state: &ReviewState) {
     let inner = main_block.inner(frame.area());
     frame.render_widget(main_block, frame.area());
     
-    // Layout
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),      // Header
-            Constraint::Min(10),        // Rule table
-            Constraint::Length(3),      // Status
-            Constraint::Length(1),      // Help
-        ])
-        .split(inner);
-    
-    render_header(frame, chunks[0], state);
-    render_rule_table(frame, chunks[1], state);
-    render_status(frame, chunks[2], state);
-    render_help(frame, chunks[3]);
+    // Check if we have an expanded rule
+    if let Some(expanded_idx) = state.expanded_rule {
+        // Split screen: table on left, details on right
+        let horizontal_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(60),  // Table
+                Constraint::Percentage(40),  // Details
+            ])
+            .split(inner);
+        
+        // Layout for table side
+        let table_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),      // Header
+                Constraint::Min(10),        // Rule table
+                Constraint::Length(3),      // Status
+                Constraint::Length(1),      // Help
+            ])
+            .split(horizontal_chunks[0]);
+        
+        render_header(frame, table_chunks[0], state);
+        render_rule_table(frame, table_chunks[1], state);
+        render_status(frame, table_chunks[2], state);
+        render_help(frame, table_chunks[3]);
+        
+        // Render expanded details on the right
+        render_expanded_details(frame, horizontal_chunks[1], state, expanded_idx);
+    } else {
+        // Normal full-width table view
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),      // Header
+                Constraint::Min(10),        // Rule table
+                Constraint::Length(3),      // Status
+                Constraint::Length(1),      // Help
+            ])
+            .split(inner);
+        
+        render_header(frame, chunks[0], state);
+        render_rule_table(frame, chunks[1], state);
+        render_status(frame, chunks[2], state);
+        render_help(frame, chunks[3]);
+    }
 }
 
 fn render_header(frame: &mut Frame, area: Rect, _state: &ReviewState) {
@@ -88,15 +119,20 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         let checkbox = if is_selected { "[✓]" } else { "[ ]" };
         let number = format!("  {} {}", checkbox, display_idx + 1);
         
+        // Adjust truncation based on whether we have expanded view
+        let rule_truncate_len = if state.expanded_rule.is_some() { 35 } else { 45 };
+        let hook_truncate_len = if state.expanded_rule.is_some() { 25 } else { 30 };
+        let rationale_truncate_len = if state.expanded_rule.is_some() { 25 } else { 35 };
+        
         // Truncate long descriptions for table display
-        let rule_desc = if rule.description.len() > 30 {
-            format!("{}...", &rule.description[..27])
+        let rule_desc = if rule.description.len() > rule_truncate_len {
+            format!("{}...", &rule.description[..rule_truncate_len.saturating_sub(3)])
         } else {
             rule.description.clone()
         };
         
-        let hook_desc = if rule.hook_description.len() > 35 {
-            format!("{}...", &rule.hook_description[..32])
+        let hook_desc = if rule.hook_description.len() > hook_truncate_len {
+            format!("{}...", &rule.hook_description[..hook_truncate_len.saturating_sub(3)])
         } else {
             rule.hook_description.clone()
         };
@@ -109,8 +145,8 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         };
         
         // Truncate rationale
-        let rationale = if rule.policy_decision.rationale.len() > 40 {
-            format!("{}...", &rule.policy_decision.rationale[..37])
+        let rationale = if rule.policy_decision.rationale.len() > rationale_truncate_len {
+            format!("{}...", &rule.policy_decision.rationale[..rationale_truncate_len.saturating_sub(3)])
         } else {
             rule.policy_decision.rationale.clone()
         };
@@ -160,17 +196,30 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         .style(row_style)
     }).collect();
     
-    let table = Table::new(
-        rows,
-        &[
+    // Adjust table constraints based on whether we have expanded view
+    let table_constraints = if state.expanded_rule.is_some() {
+        // Narrower columns when showing details panel
+        vec![
             Constraint::Length(8),      // # with checkbox
-            Constraint::Percentage(20), // Rule
+            Constraint::Percentage(30), // Rule (more width)
             Constraint::Percentage(25), // Hook Action
             Constraint::Length(8),      // Severity
-            Constraint::Percentage(30), // Rationale
-            Constraint::Percentage(17), // Source
+            Constraint::Percentage(25), // Rationale
+            Constraint::Percentage(12), // Source
         ]
-    )
+    } else {
+        // Wider columns when full screen
+        vec![
+            Constraint::Length(8),      // # with checkbox
+            Constraint::Percentage(30), // Rule (more width)
+            Constraint::Percentage(23), // Hook Action
+            Constraint::Length(8),      // Severity
+            Constraint::Percentage(25), // Rationale
+            Constraint::Percentage(14), // Source
+        ]
+    };
+    
+    let table = Table::new(rows, &table_constraints)
     .header(headers)
     .block(Block::default().borders(Borders::TOP));
     
@@ -230,6 +279,10 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Span::raw(" Toggle selection  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
+        Span::styled("x", Style::default().fg(Color::Cyan)),
+        Span::raw(" Expand details  "),
+        Span::styled("•", Style::default().fg(Color::DarkGray)),
+        Span::raw("  "),
         Span::styled("a", Style::default().fg(Color::Cyan)),
         Span::raw(" Select all  "),
         Span::styled("•", Style::default().fg(Color::DarkGray)),
@@ -250,4 +303,106 @@ fn render_help(frame: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::DarkGray));
     
     frame.render_widget(help, area);
+}
+
+fn render_expanded_details(frame: &mut Frame, area: Rect, state: &ReviewState, expanded_idx: usize) {
+    // Get the sorted rules to find the actual rule
+    let mut sorted_rules: Vec<(usize, &ExtractedRule)> = state.rules.iter()
+        .enumerate()
+        .collect();
+    
+    sorted_rules.sort_by(|a, b| {
+        let severity_order = |s: &Severity| match s {
+            Severity::High => 0,
+            Severity::Medium => 1,
+            Severity::Low => 2,
+        };
+        
+        match severity_order(&a.1.severity).cmp(&severity_order(&b.1.severity)) {
+            std::cmp::Ordering::Equal => a.1.id.cmp(&b.1.id),
+            other => other,
+        }
+    });
+    
+    if let Some((_, rule)) = sorted_rules.get(expanded_idx) {
+        let block = Block::default()
+            .title(" Rule Details ")
+            .borders(Borders::ALL)
+            .style(Style::default().fg(Color::Blue));
+        
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        
+        // Build the detailed content
+        let mut lines = vec![];
+        
+        // Rule description
+        lines.push(Line::from(vec![
+            Span::styled("Rule: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]));
+        lines.push(Line::from(rule.description.clone()));
+        lines.push(Line::from(""));
+        
+        // Hook action
+        lines.push(Line::from(vec![
+            Span::styled("Hook Action: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]));
+        lines.push(Line::from(rule.hook_description.clone()));
+        lines.push(Line::from(""));
+        
+        // Severity
+        let severity_color = match rule.severity {
+            Severity::High => Color::Red,
+            Severity::Medium => Color::Yellow,
+            Severity::Low => Color::Blue,
+        };
+        lines.push(Line::from(vec![
+            Span::styled("Severity: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{:?}", rule.severity),
+                Style::default().fg(severity_color)
+            ),
+        ]));
+        lines.push(Line::from(""));
+        
+        // Category
+        lines.push(Line::from(vec![
+            Span::styled("Category: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(&rule.category),
+        ]));
+        lines.push(Line::from(""));
+        
+        // When
+        lines.push(Line::from(vec![
+            Span::styled("When: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(&rule.when),
+        ]));
+        lines.push(Line::from(""));
+        
+        // Block on violation
+        lines.push(Line::from(vec![
+            Span::styled("Blocking: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(if rule.block_on_violation { "Yes" } else { "No" }),
+        ]));
+        lines.push(Line::from(""));
+        
+        // Rationale
+        lines.push(Line::from(vec![
+            Span::styled("Rationale: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]));
+        lines.push(Line::from(rule.policy_decision.rationale.clone()));
+        lines.push(Line::from(""));
+        
+        // Source file
+        lines.push(Line::from(vec![
+            Span::styled("Source: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(rule.source_file.to_string_lossy()),
+        ]));
+        
+        let paragraph = Paragraph::new(lines)
+            .wrap(Wrap { trim: true })
+            .style(Style::default().fg(Color::White));
+        
+        frame.render_widget(paragraph, inner);
+    }
 }

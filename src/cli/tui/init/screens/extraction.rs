@@ -23,8 +23,9 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),      // Header
-            Constraint::Min(10),        // Table
-            Constraint::Length(3),      // Overall progress
+            Constraint::Min(5),         // Table
+            Constraint::Length(2),      // Overall progress
+            Constraint::Length(3),      // Compilation status
             Constraint::Length(2),      // Tip
             Constraint::Length(1),      // Help
         ])

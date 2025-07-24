@@ -224,3 +224,50 @@ fn render_help(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
+fn render_compilation_status(frame: &mut Frame, area: Rect, state: &ExtractionState) {
+    let all_complete = state.tasks.iter()
+        .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+    
+    if all_complete && !state.extracted_rules.is_empty() {
+        // Get current time for compilation elapsed calculation
+        
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        
+        let compile_elapsed = if state.compilation_started_at > 0 {
+            current_time - state.compilation_started_at
+        } else {
+            0
+        };
+        
+        let compile_time_str = if compile_elapsed < 1000 {
+            format!("{}ms", compile_elapsed)
+        } else {
+            format!("{:.1}s", compile_elapsed as f64 / 1000.0)
+        };
+        
+        // Animate the compilation spinner
+        let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+        let frame_idx = (compile_elapsed / 200) as usize % spinner_frames.len();
+        let spinner = spinner_frames[frame_idx];
+        
+        // Show compilation step
+        let content = vec![
+            Line::from(""),  // Empty line for spacing
+            Line::from("─".repeat(area.width.min(80) as usize)),
+            Line::from(vec![
+                Span::raw("Compiling single rule set"),
+                Span::raw("                                     "),
+                Span::styled(format!("{} Compiling...", spinner), Style::default().fg(Color::Yellow)),
+                Span::raw("     "),
+                Span::raw(compile_time_str),
+            ]),
+        ];
+        
+        let paragraph = Paragraph::new(content);
+        frame.render_widget(paragraph, area);
+    }
+}
+

@@ -56,6 +56,8 @@ pub struct ExtractionState {
     pub extracted_rules: Vec<ExtractedRule>,
     /// Track task start times for elapsed calculation
     pub task_start_times: std::collections::HashMap<PathBuf, std::time::Instant>,
+    /// When compilation started (unix timestamp in ms)
+    pub compilation_started_at: u64,
 }
 
 /// State for rule review screen

@@ -508,6 +508,17 @@ impl App {
                 }
                 // Store extracted rules
                 state.extracted_rules.extend(rules);
+                
+                // Check if all tasks are complete and start compilation timer
+                let all_complete = state.tasks.iter()
+                    .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+                
+                if all_complete && state.compilation_started_at == 0 && !state.extracted_rules.is_empty() {
+                    state.compilation_started_at = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64;
+                }
             }
             AppEvent::ExtractionFailed { file, error } => {
                 // Update task status with error
@@ -527,6 +538,13 @@ impl App {
                             task.elapsed_ms = start_time.elapsed().as_millis() as u64;
                         }
                     }
+                }
+                
+                // Force redraw to update compilation timer if needed
+                let all_complete = state.tasks.iter()
+                    .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+                if all_complete && state.compilation_started_at > 0 {
+                    // Just trigger a redraw by returning Ok(None)
                 }
             }
             _ => {}

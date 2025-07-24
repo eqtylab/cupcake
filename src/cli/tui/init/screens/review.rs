@@ -109,7 +109,7 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         let rule_desc = if rule.description.len() > rule_truncate_len {
             format!("{}...", &rule.description[..rule_truncate_len.saturating_sub(3)])
         } else {
-            rule.description.clone()
+            format!("{}...", rule.description)  // Always add ellipses
         };
         
         let hook_desc = if rule.hook_description.len() > hook_truncate_len {
@@ -153,15 +153,18 @@ fn render_rule_table(frame: &mut Frame, area: Rect, state: &ReviewState) {
         let row_color = if is_selected {
             Color::Green
         } else {
-            match rule.severity {
-                Severity::High => Color::Red,
-                Severity::Medium => Color::Yellow,
-                Severity::Low => Color::Blue,
-            }
+            // Use DarkGray for unselected items (like file list)
+            Color::DarkGray
         };
         
         let row_style = if is_focused {
-            Style::default().fg(row_color).bg(Color::DarkGray)
+            // When focused, use a lighter gray for better visibility (like file list)
+            let focused_color = if is_selected {
+                Color::Green
+            } else {
+                Color::Gray  // Lighter gray when focused
+            };
+            Style::default().fg(focused_color).bg(Color::DarkGray)
         } else {
             Style::default().fg(row_color)
         };

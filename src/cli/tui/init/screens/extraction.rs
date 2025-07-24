@@ -154,7 +154,13 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             .as_millis() as u64;
         
         let compile_elapsed = if state.compilation_started_at > 0 {
-            current_time - state.compilation_started_at
+            if state.compilation_complete && state.compilation_completed_at > 0 {
+                // Use the final completion time
+                state.compilation_completed_at - state.compilation_started_at
+            } else {
+                // Still running
+                current_time - state.compilation_started_at
+            }
         } else {
             0
         };
@@ -221,10 +227,20 @@ fn render_overall_progress(frame: &mut Frame, area: Rect, state: &ExtractionStat
         .filter(|t| matches!(t.status, TaskStatus::Complete))
         .count();
     let total = state.tasks.len();
-    let total_rules: usize = state.extracted_rules.len();
+    
+    // Use compiled rule count if compilation is complete, otherwise raw count
+    let total_rules: usize = if state.compilation_complete && state.compiled_rule_count > 0 {
+        state.compiled_rule_count
+    } else {
+        state.extracted_rules.len()
+    };
     
     // Show progress as simple text, no gauge
-    let progress_text = if completed == total {
+    let progress_text = if state.compilation_complete {
+        format!("✓ All processing complete: {} rules compiled from {} files", total_rules, total)
+    } else if completed == total && !state.extracted_rules.is_empty() {
+        format!("✓ Extraction complete: {} raw rules from {} files (compiling...)", state.extracted_rules.len(), total)
+    } else if completed == total {
         format!("✓ Extraction complete: {} rules found from {} files", total_rules, total)
     } else {
         format!("Extracting rules from {} files... {} rules found so far", total, total_rules)

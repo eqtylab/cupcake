@@ -552,6 +552,11 @@ impl App {
                     
                     if current_time - state.compilation_started_at > 2500 {
                         state.compilation_complete = true;
+                        state.compilation_completed_at = current_time;
+                        
+                        // Simulate deduplication - remove ~20% of rules
+                        let deduplicated_count = (state.extracted_rules.len() as f64 * 0.8) as usize;
+                        state.compiled_rule_count = deduplicated_count.max(1);
                     }
                 }
             }

@@ -78,8 +78,9 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         let is_selected = state.selected.contains(&file.path);
         let is_focused = idx == state.selected_index;
         
-        let checkbox = if is_selected { "[✓] " } else { "[ ] " };
+        let checkbox = if is_selected { "[✓]" } else { "[ ]" };
         let badge = format!("[{}]", file.agent.as_str());
+        let number = format!("{:2}.", idx + 1);
         
         let mut style = Style::default();
         if is_focused {
@@ -105,9 +106,21 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
             Span::styled(checkbox, Style::default().fg(Color::DarkGray))
         };
         
+        // Use a lighter color for the number when the row is focused
+        let number_style = if is_focused {
+            Style::default().fg(Color::Gray)  // Lighter gray for visibility on dark background
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        
         let line = Line::from(vec![
+            Span::raw("  "),  // Indentation
             checkbox_span,
-            Span::raw(format!("{:<30} ", display_path.display())),
+            Span::raw("  "),  // Space after checkbox
+            Span::styled(number, number_style),
+            Span::raw("  "),  // Space after number
+            Span::raw(format!("{:<25}", display_path.display())),
+            Span::raw("  "),  // Space before badge
             Span::styled(badge, Style::default().fg(Color::Cyan)),
         ]);
         
@@ -121,7 +134,8 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
                     .to_string_lossy();
                 
                 let child_line = Line::from(vec![
-                    Span::raw("   ├─ "),
+                    Span::raw("              "),  // Align with parent
+                    Span::raw("├─ "),
                     Span::raw(child_name.to_string()),
                 ]);
                 
@@ -138,17 +152,19 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
     // Add status line if complete
     if state.scan_complete && !state.files.is_empty() {
         items.push(ListItem::new("")); // Empty line
+        items.push(ListItem::new("")); // Another empty line for more spacing
         
         let selected_count = state.selected.len();
         if selected_count > 0 {
             let total_files = count_total_files(&state.files, &state.selected);
-            let status = format!("Selected: {} sources ({} files)", selected_count, total_files);
+            let status = format!("  Selected: {} sources ({} files)", selected_count, total_files);
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(status, Style::default().fg(Color::Magenta)),
             ])));
             
-            // Add continue prompt
+            // Add continue prompt with same indentation
             items.push(ListItem::new(Line::from(vec![
+                Span::raw("  "),  // Same indentation as above
                 Span::styled("[ Press ", Style::default().fg(Color::Green)),
                 Span::styled("Space", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                 Span::styled(" to continue ]", Style::default().fg(Color::Green)),

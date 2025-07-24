@@ -189,64 +189,54 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     // Create centered content with proper ASCII art
     let mut lines = Vec::new();
     
-    // ASCII art lines with proper spacing
-    let ascii_art = [
+    // ASCII art block (will be left-aligned within centered container)
+    let ascii_lines = vec![
         "            ,",
-        "            |`-.__ ",
+        "            |`-.__",
         "            / ' _/",
         "           ****` ",
         "          /    }",
         "         /  \\ /",
-        "     \\ /`   \\\\",
-        "      `\\    /_\\",
+        "     \\ /`   \\\\\\",
+        "      `\\    /_\\\\",
         "       `~~~~~``~`",
     ];
     
-    // First 3 lines - just ASCII
-    lines.push(Line::from(Span::styled(ascii_art[0], Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled(ascii_art[1], Style::default().fg(Color::Cyan))));
-    lines.push(Line::from(Span::styled(ascii_art[2], Style::default().fg(Color::Cyan))));
-    
-    // Line 4 - ASCII + CUPCAKE title
-    lines.push(Line::from(vec![
-        Span::styled(ascii_art[3], Style::default().fg(Color::Cyan)),
-        Span::raw("   "),
-        Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-    ]));
-    
-    // Line 5 - ASCII + subtitle
-    lines.push(Line::from(vec![
-        Span::styled(ascii_art[4], Style::default().fg(Color::Cyan)),
-        Span::raw("   "),
-        Span::raw("Policy Enforcement for AI Coding Agents"),
-    ]));
-    
-    // Rest of ASCII art
-    for i in 5..9 {
-        lines.push(Line::from(Span::styled(ascii_art[i], Style::default().fg(Color::Cyan))));
+    // Add ASCII art
+    for ascii_line in ascii_lines {
+        lines.push(Line::from(Span::styled(ascii_line, Style::default().fg(Color::Cyan))));
     }
     
-    // Add spacing
-    lines.push(Line::from(""));
+    // Spacing after ASCII
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     
-    // Description - center these lines
-    lines.push(Line::from(""));
-    lines.push(Line::from("        Turn your rules into enforced policies and performance improvements."));
-    lines.push(Line::from("        Cupcake will auto-create policies and hooks from your existing rules."));
-    lines.push(Line::from("  You decide which hooks to keep. You can also use an intelligent rules/hook builder from scratch."));
+    // Title and subtitle (will be center-aligned)
+    lines.push(Line::from(Span::styled("CUPCAKE", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))));
+    lines.push(Line::from("Policy Enforcement for AI Coding Agents"));
     
     // Add spacing
     lines.push(Line::from(""));
+    
+    // Description
+    lines.push(Line::from("Turn your rules into enforced policies and performance improvements."));
+    lines.push(Line::from("Cupcake will auto-create policies and hooks from your existing rules."));
+    lines.push(Line::from(vec![
+        Span::styled("You decide which hooks to keep", Style::default().fg(Color::Green)),
+        Span::raw(". "),
+        Span::styled("You can also use an intelligent rules/hook builder from scratch", Style::default().fg(Color::Yellow)),
+        Span::raw("."),
+    ]));
+    
+    // Add spacing
+    lines.push(Line::from(""));
     lines.push(Line::from(""));
     
-    // Mode selection - centered
+    // Mode selection
     let auto_icon = if state.auto_discovery { "▶" } else { "  " };
     let manual_icon = if !state.auto_discovery { "▶" } else { "  " };
     
     lines.push(Line::from(vec![
-        Span::raw("                        "),
         Span::raw(auto_icon),
         Span::raw(" "),
         Span::styled("Auto-discover", if state.auto_discovery {
@@ -258,7 +248,6 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     ]));
     
     lines.push(Line::from(vec![
-        Span::raw("                        "),
         Span::raw(manual_icon),
         Span::raw(" "),
         Span::styled("Manual create", if !state.auto_discovery {
@@ -270,35 +259,48 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     ]));
     
     lines.push(Line::from(""));
-    lines.push(Line::from("                                 ↑↓ to switch modes"));
+    lines.push(Line::from("↑↓ to switch modes"));
     
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     lines.push(Line::from(""));
     
-    lines.push(Line::from(vec![
-        Span::raw("                              "),
-        Span::styled("Press Space to begin", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-    ]));
+    lines.push(Line::from(Span::styled("Press Enter to begin", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
     
-    // Create a centered container for the content
-    let content_width = 80; // Width of our content block
-    let horizontal_padding = content_area.width.saturating_sub(content_width) / 2;
+    // Split the content into ASCII art section and text section
+    let ascii_end = 11; // 9 ASCII lines + 2 spacing lines
+    let ascii_lines = lines[0..ascii_end].to_vec();
+    let text_lines = lines[ascii_end..].to_vec();
     
-    let centered_content = Layout::default()
+    // Create layout for ASCII art (centered container) and text (center-aligned)
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(ascii_end as u16), // ASCII art section
+            Constraint::Min(0),                    // Text section
+        ])
+        .split(content_area);
+    
+    // Render ASCII art in a centered container with left alignment
+    let ascii_width = 20; // Width of ASCII art
+    let ascii_padding = chunks[0].width.saturating_sub(ascii_width) / 2;
+    let ascii_area = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(horizontal_padding),
-            Constraint::Length(content_width),
-            Constraint::Length(horizontal_padding),
+            Constraint::Length(ascii_padding),
+            Constraint::Length(ascii_width),
+            Constraint::Length(ascii_padding),
         ])
-        .split(content_area)[1];
+        .split(chunks[0])[1];
     
-    // Render with left alignment within the centered container
-    let paragraph = Paragraph::new(lines)
+    let ascii_paragraph = Paragraph::new(ascii_lines)
         .alignment(Alignment::Left);
+    frame.render_widget(ascii_paragraph, ascii_area);
     
-    frame.render_widget(paragraph, centered_content);
+    // Render text content with center alignment
+    let text_paragraph = Paragraph::new(text_lines)
+        .alignment(Alignment::Center);
+    frame.render_widget(text_paragraph, chunks[1]);
 }
 
 fn render_description(frame: &mut Frame, area: Rect) {
@@ -367,7 +369,7 @@ fn render_mode_selection(frame: &mut Frame, area: Rect, state: &LandingState) {
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![
         Span::raw(" Press "),
-        Span::styled("Space", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
         Span::raw(" to begin"),
     ]);
     

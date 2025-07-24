@@ -344,7 +344,7 @@ impl App {
         match event {
             AppEvent::Key(key) => {
                 match key.code {
-                    KeyCode::Char(' ') => {
+                    KeyCode::Enter => {
                         // Start the wizard
                         return Ok(Some(StateTransition::Continue));
                     }

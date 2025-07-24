@@ -58,6 +58,8 @@ pub struct ExtractionState {
     pub task_start_times: std::collections::HashMap<PathBuf, std::time::Instant>,
     /// When compilation started (unix timestamp in ms)
     pub compilation_started_at: u64,
+    /// Whether compilation is complete
+    pub compilation_complete: bool,
 }
 
 /// State for rule review screen

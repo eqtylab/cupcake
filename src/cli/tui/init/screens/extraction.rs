@@ -23,9 +23,8 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),      // Header
-            Constraint::Min(5),         // Table
+            Constraint::Min(10),        // Table (including compilation row)
             Constraint::Length(2),      // Overall progress
-            Constraint::Length(3),      // Compilation status
             Constraint::Length(2),      // Tip
             Constraint::Length(1),      // Help
         ])
@@ -40,14 +39,11 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
     // Overall progress
     render_overall_progress(frame, chunks[2], state);
     
-    // Compilation status
-    render_compilation_status(frame, chunks[3], state);
-    
     // Tip
-    render_tip(frame, chunks[4], state);
+    render_tip(frame, chunks[3], state);
     
     // Help bar
-    render_help(frame, chunks[5]);
+    render_help(frame, chunks[4]);
 }
 
 fn render_header(frame: &mut Frame, area: Rect, state: &ExtractionState) {
@@ -77,7 +73,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     .bottom_margin(1);
     
     // Table rows
-    let rows: Vec<Row> = state.tasks.iter().map(|task| {
+    let mut rows: Vec<Row> = state.tasks.iter().map(|task| {
         let status_icon = match &task.status {
             TaskStatus::Queued => "⏳",
             TaskStatus::InProgress => {
@@ -136,6 +132,75 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         .style(Style::default().fg(status_color))
     }).collect();
     
+    // Check if all tasks are complete
+    let all_complete = state.tasks.iter()
+        .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+    
+    // Add separator row
+    if !state.tasks.is_empty() {
+        rows.push(Row::new(vec![
+            "─".repeat(40),
+            "─".repeat(35),
+            "─".repeat(10),
+            "─".repeat(8),
+        ]).style(Style::default().fg(Color::DarkGray)));
+    }
+    
+    // Add compilation row
+    if !state.tasks.is_empty() {
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        
+        let compile_elapsed = if state.compilation_started_at > 0 {
+            current_time - state.compilation_started_at
+        } else {
+            0
+        };
+        
+        let (compile_status_text, compile_time_text, compile_color) = if !all_complete {
+            // Still extracting - show grayed out
+            ("Waiting...".to_string(), "--".to_string(), Color::DarkGray)
+        } else if state.compilation_complete {
+            // Complete
+            let time_str = if compile_elapsed < 1000 {
+                format!("{}ms", compile_elapsed)
+            } else {
+                format!("{:.1}s", compile_elapsed as f64 / 1000.0)
+            };
+            (
+                "✓ Complete".to_string(),
+                time_str,
+                Color::Green
+            )
+        } else if compile_elapsed > 0 {
+            // Compiling
+            let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+            let frame_idx = (compile_elapsed / 200) as usize % spinner_frames.len();
+            let time_str = if compile_elapsed < 1000 {
+                format!("{}ms", compile_elapsed)
+            } else {
+                format!("{:.1}s", compile_elapsed as f64 / 1000.0)
+            };
+            (
+                format!("{} Compiling...", spinner_frames[frame_idx]),
+                time_str,
+                Color::Yellow
+            )
+        } else {
+            // Just started
+            ("Starting...".to_string(), "--".to_string(), Color::Yellow)
+        };
+        
+        rows.push(Row::new(vec![
+            "Compile to single rule set".to_string(),
+            compile_status_text,
+            compile_time_text,
+            "--".to_string(),
+        ]).style(Style::default().fg(compile_color)));
+    }
+    
     let table = Table::new(
         rows,
         &[
@@ -177,14 +242,18 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     let all_complete = state.tasks.iter()
         .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
     
-    let tip_text = if all_complete {
+    let tip_text = if all_complete && state.compilation_complete {
         vec![
             Line::from(vec![
-                Span::styled("✓ All files processed! ", Style::default().fg(Color::Green)),
+                Span::styled("✓ All processing complete! ", Style::default().fg(Color::Green)),
                 Span::raw("Press "),
                 Span::styled("Enter", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Span::raw(" to continue to rule review."),
             ]),
+        ]
+    } else if all_complete && !state.extracted_rules.is_empty() {
+        vec![
+            Line::from("⟳ Compiling rules into single set..."),
         ]
     } else if state.custom_instructions.is_some() {
         vec![
@@ -216,52 +285,5 @@ fn render_help(frame: &mut Frame, area: Rect) {
     let help = Paragraph::new(help_text)
         .style(Style::default().bg(Color::DarkGray));
     frame.render_widget(help, area);
-}
-
-fn render_compilation_status(frame: &mut Frame, area: Rect, state: &ExtractionState) {
-    let all_complete = state.tasks.iter()
-        .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
-    
-    if all_complete && !state.extracted_rules.is_empty() {
-        // Get current time for compilation elapsed calculation
-        
-        let current_time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        
-        let compile_elapsed = if state.compilation_started_at > 0 {
-            current_time - state.compilation_started_at
-        } else {
-            0
-        };
-        
-        let compile_time_str = if compile_elapsed < 1000 {
-            format!("{}ms", compile_elapsed)
-        } else {
-            format!("{:.1}s", compile_elapsed as f64 / 1000.0)
-        };
-        
-        // Animate the compilation spinner
-        let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
-        let frame_idx = (compile_elapsed / 200) as usize % spinner_frames.len();
-        let spinner = spinner_frames[frame_idx];
-        
-        // Show compilation step
-        let content = vec![
-            Line::from(""),  // Empty line for spacing
-            Line::from("─".repeat(area.width.min(80) as usize)),
-            Line::from(vec![
-                Span::raw("Compiling single rule set"),
-                Span::raw("                                     "),
-                Span::styled(format!("{} Compiling...", spinner), Style::default().fg(Color::Yellow)),
-                Span::raw("     "),
-                Span::raw(compile_time_str),
-            ]),
-        ];
-        
-        let paragraph = Paragraph::new(content);
-        frame.render_widget(paragraph, area);
-    }
 }
 

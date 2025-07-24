@@ -543,8 +543,16 @@ impl App {
                 // Force redraw to update compilation timer if needed
                 let all_complete = state.tasks.iter()
                     .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
-                if all_complete && state.compilation_started_at > 0 {
-                    // Just trigger a redraw by returning Ok(None)
+                if all_complete && state.compilation_started_at > 0 && !state.compilation_complete {
+                    // Check if compilation should be marked complete (after 2-3 seconds)
+                    let current_time = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64;
+                    
+                    if current_time - state.compilation_started_at > 2500 {
+                        state.compilation_complete = true;
+                    }
                 }
             }
             _ => {}

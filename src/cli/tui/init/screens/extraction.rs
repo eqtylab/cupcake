@@ -24,7 +24,7 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
         .constraints([
             Constraint::Length(3),      // Header
             Constraint::Min(10),        // Table (including compilation row)
-            Constraint::Length(2),      // Tip
+            Constraint::Length(3),      // Tip (with padding)
             Constraint::Length(1),      // Help
         ])
         .split(inner);
@@ -195,11 +195,18 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             ("Starting...".to_string(), "--".to_string(), Color::Yellow)
         };
         
+        // Show compiled rule count when complete
+        let compile_rules_text = if state.compilation_complete && state.compiled_rule_count > 0 {
+            state.compiled_rule_count.to_string()
+        } else {
+            "--".to_string()
+        };
+        
         rows.push(Row::new(vec![
             "Compile to single rule set".to_string(),
             compile_status_text,
             compile_time_text,
-            "--".to_string(),
+            compile_rules_text,
         ]).style(Style::default().fg(compile_color)));
     }
     
@@ -232,6 +239,7 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     
     let tip_text = if all_complete && state.compilation_complete {
         vec![
+            Line::from(""),  // Empty line for padding
             Line::from(vec![
                 Span::styled(format!("✓ {} rules compiled! ", final_rule_count), Style::default().fg(Color::Green)),
                 Span::raw("Press "),
@@ -241,14 +249,17 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         ]
     } else if all_complete && !state.extracted_rules.is_empty() {
         vec![
+            Line::from(""),  // Empty line for padding
             Line::from("⟳ Compiling rules into single set..."),
         ]
     } else if state.custom_instructions.is_some() {
         vec![
+            Line::from(""),  // Empty line for padding
             Line::from("💡 Using custom extraction instructions"),
         ]
     } else {
         vec![
+            Line::from(""),  // Empty line for padding
             Line::from("💡 Using default extraction settings"),
         ]
     };

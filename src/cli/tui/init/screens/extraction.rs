@@ -188,21 +188,11 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         ]
     } else if state.custom_instructions.is_some() {
         vec![
-            Line::from(vec![
-                Span::raw("💡 Using custom instructions • "),
-                Span::raw("Press "),
-                Span::styled("Enter", Style::default().fg(Color::Cyan)),
-                Span::raw(" to advance when ready!"),
-            ]),
+            Line::from("💡 Using custom extraction instructions"),
         ]
     } else {
         vec![
-            Line::from(vec![
-                Span::raw("💡 Using default extraction • "),
-                Span::raw("Press "),
-                Span::styled("Enter", Style::default().fg(Color::Cyan)),
-                Span::raw(" to advance when ready!"),
-            ]),
+            Line::from("💡 Using default extraction settings"),
         ]
     };
     

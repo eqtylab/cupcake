@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, Paragraph, Row, Table},
+    widgets::{Block, Borders, Paragraph, Row, Table},
 };
 use crate::cli::tui::init::state::{ExtractionState, TaskStatus};
 
@@ -24,7 +24,6 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
         .constraints([
             Constraint::Length(3),      // Header
             Constraint::Min(10),        // Table (including compilation row)
-            Constraint::Length(2),      // Overall progress
             Constraint::Length(2),      // Tip
             Constraint::Length(1),      // Help
         ])
@@ -36,14 +35,11 @@ pub fn render(frame: &mut Frame, state: &ExtractionState) {
     // Task table
     render_task_table(frame, chunks[1], state);
     
-    // Overall progress
-    render_overall_progress(frame, chunks[2], state);
-    
     // Tip
-    render_tip(frame, chunks[3], state);
+    render_tip(frame, chunks[2], state);
     
     // Help bar
-    render_help(frame, chunks[4]);
+    render_help(frame, chunks[3]);
 }
 
 fn render_header(frame: &mut Frame, area: Rect, state: &ExtractionState) {
@@ -222,46 +218,22 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     frame.render_widget(table, area);
 }
 
-fn render_overall_progress(frame: &mut Frame, area: Rect, state: &ExtractionState) {
-    let completed = state.tasks.iter()
-        .filter(|t| matches!(t.status, TaskStatus::Complete))
-        .count();
-    let total = state.tasks.len();
-    
-    // Use compiled rule count if compilation is complete, otherwise raw count
-    let total_rules: usize = if state.compilation_complete && state.compiled_rule_count > 0 {
-        state.compiled_rule_count
-    } else {
-        state.extracted_rules.len()
-    };
-    
-    // Show progress as simple text, no gauge
-    let progress_text = if state.compilation_complete {
-        format!("✓ All processing complete: {} rules compiled from {} files", total_rules, total)
-    } else if completed == total && !state.extracted_rules.is_empty() {
-        format!("✓ Extraction complete: {} raw rules from {} files (compiling...)", state.extracted_rules.len(), total)
-    } else if completed == total {
-        format!("✓ Extraction complete: {} rules found from {} files", total_rules, total)
-    } else {
-        format!("Extracting rules from {} files... {} rules found so far", total, total_rules)
-    };
-    
-    let paragraph = Paragraph::new(progress_text)
-        .block(Block::default().borders(Borders::TOP))
-        .style(Style::default().fg(if completed == total { Color::Green } else { Color::White }));
-    
-    frame.render_widget(paragraph, area);
-}
-
 fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     // Check if all tasks are complete
     let all_complete = state.tasks.iter()
         .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
     
+    // Use compiled rule count if compilation is complete
+    let final_rule_count = if state.compilation_complete && state.compiled_rule_count > 0 {
+        state.compiled_rule_count
+    } else {
+        state.extracted_rules.len()
+    };
+    
     let tip_text = if all_complete && state.compilation_complete {
         vec![
             Line::from(vec![
-                Span::styled("✓ All processing complete! ", Style::default().fg(Color::Green)),
+                Span::styled(format!("✓ {} rules compiled! ", final_rule_count), Style::default().fg(Color::Green)),
                 Span::raw("Press "),
                 Span::styled("Enter", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Span::raw(" to continue to rule review."),
@@ -282,6 +254,7 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
     };
     
     let tip = Paragraph::new(tip_text)
+        .block(Block::default().borders(Borders::TOP))
         .style(Style::default().fg(Color::Yellow))
         .alignment(ratatui::layout::Alignment::Center);
     frame.render_widget(tip, area);

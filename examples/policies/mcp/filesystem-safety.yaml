@@ -1,0 +1,128 @@
+# MCP Filesystem Server Safety Policies
+# Protect against dangerous filesystem operations via MCP
+
+PreToolUse:
+  # Block access to sensitive system directories
+  "mcp__filesystem__.*":
+    - name: block-system-directories
+      description: Prevent MCP filesystem access to sensitive system directories
+      conditions:
+        - type: or
+          conditions:
+            - type: pattern
+              field: tool_input.path
+              regex: "^/etc/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/var/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/usr/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/System/"  # macOS
+            - type: pattern
+              field: tool_input.path
+              regex: "^C:\\\\Windows"  # Windows
+      action:
+        type: block_with_feedback
+        feedback: |
+          🚫 Access Denied: MCP filesystem operations in system directories are not allowed.
+          
+          Blocked path: {{tool_input.path}}
+          
+          If you need to read system configuration, please explain your use case.
+
+    # Warn about home directory access
+    - name: warn-home-directory
+      description: Warn when accessing home directory via MCP
+      conditions:
+        - type: or
+          conditions:
+            - type: pattern
+              field: tool_input.path
+              regex: "^/home/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/Users/"
+            - type: pattern
+              field: tool_input.path
+              regex: "~/|\\$HOME"
+      action:
+        type: provide_feedback
+        feedback: "⚠️  Accessing home directory via MCP. Be careful with personal files."
+
+  # Require confirmation for write operations
+  "mcp__filesystem__(write|create|delete|remove).*":
+    - name: confirm-filesystem-writes
+      description: Require explicit confirmation before filesystem modifications
+      conditions:
+        - type: not
+          condition:
+            type: state_query
+            filter:
+              tool: Bash
+              command_contains: "confirm"
+              result: success
+              within_minutes: 2
+      action:
+        type: block_with_feedback
+        feedback: |
+          ✋ Filesystem modification requires confirmation.
+          
+          Tool: {{tool_name}}
+          Path: {{tool_input.path}}
+          
+          Please run: confirm "I want to modify {{tool_input.path}}"
+
+PostToolUse:
+  # Log all filesystem operations
+  "mcp__filesystem__.*":
+    - name: audit-filesystem-operations
+      description: Create audit log of all MCP filesystem operations
+      conditions: []
+      action:
+        type: update_state
+        event_name: mcp_filesystem_audit
+        data:
+          tool: "{{tool_name}}"
+          path: "{{tool_input.path}}"
+          operation: "{{tool_name}}"
+          timestamp: "{{timestamp}}"
+
+    # Track file deletions specifically
+    - name: track-deletions
+      description: Special tracking for file deletions
+      conditions:
+        - type: match
+          field: tool_name
+          value: "mcp__filesystem__delete_file"
+      action:
+        type: provide_feedback
+        feedback: "📝 File deleted: {{tool_input.path}} - This action has been logged."
+
+# Stateful policies for repeated access patterns
+UserPromptSubmit:
+  "*":
+    - name: detect-filesystem-scanning
+      description: Detect potential filesystem scanning behavior
+      conditions:
+        - type: state_query
+          filter:
+            tool: "mcp__filesystem__list_directory"
+            within_minutes: 5
+          expect_exists: true
+        - type: pattern
+          field: prompt
+          regex: "(?i)(list|show|find).*files"
+      action:
+        type: inject_context
+        context: |
+          📊 Filesystem Access Pattern Detected
+          
+          You've been listing directories recently. Consider:
+          - Use specific paths instead of broad scans
+          - Explain what you're looking for
+          - Use grep/find commands for targeted searches
+          
+          This helps maintain system performance and security.

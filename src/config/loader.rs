@@ -205,7 +205,19 @@ impl PolicyLoader {
     }
 
     /// Step 1: Search upward from start_dir for guardrails/cupcake.yaml
+    /// Also checks $CLAUDE_PROJECT_DIR if set
     fn discover_root_config(&self, start_dir: &Path) -> Result<PathBuf> {
+        // First, check if $CLAUDE_PROJECT_DIR is set
+        if let Ok(claude_dir) = std::env::var("CLAUDE_PROJECT_DIR") {
+            let claude_path = Path::new(&claude_dir);
+            let candidate = claude_path.join("guardrails").join("cupcake.yaml");
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+            // If $CLAUDE_PROJECT_DIR is set but doesn't have the config, continue to regular search
+        }
+
+        // Regular upward search from start_dir
         let mut current_dir = start_dir;
 
         loop {

@@ -50,13 +50,13 @@ Transform Cupcake from a reactive policy enforcer to a proactive behavioral guid
   - Safe deployment checklists
   - Code review best practices
 
-### Phase 5: Final Integration (🔄 PENDING)
-- [ ] Add $CLAUDE_PROJECT_DIR support for project-specific policies
-- [ ] Document MCP tool matching patterns (mcp_*)
-- [ ] Update README with behavioral guidance examples
-- [ ] Update all documentation files
-- [ ] Create final integration tests
-- [ ] Complete plan and merge to main
+### Phase 5: Final Integration (✅ COMPLETED)
+- ✅ Add $CLAUDE_PROJECT_DIR support for project-specific policies
+- ✅ Document MCP tool matching patterns (mcp__<server>__<tool>)
+- ✅ Update README with behavioral guidance examples
+- ✅ Update all documentation files
+- ✅ Create final integration tests
+- ✅ Complete plan and ready for merge
 
 ## Key Achievements
 
@@ -114,10 +114,47 @@ Created comprehensive test suites:
 
 All tests passing ✅
 
-## Next Steps
+## Phase 5 Implementation Details
 
-Phase 5 will complete the integration with:
-- Project-specific policy support via $CLAUDE_PROJECT_DIR
-- MCP tool pattern documentation
-- Comprehensive documentation updates
-- Final integration testing
+### $CLAUDE_PROJECT_DIR Support
+Added environment variable support to PolicyLoader::discover_root_config(). When set, Cupcake first checks `$CLAUDE_PROJECT_DIR/guardrails/cupcake.yaml` before performing the regular upward search. This enables:
+- Project-specific policies that override global settings
+- Multiple projects with different security requirements
+- CI/CD environments with custom policy paths
+
+### MCP Tool Pattern Matching
+Created comprehensive documentation in `docs/mcp-tool-patterns.md` explaining:
+- MCP tool naming convention: `mcp__<server>__<tool>`
+- Pattern matching strategies for policies
+- Examples for common MCP servers (filesystem, github, slack)
+- Best practices for layered MCP policies
+
+### Documentation Updates
+- Updated README.md with new "Advanced Features" section
+- Added examples for behavioral guidance with context injection
+- Documented stateful workflows with StateQuery
+- Included MCP tool pattern matching examples
+- Updated all feature lists to reflect new capabilities
+
+### Integration Tests
+Created `tests/july20_features_test.rs` with 6 comprehensive tests:
+1. **test_inject_context_action_parsing**: Validates InjectContext action YAML parsing
+2. **test_state_query_condition_parsing**: Validates StateQuery condition structure
+3. **test_claude_project_dir_support**: Tests $CLAUDE_PROJECT_DIR discovery logic
+4. **test_mcp_tool_pattern_matching**: Validates MCP tool regex patterns
+5. **test_wildcard_matcher_for_all_events**: Confirms "*" matches all event types
+6. **test_complex_policy_with_imports**: Tests multi-file policy composition
+
+All tests passing ✅
+
+## Summary
+
+Plan-019 successfully transformed Cupcake from a reactive policy enforcer into a proactive behavioral guidance system. The implementation spans all 5 phases:
+
+1. **Response System**: New EngineDecision enum and JSON response format
+2. **Context Injection**: Non-blocking guidance via stdout or JSON
+3. **Sync Command**: Robust hook management preserving user settings
+4. **Stateful Engine**: Historical tool usage queries for workflow enforcement
+5. **Final Integration**: Project-specific policies, MCP support, and comprehensive docs
+
+The July 20 Claude Code hooks update is now fully integrated, enabling sophisticated AI governance workflows through stateful policies and behavioral guidance.

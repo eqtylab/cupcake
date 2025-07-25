@@ -1,0 +1,122 @@
+# General MCP Tool Policies
+# Apply guardrails to all MCP tools across different servers
+
+PreToolUse:
+  # Log all MCP tool usage
+  "mcp__.*":
+    - name: mcp-usage-tracking
+      description: Track all MCP tool usage for analytics
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: "Using MCP tool: {{tool_name}}"
+
+  # Rate limit MCP tools that send messages or create content
+  "mcp__.*(send|post|create|publish).*":
+    - name: mcp-rate-limit
+      description: Prevent spam/abuse via MCP messaging tools
+      conditions:
+        - type: state_query
+          filter:
+            tool: "mcp__.*(send|post|create|publish).*"
+            within_minutes: 1
+          expect_exists: true
+      action:
+        type: block_with_feedback
+        feedback: |
+          ⏱️ Rate limit: Please wait before using {{tool_name}} again.
+          
+          You've used a similar MCP tool in the last minute.
+          This helps prevent accidental spam or abuse.
+
+  # Require description for data-modifying MCP operations
+  "mcp__.*(create|update|delete|write).*":
+    - name: require-description
+      description: Ensure data modifications have descriptions
+      conditions:
+        - type: not
+          condition:
+            type: pattern
+            field: tool_input.description
+            regex: ".{10,}"  # At least 10 characters
+      action:
+        type: block_with_feedback
+        feedback: |
+          📝 Description Required
+          
+          When using {{tool_name}}, please provide a meaningful description
+          (at least 10 characters) explaining the change.
+          
+          This helps with audit trails and understanding intent.
+
+# Multi-server coordination policies
+PreToolUse:
+  # Prevent mixing of dev/prod operations
+  "mcp__(dev|test|staging)__.*":
+    - name: dev-prod-isolation-check
+      description: Warn if prod operations happened recently
+      conditions:
+        - type: state_query
+          filter:
+            tool: "mcp__prod__.*"
+            within_minutes: 30
+          expect_exists: true
+      action:
+        type: provide_feedback
+        feedback: |
+          ⚠️  Environment Warning
+          
+          You're using a dev/test MCP tool ({{tool_name}}) but have recently
+          used production MCP tools. Please double-check you're in the right
+          environment to avoid mixing dev and prod operations.
+
+  "mcp__prod__.*":
+    - name: prod-operation-warning
+      description: Extra caution for production MCP operations
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: |
+          🔴 PRODUCTION OPERATION: {{tool_name}}
+          
+          You're about to perform an operation on PRODUCTION.
+          Please ensure this is intentional.
+
+# Context injection for MCP tool discovery
+UserPromptSubmit:
+  "*":
+    - name: mcp-tool-help
+      description: Provide help about available MCP tools
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(?i)(what|which|list).*(mcp|model context protocol).*tools"
+      action:
+        type: inject_context
+        context: |
+          🔧 MCP (Model Context Protocol) Tools
+          
+          MCP tools follow the pattern: mcp__<server>__<tool>
+          
+          Common MCP servers include:
+          - filesystem: File operations
+          - github: GitHub integration
+          - slack: Slack messaging
+          - database: Database queries
+          
+          Use 'cupcake inspect' to see policies for MCP tools.
+          Policies can match patterns like "mcp__github__.*" for all GitHub tools.
+
+# State tracking for MCP operations
+PostToolUse:
+  "mcp__.*":
+    - name: track-mcp-state
+      description: Track all MCP operations for state queries
+      conditions: []
+      action:
+        type: update_state
+        event_name: mcp_operation
+        data:
+          server: "{{tool_name}}"  # Will extract server name in analysis
+          timestamp: "{{timestamp}}"
+          success: "{{tool_response}}"  # Track if operation succeeded

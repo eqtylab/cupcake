@@ -7,22 +7,22 @@
 
 # Cupcake - Agent Governance as Code
 
-Policy enforcement engine that makes AI coding agents actually follow your rules.
+Policy enforcement engine that makes AI coding agents actually follow your rules, now with behavioral guidance capabilities.
 
 > **Note**: Currently in beta with Claude Code support. The policy format is designed to be agent-agnostic, with eventual support for any coding agent hook system.
 
 ## Overview
 
-Cupcake transforms natural language rules from CLAUDE.md files into deterministic YAML policies enforced through Claude Code's hooks system. Beyond simple enforcement, it provides an integrated feedback system that enables agents to self-correct and work autonomously for longer periods.
+Cupcake transforms natural language rules from CLAUDE.md files into deterministic YAML policies enforced through Claude Code's hooks system. Beyond simple enforcement, it provides behavioral guidance through context injection, enabling Claude to understand and follow complex workflows autonomously.
 
 ## Core Features
 
-- **Small, yet powerful abstraction**: Manage 10s to 100s of rules without writing individual hooks
-- **Deterministic enforcement**: Converts suggestions into guarantees through Claude Code hooks
-- **Integrated feedback**: Enables agents to self-correct and continue working productively
-- **Two-pass evaluation**: Aggregates all feedback before blocking, preventing iterative corrections
-- **Stateful awareness**: Tracks session state for complex workflow enforcement
-- **Performance optimized**: Binary caching and compiled patterns for minimal latency
+- **Behavioral Guidance**: Inject context and reminders directly into Claude's awareness
+- **Stateful Workflows**: Track tool usage history and enforce time-based policies
+- **Project-Specific Policies**: Support for $CLAUDE_PROJECT_DIR for multi-project setups
+- **MCP Tool Support**: Pattern matching for Model Context Protocol tools
+- **Two-Pass Evaluation**: Aggregates all feedback before decisions
+- **Performance Optimized**: Sub-100ms response times with compiled patterns
 
 ## Policy Configuration
 
@@ -150,9 +150,91 @@ cargo install --path .
    cupcake inspect --config my-policy.yaml
    ```
 
-4. **Runtime enforcement:**
-   ```bash
-   cupcake run --event PreToolUse
+## Advanced Features
+
+### Behavioral Guidance with Context Injection
+
+Cupcake can inject context directly into Claude's prompt processing, providing gentle guidance without blocking:
+
+```yaml
+UserPromptSubmit:
+  "*":
+    - name: test-reminder
+      description: Remind to run tests before committing
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(?i)commit"
+        - type: not
+          condition:
+            type: state_query
+            filter:
+              tool: Bash
+              command_contains: "test"
+              result: success
+              within_minutes: 15
+      action:
+        type: inject_context
+        context: |
+          📋 Pre-commit checklist:
+          ✗ Tests haven't been run recently
+          
+          Consider running tests before committing.
+        use_stdout: true
+```
+
+### Stateful Workflows with StateQuery
+
+Track tool usage history and make decisions based on past actions:
+
+```yaml
+conditions:
+  - type: state_query
+    filter:
+      tool: Bash                    # Tool name
+      command_contains: "npm test"  # Command pattern (optional)
+      result: success              # "success" or "failure" (optional)
+      within_minutes: 30           # Time window (optional)
+    expect_exists: true            # true = must exist, false = must not exist
+```
+
+This enables sophisticated workflows like:
+- Ensure tests pass before allowing commits
+- Prevent dangerous operations after specific actions
+- Enforce time-based cool-downs between operations
+- Track and audit complex multi-step processes
+
+### Project-Specific Policies
+
+Set `$CLAUDE_PROJECT_DIR` to use project-specific policies:
+
+```bash
+export CLAUDE_PROJECT_DIR=/path/to/project
+```
+
+Cupcake will first check `$CLAUDE_PROJECT_DIR/guardrails/cupcake.yaml` before searching upward from the current directory.
+
+### MCP Tool Pattern Matching
+
+Support for Model Context Protocol tools with pattern matching:
+
+```yaml
+PreToolUse:
+  # Match all MCP tools
+  "mcp__.*":
+    - name: audit-mcp
+      ...
+  
+  # Match specific MCP server
+  "mcp__github__.*":
+    - name: github-policies
+      ...
+  
+  # Match specific patterns
+  "mcp__.*(create|delete).*":
+    - name: dangerous-mcp-ops
+      ...
+```
    ```
 
 ## Commands

@@ -79,6 +79,7 @@ impl ConditionEvaluator {
             Condition::Not { condition } => self.evaluate_not(condition, context),
             Condition::And { conditions } => self.evaluate_and(conditions, context),
             Condition::Or { conditions } => self.evaluate_or(conditions, context),
+            Condition::StateQuery { filter, expect_exists } => self.evaluate_state_query(filter, *expect_exists, context),
         }
     }
 
@@ -292,6 +293,86 @@ impl ConditionEvaluator {
         self.regex_cache
             .get(pattern)
             .ok_or_else(|| crate::CupcakeError::Condition("Regex cache inconsistency".to_string()))
+    }
+
+    /// Evaluate StateQuery condition - query historical state
+    fn evaluate_state_query(
+        &self,
+        filter: &crate::config::conditions::StateQueryFilter,
+        expect_exists: bool,
+        context: &EvaluationContext,
+    ) -> ConditionResult {
+        // StateQuery requires full session state to be loaded
+        let session_state = match &context.full_session_state {
+            Some(state) => state,
+            None => {
+                // State not loaded - treat as no match
+                return if expect_exists {
+                    ConditionResult::NoMatch
+                } else {
+                    ConditionResult::Match
+                };
+            }
+        };
+
+        // Filter tool usage events based on criteria
+        let mut matching_events = 0;
+        
+        for entry in &session_state.entries {
+            // Check if this is a tool usage event
+            if let crate::state::types::StateEvent::ToolUsage(tool_usage) = &entry.event {
+                // Check tool name match
+                if tool_usage.tool_name != filter.tool {
+                    continue;
+                }
+                
+                // Check command pattern if specified
+                if let Some(command_pattern) = &filter.command_contains {
+                    if let Some(command) = tool_usage.input.get("command").and_then(|v| v.as_str()) {
+                        if !command.contains(command_pattern) {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+                
+                // Check result if specified
+                if let Some(expected_result) = &filter.result {
+                    let actual_result = if tool_usage.success { "success" } else { "failure" };
+                    if actual_result != expected_result {
+                        continue;
+                    }
+                }
+                
+                // Check time constraint if specified
+                if let Some(within_minutes) = filter.within_minutes {
+                    let duration = context.timestamp.signed_duration_since(entry.timestamp);
+                    
+                    if duration.num_minutes() > within_minutes as i64 {
+                        continue;
+                    }
+                }
+                
+                // All criteria matched
+                matching_events += 1;
+            }
+        }
+        
+        // Determine result based on whether events exist
+        if expect_exists {
+            if matching_events > 0 {
+                ConditionResult::Match
+            } else {
+                ConditionResult::NoMatch
+            }
+        } else {
+            if matching_events == 0 {
+                ConditionResult::Match
+            } else {
+                ConditionResult::NoMatch
+            }
+        }
     }
 
     // Legacy insecure command conversion removed in Plan 008

@@ -1,4 +1,5 @@
 use super::CommandHandler;
+use crate::config::conditions::Condition;
 use crate::config::loader::PolicyLoader;
 use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::conditions::EvaluationContext;
@@ -70,7 +71,19 @@ impl CommandHandler for RunCommand {
         let mut state_manager = StateManager::new(&current_dir)?;
 
         // 4. Build evaluation context
-        let evaluation_context = self.build_evaluation_context(&hook_event);
+        let mut evaluation_context = self.build_evaluation_context(&hook_event);
+        
+        // Check if any policies use StateQuery conditions
+        let needs_state = configuration.policies.iter().any(|p| 
+            p.conditions.iter().any(|c| self.condition_uses_state_query(c))
+        );
+        
+        // Load session state if needed
+        if needs_state {
+            if let Ok(session_state) = state_manager.get_session_state(&evaluation_context.session_id) {
+                evaluation_context.full_session_state = Some(session_state.clone());
+            }
+        }
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
@@ -531,6 +544,20 @@ impl RunCommand {
                 }
                 std::process::exit(0);
             }
+        }
+    }
+    
+    /// Check if a condition uses StateQuery (recursively)
+    fn condition_uses_state_query(&self, condition: &Condition) -> bool {
+        use crate::config::conditions::Condition;
+        
+        match condition {
+            Condition::StateQuery { .. } => true,
+            Condition::Not { condition } => self.condition_uses_state_query(condition),
+            Condition::And { conditions } | Condition::Or { conditions } => {
+                conditions.iter().any(|c| self.condition_uses_state_query(c))
+            }
+            _ => false,
         }
     }
 }

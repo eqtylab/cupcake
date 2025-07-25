@@ -206,6 +206,20 @@ impl InspectCommand {
             Condition::Not { condition } => {
                 format!("NOT {}", self.format_single_condition(condition))
             }
+            Condition::StateQuery { filter, expect_exists } => {
+                let mut parts = vec![filter.tool.clone()];
+                if let Some(cmd) = &filter.command_contains {
+                    parts.push(format!("cmd:*{}*", cmd));
+                }
+                if let Some(result) = &filter.result {
+                    parts.push(format!("={}", result));
+                }
+                if let Some(mins) = filter.within_minutes {
+                    parts.push(format!("<{}m", mins));
+                }
+                let prefix = if *expect_exists { "has" } else { "no" };
+                format!("{} state[{}]", prefix, parts.join(" "))
+            }
         }
     }
 }

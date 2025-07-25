@@ -42,6 +42,21 @@ pub enum Condition {
 
     /// Logical OR operator
     Or { conditions: Vec<Condition> },
+
+    /// State query - check historical tool usage or custom events
+    /// Example: { type = "state_query", filter = { tool = "Bash", command_contains = "npm test", result = "success", within_minutes = 30 } }
+    StateQuery {
+        /// Filter criteria for querying state
+        filter: StateQueryFilter,
+        /// Whether to check if events exist (true) or don't exist (false)
+        #[serde(default = "default_expect_exists")]
+        expect_exists: bool,
+    },
+}
+
+/// Default value for expect_exists field
+fn default_expect_exists() -> bool {
+    true
 }
 
 /// Default value for expect_success field
@@ -108,5 +123,35 @@ mod tests {
 
         let yaml = serde_yaml_ng::to_string(&condition).unwrap();
         let _deserialized: Condition = serde_yaml_ng::from_str(&yaml).unwrap();
+    }
+
+    #[test]
+    fn test_state_query_serialization() {
+        let condition = Condition::StateQuery {
+            filter: StateQueryFilter {
+                tool: "Bash".to_string(),
+                command_contains: Some("npm test".to_string()),
+                result: Some("success".to_string()),
+                within_minutes: Some(30),
+            },
+            expect_exists: true,
+        };
+
+        let yaml = serde_yaml_ng::to_string(&condition).unwrap();
+        assert!(yaml.contains("state_query"));
+        assert!(yaml.contains("Bash"));
+        assert!(yaml.contains("npm test"));
+        
+        let deserialized: Condition = serde_yaml_ng::from_str(&yaml).unwrap();
+        match deserialized {
+            Condition::StateQuery { filter, expect_exists } => {
+                assert_eq!(filter.tool, "Bash");
+                assert_eq!(filter.command_contains, Some("npm test".to_string()));
+                assert_eq!(filter.result, Some("success".to_string()));
+                assert_eq!(filter.within_minutes, Some(30));
+                assert!(expect_exists);
+            }
+            _ => panic!("Wrong condition type"),
+        }
     }
 }

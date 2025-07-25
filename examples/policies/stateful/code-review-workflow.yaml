@@ -1,0 +1,178 @@
+# Code Review Workflow Policies
+# Encourage best practices around code review and collaboration
+
+policies:
+  # Check for uncommitted changes before reviewing
+  - name: review-uncommitted-changes
+    description: Remind to commit changes before starting code review
+    hook_event: UserPromptSubmit
+    matcher: "*"
+    conditions:
+      # User wants to review code
+      - type: pattern
+        field: prompt
+        regex: "(?i)(review|check|look at).*(pr|pull request|changes)"
+      # Has recently edited files
+      - type: state_query
+        filter:
+          tool: Edit
+          result: success
+          within_minutes: 30
+      # But hasn't committed recently
+      - type: not
+        condition:
+          type: state_query
+            filter:
+              tool: Bash
+              command_contains: "git commit"
+              result: success
+              within_minutes: 30
+    action:
+      type: inject_context
+      context: |
+        📝 You have uncommitted changes from the last 30 minutes.
+        
+        Consider committing or stashing your changes before reviewing:
+        - git stash (temporarily save changes)
+        - git commit (commit your work)
+        
+        This prevents mixing your changes with the code you're reviewing.
+      use_stdout: true
+
+  # Suggest pulling latest before making changes
+  - name: pull-before-edit-reminder
+    description: Encourage pulling latest changes before editing
+    hook_event: PreToolUse
+    matcher: Edit
+    conditions:
+      # Editing source code files
+      - type: pattern
+        field: tool_input.file_path
+        regex: "\\.(js|ts|py|rs|go|java|rb)$"
+      # Haven't pulled recently
+      - type: not
+        condition:
+          type: state_query
+            filter:
+              tool: Bash
+              command_contains: "git pull"
+              result: success
+              within_minutes: 60
+    action:
+      type: provide_feedback
+      feedback: |
+        💡 Tip: You haven't pulled from remote in the last hour.
+        Consider running 'git pull' to get the latest changes.
+        This helps avoid merge conflicts later.
+
+  # Warn about force push after team activity
+  - name: force-push-team-safety
+    description: Prevent accidental overwrite of team's work
+    hook_event: PreToolUse
+    matcher: Bash
+    conditions:
+      # Attempting force push
+      - type: pattern
+        field: tool_input.command
+        regex: "git\\s+push\\s+(--force|-f)"
+      # Recently pulled changes from others
+      - type: state_query
+        filter:
+          tool: Bash
+          command_contains: "git pull"
+          result: success
+          within_minutes: 120
+    action:
+      type: block_with_feedback
+      feedback: |
+        🚨 DANGEROUS: Force push after recent pull!
+        
+        You pulled changes from the remote repository in the last 2 hours.
+        Force pushing now would overwrite your team's work!
+        
+        Safer alternatives:
+        1. Use 'git push --force-with-lease' (safer force push)
+        2. Create a new branch for your changes
+        3. Discuss with your team first
+        
+        To override this block, communicate with your team first.
+
+  # Encourage descriptive commit messages
+  - name: commit-message-quality
+    description: Encourage good commit messages based on changes
+    hook_event: PreToolUse
+    matcher: Bash
+    conditions:
+      # Git commit command with short message
+      - type: pattern
+        field: tool_input.command
+        regex: "git\\s+commit\\s+-m\\s+['\"].{1,10}['\"]"
+      # Has made substantial changes
+      - type: or
+        conditions:
+          # Multiple file edits
+          - type: state_query
+            filter:
+              tool: Edit
+              result: success
+              within_minutes: 30
+          # Multiple file writes
+          - type: state_query
+            filter:
+              tool: Write
+              result: success
+              within_minutes: 30
+    action:
+      type: provide_feedback
+      feedback: |
+        📝 Your commit message seems very short for the amount of changes.
+        
+        Good commit messages help your team understand:
+        - What changed
+        - Why it changed
+        - Any side effects
+        
+        Consider a more descriptive message that explains the "why" not just the "what".
+
+  # Positive reinforcement for good practices
+  - name: good-workflow-reinforcement
+    description: Celebrate following good development workflow
+    hook_event: UserPromptSubmit
+    matcher: "*"
+    conditions:
+      # Creating a PR
+      - type: pattern
+        field: prompt
+        regex: "(?i)(create|open|make).*(pr|pull request)"
+      # Has run tests
+      - type: state_query
+        filter:
+          tool: Bash
+          command_contains: "test"
+          result: success
+          within_minutes: 30
+      # Has run linting
+      - type: state_query
+        filter:
+          tool: Bash
+          command_contains: "lint"
+          result: success
+          within_minutes: 30
+      # Has committed changes
+      - type: state_query
+        filter:
+          tool: Bash
+          command_contains: "git commit"
+          result: success
+          within_minutes: 60
+    action:
+      type: inject_context
+      context: |
+        🌟 Excellent Development Workflow!
+        
+        ✓ Tests are passing
+        ✓ Code is linted
+        ✓ Changes are committed
+        
+        You're following best practices. Your PR is ready for review!
+      use_stdout: true

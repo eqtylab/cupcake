@@ -137,8 +137,11 @@ impl PolicyEvaluator {
                 if tool_name.is_some() {
                     continue; // Skip this policy for tool events
                 }
+            } else if policy.matcher == "*" {
+                // Special case: "*" matches everything (both tool and non-tool events)
+                // Continue to next check
             } else {
-                // Non-empty matcher: only matches tool events with regex
+                // Non-empty, non-wildcard matcher: only matches tool events with regex
                 if let Some(tool) = tool_name {
                     let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
                         crate::CupcakeError::Config(format!(
@@ -151,7 +154,7 @@ impl PolicyEvaluator {
                         continue;
                     }
                 } else {
-                    // Non-tool event with non-empty matcher: no match
+                    // Non-tool event with non-wildcard matcher: no match
                     continue;
                 }
             }

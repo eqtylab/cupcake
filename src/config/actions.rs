@@ -153,6 +153,19 @@ pub enum Action {
         #[serde(rename = "else", skip_serializing_if = "Option::is_none")]
         else_action: Option<Box<Action>>,
     },
+
+    /// Inject context into Claude's awareness (UserPromptSubmit only)
+    InjectContext {
+        /// Context to inject into Claude's prompt processing
+        context: String,
+        /// Whether to use stdout method (true) or JSON method (false)
+        #[serde(default = "default_use_stdout")]
+        use_stdout: bool,
+    },
+}
+
+fn default_use_stdout() -> bool {
+    true  // Default to simple stdout method
 }
 
 /// Behavior when RunCommand fails
@@ -192,6 +205,7 @@ impl Action {
                 OnFailureBehavior::Block => ActionType::Hard,
             },
             Action::UpdateState { .. } => ActionType::Soft,
+            Action::InjectContext { .. } => ActionType::Soft,
             Action::Conditional {
                 then_action,
                 else_action,
@@ -383,5 +397,37 @@ mod tests {
             data: None,
         };
         assert!(update_state.modifies_state());
+    }
+
+    #[test]
+    fn test_inject_context_action() {
+        // Test creation and classification
+        let inject_context = Action::InjectContext {
+            context: "Remember to validate user input".to_string(),
+            use_stdout: true,
+        };
+        
+        assert!(inject_context.is_soft_action());
+        assert!(!inject_context.is_hard_action());
+        assert_eq!(inject_context.action_type(), ActionType::Soft);
+        
+        // Test serialization
+        let yaml = serde_yaml_ng::to_string(&inject_context).unwrap();
+        assert!(yaml.contains("inject_context"));
+        assert!(yaml.contains("Remember to validate user input"));
+        assert!(yaml.contains("use_stdout: true"));
+        
+        // Test deserialization
+        let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(inject_context, deserialized);
+        
+        // Test with use_stdout = false
+        let inject_json = Action::InjectContext {
+            context: "Use JSON method".to_string(),
+            use_stdout: false,
+        };
+        
+        let yaml2 = serde_yaml_ng::to_string(&inject_json).unwrap();
+        assert!(yaml2.contains("use_stdout: false"));
     }
 }

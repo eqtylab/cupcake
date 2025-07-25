@@ -203,6 +203,9 @@ impl ActionExecutor {
                     state_manager,
                 )
             }
+            Action::InjectContext { context: ctx, .. } => {
+                self.execute_inject_context(ctx, context)
+            }
         }
     }
 
@@ -230,6 +233,15 @@ impl ActionExecutor {
         let substituted_reason = reason.map(|r| context.substitute_template(r));
         ActionResult::Allow {
             reason: substituted_reason,
+        }
+    }
+
+    /// Execute inject_context action
+    fn execute_inject_context(&self, context_template: &str, context: &ActionContext) -> ActionResult {
+        let injected_context = context.substitute_template(context_template);
+        ActionResult::Success {
+            feedback: Some(injected_context),
+            state_update: None,
         }
     }
 

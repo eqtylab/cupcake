@@ -295,6 +295,9 @@ impl PolicyEvaluator {
             crate::config::actions::Action::ProvideFeedback { message, .. } => {
                 Some(self.substitute_templates(message, context))
             }
+            crate::config::actions::Action::InjectContext { context: ctx, .. } => {
+                Some(self.substitute_templates(ctx, context))
+            }
             crate::config::actions::Action::UpdateState { .. } => {
                 // State updates don't provide feedback
                 None

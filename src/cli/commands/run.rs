@@ -107,13 +107,19 @@ impl CommandHandler for RunCommand {
             }
         }
 
-        // Output soft feedback to stdout if we're allowing the operation
-        if matches!(evaluation_result.decision, EngineDecision::Allow)
-            && !evaluation_result.feedback_messages.is_empty()
-        {
-            // Combine all soft feedback messages
-            let feedback_output = evaluation_result.feedback_messages.join("\n");
-            println!("{}", feedback_output);
+        // Special handling for UserPromptSubmit context injection
+        let is_user_prompt_submit = hook_event.event_name() == "UserPromptSubmit";
+        
+        // For UserPromptSubmit, we'll handle stdout differently
+        if !is_user_prompt_submit {
+            // Output soft feedback to stdout if we're allowing the operation (non-UserPromptSubmit)
+            if matches!(evaluation_result.decision, EngineDecision::Allow)
+                && !evaluation_result.feedback_messages.is_empty()
+            {
+                // Combine all soft feedback messages
+                let feedback_output = evaluation_result.feedback_messages.join("\n");
+                println!("{}", feedback_output);
+            }
         }
 
         // 6. Execute actions for matched policies
@@ -132,15 +138,24 @@ impl CommandHandler for RunCommand {
             &mut action_executor,
         )?;
 
-        // Check if any action resulted in a block
+        // Check if any action resulted in a block or collect context for injection
         let mut final_decision = evaluation_result.decision.clone();
+        let mut context_to_inject = Vec::new();
+        
         for (_policy_name, result) in &action_results {
-            if let ActionResult::Block { feedback } = result {
-                // An action execution resulted in block - override the evaluation decision
-                final_decision = EngineDecision::Block {
-                    feedback: feedback.clone(),
-                };
-                break;
+            match result {
+                ActionResult::Block { feedback } => {
+                    // An action execution resulted in block - override the evaluation decision
+                    final_decision = EngineDecision::Block {
+                        feedback: feedback.clone(),
+                    };
+                    break;
+                }
+                ActionResult::Success { feedback: Some(ctx), .. } if is_user_prompt_submit => {
+                    // Collect context from InjectContext actions
+                    context_to_inject.push(ctx.clone());
+                }
+                _ => {}
             }
         }
 
@@ -166,7 +181,12 @@ impl CommandHandler for RunCommand {
             final_decision
         };
 
-        self.send_response_safely(response_decision)
+        // For UserPromptSubmit, handle context injection via stdout or JSON
+        if is_user_prompt_submit {
+            self.send_response_with_context(response_decision, context_to_inject, &hook_event)
+        } else {
+            self.send_response_safely(response_decision)
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -449,6 +469,67 @@ impl RunCommand {
                 // For Approve and Ask, we need JSON output
                 let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
                 handler.send_json_response(response);
+            }
+        }
+    }
+
+    /// Send response with context injection for UserPromptSubmit events
+    fn send_response_with_context(&self, decision: EngineDecision, context_to_inject: Vec<String>, hook_event: &HookEvent) -> ! {
+        use crate::engine::response::{CupcakeResponse, HookSpecificOutput, ResponseHandler};
+        
+        let handler = ResponseHandler::new(self.debug);
+        
+        // For UserPromptSubmit, we have special handling based on the decision
+        match &decision {
+            EngineDecision::Allow => {
+                // For Allow, check if we have context to inject
+                if !context_to_inject.is_empty() {
+                    // Use stdout method: print context to stdout with exit code 0
+                    let combined_context = context_to_inject.join("\n");
+                    if self.debug {
+                        eprintln!("Debug: Injecting context via stdout for UserPromptSubmit");
+                        eprintln!("Debug: Context length: {} chars", combined_context.len());
+                    }
+                    println!("{}", combined_context);
+                    std::process::exit(0);
+                } else {
+                    // No context to inject, just allow
+                    if self.debug {
+                        eprintln!("Debug: Allowing UserPromptSubmit without context injection");
+                    }
+                    std::process::exit(0);
+                }
+            }
+            EngineDecision::Block { feedback } => {
+                // For Block, send stderr feedback with exit code 2
+                if self.debug {
+                    eprintln!("Debug: Blocking UserPromptSubmit with feedback");
+                }
+                eprintln!("{}", feedback);
+                std::process::exit(2);
+            }
+            EngineDecision::Ask { reason } => {
+                // For Ask, use JSON response with UserPromptSubmit output
+                if self.debug {
+                    eprintln!("Debug: Sending Ask response for UserPromptSubmit");
+                }
+                let response = CupcakeResponse {
+                    hook_specific_output: Some(HookSpecificOutput::UserPromptSubmit {
+                        additional_context: Some(reason.clone()),
+                    }),
+                    continue_execution: Some(true),
+                    stop_reason: None,
+                    suppress_output: Some(false),
+                };
+                handler.send_json_response(response);
+            }
+            EngineDecision::Approve { reason } => {
+                // For Approve (legacy), treat as Allow with optional context
+                if !context_to_inject.is_empty() {
+                    let combined_context = context_to_inject.join("\n");
+                    println!("{}", combined_context);
+                }
+                std::process::exit(0);
             }
         }
     }

@@ -57,7 +57,7 @@ fn test_empty_matcher_for_user_prompt_submit() {
 
     // Should block due to API key detection
     match result.decision {
-        cupcake::engine::response::PolicyDecision::Block { feedback } => {
+        cupcake::engine::response::EngineDecision::Block { feedback } => {
             assert!(feedback.contains("Detected API key"));
         }
         _ => panic!("Expected block decision"),

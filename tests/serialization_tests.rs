@@ -279,7 +279,7 @@ fn test_action_variants_yaml_serialization() {
             feedback_message: "Blocked".to_string(),
             include_context: false,
         },
-        Action::Approve {
+        Action::Allow {
             reason: Some("Auto-approved".to_string()),
         },
         Action::RunCommand {
@@ -317,7 +317,7 @@ fn test_action_variants_yaml_serialization() {
                 field: "event_type".to_string(),
                 value: "TestEvent".to_string(),
             },
-            then_action: Box::new(Action::Approve { reason: None }),
+            then_action: Box::new(Action::Allow { reason: None }),
             else_action: Some(Box::new(Action::ProvideFeedback {
                 message: "Condition not met".to_string(),
                 include_context: false,
@@ -345,7 +345,7 @@ fn test_hook_event_types_yaml_serialization() {
             field: "tool_name".to_string(),
             value: "Bash".to_string(),
         }],
-        action: Action::Approve { reason: None },
+        action: Action::Allow { reason: None },
     };
 
     let yaml_str =

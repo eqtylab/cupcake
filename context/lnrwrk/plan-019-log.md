@@ -53,3 +53,36 @@ Completed Phase 1 of the Claude Code July 20 integration. Major changes:
 - Foundation laid for context injection in Phase 2
 
 The communication protocol is now fully aligned with Claude Code July 20 updates.
+
+## 2025-01-25T17:15:00Z
+
+Beginning Phase 2: Implementing Context Injection - the transformative feature that enables proactive behavioral guidance.
+
+## 2025-01-25T17:30:00Z
+
+Completed core implementation of Phase 2. Major changes:
+
+### Context Injection Implementation
+- Added InjectContext action to Action enum with context string and use_stdout flag
+- Implemented execute_inject_context in ActionExecutor that treats context as feedback
+- Enhanced run command with special UserPromptSubmit handling:
+  - Collects context from InjectContext actions during evaluation
+  - New send_response_with_context method for context injection
+  - Stdout method: prints context to stdout with exit code 0 (default)
+  - JSON method: uses UserPromptSubmit additionalContext field
+- Maintains compatibility with existing action execution flow
+
+### UserPromptSubmit Response Modes
+- Allow + context → stdout injection (Claude Code reads via exit code 0)
+- Block → stderr feedback (standard block behavior)
+- Ask → JSON response with additionalContext
+- Approve → treated as Allow for backward compatibility
+
+### Key Design Decisions
+- Context injection only activates for UserPromptSubmit events
+- Multiple InjectContext actions concatenate with newlines
+- Stdout method preferred for simplicity (JSON available if needed)
+- Context collection happens during action execution phase
+- Preserves two-pass evaluation model
+
+Ready to test context injection with various scenarios.

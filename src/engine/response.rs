@@ -1,37 +1,61 @@
 use serde::{Deserialize, Serialize};
 use std::process;
 
-/// Policy evaluation result
+/// Internal policy evaluation result - renamed from PolicyDecision for clarity
 #[derive(Debug, Clone, PartialEq)]
-pub enum PolicyDecision {
+pub enum EngineDecision {
     /// Allow the operation to proceed
     Allow,
     /// Block the operation with feedback
     Block { feedback: String },
     /// Approve the operation (bypass permission system)
     Approve { reason: Option<String> },
+    /// Ask the user for confirmation (new in July 20)
+    Ask { reason: String },
 }
 
-/// Response to Claude Code
+/// Hook-specific output for different event types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "hookEventName")]
+pub enum HookSpecificOutput {
+    #[serde(rename = "PreToolUse")]
+    PreToolUse {
+        #[serde(rename = "permissionDecision")]
+        permission_decision: String, // "allow" | "deny" | "ask"
+        #[serde(rename = "permissionDecisionReason", skip_serializing_if = "Option::is_none")]
+        permission_decision_reason: Option<String>,
+    },
+    #[serde(rename = "UserPromptSubmit")]
+    UserPromptSubmit {
+        #[serde(rename = "additionalContext", skip_serializing_if = "Option::is_none")]
+        additional_context: Option<String>,
+    },
+}
+
+/// Response to Claude Code - fully aligned with July 20 JSON hook contract
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CupcakeResponse {
     /// Whether Claude should continue after hook execution
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "continue", skip_serializing_if = "Option::is_none")]
     pub continue_execution: Option<bool>,
 
     /// Message shown when continue is false
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "stopReason", skip_serializing_if = "Option::is_none")]
     pub stop_reason: Option<String>,
 
     /// Hide stdout from transcript mode
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "suppressOutput", skip_serializing_if = "Option::is_none")]
     pub suppress_output: Option<bool>,
 
-    /// Decision for PreToolUse/PostToolUse events
+    /// Hook-specific output for advanced control
+    #[serde(rename = "hookSpecificOutput", skip_serializing_if = "Option::is_none")]
+    pub hook_specific_output: Option<HookSpecificOutput>,
+
+    /// Legacy decision field (deprecated but still supported)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub decision: Option<String>,
 
-    /// Reason for the decision
+    /// Legacy reason field (deprecated but still supported)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }

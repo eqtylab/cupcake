@@ -1,6 +1,6 @@
 use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::{ConditionEvaluator, EvaluationContext};
-use crate::engine::response::PolicyDecision;
+use crate::engine::response::EngineDecision;
 use crate::Result;
 
 /// Two-pass policy evaluation engine
@@ -24,13 +24,15 @@ pub enum HardDecision {
     Block { feedback: String },
     /// Approve operation
     Approve { reason: Option<String> },
+    /// Ask user for confirmation
+    Ask { reason: String },
 }
 
 /// Complete evaluation result combining both passes
 #[derive(Debug, Clone)]
 pub struct EvaluationResult {
     /// Final decision (from Pass 2)
-    pub decision: PolicyDecision,
+    pub decision: EngineDecision,
     /// All feedback collected (from Pass 1)
     pub feedback_messages: Vec<String>,
     /// Policies that matched and their actions
@@ -89,18 +91,19 @@ impl PolicyEvaluator {
         let decision = match hard_decision {
             HardDecision::Allow => {
                 // Soft feedback doesn't block - it's just informational
-                PolicyDecision::Allow
+                EngineDecision::Allow
             }
             HardDecision::Block { feedback } => {
                 // Combine hard block feedback with all collected feedback
                 let mut all_feedback = vec![feedback];
                 all_feedback.extend(feedback_collection.feedback_messages.clone());
                 let combined_feedback = all_feedback.join("\n");
-                PolicyDecision::Block {
+                EngineDecision::Block {
                     feedback: combined_feedback,
                 }
             }
-            HardDecision::Approve { reason } => PolicyDecision::Approve { reason },
+            HardDecision::Approve { reason } => EngineDecision::Approve { reason },
+            HardDecision::Ask { reason } => EngineDecision::Ask { reason },
         };
 
         Ok(EvaluationResult {
@@ -212,7 +215,7 @@ impl PolicyEvaluator {
                                 self.substitute_templates(feedback_message, evaluation_context);
                             Ok(HardDecision::Block { feedback })
                         }
-                        crate::config::actions::Action::Approve { reason } => {
+                        crate::config::actions::Action::Allow { reason } => {
                             let substituted_reason = reason
                                 .as_ref()
                                 .map(|r| self.substitute_templates(r, evaluation_context));

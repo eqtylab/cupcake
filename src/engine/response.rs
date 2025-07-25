@@ -15,7 +15,7 @@ pub enum EngineDecision {
 }
 
 /// Hook-specific output for different event types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "hookEventName")]
 pub enum HookSpecificOutput {
     #[serde(rename = "PreToolUse")]
@@ -50,47 +50,72 @@ pub struct CupcakeResponse {
     /// Hook-specific output for advanced control
     #[serde(rename = "hookSpecificOutput", skip_serializing_if = "Option::is_none")]
     pub hook_specific_output: Option<HookSpecificOutput>,
-
-    /// Legacy decision field (deprecated but still supported)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub decision: Option<String>,
-
-    /// Legacy reason field (deprecated but still supported)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl CupcakeResponse {
-    /// Create a response that allows the operation
-    pub fn allow() -> Self {
+    /// Create an empty response (allows by default)
+    pub fn empty() -> Self {
         Self {
             continue_execution: None,
             stop_reason: None,
             suppress_output: None,
-            decision: None,
-            reason: None,
+            hook_specific_output: None,
         }
     }
 
-    /// Create a response that blocks the operation
-    pub fn block(reason: String) -> Self {
+    /// Create a response from an EngineDecision for PreToolUse events
+    pub fn from_pre_tool_use_decision(decision: &EngineDecision) -> Self {
+        let mut response = Self::empty();
+        
+        match decision {
+            EngineDecision::Allow => {
+                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
+                    permission_decision: "allow".to_string(),
+                    permission_decision_reason: None,
+                });
+            }
+            EngineDecision::Block { feedback } => {
+                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
+                    permission_decision: "deny".to_string(),
+                    permission_decision_reason: Some(feedback.clone()),
+                });
+            }
+            EngineDecision::Approve { reason } => {
+                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
+                    permission_decision: "allow".to_string(),
+                    permission_decision_reason: reason.clone(),
+                });
+            }
+            EngineDecision::Ask { reason } => {
+                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
+                    permission_decision: "ask".to_string(),
+                    permission_decision_reason: Some(reason.clone()),
+                });
+            }
+        }
+        
+        response
+    }
+
+    /// Create a response with context injection for UserPromptSubmit
+    pub fn with_context_injection(context: String) -> Self {
         Self {
             continue_execution: None,
             stop_reason: None,
             suppress_output: None,
-            decision: Some("block".to_string()),
-            reason: Some(reason),
+            hook_specific_output: Some(HookSpecificOutput::UserPromptSubmit {
+                additional_context: Some(context),
+            }),
         }
     }
 
-    /// Create a response that approves the operation
-    pub fn approve(reason: Option<String>) -> Self {
+    /// Stop execution with a reason
+    pub fn stop(reason: String) -> Self {
         Self {
-            continue_execution: None,
-            stop_reason: None,
+            continue_execution: Some(false),
+            stop_reason: Some(reason),
             suppress_output: None,
-            decision: Some("approve".to_string()),
-            reason,
+            hook_specific_output: None,
         }
     }
 }
@@ -117,62 +142,62 @@ impl ResponseHandler {
     }
 
     /// Send response to Claude Code and exit with appropriate code
-    pub fn send_response(&self, decision: PolicyDecision) -> ! {
+    pub fn send_response(&self, decision: EngineDecision) -> ! {
         if self.test_mode {
             // In test mode, just print debug info and exit with status 0
             match decision {
-                PolicyDecision::Allow => {
+                EngineDecision::Allow => {
                     if self.debug {
-                        eprintln!("Debug: Test mode - would allow operation (exit code 0)");
+                        eprintln!("Debug: Test mode - would allow operation");
                     }
                     process::exit(0);
                 }
-                PolicyDecision::Block { feedback } => {
+                EngineDecision::Block { feedback } => {
                     if self.debug {
-                        eprintln!(
-                            "Debug: Test mode - would block operation with feedback (exit code 2)"
-                        );
+                        eprintln!("Debug: Test mode - would block operation");
                         eprintln!("Debug: Feedback: {}", feedback);
                     }
                     process::exit(0);
                 }
-                PolicyDecision::Approve { reason } => {
+                EngineDecision::Approve { reason } => {
                     if self.debug {
-                        eprintln!("Debug: Test mode - would approve operation (exit code 0)");
+                        eprintln!("Debug: Test mode - would approve operation");
                         if let Some(reason) = reason {
                             eprintln!("Debug: Reason: {}", reason);
                         }
                     }
                     process::exit(0);
                 }
-            }
-        } else {
-            // Production mode - actual exit codes
-            match decision {
-                PolicyDecision::Allow => {
+                EngineDecision::Ask { reason } => {
                     if self.debug {
-                        eprintln!("Debug: Allowing operation (exit code 0)");
+                        eprintln!("Debug: Test mode - would ask for confirmation");
+                        eprintln!("Debug: Reason: {}", reason);
                     }
                     process::exit(0);
                 }
-                PolicyDecision::Block { feedback } => {
+            }
+        } else {
+            // Production mode - send JSON response
+            // Note: This is deprecated - use send_json_response instead
+            match &decision {
+                EngineDecision::Allow => {
                     if self.debug {
-                        eprintln!("Debug: Blocking operation with feedback (exit code 2)");
+                        eprintln!("Debug: Allowing operation");
                     }
+                    process::exit(0);
+                }
+                EngineDecision::Block { feedback } => {
+                    if self.debug {
+                        eprintln!("Debug: Blocking operation with feedback");
+                    }
+                    // For backward compatibility, still use exit code 2 with stderr
                     eprintln!("{}", feedback);
                     process::exit(2);
                 }
-                PolicyDecision::Approve { reason } => {
-                    if self.debug {
-                        eprintln!("Debug: Approving operation (exit code 0)");
-                    }
-
-                    // Send JSON response for approval
-                    let response = CupcakeResponse::approve(reason);
-                    if let Ok(json) = serde_json::to_string(&response) {
-                        println!("{}", json);
-                    }
-                    process::exit(0);
+                _ => {
+                    // For Approve and Ask, we need JSON output
+                    let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+                    self.send_json_response(response);
                 }
             }
         }
@@ -198,17 +223,22 @@ impl ResponseHandler {
 
     /// Send simple blocking response (for most common case)
     pub fn block_with_feedback(&self, feedback: String) -> ! {
-        self.send_response(PolicyDecision::Block { feedback })
+        self.send_response(EngineDecision::Block { feedback })
     }
 
     /// Send simple allow response (for most common case)
     pub fn allow(&self) -> ! {
-        self.send_response(PolicyDecision::Allow)
+        self.send_response(EngineDecision::Allow)
     }
 
     /// Send approval response with optional reason
     pub fn approve(&self, reason: Option<String>) -> ! {
-        self.send_response(PolicyDecision::Approve { reason })
+        self.send_response(EngineDecision::Approve { reason })
+    }
+
+    /// Send ask response for user confirmation
+    pub fn ask(&self, reason: String) -> ! {
+        self.send_response(EngineDecision::Ask { reason })
     }
 }
 
@@ -218,51 +248,103 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_cupcake_response_allow() {
-        let response = CupcakeResponse::allow();
+    fn test_cupcake_response_empty() {
+        let response = CupcakeResponse::empty();
         assert_eq!(response.continue_execution, None);
-        assert_eq!(response.decision, None);
-        assert_eq!(response.reason, None);
+        assert_eq!(response.stop_reason, None);
+        assert_eq!(response.suppress_output, None);
+        assert_eq!(response.hook_specific_output, None);
     }
 
     #[test]
-    fn test_cupcake_response_block() {
-        let response = CupcakeResponse::block("Test block reason".to_string());
-        assert_eq!(response.decision, Some("block".to_string()));
-        assert_eq!(response.reason, Some("Test block reason".to_string()));
+    fn test_cupcake_response_pre_tool_use_allow() {
+        let decision = EngineDecision::Allow;
+        let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+        
+        match response.hook_specific_output {
+            Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
+                assert_eq!(permission_decision, "allow");
+                assert_eq!(permission_decision_reason, None);
+            }
+            _ => panic!("Expected PreToolUse hook output"),
+        }
     }
 
     #[test]
-    fn test_cupcake_response_approve() {
-        let response = CupcakeResponse::approve(Some("Test approve reason".to_string()));
-        assert_eq!(response.decision, Some("approve".to_string()));
-        assert_eq!(response.reason, Some("Test approve reason".to_string()));
+    fn test_cupcake_response_pre_tool_use_deny() {
+        let decision = EngineDecision::Block { feedback: "Test block reason".to_string() };
+        let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+        
+        match response.hook_specific_output {
+            Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
+                assert_eq!(permission_decision, "deny");
+                assert_eq!(permission_decision_reason, Some("Test block reason".to_string()));
+            }
+            _ => panic!("Expected PreToolUse hook output"),
+        }
+    }
+
+    #[test]
+    fn test_cupcake_response_pre_tool_use_ask() {
+        let decision = EngineDecision::Ask { reason: "Please confirm".to_string() };
+        let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+        
+        match response.hook_specific_output {
+            Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
+                assert_eq!(permission_decision, "ask");
+                assert_eq!(permission_decision_reason, Some("Please confirm".to_string()));
+            }
+            _ => panic!("Expected PreToolUse hook output"),
+        }
+    }
+
+    #[test]
+    fn test_cupcake_response_context_injection() {
+        let response = CupcakeResponse::with_context_injection("Test context".to_string());
+        
+        match response.hook_specific_output {
+            Some(HookSpecificOutput::UserPromptSubmit { additional_context }) => {
+                assert_eq!(additional_context, Some("Test context".to_string()));
+            }
+            _ => panic!("Expected UserPromptSubmit hook output"),
+        }
     }
 
     #[test]
     fn test_cupcake_response_json_serialization() {
-        let response = CupcakeResponse::block("Test feedback".to_string());
+        let decision = EngineDecision::Block { feedback: "Test feedback".to_string() };
+        let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
         let json = serde_json::to_string(&response).unwrap();
 
-        // Should serialize to JSON without null fields
-        assert!(json.contains("\"decision\":\"block\""));
-        assert!(json.contains("\"reason\":\"Test feedback\""));
-        assert!(!json.contains("\"continue_execution\""));
+        // Should serialize to JSON with proper hook contract format
+        assert!(json.contains("\"hookSpecificOutput\""));
+        assert!(json.contains("\"hookEventName\":\"PreToolUse\""));
+        assert!(json.contains("\"permissionDecision\":\"deny\""));
+        assert!(json.contains("\"permissionDecisionReason\":\"Test feedback\""));
+        assert!(!json.contains("\"continue\""));  // None fields should be omitted
     }
 
     #[test]
-    fn test_policy_decision_equality() {
-        let decision1 = PolicyDecision::Allow;
-        let decision2 = PolicyDecision::Allow;
+    fn test_engine_decision_equality() {
+        let decision1 = EngineDecision::Allow;
+        let decision2 = EngineDecision::Allow;
         assert_eq!(decision1, decision2);
 
-        let decision3 = PolicyDecision::Block {
+        let decision3 = EngineDecision::Block {
             feedback: "test".to_string(),
         };
-        let decision4 = PolicyDecision::Block {
+        let decision4 = EngineDecision::Block {
             feedback: "test".to_string(),
         };
         assert_eq!(decision3, decision4);
+
+        let decision5 = EngineDecision::Ask {
+            reason: "confirm".to_string(),
+        };
+        let decision6 = EngineDecision::Ask {
+            reason: "confirm".to_string(),
+        };
+        assert_eq!(decision5, decision6);
     }
 
     #[test]

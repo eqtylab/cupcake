@@ -237,3 +237,5 @@ The primary changes will be to:
   | `{{env.CLAUDE_PROJECT_DIR}}` | The absolute path to the project root directory. |
   ```
 - This change should be made in both `command-execution.md` and `secure-command-execution.md` for consistency.
+
+**backwards compatibility is NOT required - no migrations necessary - full update granted, remove old/unused code**

@@ -2,6 +2,8 @@
 
 This directory contains the analysis, planning, and reference materials for integrating the Claude Code July 20 hooks update into Cupcake.
 
+**backwards compatibility is NOT required - no migrations necessary - full update granted, remove old/unused code**
+
 ## Recommended Reading Order
 
 To get up to speed quickly, review the documents in this order:
@@ -86,5 +88,7 @@ Here are five guiding principles to keep the `plan-019` implementation in check:
 **In Practice:**
 
 - The `sync` command is not an edge case; it is a critical part of the core user experience. It **must** be robust, safely merging its configuration without destroying the user's existing `settings.local.json`.
-- The `init` TUI should produce clear, modern, and useful example policies that immediately showcase the power of the new features (especially `inject_context`).
+- The `init` TUI should produce clear, modern, and useful example policies that immediately showcase the power of the new features (especially `inject_context`). (do not edit )
 - Error messages, whether from validation (`validate`) or runtime (`run`), must be clear, actionable, and help the user fix their policies.
+
+**read the full file, any code file, if you are reading for first time**

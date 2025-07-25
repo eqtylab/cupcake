@@ -4,7 +4,7 @@ use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
 use crate::engine::events::HookEvent;
-use crate::engine::response::PolicyDecision;
+use crate::engine::response::EngineDecision;
 use crate::state::manager::StateManager;
 use crate::Result;
 use chrono::Utc;
@@ -90,7 +90,7 @@ impl CommandHandler for RunCommand {
                     );
                 }
                 // Graceful degradation - allow operation on evaluation error
-                self.send_response_safely(PolicyDecision::Allow)
+                self.send_response_safely(EngineDecision::Allow)
             }
         };
 
@@ -108,7 +108,7 @@ impl CommandHandler for RunCommand {
         }
 
         // Output soft feedback to stdout if we're allowing the operation
-        if matches!(evaluation_result.decision, PolicyDecision::Allow)
+        if matches!(evaluation_result.decision, EngineDecision::Allow)
             && !evaluation_result.feedback_messages.is_empty()
         {
             // Combine all soft feedback messages
@@ -137,7 +137,7 @@ impl CommandHandler for RunCommand {
         for (_policy_name, result) in &action_results {
             if let ActionResult::Block { feedback } = result {
                 // An action execution resulted in block - override the evaluation decision
-                final_decision = PolicyDecision::Block {
+                final_decision = EngineDecision::Block {
                     feedback: feedback.clone(),
                 };
                 break;
@@ -155,11 +155,11 @@ impl CommandHandler for RunCommand {
         // 8. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
         let response_decision = if hook_event.event_name() == "PostToolUse"
-            && matches!(final_decision, PolicyDecision::Allow)
+            && matches!(final_decision, EngineDecision::Allow)
             && !evaluation_result.feedback_messages.is_empty()
         {
             // Convert soft feedback to a "block" for PostToolUse so Claude sees it
-            PolicyDecision::Block {
+            EngineDecision::Block {
                 feedback: evaluation_result.feedback_messages.join("\n"),
             }
         } else {
@@ -406,9 +406,9 @@ impl RunCommand {
                         eprintln!("Debug: Action execution resulted in block: {}", feedback);
                     }
                 }
-                ActionResult::Approve { .. } => {
+                ActionResult::Allow { .. } => {
                     if self.debug {
-                        eprintln!("Debug: Action execution resulted in approval");
+                        eprintln!("Debug: Action execution resulted in allow");
                     }
                 }
                 ActionResult::Error { message } => {
@@ -423,40 +423,32 @@ impl RunCommand {
     }
 
     /// Send response to Claude Code with error handling
-    fn send_response_safely(&self, decision: PolicyDecision) -> ! {
-        match decision {
-            PolicyDecision::Allow => {
+    fn send_response_safely(&self, decision: EngineDecision) -> ! {
+        use crate::engine::response::{CupcakeResponse, ResponseHandler};
+        
+        // Use ResponseHandler for cleaner code
+        let handler = ResponseHandler::new(self.debug);
+        
+        // For now, use the old exit-code based approach for Allow and Block
+        // Approve and Ask will use JSON
+        match &decision {
+            EngineDecision::Allow => {
                 if self.debug {
                     eprintln!("Debug: Allowing operation (exit code 0)");
                 }
                 std::process::exit(0);
             }
-            PolicyDecision::Block { feedback } => {
+            EngineDecision::Block { feedback } => {
                 if self.debug {
                     eprintln!("Debug: Blocking operation with feedback (exit code 2)");
                 }
                 eprintln!("{}", feedback);
                 std::process::exit(2);
             }
-            PolicyDecision::Approve { reason } => {
-                if self.debug {
-                    eprintln!("Debug: Approving operation (exit code 0)");
-                }
-
-                // Send JSON response for approval
-                match serde_json::to_string(&crate::engine::response::CupcakeResponse::approve(
-                    reason,
-                )) {
-                    Ok(json) => println!("{}", json),
-                    Err(e) => {
-                        eprintln!("Error serializing approval response: {}", e);
-                        if self.debug {
-                            eprintln!("Debug: Graceful degradation - allowing operation despite serialization error");
-                        }
-                        // Graceful degradation - just allow without JSON response
-                    }
-                }
-                std::process::exit(0);
+            _ => {
+                // For Approve and Ask, we need JSON output
+                let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+                handler.send_json_response(response);
             }
         }
     }

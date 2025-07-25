@@ -13,8 +13,8 @@ pub enum ActionResult {
     },
     /// Action resulted in blocking the operation
     Block { feedback: String },
-    /// Action resulted in approving the operation
-    Approve { reason: Option<String> },
+    /// Action resulted in allowing the operation
+    Allow { reason: Option<String> },
     /// Action failed to execute
     Error { message: String },
 }
@@ -27,7 +27,7 @@ impl ActionResult {
 
     /// Check if this result should approve the operation
     pub fn is_approving(&self) -> bool {
-        matches!(self, ActionResult::Approve { .. })
+        matches!(self, ActionResult::Allow { .. })
     }
 
     /// Check if this result is a hard decision (block or approve)
@@ -41,7 +41,7 @@ impl ActionResult {
             ActionResult::Success { feedback, .. } => feedback.as_deref(),
             ActionResult::Block { feedback } => Some(feedback),
             ActionResult::Error { message } => Some(message),
-            ActionResult::Approve { .. } => None,
+            ActionResult::Allow { .. } => None,
         }
     }
 
@@ -167,7 +167,7 @@ impl ActionExecutor {
             Action::BlockWithFeedback {
                 feedback_message, ..
             } => self.execute_block_with_feedback(feedback_message, context),
-            Action::Approve { reason } => self.execute_approve(reason.as_deref(), context),
+            Action::Allow { reason } => self.execute_allow(reason.as_deref(), context),
             Action::RunCommand {
                 spec,
                 on_failure,
@@ -225,10 +225,10 @@ impl ActionExecutor {
         ActionResult::Block { feedback }
     }
 
-    /// Execute approve action
-    fn execute_approve(&self, reason: Option<&str>, context: &ActionContext) -> ActionResult {
+    /// Execute allow action
+    fn execute_allow(&self, reason: Option<&str>, context: &ActionContext) -> ActionResult {
         let substituted_reason = reason.map(|r| context.substitute_template(r));
-        ActionResult::Approve {
+        ActionResult::Allow {
             reason: substituted_reason,
         }
     }
@@ -487,11 +487,11 @@ mod tests {
         assert!(!hard_action.is_soft_action());
         assert!(hard_action.is_hard_action());
 
-        let approve_action = Action::Approve {
+        let allow_action = Action::Allow {
             reason: Some("Auto-approved".to_string()),
         };
-        assert!(!approve_action.is_soft_action());
-        assert!(approve_action.is_hard_action());
+        assert!(!allow_action.is_soft_action());
+        assert!(allow_action.is_hard_action());
 
         let soft_command = Action::RunCommand {
             spec: crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
@@ -561,13 +561,13 @@ mod tests {
         assert!(block_result.is_hard_decision());
         assert_eq!(block_result.get_feedback(), Some("Block feedback"));
 
-        let approve_result = ActionResult::Approve {
+        let allow_result = ActionResult::Allow {
             reason: Some("Approved".to_string()),
         };
-        assert!(!approve_result.is_blocking());
-        assert!(approve_result.is_approving());
-        assert!(approve_result.is_hard_decision());
-        assert_eq!(approve_result.get_feedback(), None);
+        assert!(!allow_result.is_blocking());
+        assert!(allow_result.is_approving());
+        assert!(allow_result.is_hard_decision());
+        assert_eq!(allow_result.get_feedback(), None);
     }
 
     #[test]
@@ -639,16 +639,16 @@ mod tests {
         let mut executor = ActionExecutor::new();
         let context = create_test_context();
 
-        let action = Action::Approve {
+        let action = Action::Allow {
             reason: Some("Auto-approved for {{env.USER}}".to_string()),
         };
 
         let result = executor.execute(&action, &context, None);
         match result {
-            ActionResult::Approve { reason } => {
+            ActionResult::Allow { reason } => {
                 assert_eq!(reason, Some("Auto-approved for testuser".to_string()));
             }
-            _ => panic!("Expected Approve result"),
+            _ => panic!("Expected Allow result"),
         }
     }
 

@@ -112,8 +112,8 @@ pub enum Action {
         include_context: bool,
     },
 
-    /// Auto-approve operation (hard action)
-    Approve {
+    /// Auto-allow operation bypassing permission system (hard action)
+    Allow {
         #[serde(skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
@@ -186,7 +186,7 @@ impl Action {
         match self {
             Action::ProvideFeedback { .. } => ActionType::Soft,
             Action::BlockWithFeedback { .. } => ActionType::Hard,
-            Action::Approve { .. } => ActionType::Hard,
+            Action::Allow { .. } => ActionType::Hard,
             Action::RunCommand { on_failure, .. } => match on_failure {
                 OnFailureBehavior::Continue => ActionType::Soft,
                 OnFailureBehavior::Block => ActionType::Hard,
@@ -347,7 +347,7 @@ mod tests {
                 feedback_message: "Blocked".to_string(),
                 include_context: false,
             }),
-            else_action: Some(Box::new(Action::Approve { reason: None })),
+            else_action: Some(Box::new(Action::Allow { reason: None })),
         };
 
         assert_eq!(conditional.action_type(), ActionType::Hard);

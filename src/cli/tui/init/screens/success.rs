@@ -67,18 +67,18 @@ fn render_summary_table(frame: &mut Frame, area: Rect, state: &SuccessState) {
             )),
         ]),
         Row::new(vec![
-            Cell::from("Critical (blocking)"),
-            Cell::from(format!("{} rules - will halt operations", state.critical_count))
+            Cell::from("High priority"),
+            Cell::from(format!("{} rules - important policy enforcement", state.high_count))
                 .style(Style::default().fg(Color::Red)),
         ]),
         Row::new(vec![
-            Cell::from("Warning (advisory)"),
-            Cell::from(format!("{} rules - will show warnings", state.warning_count))
+            Cell::from("Medium priority"),
+            Cell::from(format!("{} rules - suggested practices", state.medium_count))
                 .style(Style::default().fg(Color::Yellow)),
         ]),
         Row::new(vec![
-            Cell::from("Info (logging only)"),
-            Cell::from(format!("{} rules - tracked for metrics", state.info_count))
+            Cell::from("Low priority"),
+            Cell::from(format!("{} rules - informational guidelines", state.low_count))
                 .style(Style::default().fg(Color::Blue)),
         ]),
         Row::new(vec![

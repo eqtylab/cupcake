@@ -95,18 +95,18 @@ pub struct CompilationState {
     pub show_logs: bool,
     pub logs: Vec<String>,
     /// Rule counts for success screen
-    pub critical_count: usize,
-    pub warning_count: usize,
-    pub info_count: usize,
+    pub high_count: usize,
+    pub medium_count: usize,
+    pub low_count: usize,
 }
 
 /// State for success screen
 #[derive(Debug)]
 pub struct SuccessState {
     pub total_rules: usize,
-    pub critical_count: usize,
-    pub warning_count: usize,
-    pub info_count: usize,
+    pub high_count: usize,
+    pub medium_count: usize,
+    pub low_count: usize,
     pub config_location: PathBuf,
 }
 

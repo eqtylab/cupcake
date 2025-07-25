@@ -16,9 +16,9 @@ fn test_wizard_state_names() {
     
     let success = WizardState::Success(cupcake::cli::tui::init::state::SuccessState {
         total_rules: 10,
-        critical_count: 3,
-        warning_count: 5,
-        info_count: 2,
+        high_count: 3,
+        medium_count: 5,
+        low_count: 2,
         config_location: "test".into(),
     });
     assert_eq!(success.name(), "Success");
@@ -31,9 +31,9 @@ fn test_can_go_back() {
     
     let success = WizardState::Success(cupcake::cli::tui::init::state::SuccessState {
         total_rules: 10,
-        critical_count: 3,
-        warning_count: 5,
-        info_count: 2,
+        high_count: 3,
+        medium_count: 5,
+        low_count: 2,
         config_location: "test".into(),
     });
     assert!(!success.can_go_back());
@@ -59,7 +59,7 @@ fn test_state_transition_enum() {
 #[test]
 fn test_severity_default() {
     let severity = Severity::default();
-    assert_eq!(severity, Severity::Warning);
+    assert_eq!(severity, Severity::Medium);
 }
 
 #[test]

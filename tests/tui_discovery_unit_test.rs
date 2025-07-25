@@ -8,7 +8,7 @@ mod tests {
     #[test]
     fn test_discovery_patterns() {
         let patterns = DiscoveryPattern::all();
-        assert_eq!(patterns.len(), 6);
+        assert_eq!(patterns.len(), 7);
         
         // Verify each agent has patterns
         let agents: Vec<Agent> = patterns.iter().map(|p| p.agent).collect();
@@ -18,6 +18,7 @@ mod tests {
         assert!(agents.contains(&Agent::Kiro));
         assert!(agents.contains(&Agent::Copilot));
         assert!(agents.contains(&Agent::Aider));
+        assert!(agents.contains(&Agent::Gemini));
     }
 
     #[test]

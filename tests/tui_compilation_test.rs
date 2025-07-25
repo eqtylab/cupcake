@@ -73,6 +73,9 @@ mod tests {
             overall_progress: 0.5,
             show_logs: true,
             logs: vec!["Log entry 1".to_string(), "Log entry 2".to_string()],
+            high_count: 5,
+            medium_count: 10,
+            low_count: 3,
         };
         
         assert_eq!(state.phases.len(), 3);
@@ -91,16 +94,16 @@ mod tests {
     fn test_success_state() {
         let state = SuccessState {
             total_rules: 42,
-            critical_count: 10,
-            warning_count: 20,
-            info_count: 12,
+            high_count: 10,
+            medium_count: 20,
+            low_count: 12,
             config_location: std::path::PathBuf::from("guardrails/cupcake.yaml"),
         };
         
         assert_eq!(state.total_rules, 42);
-        assert_eq!(state.critical_count, 10);
-        assert_eq!(state.warning_count, 20);
-        assert_eq!(state.info_count, 12);
+        assert_eq!(state.high_count, 10);
+        assert_eq!(state.medium_count, 20);
+        assert_eq!(state.low_count, 12);
         assert_eq!(state.config_location.to_str().unwrap(), "guardrails/cupcake.yaml");
     }
 }

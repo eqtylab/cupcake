@@ -40,14 +40,15 @@ fn test_user_prompt_submit_with_context_injection() {
     
     // Create a test policy that injects context on UserPromptSubmit
     let policy_content = r#"
-policies:
-  - name: inject-security-reminder
-    hook_event: UserPromptSubmit
-    matcher: ""
-    action:
-      type: inject_context
-      context: "Security Reminder: Never expose API keys or secrets in code"
-      use_stdout: true
+UserPromptSubmit:
+  "*":
+    - name: inject-security-reminder
+      description: Inject security reminder
+      conditions: []
+      action:
+        type: inject_context
+        context: "Security Reminder: Never expose API keys or secrets in code"
+        use_stdout: true
 "#;
     
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
@@ -64,6 +65,7 @@ policies:
     // Run cupcake with the test configuration
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
+        .arg("--event")
         .arg("UserPromptSubmit")
         .arg("--config")
         .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
@@ -94,20 +96,23 @@ fn test_multiple_context_injections() {
     
     // Create a test policy with multiple inject_context actions
     let policy_content = r#"
-policies:
-  - name: inject-multiple-contexts
-    hook_event: UserPromptSubmit
-    matcher: ""
-    action:
-      type: inject_context
-      context: "Context 1: Be careful with user input"
-      
-  - name: inject-second-context
-    hook_event: UserPromptSubmit
-    matcher: ""
-    action:
-      type: inject_context
-      context: "Context 2: Always validate data"
+UserPromptSubmit:
+  "*":
+    - name: inject-multiple-contexts
+      description: First context injection
+      conditions: []
+      action:
+        type: inject_context
+        context: "Context 1: Be careful with user input"
+        use_stdout: true
+        
+    - name: inject-second-context
+      description: Second context injection
+      conditions: []
+      action:
+        type: inject_context
+        context: "Context 2: Always validate data"
+        use_stdout: true
 "#;
     
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
@@ -122,6 +127,7 @@ policies:
     
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
+        .arg("--event")
         .arg("UserPromptSubmit")
         .arg("--config")
         .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
@@ -149,24 +155,25 @@ fn test_context_injection_with_block() {
     
     // Policy that blocks certain prompts but still tries to inject context
     let policy_content = r#"
-policies:
-  - name: block-dangerous-prompt
-    hook_event: UserPromptSubmit
-    matcher: ""
-    conditions:
-      - type: pattern
-        field: prompt
-        regex: ".*rm -rf.*"
-    action:
-      type: block_with_feedback
-      feedback_message: "Dangerous command detected in prompt"
-      
-  - name: inject-context-anyway
-    hook_event: UserPromptSubmit
-    matcher: ""
-    action:
-      type: inject_context
-      context: "This context won't be seen due to block"
+UserPromptSubmit:
+  "*":
+    - name: block-dangerous-prompt
+      description: Block dangerous commands
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: ".*rm -rf.*"
+      action:
+        type: block_with_feedback
+        feedback_message: "Dangerous command detected in prompt"
+        
+    - name: inject-context-anyway
+      description: Try to inject context
+      conditions: []
+      action:
+        type: inject_context
+        context: "This context won't be seen due to block"
+        use_stdout: true
 "#;
     
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
@@ -181,6 +188,7 @@ policies:
     
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
+        .arg("--event")
         .arg("UserPromptSubmit")
         .arg("--config")
         .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
@@ -215,13 +223,15 @@ fn test_context_injection_with_template_substitution() {
     
     // Policy that uses template variables in context
     let policy_content = r#"
-policies:
-  - name: inject-dynamic-context
-    hook_event: UserPromptSubmit
-    matcher: ""
-    action:
-      type: inject_context
-      context: "Session {{session_id}}: Remember to validate inputs in {{env.USER}}'s project"
+UserPromptSubmit:
+  "*":
+    - name: inject-dynamic-context
+      description: Inject context with template variables
+      conditions: []
+      action:
+        type: inject_context
+        context: "Session {{session_id}}: Remember to validate inputs in {{env.USER}}'s project"
+        use_stdout: true
 "#;
     
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
@@ -236,6 +246,7 @@ policies:
     
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
+        .arg("--event")
         .arg("UserPromptSubmit")
         .arg("--config")
         .arg(config_dir.join("cupcake.yaml").to_str().unwrap())

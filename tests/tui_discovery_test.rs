@@ -67,8 +67,8 @@ fn test_discovery_pattern_coverage() {
     
     let patterns = DiscoveryPattern::all();
     
-    // Should have patterns for all 6 agents
-    assert_eq!(patterns.len(), 6);
+    // Should have patterns for all 7 agents (including Gemini)
+    assert_eq!(patterns.len(), 7);
     
     // Each pattern should have at least one glob
     for pattern in patterns {

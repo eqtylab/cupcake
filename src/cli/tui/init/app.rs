@@ -262,13 +262,13 @@ impl App {
                             .map(|(_, rule)| rule)
                             .collect();
                         
-                        compilation.critical_count = selected_rules.iter()
+                        compilation.high_count = selected_rules.iter()
                             .filter(|r| matches!(r.severity, Severity::High))
                             .count();
-                        compilation.warning_count = selected_rules.iter()
+                        compilation.medium_count = selected_rules.iter()
                             .filter(|r| matches!(r.severity, Severity::Medium))
                             .count();
-                        compilation.info_count = selected_rules.iter()
+                        compilation.low_count = selected_rules.iter()
                             .filter(|r| matches!(r.severity, Severity::Low))
                             .count();
                         
@@ -279,10 +279,10 @@ impl App {
                         let output_dir = super::yaml_writer::get_output_dir();
                         
                         WizardState::Success(SuccessState {
-                            total_rules: compilation.critical_count + compilation.warning_count + compilation.info_count,
-                            critical_count: compilation.critical_count,
-                            warning_count: compilation.warning_count,
-                            info_count: compilation.info_count,
+                            total_rules: compilation.high_count + compilation.medium_count + compilation.low_count,
+                            high_count: compilation.high_count,
+                            medium_count: compilation.medium_count,
+                            low_count: compilation.low_count,
                             config_location: output_dir.join("cupcake.yaml"),
                         })
                     }

@@ -19,27 +19,32 @@ mod tests {
             id: 1,
             source_file: PathBuf::from("test.md"),
             description: "Test rule".to_string(),
-            severity: Severity::Critical,
+            hook_description: "Test hook description".to_string(),
+            severity: Severity::High,
             category: "testing".to_string(),
             when: "pre-commit".to_string(),
             block_on_violation: true,
+            policy_decision: PolicyDecision {
+                to_policy: true,
+                rationale: "Important test rule".to_string(),
+            },
         };
         
         assert_eq!(rule.id, 1);
         assert_eq!(rule.description, "Test rule");
-        assert!(matches!(rule.severity, Severity::Critical));
+        assert!(matches!(rule.severity, Severity::High));
         assert!(rule.block_on_violation);
     }
 
     #[test]
     fn test_severity_levels() {
-        let critical = Severity::Critical;
-        let warning = Severity::Warning;
-        let info = Severity::Info;
+        let high = Severity::High;
+        let medium = Severity::Medium;
+        let low = Severity::Low;
         
-        assert!(matches!(critical, Severity::Critical));
-        assert!(matches!(warning, Severity::Warning));
-        assert!(matches!(info, Severity::Info));
+        assert!(matches!(high, Severity::High));
+        assert!(matches!(medium, Severity::Medium));
+        assert!(matches!(low, Severity::Low));
     }
 
     #[test]
@@ -47,7 +52,7 @@ mod tests {
         let mut form = RuleEditForm::default();
         assert_eq!(form.current_field, FormField::Description);
         assert!(form.description.value().is_empty());
-        assert_eq!(form.severity, Severity::Warning);
+        assert_eq!(form.severity, Severity::Medium);
         assert!(!form.block_on_violation);
         
         // Test field navigation
@@ -64,20 +69,30 @@ mod tests {
             id: 0,
             source_file: PathBuf::from("CLAUDE.md"),
             description: "Test rule 1".to_string(),
-            severity: Severity::Critical,
+            hook_description: "Block dangerous operations".to_string(),
+            severity: Severity::High,
             category: "test".to_string(),
             when: "always".to_string(),
             block_on_violation: true,
+            policy_decision: PolicyDecision {
+                to_policy: true,
+                rationale: "High severity rule should be enforced".to_string(),
+            },
         });
         
         state.rules.push(ExtractedRule {
             id: 1,
             source_file: PathBuf::from("CLAUDE.md"),
             description: "Test rule 2".to_string(),
-            severity: Severity::Warning,
+            hook_description: "Provide helpful warning".to_string(),
+            severity: Severity::Medium,
             category: "test".to_string(),
             when: "always".to_string(),
             block_on_violation: false,
+            policy_decision: PolicyDecision {
+                to_policy: true,
+                rationale: "Medium severity rule for guidance".to_string(),
+            },
         });
         
         assert_eq!(state.rules.len(), 2);

@@ -1,51 +1,83 @@
-//! Claude Code settings.local.json updater (stub implementation)
+//! Claude Code settings.local.json updater for TUI
 
 use std::fs;
-use std::path::{Path, PathBuf};
-use serde_json::{json, Value};
+use std::path::PathBuf;
+use serde_json::json;
 use crate::Result;
+use std::io::Write;
 
-/// Update Claude Code settings with hook configuration (stub)
+/// Update Claude Code settings with hook configuration
 pub fn update_claude_settings() -> Result<()> {
-    // For now, just log what we would do
-    // Real implementation will update .claude/settings.local.json
-    
     let settings_path = get_claude_settings_path();
     
-    // Create stub settings
+    // Create modern hook configuration matching July 20 updates
     let hooks = json!({
-        "hooks": {
-            "PreToolUse": {
-                "command": "cupcake run --hook pre-tool-use",
-                "timeout": 500
-            },
-            "PostToolUse": {
-                "command": "cupcake run --hook post-tool-use",
-                "timeout": 500
-            },
-            "PreCommit": {
-                "command": "cupcake run --hook pre-commit",
-                "timeout": 1000
-            }
+        "PreToolUse": {
+            "command": "cupcake run PreToolUse",
+            "timeout": 5000,
+            "description": "Cupcake policy evaluation before tool execution"
+        },
+        "PostToolUse": {
+            "command": "cupcake run PostToolUse",
+            "timeout": 2000,
+            "description": "Cupcake policy evaluation after tool execution"
+        },
+        "UserPromptSubmit": {
+            "command": "cupcake run UserPromptSubmit",
+            "timeout": 1000,
+            "description": "Cupcake context injection for user prompts"
+        },
+        "Notification": {
+            "command": "cupcake run Notification",
+            "timeout": 1000,
+            "description": "Cupcake notification handling"
+        },
+        "Stop": {
+            "command": "cupcake run Stop",
+            "timeout": 1000,
+            "description": "Cupcake session cleanup"
+        },
+        "SubagentStop": {
+            "command": "cupcake run SubagentStop",
+            "timeout": 1000,
+            "description": "Cupcake subagent cleanup"
+        },
+        "PreCompact": {
+            "command": "cupcake run PreCompact",
+            "timeout": 1000,
+            "description": "Cupcake pre-compaction handling"
         }
     });
     
-    // In a real implementation, we would:
-    // 1. Read existing settings.local.json
-    // 2. Merge our hooks configuration
-    // 3. Write back the updated settings
+    // Read existing settings if present
+    let mut settings = if settings_path.exists() {
+        let content = fs::read_to_string(&settings_path)?;
+        serde_json::from_str(&content).unwrap_or_else(|_| {
+            // If parsing fails, create new settings
+            json!({
+                "_comment": "Claude Code local settings - configured by Cupcake",
+                "hooks": {}
+            })
+        })
+    } else {
+        json!({
+            "_comment": "Claude Code local settings - configured by Cupcake",
+            "hooks": {}
+        })
+    };
     
-    // For now, just create a stub file
+    // Update hooks section
+    settings["hooks"] = hooks;
+    
+    // Ensure directory exists
     if let Some(parent) = settings_path.parent() {
         fs::create_dir_all(parent)?;
     }
     
-    let stub_content = json!({
-        "_comment": "This is a stub file created by Cupcake TUI wizard",
-        "hooks": hooks["hooks"]
-    });
-    
-    fs::write(&settings_path, serde_json::to_string_pretty(&stub_content)?)?;
+    // Write settings with pretty formatting
+    let content = serde_json::to_string_pretty(&settings)?;
+    let mut file = fs::File::create(&settings_path)?;
+    file.write_all(content.as_bytes())?;
     
     Ok(())
 }

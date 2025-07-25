@@ -31,58 +31,104 @@ imports:
     
     // Write stub policy files
     if rule_count > 0 {
-        // Pre-commit policies
-        let pre_commit_policies = r#"# Pre-Commit Policies
-# This is a stub file - actual policies will be generated from extracted rules
+        // Context injection policies for UserPromptSubmit
+        let context_policies = r#"# Context Injection Policies
+# Proactive guidance for Claude through UserPromptSubmit hook
 
-PreCommit:
-  - name: "Example Test Reminder"
-    description: "Stub rule for demonstration"
-    conditions:
-      - type: "pattern"
-        field: "message"
-        regex: "TODO"
-    action:
-      type: "provide_feedback"
-      message: "This is a placeholder policy"
+UserPromptSubmit:
+  "":  # Empty matcher for non-tool events
+    - name: "Security Best Practices Reminder"
+      description: "Inject security context for sensitive operations"
+      conditions:
+        - type: "pattern"
+          field: "prompt"
+          regex: "(password|secret|key|token|credential)"
+      action:
+        type: "inject_context"
+        context: "Security Reminder: Never hardcode secrets. Use environment variables or secure vaults for sensitive data."
+    
+    - name: "Testing Reminder"
+      description: "Encourage test-driven development"
+      conditions:
+        - type: "pattern"
+          field: "prompt"
+          regex: "(implement|create|add).*(function|feature|component)"
+      action:
+        type: "inject_context"
+        context: "Development Best Practice: Remember to write unit tests for new functionality. Consider edge cases and error handling."
 "#;
-        fs::write(policies_dir.join("00-pre-commit.yaml"), pre_commit_policies)?;
+        fs::write(policies_dir.join("00-context.yaml"), context_policies)?;
         
-        // Tool use policies
+        // Tool use policies with modern actions
         let tool_policies = r#"# Tool Use Policies
-# This is a stub file - actual policies will be generated from extracted rules
+# Control and guide tool usage with modern action types
 
 PreToolUse:
   "Bash":
-    - name: "Example Command Check"
-      description: "Stub rule for demonstration"
+    - name: "Dangerous Command Protection"
+      description: "Block potentially destructive commands"
       conditions:
         - type: "pattern"
           field: "tool_input.command"
-          regex: "example"
+          regex: "rm\\s+-rf\\s+/"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "Blocked: Attempting to recursively delete from root directory is extremely dangerous."
+    
+    - name: "Git Push Guidance"
+      description: "Remind about testing before pushing"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "git\\s+push"
       action:
         type: "provide_feedback"
-        message: "This is a placeholder policy"
-"#;
-        fs::write(policies_dir.join("01-tools.yaml"), tool_policies)?;
-        
-        // File policies
-        let file_policies = r#"# File Operation Policies
-# This is a stub file - actual policies will be generated from extracted rules
+        message: "Reminder: Ensure all tests pass before pushing. Consider: git push --dry-run first."
 
-PostToolUse:
   "Write|Edit":
-    - name: "Example File Check"
-      description: "Stub rule for demonstration"
+    - name: "Auto-allow README Updates"
+      description: "Automatically approve README file updates"
       conditions:
         - type: "pattern"
           field: "tool_input.file_path"
-          regex: "\\.txt$"
+          regex: "README\\.md$"
+      action:
+        type: "allow"
+        reason: "README updates are low-risk and encouraged"
+"#;
+        fs::write(policies_dir.join("01-tools.yaml"), tool_policies)?;
+        
+        // Post-execution policies
+        let post_policies = r#"# Post-Execution Policies
+# React to tool execution results
+
+PostToolUse:
+  "Bash":
+    - name: "Failed Test Detection"
+      description: "Provide guidance when tests fail"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(npm|yarn|cargo)\\s+test"
+        - type: "pattern"
+          field: "tool_response"
+          regex: "(FAIL|failed|error)"
       action:
         type: "provide_feedback"
-        message: "This is a placeholder policy"
+        message: "Test failures detected. Review the error messages and consider running tests in watch mode for faster iteration."
+        
+  "Write|Edit":
+    - name: "Large File Warning"
+      description: "Warn about creating very large files"
+      conditions:
+        - type: "pattern"
+          field: "tool_response"
+          regex: "File created.*[0-9]{4,}\\s+lines"
+      action:
+        type: "provide_feedback"
+        message: "Large file created. Consider splitting into smaller, more manageable modules."
 "#;
-        fs::write(policies_dir.join("02-files.yaml"), file_policies)?;
+        fs::write(policies_dir.join("02-post-execution.yaml"), post_policies)?;
     }
     
     Ok(())

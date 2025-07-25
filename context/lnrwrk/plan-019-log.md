@@ -86,3 +86,67 @@ Completed core implementation of Phase 2. Major changes:
 - Preserves two-pass evaluation model
 
 Ready to test context injection with various scenarios.
+
+## 2025-01-25T17:45:00Z
+
+Successfully completed Phase 2: Context Injection. All tests pass and implementation is solid.
+
+### What Was Delivered
+- InjectContext action fully integrated into the Action enum
+- Complete UserPromptSubmit handling with stdout and JSON modes
+- Context collection during action execution phase
+- Template variable substitution in injected context
+- Unit test coverage for action serialization and behavior
+- Integration test framework for end-to-end testing
+
+### Technical Implementation
+The context injection follows a clean architecture:
+1. InjectContext actions are soft actions (feedback only)
+2. During evaluation, context is collected from executed actions
+3. For UserPromptSubmit events only, collected context is injected
+4. Stdout method (default): prints to stdout with exit code 0
+5. JSON method: uses additionalContext field in response
+
+### Next Steps
+Phase 3 will implement the robust sync command to ensure smooth hook registration and updates. This is critical for user adoption as it automates the complex settings.json management.
+
+## 2025-01-25T18:00:00Z
+
+Beginning Phase 3: User Workflow - Making Cupcake accessible and easy to adopt.
+
+## 2025-01-25T18:15:00Z 
+
+Successfully completed Phase 3: Robust sync command and modern TUI configuration.
+
+### Sync Command Implementation
+The `cupcake sync` command now provides a seamless way to register hooks:
+- Auto-discovers `.claude/settings.local.json` or accepts custom path
+- Preserves existing user settings while merging Cupcake hooks
+- Dry-run mode for preview (`--dry-run`)
+- Force mode to override conflicts (`--force`)
+- Beautiful console output with emojis and clear status
+- Registers all 7 Claude Code hook types with proper timeouts
+
+### TUI Updates  
+The TUI wizard now generates:
+- Modern hook configuration matching sync command
+- Example policies showcasing new features:
+  - Context injection via UserPromptSubmit
+  - Auto-allow actions for low-risk operations
+  - Proactive security and testing reminders
+- Proper hook commands without legacy flags
+
+### Testing Results
+- ✅ Sync creates new settings file when missing
+- ✅ Sync preserves existing settings and custom hooks
+- ✅ Dry-run mode shows exact changes
+- ✅ Force mode overrides conflicting hooks
+- ✅ All 7 hooks registered with correct commands
+
+### User Experience
+Users can now get started with a single command:
+```bash
+cupcake sync
+```
+
+This dramatically lowers the barrier to adoption compared to manual settings.json editing.

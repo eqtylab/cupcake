@@ -196,7 +196,7 @@ impl CommandHandler for RunCommand {
 
         // For UserPromptSubmit, handle context injection via stdout or JSON
         if is_user_prompt_submit {
-            self.send_response_with_context(response_decision, context_to_inject, &hook_event)
+            self.send_response_with_context(response_decision, context_to_inject)
         } else {
             self.send_response_safely(response_decision)
         }
@@ -487,7 +487,7 @@ impl RunCommand {
     }
 
     /// Send response with context injection for UserPromptSubmit events
-    fn send_response_with_context(&self, decision: EngineDecision, context_to_inject: Vec<String>, hook_event: &HookEvent) -> ! {
+    fn send_response_with_context(&self, decision: EngineDecision, context_to_inject: Vec<String>) -> ! {
         use crate::engine::response::{CupcakeResponse, HookSpecificOutput, ResponseHandler};
         
         let handler = ResponseHandler::new(self.debug);
@@ -536,8 +536,9 @@ impl RunCommand {
                 };
                 handler.send_json_response(response);
             }
-            EngineDecision::Approve { reason } => {
-                // For Approve (legacy), treat as Allow with optional context
+            EngineDecision::Approve { reason: _ } => {
+                // For Approve, treat as Allow with optional context
+                // The reason is already handled by the policy evaluation
                 if !context_to_inject.is_empty() {
                     let combined_context = context_to_inject.join("\n");
                     println!("{}", combined_context);

@@ -57,8 +57,9 @@ impl CommandHandler for SyncCommand {
     }
 
     fn requires_privileges(&self) -> bool {
-        // May need to modify Claude Code settings
-        true
+        // Sync only modifies .claude/settings.local.json in the current directory
+        // which doesn't require special privileges
+        false
     }
 }
 

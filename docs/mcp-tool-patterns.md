@@ -27,7 +27,7 @@ PreToolUse:
       conditions: []
       action:
         type: provide_feedback
-        feedback: "MCP tool ${tool_name} is being used"
+        message: "MCP tool {{tool_name}} is being used"
 ```
 
 ### Match Specific MCP Server

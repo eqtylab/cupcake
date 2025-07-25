@@ -4,11 +4,11 @@ use std::process;
 /// Internal policy evaluation result - renamed from PolicyDecision for clarity
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineDecision {
-    /// Allow the operation to proceed
+    /// Allow the operation to proceed (default when no policies match)
     Allow,
     /// Block the operation with feedback
     Block { feedback: String },
-    /// Approve the operation (bypass permission system)
+    /// Allow the operation with an explanation (from Action::Allow)
     Approve { reason: Option<String> },
     /// Ask the user for confirmation (new in July 20)
     Ask { reason: String },

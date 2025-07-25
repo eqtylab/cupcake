@@ -18,12 +18,10 @@ pub struct FeedbackCollection {
 /// Result of Pass 2 evaluation (hard action detection)
 #[derive(Debug, Clone)]
 pub enum HardDecision {
-    /// No hard action found, allow operation
-    Allow,
+    /// Allow operation (either no hard action found or explicit allow)
+    Allow { reason: Option<String> },
     /// Block operation with feedback
     Block { feedback: String },
-    /// Approve operation
-    Approve { reason: Option<String> },
     /// Ask user for confirmation
     Ask { reason: String },
 }
@@ -89,9 +87,12 @@ impl PolicyEvaluator {
 
         // Combine results
         let decision = match hard_decision {
-            HardDecision::Allow => {
-                // Soft feedback doesn't block - it's just informational
-                EngineDecision::Allow
+            HardDecision::Allow { reason } => {
+                // Either no hard action found or explicit allow action
+                match reason {
+                    Some(r) => EngineDecision::Approve { reason: Some(r) },
+                    None => EngineDecision::Allow,
+                }
             }
             HardDecision::Block { feedback } => {
                 // Combine hard block feedback with all collected feedback
@@ -102,7 +103,6 @@ impl PolicyEvaluator {
                     feedback: combined_feedback,
                 }
             }
-            HardDecision::Approve { reason } => EngineDecision::Approve { reason },
             HardDecision::Ask { reason } => EngineDecision::Ask { reason },
         };
 
@@ -222,7 +222,7 @@ impl PolicyEvaluator {
                             let substituted_reason = reason
                                 .as_ref()
                                 .map(|r| self.substitute_templates(r, evaluation_context));
-                            Ok(HardDecision::Approve {
+                            Ok(HardDecision::Allow {
                                 reason: substituted_reason,
                             })
                         }
@@ -249,7 +249,7 @@ impl PolicyEvaluator {
         }
 
         // No hard action found
-        Ok(HardDecision::Allow)
+        Ok(HardDecision::Allow { reason: None })
     }
 
 

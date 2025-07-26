@@ -106,6 +106,15 @@ imports:
     // Test with CLAUDE_PROJECT_DIR set
     std::env::set_var("CLAUDE_PROJECT_DIR", claude_dir.path());
     
+    // Ensure cleanup happens even on panic using RAII
+    struct EnvGuard;
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            std::env::remove_var("CLAUDE_PROJECT_DIR");
+        }
+    }
+    let _guard = EnvGuard;
+    
     let mut loader = PolicyLoader::new();
     let result = loader.load_configuration_from_directory(current_dir.path());
     
@@ -117,9 +126,6 @@ imports:
         }
         Err(e) => panic!("Failed to load config: {}", e),
     }
-    
-    // Clean up
-    std::env::remove_var("CLAUDE_PROJECT_DIR");
 }
 
 #[test]

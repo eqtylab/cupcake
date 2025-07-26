@@ -60,6 +60,15 @@ settings:
     // Set CLAUDE_PROJECT_DIR environment variable
     std::env::set_var("CLAUDE_PROJECT_DIR", claude_dir.path());
     
+    // Ensure cleanup happens even on panic using RAII
+    struct EnvGuard;
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            std::env::remove_var("CLAUDE_PROJECT_DIR");
+        }
+    }
+    let _guard = EnvGuard;
+    
     // Load configuration - should use Claude project directory
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration_from_directory(current_dir.path()).unwrap();
@@ -68,9 +77,6 @@ settings:
     assert_eq!(config.policies.len(), 1);
     assert_eq!(config.policies[0].name, "claude-project-policy");
     assert_eq!(config.policies[0].matcher, "Bash");
-    
-    // Clean up environment variable
-    std::env::remove_var("CLAUDE_PROJECT_DIR");
 }
 
 #[test]
@@ -103,6 +109,15 @@ fn test_claude_project_dir_fallback() {
     let non_existent = tempdir().unwrap();
     std::env::set_var("CLAUDE_PROJECT_DIR", non_existent.path());
     
+    // Ensure cleanup happens even on panic using RAII
+    struct EnvGuard;
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            std::env::remove_var("CLAUDE_PROJECT_DIR");
+        }
+    }
+    let _guard = EnvGuard;
+    
     // Load configuration - should fall back to current directory
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration_from_directory(current_dir.path()).unwrap();
@@ -110,9 +125,6 @@ fn test_claude_project_dir_fallback() {
     // Verify we got the policy from current directory (fallback)
     assert_eq!(config.policies.len(), 1);
     assert_eq!(config.policies[0].name, "fallback-policy");
-    
-    // Clean up
-    std::env::remove_var("CLAUDE_PROJECT_DIR");
 }
 
 #[test]

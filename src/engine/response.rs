@@ -4,14 +4,21 @@ use std::process;
 /// Internal policy evaluation result - renamed from PolicyDecision for clarity
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineDecision {
-    /// Allow the operation to proceed (default when no policies match)
-    Allow,
+    /// Allow the operation to proceed (with optional reason)
+    Allow { reason: Option<String> },
     /// Block the operation with feedback
     Block { feedback: String },
-    /// Allow the operation with an explanation (from Action::Allow)
-    Approve { reason: Option<String> },
     /// Ask the user for confirmation (new in July 20)
     Ask { reason: String },
+}
+
+/// Permission decision for PreToolUse events - type-safe enum that serializes to correct JSON strings
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PermissionDecision {
+    Allow,
+    Deny,
+    Ask,
 }
 
 /// Hook-specific output for different event types
@@ -21,7 +28,7 @@ pub enum HookSpecificOutput {
     #[serde(rename = "PreToolUse")]
     PreToolUse {
         #[serde(rename = "permissionDecision")]
-        permission_decision: String, // "allow" | "deny" | "ask"
+        permission_decision: PermissionDecision,
         #[serde(rename = "permissionDecisionReason", skip_serializing_if = "Option::is_none")]
         permission_decision_reason: Option<String>,
     },
@@ -68,27 +75,21 @@ impl CupcakeResponse {
         let mut response = Self::empty();
         
         match decision {
-            EngineDecision::Allow => {
+            EngineDecision::Allow { reason } => {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
-                    permission_decision: "allow".to_string(),
-                    permission_decision_reason: None,
+                    permission_decision: PermissionDecision::Allow,
+                    permission_decision_reason: reason.clone(),
                 });
             }
             EngineDecision::Block { feedback } => {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
-                    permission_decision: "deny".to_string(),
+                    permission_decision: PermissionDecision::Deny,
                     permission_decision_reason: Some(feedback.clone()),
-                });
-            }
-            EngineDecision::Approve { reason } => {
-                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
-                    permission_decision: "allow".to_string(),
-                    permission_decision_reason: reason.clone(),
                 });
             }
             EngineDecision::Ask { reason } => {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
-                    permission_decision: "ask".to_string(),
+                    permission_decision: PermissionDecision::Ask,
                     permission_decision_reason: Some(reason.clone()),
                 });
             }
@@ -123,84 +124,29 @@ impl CupcakeResponse {
 /// Response handler for communicating with Claude Code
 pub struct ResponseHandler {
     debug: bool,
-    test_mode: bool,
 }
 
 impl ResponseHandler {
     pub fn new(debug: bool) -> Self {
         Self {
             debug,
-            test_mode: false,
         }
     }
 
-    pub fn new_test_mode(debug: bool) -> Self {
-        Self {
-            debug,
-            test_mode: true,
-        }
-    }
-
-    /// Send response to Claude Code and exit with appropriate code
+    /// Send response to Claude Code as JSON and exit
     pub fn send_response(&self, decision: EngineDecision) -> ! {
-        if self.test_mode {
-            // In test mode, just print debug info and exit with status 0
-            match decision {
-                EngineDecision::Allow => {
-                    if self.debug {
-                        eprintln!("Debug: Test mode - would allow operation");
-                    }
-                    process::exit(0);
-                }
-                EngineDecision::Block { feedback } => {
-                    if self.debug {
-                        eprintln!("Debug: Test mode - would block operation");
-                        eprintln!("Debug: Feedback: {}", feedback);
-                    }
-                    process::exit(0);
-                }
-                EngineDecision::Approve { reason } => {
-                    if self.debug {
-                        eprintln!("Debug: Test mode - would approve operation");
-                        if let Some(reason) = reason {
-                            eprintln!("Debug: Reason: {}", reason);
-                        }
-                    }
-                    process::exit(0);
-                }
-                EngineDecision::Ask { reason } => {
-                    if self.debug {
-                        eprintln!("Debug: Test mode - would ask for confirmation");
-                        eprintln!("Debug: Reason: {}", reason);
-                    }
-                    process::exit(0);
-                }
-            }
-        } else {
-            // Production mode - send JSON response
-            // Note: This is deprecated - use send_json_response instead
+        // Always use JSON response protocol
+        if self.debug {
             match &decision {
-                EngineDecision::Allow => {
-                    if self.debug {
-                        eprintln!("Debug: Allowing operation");
-                    }
-                    process::exit(0);
-                }
-                EngineDecision::Block { feedback } => {
-                    if self.debug {
-                        eprintln!("Debug: Blocking operation with feedback");
-                    }
-                    // For backward compatibility, still use exit code 2 with stderr
-                    eprintln!("{}", feedback);
-                    process::exit(2);
-                }
-                _ => {
-                    // For Approve and Ask, we need JSON output
-                    let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
-                    self.send_json_response(response);
-                }
+                EngineDecision::Allow { .. } => eprintln!("Debug: Allowing operation"),
+                EngineDecision::Block { .. } => eprintln!("Debug: Blocking operation with feedback"),
+                EngineDecision::Ask { .. } => eprintln!("Debug: Asking for confirmation"),
             }
         }
+        
+        // Always create JSON response for all decision types
+        let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+        self.send_json_response(response);
     }
 
     /// Send JSON response to Claude Code (for advanced control)
@@ -228,12 +174,7 @@ impl ResponseHandler {
 
     /// Send simple allow response (for most common case)
     pub fn allow(&self) -> ! {
-        self.send_response(EngineDecision::Allow)
-    }
-
-    /// Send approval response with optional reason
-    pub fn approve(&self, reason: Option<String>) -> ! {
-        self.send_response(EngineDecision::Approve { reason })
+        self.send_response(EngineDecision::Allow { reason: None })
     }
 
     /// Send ask response for user confirmation
@@ -258,12 +199,12 @@ mod tests {
 
     #[test]
     fn test_cupcake_response_pre_tool_use_allow() {
-        let decision = EngineDecision::Allow;
+        let decision = EngineDecision::Allow { reason: None };
         let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
         
         match response.hook_specific_output {
             Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
-                assert_eq!(permission_decision, "allow");
+                assert_eq!(permission_decision, PermissionDecision::Allow);
                 assert_eq!(permission_decision_reason, None);
             }
             _ => panic!("Expected PreToolUse hook output"),
@@ -277,7 +218,7 @@ mod tests {
         
         match response.hook_specific_output {
             Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
-                assert_eq!(permission_decision, "deny");
+                assert_eq!(permission_decision, PermissionDecision::Deny);
                 assert_eq!(permission_decision_reason, Some("Test block reason".to_string()));
             }
             _ => panic!("Expected PreToolUse hook output"),
@@ -291,7 +232,7 @@ mod tests {
         
         match response.hook_specific_output {
             Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
-                assert_eq!(permission_decision, "ask");
+                assert_eq!(permission_decision, PermissionDecision::Ask);
                 assert_eq!(permission_decision_reason, Some("Please confirm".to_string()));
             }
             _ => panic!("Expected PreToolUse hook output"),
@@ -326,8 +267,8 @@ mod tests {
 
     #[test]
     fn test_engine_decision_equality() {
-        let decision1 = EngineDecision::Allow;
-        let decision2 = EngineDecision::Allow;
+        let decision1 = EngineDecision::Allow { reason: None };
+        let decision2 = EngineDecision::Allow { reason: None };
         assert_eq!(decision1, decision2);
 
         let decision3 = EngineDecision::Block {
@@ -354,5 +295,31 @@ mod tests {
 
         let handler = ResponseHandler::new(false);
         assert!(!handler.debug);
+    }
+
+    #[test]
+    fn test_permission_decision_serialization() {
+        // Test that PermissionDecision enum serializes to correct JSON strings
+        let allow_json = serde_json::to_string(&PermissionDecision::Allow).unwrap();
+        assert_eq!(allow_json, "\"allow\"");
+        
+        let deny_json = serde_json::to_string(&PermissionDecision::Deny).unwrap();
+        assert_eq!(deny_json, "\"deny\"");
+        
+        let ask_json = serde_json::to_string(&PermissionDecision::Ask).unwrap();
+        assert_eq!(ask_json, "\"ask\"");
+    }
+
+    #[test]
+    fn test_permission_decision_deserialization() {
+        // Test that JSON strings deserialize to correct PermissionDecision enum values
+        let allow: PermissionDecision = serde_json::from_str("\"allow\"").unwrap();
+        assert_eq!(allow, PermissionDecision::Allow);
+        
+        let deny: PermissionDecision = serde_json::from_str("\"deny\"").unwrap();
+        assert_eq!(deny, PermissionDecision::Deny);
+        
+        let ask: PermissionDecision = serde_json::from_str("\"ask\"").unwrap();
+        assert_eq!(ask, PermissionDecision::Ask);
     }
 }

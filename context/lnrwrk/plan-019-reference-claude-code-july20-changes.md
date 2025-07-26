@@ -1,6 +1,6 @@
 # Claude Code July 20 Updates - Exact Technical Changes
 
-Created: 2025-01-25T10:15:00Z
+Created: 2025-07-21T10:15:00Z
 Type: Technical Reference Document
 
 ## Overview
@@ -12,11 +12,13 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ### 1. $CLAUDE_PROJECT_DIR Environment Variable
 
 **What's New:**
+
 - A new environment variable `$CLAUDE_PROJECT_DIR` is available when Claude Code spawns hook commands
 - Points to the root directory of the current project
 - Enables project-relative hook scripts
 
 **Example:**
+
 ```json
 {
   "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-style.sh"
@@ -28,10 +30,12 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ### 2. Wildcard Matcher Support
 
 **Original Behavior:**
+
 - `"matcher": "*"` was INVALID
 - Had to use `"matcher": ""` (empty string) or omit matcher entirely to match all tools
 
 **New Behavior:**
+
 - `"matcher": "*"` is now VALID and matches all tools
 - `"matcher": ""` still works (backward compatible)
 - Omitting matcher still works (backward compatible)
@@ -41,6 +45,7 @@ This document captures the EXACT technical changes introduced in the Claude Code
 #### A. PreToolUse Hook Changes
 
 **New Fields:**
+
 ```json
 {
   "permissionDecision": "allow" | "deny" | "ask",
@@ -52,6 +57,7 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ```
 
 **Deprecated but Still Supported:**
+
 ```json
 {
   "decision": "approve" | "block",
@@ -60,17 +66,20 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ```
 
 **New Behavior:**
+
 - `"ask"` option prompts user for confirmation with the reason
 - More granular control over tool execution
 
 #### B. UserPromptSubmit Hook Special Behavior
 
 **Critical New Behavior:**
+
 - When exit code is 0, stdout is AUTOMATICALLY added to Claude's context
 - This happens BEFORE the JSON output parsing
 - Enables context injection without blocking
 
 **New JSON Fields:**
+
 ```json
 {
   "hookSpecificOutput": {
@@ -82,6 +91,7 @@ This document captures the EXACT technical changes introduced in the Claude Code
 #### C. Universal JSON Fields (All Hooks)
 
 **New Common Fields:**
+
 ```json
 {
   "continue": true | false,  // Should Claude continue processing
@@ -93,6 +103,7 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ### 4. Task Tool Documentation
 
 **What Changed:**
+
 - Task tool is now explicitly documented as "Sub agent tasks"
 - Links to sub agents documentation for more details
 - Clarifies this is for launching sub-agents
@@ -102,6 +113,7 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ### 1. JSON Output Precedence
 
 **New Clear Rules:**
+
 - `"continue": false` ALWAYS takes precedence
 - If `"continue": false`, any `"decision": "block"` is ignored
 - Makes control flow more predictable
@@ -109,6 +121,7 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ### 2. UserPromptSubmit Context Injection
 
 **Major Behavioral Change:**
+
 - Exit code 0 + stdout = context injection
 - Exit code 2 + stderr = block with feedback (unchanged)
 - This is a SIGNIFICANT change in how UserPromptSubmit works
@@ -116,12 +129,14 @@ This document captures the EXACT technical changes introduced in the Claude Code
 ### 3. Timeout Behavior Clarification
 
 **Clarified (not changed):**
+
 - Individual command timeouts don't affect other commands in the array
 - Each command runs independently
 
 ## Examples from Documentation
 
 ### Example 1: Exit Code Based Control
+
 ```bash
 #!/bin/bash
 # Validates bash commands for safety
@@ -137,21 +152,25 @@ exit 0
 ```
 
 ### Example 2: JSON Output with Context Injection
+
 ```javascript
 // For UserPromptSubmit - adds context about security
-const input = JSON.parse(fs.readFileSync(0, 'utf-8'));
+const input = JSON.parse(fs.readFileSync(0, "utf-8"));
 
-if (input.prompt.toLowerCase().includes('security')) {
-    console.log(JSON.stringify({
-        continue: true,
-        hookSpecificOutput: {
-            additionalContext: "Remember: Our security policies require..."
-        }
-    }));
+if (input.prompt.toLowerCase().includes("security")) {
+  console.log(
+    JSON.stringify({
+      continue: true,
+      hookSpecificOutput: {
+        additionalContext: "Remember: Our security policies require...",
+      },
+    })
+  );
 }
 ```
 
 ### Example 3: PreToolUse with New Permission Model
+
 ```python
 #!/usr/bin/env python3
 import json
@@ -175,11 +194,13 @@ else:
 ## What Stayed the Same
 
 1. **Exit Code Behavior:**
+
    - Exit 0 = Allow (with special stdout handling for UserPromptSubmit)
    - Exit 2 = Block with stderr as feedback
    - Other exit codes = Treat as errors
 
 2. **Hook Event Types:**
+
    - All existing hooks still fire at the same times
    - No new hook types added
 
@@ -198,3 +219,36 @@ else:
 6. **Deprecated syntax** - approve/block still works but permissionDecision preferred
 
 These changes significantly expand what hooks can do while maintaining backward compatibility.
+
+---
+
+Based on the documentation, here are the key updates to Claude Code hooks in the July 20 release:
+
+### 1. New `UserPromptSubmit` Hook Event
+
+A new hook event, `UserPromptSubmit`, has been introduced. It runs after a user submits a prompt but before Claude processes it. This allows for powerful new use cases:
+
+- **Prompt Validation:** Block prompts that violate security policies (e.g., contain secrets).
+- **Context Injection:** Automatically add relevant information (like the current time or project-specific details) to the prompt before the LLM sees it.
+- **Prompt Modification:** Alter or enhance user prompts programmatically.
+
+A unique feature of this hook is that if it exits with code 0, its `stdout` is added to the conversation context for the LLM, unlike other hooks where `stdout` is only shown to the user.
+
+### 2. Enhanced JSON Output for `PreToolUse` Hooks
+
+The JSON output for `PreToolUse` hooks has been updated to be more structured and powerful:
+
+- **New Structure:** A `hookSpecificOutput` object is now used, which contains `permissionDecision` and `permissionDecisionReason`.
+- **New `ask` Decision:** In addition to `"allow"` (formerly `approve`) and `"deny"` (formerly `block`), you can now return `"ask"`, which will explicitly prompt the user for permission in the UI.
+- **Deprecation:** The older format using top-level `decision` and `reason` keys is now deprecated but remains supported for backward compatibility.
+
+### 3. New `CLAUDE_PROJECT_DIR` Environment Variable
+
+A new environment variable, `$CLAUDE_PROJECT_DIR`, is now available to hook commands. It contains the absolute path to the project's root directory. This makes it much easier and more reliable to run scripts that are stored within the project itself, for example, in a `.claude/hooks/` directory.
+
+### 4. Updated Matcher Syntax for "All Tools"
+
+The way to match all tools in `PreToolUse` and `PostToolUse` hooks has been updated:
+
+- **New Way:** You can now use a wildcard `*` as the matcher value (e.g., `"matcher": "*"`).
+- **Old Way:** The previous method of using an empty string (`""`) or omitting the `matcher` key still works. The documentation no longer warns that `*` is invalid.

@@ -15,6 +15,8 @@ pub enum ActionResult {
     Block { feedback: String },
     /// Action resulted in allowing the operation
     Allow { reason: Option<String> },
+    /// Action requests user confirmation
+    Ask { reason: String },
     /// Action failed to execute
     Error { message: String },
 }
@@ -30,9 +32,14 @@ impl ActionResult {
         matches!(self, ActionResult::Allow { .. })
     }
 
-    /// Check if this result is a hard decision (block or approve)
+    /// Check if this result requests user confirmation
+    pub fn is_asking(&self) -> bool {
+        matches!(self, ActionResult::Ask { .. })
+    }
+
+    /// Check if this result is a hard decision (block, allow, or ask)
     pub fn is_hard_decision(&self) -> bool {
-        self.is_blocking() || self.is_approving()
+        self.is_blocking() || self.is_approving() || self.is_asking()
     }
 
     /// Get feedback message if available
@@ -42,6 +49,7 @@ impl ActionResult {
             ActionResult::Block { feedback } => Some(feedback),
             ActionResult::Error { message } => Some(message),
             ActionResult::Allow { .. } => None,
+            ActionResult::Ask { reason } => Some(reason),
         }
     }
 
@@ -168,6 +176,7 @@ impl ActionExecutor {
                 feedback_message, ..
             } => self.execute_block_with_feedback(feedback_message, context),
             Action::Allow { reason } => self.execute_allow(reason.as_deref(), context),
+            Action::Ask { reason } => self.execute_ask(reason, context),
             Action::RunCommand {
                 spec,
                 on_failure,
@@ -232,6 +241,14 @@ impl ActionExecutor {
     fn execute_allow(&self, reason: Option<&str>, context: &ActionContext) -> ActionResult {
         let substituted_reason = reason.map(|r| context.substitute_template(r));
         ActionResult::Allow {
+            reason: substituted_reason,
+        }
+    }
+
+    /// Execute ask action - requests user confirmation
+    fn execute_ask(&self, reason: &str, context: &ActionContext) -> ActionResult {
+        let substituted_reason = context.substitute_template(reason);
+        ActionResult::Ask {
             reason: substituted_reason,
         }
     }

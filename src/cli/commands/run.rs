@@ -103,7 +103,7 @@ impl CommandHandler for RunCommand {
                     );
                 }
                 // Graceful degradation - allow operation on evaluation error
-                self.send_response_safely(EngineDecision::Allow)
+                self.send_response_safely(EngineDecision::Allow { reason: None })
             }
         };
 
@@ -126,7 +126,7 @@ impl CommandHandler for RunCommand {
         // For UserPromptSubmit, we'll handle stdout differently
         if !is_user_prompt_submit {
             // Output soft feedback to stdout if we're allowing the operation (non-UserPromptSubmit)
-            if matches!(evaluation_result.decision, EngineDecision::Allow)
+            if matches!(evaluation_result.decision, EngineDecision::Allow { .. })
                 && !evaluation_result.feedback_messages.is_empty()
             {
                 // Combine all soft feedback messages
@@ -164,6 +164,13 @@ impl CommandHandler for RunCommand {
                     };
                     break;
                 }
+                ActionResult::Ask { reason } => {
+                    // An action execution resulted in ask - override the evaluation decision
+                    final_decision = EngineDecision::Ask {
+                        reason: reason.clone(),
+                    };
+                    break;
+                }
                 ActionResult::Success { feedback: Some(ctx), .. } if is_user_prompt_submit => {
                     // Collect context from InjectContext actions
                     context_to_inject.push(ctx.clone());
@@ -183,7 +190,7 @@ impl CommandHandler for RunCommand {
         // 8. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
         let response_decision = if hook_event.event_name() == "PostToolUse"
-            && matches!(final_decision, EngineDecision::Allow)
+            && matches!(final_decision, EngineDecision::Allow { .. })
             && !evaluation_result.feedback_messages.is_empty()
         {
             // Convert soft feedback to a "block" for PostToolUse so Claude sees it
@@ -444,6 +451,11 @@ impl RunCommand {
                         eprintln!("Debug: Action execution resulted in allow");
                     }
                 }
+                ActionResult::Ask { reason } => {
+                    if self.debug {
+                        eprintln!("Debug: Action execution resulted in ask: {}", reason);
+                    }
+                }
                 ActionResult::Error { message } => {
                     eprintln!("Error executing action for policy '{}': {}", matched_policy.name, message);
                     // Continue with other actions - graceful degradation
@@ -457,33 +469,13 @@ impl RunCommand {
 
     /// Send response to Claude Code with error handling
     fn send_response_safely(&self, decision: EngineDecision) -> ! {
-        use crate::engine::response::{CupcakeResponse, ResponseHandler};
+        use crate::engine::response::ResponseHandler;
         
-        // Use ResponseHandler for cleaner code
+        // Use ResponseHandler which implements the JSON protocol
         let handler = ResponseHandler::new(self.debug);
         
-        // For now, use the old exit-code based approach for Allow and Block
-        // Approve and Ask will use JSON
-        match &decision {
-            EngineDecision::Allow => {
-                if self.debug {
-                    eprintln!("Debug: Allowing operation (exit code 0)");
-                }
-                std::process::exit(0);
-            }
-            EngineDecision::Block { feedback } => {
-                if self.debug {
-                    eprintln!("Debug: Blocking operation with feedback (exit code 2)");
-                }
-                eprintln!("{}", feedback);
-                std::process::exit(2);
-            }
-            _ => {
-                // For Approve and Ask, we need JSON output
-                let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
-                handler.send_json_response(response);
-            }
-        }
+        // All decisions now use JSON via ResponseHandler
+        handler.send_response(decision);
     }
 
     /// Send response with context injection for UserPromptSubmit events
@@ -494,7 +486,7 @@ impl RunCommand {
         
         // For UserPromptSubmit, we have special handling based on the decision
         match &decision {
-            EngineDecision::Allow => {
+            EngineDecision::Allow { .. } => {
                 // For Allow, check if we have context to inject
                 if !context_to_inject.is_empty() {
                     // Use stdout method: print context to stdout with exit code 0
@@ -514,12 +506,17 @@ impl RunCommand {
                 }
             }
             EngineDecision::Block { feedback } => {
-                // For Block, send stderr feedback with exit code 2
+                // For Block, use JSON response to block prompt processing
                 if self.debug {
                     eprintln!("Debug: Blocking UserPromptSubmit with feedback");
                 }
-                eprintln!("{}", feedback);
-                std::process::exit(2);
+                let response = CupcakeResponse {
+                    hook_specific_output: None,
+                    continue_execution: Some(false),
+                    stop_reason: Some(feedback.clone()),
+                    suppress_output: None,
+                };
+                handler.send_json_response(response);
             }
             EngineDecision::Ask { reason } => {
                 // For Ask, use JSON response with UserPromptSubmit output
@@ -535,15 +532,6 @@ impl RunCommand {
                     suppress_output: Some(false),
                 };
                 handler.send_json_response(response);
-            }
-            EngineDecision::Approve { reason: _ } => {
-                // For Approve, treat as Allow with optional context
-                // The reason is already handled by the policy evaluation
-                if !context_to_inject.is_empty() {
-                    let combined_context = context_to_inject.join("\n");
-                    println!("{}", combined_context);
-                }
-                std::process::exit(0);
             }
         }
     }

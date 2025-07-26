@@ -1,6 +1,6 @@
 # Claude Code July 20 Updates - Cupcake Capability Implications
 
-Created: 2025-01-25T10:00:00Z
+Created: 2025-07-21T10:00:00Z
 Type: Reference Document for Future Plans
 
 ## Executive Summary
@@ -14,6 +14,7 @@ The July 20 Claude Code hooks updates significantly ENHANCE Cupcake's value prop
 The new UserPromptSubmit behavior where stdout with exit code 0 gets added to Claude's context fundamentally changes what Cupcake can do:
 
 **New Capabilities:**
+
 - **Dynamic Context Injection**: Inject policy reminders, session history, or guidance based on current state
 - **Proactive Guidance**: Add relevant rules and examples BEFORE Claude processes the prompt
 - **Smart Contexts**: Create contexts that evolve based on session history and previous violations
@@ -21,6 +22,7 @@ The new UserPromptSubmit behavior where stdout with exit code 0 gets added to Cl
 
 **Example Use Case:**
 When a user starts asking about git operations, Cupcake can inject:
+
 - Recent test results
 - Reminder about commit message standards
 - Current branch protection rules
@@ -31,12 +33,14 @@ When a user starts asking about git operations, Cupcake can inject:
 The new `permissionDecision` field with `"allow"`, `"deny"`, `"ask"` options enables:
 
 **New Capabilities:**
+
 - **Nuanced Responses**: Not just binary block/allow decisions
 - **User Confirmation**: Ask for confirmation on borderline cases
 - **Trust Building**: Let users decide on edge cases while enforcing hard rules
 - **Learning Opportunities**: Use "ask" to educate users about why something might be risky
 
 **Decision Hierarchy:**
+
 - `"deny"`: Hard blocks for critical violations (security, destructive operations)
 - `"ask"`: Uncertain cases, first-time operations, potentially risky but legitimate
 - `"allow"`: Normal operations, potentially with context injection for guidance
@@ -44,6 +48,7 @@ The new `permissionDecision` field with `"allow"`, `"deny"`, `"ask"` options ena
 ### 3. Project Portability via $CLAUDE_PROJECT_DIR
 
 **New Capabilities:**
+
 - Ship complete policy environments with projects
 - Create sophisticated multi-script enforcement systems
 - Enable team-wide policy sharing and standardization
@@ -54,6 +59,7 @@ The new `permissionDecision` field with `"allow"`, `"deny"`, `"ask"` options ena
 With `hookSpecificOutput` and enhanced JSON control:
 
 **New Capabilities:**
+
 - Structured feedback that Claude can parse and adapt to
 - Selective output suppression for stealth enforcement
 - Fine-grained conversation flow control
@@ -63,15 +69,18 @@ With `hookSpecificOutput` and enhanced JSON control:
 
 **Cupcake's core mission - turning natural language rules into deterministic enforcement - is AMPLIFIED because:**
 
-1. **More Enforcement Points**: 
+1. **More Enforcement Points**:
+
    - Can influence Claude BEFORE it processes prompts (UserPromptSubmit)
    - Not just reacting to tool use, but shaping intent
 
 2. **Smarter Enforcement**:
+
    - Guide behavior through context rather than just blocking
    - Create "teaching moments" instead of just "no" responses
 
 3. **Better User Experience**:
+
    - Ask when uncertain rather than forcing binary decisions
    - Provide context for why something was blocked
 
@@ -86,6 +95,7 @@ With `hookSpecificOutput` and enhanced JSON control:
 This becomes THE most powerful hook for Cupcake because it can:
 
 **Context Injection Strategy:**
+
 ```yaml
 UserPromptSubmit:
   "":
@@ -105,12 +115,15 @@ UserPromptSubmit:
 ### 2. Multi-Modal Enforcement Strategy
 
 **Three-Layer Approach:**
+
 1. **UserPromptSubmit**: The Guidance Layer
+
    - Inject relevant policies and context
    - Provide proactive reminders
    - Shape intent before action
 
 2. **PreToolUse**: The Enforcement Layer
+
    - Hard blocks for violations
    - Ask for confirmation on edge cases
    - Detailed feedback on why something was blocked
@@ -123,6 +136,7 @@ UserPromptSubmit:
 ### 3. Dynamic Policy Evolution
 
 **Session-Aware Enforcement:**
+
 - Start permissive with heavy guidance
 - Gradually enforce stricter rules as patterns emerge
 - Inject more specific context based on user behavior
@@ -140,15 +154,18 @@ Normal operation + good patterns → "allow" (silent)
 ## New Architecture Possibilities
 
 ### 1. Dual-Mode Operation
+
 - **Guardian Mode**: Traditional blocking and enforcement
 - **Guide Mode**: Context injection and behavioral shaping
 
 ### 2. Learning System
+
 - Track which context injections lead to compliant behavior
 - Build user-specific guidance profiles
 - Evolve enforcement strategies based on effectiveness
 
 ### 3. Team Knowledge Sharing
+
 - Export successful context injection patterns
 - Share enforcement strategies that work
 - Build organization-wide best practices
@@ -156,6 +173,7 @@ Normal operation + good patterns → "allow" (silent)
 ## Conclusion
 
 The July 20 updates don't diminish Cupcake's value - they transform it from a security guard into an intelligent assistant that can:
+
 - **Prevent** problems through proactive guidance
 - **Educate** through contextual information
 - **Enforce** through nuanced, situation-aware decisions
@@ -166,6 +184,7 @@ Cupcake should embrace these capabilities to become not just a policy enforcer, 
 ## Technical Implementation Notes
 
 Key areas for implementation focus:
+
 1. Enhance state manager to track context injection effectiveness
 2. Build context generation engine for UserPromptSubmit
 3. Implement decision hierarchy system (deny/ask/allow)

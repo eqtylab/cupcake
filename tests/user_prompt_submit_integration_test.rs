@@ -71,12 +71,20 @@ UserPromptSubmit:
     // Get the output
     let output = cmd.wait_with_output().unwrap();
 
-    // Should exit with code 2 (blocked)
-    assert_eq!(output.status.code(), Some(2));
+    // Should exit with code 0 (JSON response mode - Phase 1 change)
+    assert_eq!(output.status.code(), Some(0));
 
-    // Should have feedback on stderr
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("API key detected in prompt"));
+    // Should have JSON response on stdout with blocking information
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.is_empty(), "Should have JSON response on stdout");
+    
+    // Parse JSON response
+    let json_response: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("Should be valid JSON response");
+    
+    // Verify it's a blocking response
+    assert_eq!(json_response.get("continue").and_then(|v| v.as_bool()), Some(false));
+    assert!(json_response.get("stopReason").and_then(|v| v.as_str()).unwrap_or("").contains("API key detected in prompt"));
 }
 
 #[test]

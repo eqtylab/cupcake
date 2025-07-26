@@ -1,6 +1,6 @@
 # Context Injection Service - Intelligent Prompt Augmentation
 
-Created: 2025-01-25T12:05:00Z
+Created: 2025-07-21T12:05:00Z
 Type: Feature Idea
 
 ## Concept
@@ -22,6 +22,7 @@ When a user types "fix the test failures", the service would:
 **User prompt**: "help me debug this issue"
 
 **Service analyzes and injects**:
+
 ```
 RECENT ERRORS:
 - TypeError in user_auth.test.ts line 42
@@ -41,11 +42,13 @@ PROJECT STATE:
 ## Implementation Ideas
 
 ### 1. Prompt Analysis Engine
+
 - NLP to understand intent
 - Keyword extraction
 - Context relevance scoring
 
 ### 2. Context Sources
+
 - Git history (recent commits, changes)
 - Test results (failures, coverage)
 - Build logs (errors, warnings)
@@ -54,12 +57,14 @@ PROJECT STATE:
 - Error tracking (recent exceptions)
 
 ### 3. Smart Compilation
+
 - Relevance filtering (only inject what matters)
 - Conciseness optimization (minimal tokens)
 - Priority ordering (most relevant first)
 - Dynamic templates based on prompt type
 
 ### 4. Learning System
+
 - Track which context leads to successful resolutions
 - Learn user patterns
 - Improve relevance over time
@@ -86,16 +91,19 @@ Injection via stdout/JSON
 ## Potential Features
 
 ### Contextual Awareness
+
 - "Working on auth" → Inject auth-related docs, tests, recent auth changes
 - "Performance issue" → Inject profiling data, slow query logs, metrics
 - "Refactor this" → Inject code quality reports, similar patterns in codebase
 
 ### Proactive Suggestions
+
 - Detect when user might need context they didn't ask for
 - Inject warnings about related systems
 - Add reminders about team conventions
 
 ### Multi-Source Integration
+
 - Pull from external tools (Jira, Sentry, DataDog)
 - Integrate with CI/CD for build context
 - Connect to documentation systems
@@ -117,6 +125,7 @@ Injection via stdout/JSON
 ## MVP Scope
 
 Start simple:
+
 1. Basic keyword matching
 2. Pull from 3-4 sources (git, tests, recent errors)
 3. Static templates
@@ -132,6 +141,7 @@ Start simple:
 ## Integration with Cupcake
 
 This service would:
+
 1. Use Cupcake's state management for session awareness
 2. Leverage UserPromptSubmit hook for injection
 3. Build on Cupcake's policy system for rules

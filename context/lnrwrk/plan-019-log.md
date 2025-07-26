@@ -4,7 +4,7 @@
 
 **read the full file, any code file, if you are reading for first time**
 
-## 2025-01-25T16:00:00Z
+## 2025-07-21T16:00:00Z
 
 Started implementation of Claude Code July 20 integration. This plan transforms Cupcake from a reactive policy enforcer to a proactive behavioral guidance system.
 
@@ -28,11 +28,12 @@ Guiding principles:
 
 Beginning Phase 1: Modernizing the Communication Protocol.
 
-## 2025-01-25T17:00:00Z
+## 2025-07-21T17:00:00Z
 
 Completed Phase 1 of the Claude Code July 20 integration. Major changes:
 
 ### Response Type Updates
+
 - Renamed PolicyDecision to EngineDecision for internal clarity
 - Added Ask variant to EngineDecision for user confirmation flows
 - Created HookSpecificOutput enum with proper JSON serialization:
@@ -41,12 +42,14 @@ Completed Phase 1 of the Claude Code July 20 integration. Major changes:
 - Updated CupcakeResponse to match Claude Code's JSON hook contract
 - Removed deprecated fields since backward compatibility not required
 
-### Action Type Updates  
+### Action Type Updates
+
 - Renamed Action::Approve to Action::Allow for consistency with new contract
 - Updated all references throughout codebase (evaluation, actions, run, inspect)
 - Tests updated and passing
 
 ### Key Decisions
+
 - Using clean JSON output format without legacy fields
 - ResponseHandler simplified but maintains exit code behavior for now
 - Ask permission type ready for UI integration
@@ -54,15 +57,16 @@ Completed Phase 1 of the Claude Code July 20 integration. Major changes:
 
 The communication protocol is now fully aligned with Claude Code July 20 updates.
 
-## 2025-01-25T17:15:00Z
+## 2025-07-21T17:15:00Z
 
 Beginning Phase 2: Implementing Context Injection - the transformative feature that enables proactive behavioral guidance.
 
-## 2025-01-25T17:30:00Z
+## 2025-07-21T17:30:00Z
 
 Completed core implementation of Phase 2. Major changes:
 
 ### Context Injection Implementation
+
 - Added InjectContext action to Action enum with context string and use_stdout flag
 - Implemented execute_inject_context in ActionExecutor that treats context as feedback
 - Enhanced run command with special UserPromptSubmit handling:
@@ -73,12 +77,14 @@ Completed core implementation of Phase 2. Major changes:
 - Maintains compatibility with existing action execution flow
 
 ### UserPromptSubmit Response Modes
+
 - Allow + context → stdout injection (Claude Code reads via exit code 0)
 - Block → stderr feedback (standard block behavior)
 - Ask → JSON response with additionalContext
 - Approve → treated as Allow for backward compatibility
 
 ### Key Design Decisions
+
 - Context injection only activates for UserPromptSubmit events
 - Multiple InjectContext actions concatenate with newlines
 - Stdout method preferred for simplicity (JSON available if needed)
@@ -87,11 +93,12 @@ Completed core implementation of Phase 2. Major changes:
 
 Ready to test context injection with various scenarios.
 
-## 2025-01-25T17:45:00Z
+## 2025-07-21T17:45:00Z
 
 Successfully completed Phase 2: Context Injection. All tests pass and implementation is solid.
 
 ### What Was Delivered
+
 - InjectContext action fully integrated into the Action enum
 - Complete UserPromptSubmit handling with stdout and JSON modes
 - Context collection during action execution phase
@@ -100,7 +107,9 @@ Successfully completed Phase 2: Context Injection. All tests pass and implementa
 - Integration test framework for end-to-end testing
 
 ### Technical Implementation
+
 The context injection follows a clean architecture:
+
 1. InjectContext actions are soft actions (feedback only)
 2. During evaluation, context is collected from executed actions
 3. For UserPromptSubmit events only, collected context is injected
@@ -108,18 +117,21 @@ The context injection follows a clean architecture:
 5. JSON method: uses additionalContext field in response
 
 ### Next Steps
+
 Phase 3 will implement the robust sync command to ensure smooth hook registration and updates. This is critical for user adoption as it automates the complex settings.json management.
 
-## 2025-01-25T18:00:00Z
+## 2025-07-21T18:00:00Z
 
 Beginning Phase 3: User Workflow - Making Cupcake accessible and easy to adopt.
 
-## 2025-01-25T18:15:00Z 
+## 2025-07-21T18:15:00Z
 
 Successfully completed Phase 3: Robust sync command and modern TUI configuration.
 
 ### Sync Command Implementation
+
 The `cupcake sync` command now provides a seamless way to register hooks:
+
 - Auto-discovers `.claude/settings.local.json` or accepts custom path
 - Preserves existing user settings while merging Cupcake hooks
 - Dry-run mode for preview (`--dry-run`)
@@ -127,8 +139,10 @@ The `cupcake sync` command now provides a seamless way to register hooks:
 - Beautiful console output with emojis and clear status
 - Registers all 7 Claude Code hook types with proper timeouts
 
-### TUI Updates  
+### TUI Updates
+
 The TUI wizard now generates:
+
 - Modern hook configuration matching sync command
 - Example policies showcasing new features:
   - Context injection via UserPromptSubmit
@@ -137,6 +151,7 @@ The TUI wizard now generates:
 - Proper hook commands without legacy flags
 
 ### Testing Results
+
 - ✅ Sync creates new settings file when missing
 - ✅ Sync preserves existing settings and custom hooks
 - ✅ Dry-run mode shows exact changes
@@ -144,7 +159,9 @@ The TUI wizard now generates:
 - ✅ All 7 hooks registered with correct commands
 
 ### User Experience
+
 Users can now get started with a single command:
+
 ```bash
 cupcake sync
 ```

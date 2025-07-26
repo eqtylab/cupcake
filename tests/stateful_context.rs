@@ -308,7 +308,7 @@ fn test_policy_with_state_query_and_inject_context() {
     
     // Should match and return Allow decision
     assert_eq!(result.matched_policies.len(), 1);
-    assert!(matches!(result.decision, EngineDecision::Allow));
+    assert!(matches!(result.decision, EngineDecision::Allow { .. }));
     
     // Execute the action
     let mut executor = ActionExecutor::new();

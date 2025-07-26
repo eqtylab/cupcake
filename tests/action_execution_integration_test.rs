@@ -318,14 +318,23 @@ PreToolUse:
 
         let output = child.wait_with_output().unwrap();
 
-        // Should exit with code 2 (block) because the command fails and on_failure: block
-        assert_eq!(output.status.code(), Some(2), "Expected exit code 2");
+        // Should exit with code 0 (success) but provide JSON response for block
+        assert_eq!(output.status.code(), Some(0), "Expected exit code 0 with JSON response");
 
-        // Should show the failure feedback
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Should provide JSON response with block decision
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let response_json: serde_json::Value = serde_json::from_str(&stdout)
+            .expect("stdout was not valid JSON");
+
+        // Should be a block decision in JSON format
+        let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
+        assert_eq!(decision, "deny", "JSON response should have permissionDecision: deny");
+
+        // Should contain the failure feedback
+        let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];
         assert!(
-            stderr.contains("Test command failed") || stderr.contains("Policy requires command execution"),
-            "Expected failure feedback in stderr"
+            reason.as_str().unwrap().contains("Test command failed"),
+            "JSON should contain the failure feedback message"
         );
     }
 }

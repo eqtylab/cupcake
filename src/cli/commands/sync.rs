@@ -43,8 +43,15 @@ impl CommandHandler for SyncCommand {
             println!("✅ Successfully updated Claude Code settings!");
             println!("\n📝 Registered hooks:");
             if let Some(hooks) = settings.get("hooks").and_then(|h| h.as_object()) {
-                for (event, _) in hooks {
-                    println!("   - {}", event);
+                for (event, hook_array) in hooks {
+                    if let Some(array) = hook_array.as_array() {
+                        let hook_count = array.iter()
+                            .map(|item| item.get("hooks").and_then(|h| h.as_array()).map(|a| a.len()).unwrap_or(0))
+                            .sum::<usize>();
+                        println!("   - {} ({} hook commands)", event, hook_count);
+                    } else {
+                        println!("   - {} (legacy format)", event);
+                    }
                 }
             }
         }
@@ -102,48 +109,93 @@ impl SyncCommand {
         }
     }
     
-    /// Build the Cupcake hook configuration
+    /// Build the Cupcake hook configuration using July 20 structure
     fn build_cupcake_hooks(&self) -> Value {
         json!({
-            "PreToolUse": {
-                "command": "cupcake run PreToolUse",
-                "timeout": 5000,
-                "description": "Cupcake policy evaluation before tool execution"
-            },
-            "PostToolUse": {
-                "command": "cupcake run PostToolUse",
-                "timeout": 2000,
-                "description": "Cupcake policy evaluation after tool execution"
-            },
-            "UserPromptSubmit": {
-                "command": "cupcake run UserPromptSubmit",
-                "timeout": 1000,
-                "description": "Cupcake context injection for user prompts"
-            },
-            "Notification": {
-                "command": "cupcake run Notification",
-                "timeout": 1000,
-                "description": "Cupcake notification handling"
-            },
-            "Stop": {
-                "command": "cupcake run Stop",
-                "timeout": 1000,
-                "description": "Cupcake session cleanup"
-            },
-            "SubagentStop": {
-                "command": "cupcake run SubagentStop",
-                "timeout": 1000,
-                "description": "Cupcake subagent cleanup"
-            },
-            "PreCompact": {
-                "command": "cupcake run PreCompact",
-                "timeout": 1000,
-                "description": "Cupcake pre-compaction handling"
-            }
+            "PreToolUse": [
+                {
+                    "matcher": "*",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event PreToolUse",
+                            "timeout": 5
+                        }
+                    ]
+                }
+            ],
+            "PostToolUse": [
+                {
+                    "matcher": "*",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event PostToolUse",
+                            "timeout": 2
+                        }
+                    ]
+                }
+            ],
+            "UserPromptSubmit": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event UserPromptSubmit",
+                            "timeout": 1
+                        }
+                    ]
+                }
+            ],
+            "Notification": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event Notification",
+                            "timeout": 1
+                        }
+                    ]
+                }
+            ],
+            "Stop": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event Stop",
+                            "timeout": 1
+                        }
+                    ]
+                }
+            ],
+            "SubagentStop": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event SubagentStop",
+                            "timeout": 1
+                        }
+                    ]
+                }
+            ],
+            "PreCompact": [
+                {
+                    "matcher": "*",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "cupcake run --event PreCompact",
+                            "timeout": 1
+                        }
+                    ]
+                }
+            ]
         })
     }
     
-    /// Merge Cupcake hooks into existing settings
+    /// Merge Cupcake hooks into existing settings using July 20 structure
     fn merge_hooks(&self, settings: &mut Value, cupcake_hooks: Value) -> Result<bool> {
         let mut updated = false;
         
@@ -157,22 +209,43 @@ impl SyncCommand {
         let hooks = settings["hooks"].as_object_mut()
             .ok_or_else(|| crate::CupcakeError::Config("Invalid hooks structure in settings".to_string()))?;
         
-        // Merge each Cupcake hook
+        // Merge each Cupcake hook (now arrays)
         if let Some(cupcake_obj) = cupcake_hooks.as_object() {
-            for (event, config) in cupcake_obj {
-                if self.force || !hooks.contains_key(event) {
-                    hooks.insert(event.clone(), config.clone());
+            for (event_name, hook_array) in cupcake_obj {
+                // Check if this event already has hooks
+                if let Some(existing_array) = hooks.get(event_name) {
+                    if !self.force {
+                        // Check if the Cupcake hook already exists
+                        let needs_update = if let Some(existing_hooks) = existing_array.as_array() {
+                            !self.cupcake_hook_exists_in_array(existing_hooks, hook_array)
+                        } else {
+                            // Existing is not an array, need to replace
+                            true
+                        };
+                        
+                        if needs_update {
+                            eprintln!("⚠️  Hook '{}' already exists. Use --force to add/update Cupcake hooks.", event_name);
+                            continue;
+                        } else {
+                            // Cupcake hook already exists and is up to date
+                            continue;
+                        }
+                    }
+                }
+                
+                // Add or replace the hook array
+                if self.force || !hooks.contains_key(event_name) {
+                    // For force mode or new events, just replace the entire array
+                    hooks.insert(event_name.clone(), hook_array.clone());
                     updated = true;
                 } else {
-                    // Check if existing hook is different
-                    if let Some(existing) = hooks.get(event) {
-                        if existing != config {
-                            if self.force {
-                                hooks.insert(event.clone(), config.clone());
-                                updated = true;
-                            } else {
-                                eprintln!("⚠️  Hook '{}' already exists with different configuration. Use --force to override.", event);
+                    // Append to existing array (this case shouldn't be reached due to check above)
+                    if let Some(existing_array) = hooks.get_mut(event_name).and_then(|v| v.as_array_mut()) {
+                        if let Some(new_hooks) = hook_array.as_array() {
+                            for hook in new_hooks {
+                                existing_array.push(hook.clone());
                             }
+                            updated = true;
                         }
                     }
                 }
@@ -180,6 +253,51 @@ impl SyncCommand {
         }
         
         Ok(updated)
+    }
+    
+    /// Check if a Cupcake hook already exists in the hook array
+    fn cupcake_hook_exists_in_array(&self, existing_hooks: &[Value], cupcake_hook_array: &Value) -> bool {
+        if let Some(cupcake_hooks) = cupcake_hook_array.as_array() {
+            for cupcake_hook in cupcake_hooks {
+                // Look for a hook with the same matcher and command structure
+                let found = existing_hooks.iter().any(|existing_hook| {
+                    self.hooks_are_equivalent(existing_hook, cupcake_hook)
+                });
+                if !found {
+                    return false; // This cupcake hook doesn't exist
+                }
+            }
+            true // All cupcake hooks already exist
+        } else {
+            false
+        }
+    }
+    
+    /// Check if two hook objects are equivalent (same matcher and command)
+    fn hooks_are_equivalent(&self, hook1: &Value, hook2: &Value) -> bool {
+        // Compare matcher (if present)
+        let matcher1 = hook1.get("matcher").and_then(|m| m.as_str());
+        let matcher2 = hook2.get("matcher").and_then(|m| m.as_str());
+        
+        if matcher1 != matcher2 {
+            return false;
+        }
+        
+        // Compare hooks arrays
+        let hooks1 = hook1.get("hooks").and_then(|h| h.as_array());
+        let hooks2 = hook2.get("hooks").and_then(|h| h.as_array());
+        
+        match (hooks1, hooks2) {
+            (Some(h1), Some(h2)) => {
+                // Check if any command in hooks2 exists in hooks1
+                h2.iter().any(|cmd2| {
+                    h1.iter().any(|cmd1| {
+                        cmd1.get("command") == cmd2.get("command")
+                    })
+                })
+            }
+            _ => false,
+        }
     }
     
     /// Write settings back to file with proper formatting

@@ -1,6 +1,6 @@
 # Claude Code July 20 Updates - Complete Technical Reference with Nuances
 
-Created: 2025-01-25T10:30:00Z
+Created: 2025-07-21T10:30:00Z
 Type: Comprehensive Technical Reference
 
 ## Overview
@@ -12,12 +12,14 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 ### 1. $CLAUDE_PROJECT_DIR Environment Variable
 
 **Technical Details:**
+
 - New environment variable available ONLY when Claude Code spawns the hook command
 - Provides absolute path to project root directory
 - Enables portable, project-relative hook scripts
 - NOT available in general shell environment
 
 **Example:**
+
 ```json
 {
   "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-style.sh"
@@ -29,16 +31,19 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 ### 2. Enhanced Matcher Syntax
 
 **Original Limitations:**
+
 - `"matcher": "*"` was INVALID - would cause errors
 - Only `"matcher": ""` or omitting matcher worked for "match all"
 
 **New Flexibility:**
+
 - `"matcher": "*"` - Now VALID for matching all tools
 - `"matcher": ""` - Still works (backward compatible)
 - Omitting `matcher` field entirely - Still works
 - All three methods are now equivalent for "match all"
 
 **Configuration Flexibility for Non-Tool Events:**
+
 ```json
 {
   "hooks": {
@@ -60,6 +65,7 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 ### 3. MCP (Model Context Protocol) Tool Support
 
 **Completely New Feature:**
+
 - Support for MCP tools with special naming pattern
 - Pattern: `mcp__<server>__<tool>`
 - Examples:
@@ -68,23 +74,26 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
   - `mcp__github__search_repositories`
 
 **Matching Strategies:**
+
 ```json
 {
-  "matcher": "mcp__memory__.*",        // All memory server tools
-  "matcher": "mcp__.*__write.*",       // All write operations across MCP servers
-  "matcher": "mcp__github__search.*"   // Specific GitHub search tools
+  "matcher": "mcp__memory__.*", // All memory server tools
+  "matcher": "mcp__.*__write.*", // All write operations across MCP servers
+  "matcher": "mcp__github__search.*" // Specific GitHub search tools
 }
 ```
 
 ### 4. PreCompact Hook Event (NEW)
 
 **Previously Undocumented Event:**
+
 - Fires before Claude Code compacts the context
 - Two trigger types with different matchers:
   - `"manual"` - User invoked via `/compact` command
   - `"auto"` - Automatic due to full context window
 
 **Input Schema:**
+
 ```json
 {
   "session_id": "abc123",
@@ -100,6 +109,7 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 #### A. Universal Fields (All Hooks)
 
 **New Common Control Fields:**
+
 ```json
 {
   "continue": true | false,      // Master control - overrides everything
@@ -113,6 +123,7 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 #### B. PreToolUse Permission Model
 
 **New Granular Control:**
+
 ```json
 {
   "hookSpecificOutput": {
@@ -124,11 +135,13 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 ```
 
 **Behavior Details:**
+
 - `"allow"` - Bypasses permission system, reason shown to user only
 - `"deny"` - Blocks tool call, reason shown to Claude for correction
 - `"ask"` - NEW: Prompts user for confirmation with reason
 
 **Deprecated but Functional:**
+
 ```json
 {
   "decision": "approve" | "block",
@@ -141,6 +154,7 @@ This document provides the COMPLETE technical details of Claude Code July 20 upd
 **Critical Nuance - Two Methods for Context Injection:**
 
 **Method 1 - Simple (Special Case):**
+
 ```python
 # Exit code 0 + stdout = context injection
 print("Current project status: 5 tests failing")
@@ -148,6 +162,7 @@ sys.exit(0)
 ```
 
 **Method 2 - JSON Control:**
+
 ```python
 output = {
     "hookSpecificOutput": {
@@ -167,41 +182,45 @@ sys.exit(0)
 
 ### 1. Exit Code Behavior Matrix
 
-| Hook Event | Exit 0 | Exit 2 | Other |
-|------------|--------|--------|-------|
-| PreToolUse | Allow (stdout → transcript) | Block (stderr → Claude) | Error (continue) |
-| PostToolUse | Continue (stdout → transcript) | Feedback (stderr → Claude) | Error (continue) |
-| UserPromptSubmit | **SPECIAL: stdout → context** | Block (stderr → user) | Error (continue) |
-| Notification | Continue (stdout → transcript) | N/A (stderr → user) | Error (continue) |
-| Stop/SubagentStop | Continue (stdout → transcript) | Block (stderr → Claude) | Error (continue) |
-| PreCompact | Continue (stdout → transcript) | N/A (stderr → user) | Error (continue) |
+| Hook Event        | Exit 0                         | Exit 2                     | Other            |
+| ----------------- | ------------------------------ | -------------------------- | ---------------- |
+| PreToolUse        | Allow (stdout → transcript)    | Block (stderr → Claude)    | Error (continue) |
+| PostToolUse       | Continue (stdout → transcript) | Feedback (stderr → Claude) | Error (continue) |
+| UserPromptSubmit  | **SPECIAL: stdout → context**  | Block (stderr → user)      | Error (continue) |
+| Notification      | Continue (stdout → transcript) | N/A (stderr → user)        | Error (continue) |
+| Stop/SubagentStop | Continue (stdout → transcript) | Block (stderr → Claude)    | Error (continue) |
+| PreCompact        | Continue (stdout → transcript) | N/A (stderr → user)        | Error (continue) |
 
 ### 2. JSON Precedence Rules (Crystal Clear)
 
 **Order of Precedence:**
+
 1. `"continue": false` - ALWAYS wins, stops everything
 2. Hook-specific decisions (`permissionDecision`, `decision`)
 3. Default behavior if no decision specified
 
 **Example showing precedence:**
+
 ```json
 {
-  "continue": false,                    // This wins
-  "stopReason": "Critical error",       // User sees this
-  "decision": "block",                  // IGNORED due to continue=false
-  "reason": "This is never processed"   // IGNORED
+  "continue": false, // This wins
+  "stopReason": "Critical error", // User sees this
+  "decision": "block", // IGNORED due to continue=false
+  "reason": "This is never processed" // IGNORED
 }
 ```
 
 ### 3. Security Model Nuances
 
 **Configuration Snapshot System:**
+
 - Claude Code captures hook configuration at startup
 - External modifications to settings files don't affect running session
 - Changes require review via `/hooks` menu to take effect
 - Prevents malicious runtime hook injection
 
 **Implications:**
+
 - Safe from external tampering during session
 - Must restart Claude Code or use `/hooks` to apply changes
 - Provides audit trail of hook modifications
@@ -209,24 +228,26 @@ sys.exit(0)
 ### 4. Timeout Behavior Details
 
 **Per-Command Timeout Control:**
+
 ```json
 {
   "hooks": [
     {
       "type": "command",
       "command": "quick-check.sh",
-      "timeout": 5  // 5 seconds
+      "timeout": 5 // 5 seconds
     },
     {
-      "type": "command", 
+      "type": "command",
       "command": "slow-analysis.py",
-      "timeout": 300  // 5 minutes
+      "timeout": 300 // 5 minutes
     }
   ]
 }
 ```
 
 **Key Behavior:**
+
 - Default timeout: 60 seconds
 - Individual timeouts don't affect other commands
 - All commands in array run in parallel
@@ -235,12 +256,14 @@ sys.exit(0)
 ### 5. Hook Execution Environment
 
 **Available Environment:**
+
 - Current working directory from hook input `cwd` field
 - User's environment variables
 - `CLAUDE_PROJECT_DIR` (only when Claude Code spawns command)
 - stdin contains JSON hook data
 
 **Execution Details:**
+
 - Parallel execution for multiple matching hooks
 - Output aggregation before returning to Claude
 - Progress shown in transcript mode (Ctrl-R) for most hooks
@@ -249,10 +272,12 @@ sys.exit(0)
 ## Complete Hook Event Reference
 
 ### Tool-Based Events (use matchers)
+
 1. **PreToolUse** - Before tool execution, can block
 2. **PostToolUse** - After tool execution, can provide feedback
 
 ### Non-Tool Events (no matchers needed)
+
 3. **UserPromptSubmit** - Before prompt processing, can inject context
 4. **Notification** - On Claude notifications
 5. **Stop** - When main agent finishes
@@ -262,22 +287,26 @@ sys.exit(0)
 ## Critical Implementation Considerations
 
 ### 1. UserPromptSubmit as Game Changer
+
 - Only hook that can inject context with simple stdout
 - Enables proactive behavior shaping
 - Can block problematic prompts before processing
 - Perfect for dynamic policy injection
 
 ### 2. Ask Permission Pattern
+
 - New `"ask"` option enables user education
 - Better UX than hard blocks for edge cases
 - Builds trust while maintaining security
 
 ### 3. MCP Integration Possibilities
+
 - Hook into any MCP tool operation
 - Enable cross-server policies
 - Monitor and control external integrations
 
 ### 4. Backward Compatibility Maintained
+
 - Old syntax still works but deprecated
 - Smooth migration path available
 - No breaking changes for existing hooks

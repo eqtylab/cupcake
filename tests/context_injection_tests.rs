@@ -203,15 +203,15 @@ UserPromptSubmit:
         .wait_with_output()
         .unwrap();
     
-    // Should exit with code 2 (block)
-    assert_eq!(output.status.code(), Some(2));
+    // Should exit with code 0 (success) but provide JSON response for block
+    assert_eq!(output.status.code(), Some(0));
     
-    // Should output block feedback to stderr
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Dangerous command detected"));
-    
-    // Context should not appear in stdout due to block
+    // Should output JSON with block decision to stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
+    assert!(stdout.contains("\"stopReason\"") && stdout.contains("Dangerous command detected"));
+    
+    // Context should not appear in stdout due to block (block overrides context injection)
     assert!(!stdout.contains("This context won't be seen"));
 }
 

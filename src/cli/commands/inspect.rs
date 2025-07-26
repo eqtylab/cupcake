@@ -125,6 +125,7 @@ impl InspectCommand {
             crate::config::actions::Action::UpdateState { .. } => "update_state".to_string(),
             crate::config::actions::Action::Conditional { .. } => "conditional".to_string(),
             crate::config::actions::Action::InjectContext { .. } => "inject_context".to_string(),
+            crate::config::actions::Action::Ask { .. } => "ask".to_string(),
         }
     }
 

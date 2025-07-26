@@ -1,6 +1,6 @@
 # Cupcake Discovery Report: Claude Code July 20 Integration Analysis
 
-Created: 2025-01-25T11:00:00Z
+Created: 2025-07-21T11:00:00Z
 Type: Discovery Report
 
 ## Executive Summary
@@ -12,12 +12,14 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Hook Integration Architecture
 
 **Current Implementation:**
+
 - **Sync Command**: Currently a stub (`src/cli/commands/sync.rs`) - TODO implementation pending
 - **Hook Registration**: TUI wizard generates stub configurations but doesn't create real Claude Code hooks
 - **Hook Events**: All 7 events are defined in `HookEvent` enum, including UserPromptSubmit
 - **Matcher Support**: Uses empty string `""` for non-tool events (compatible with new syntax)
 
 **Key Findings:**
+
 - ✅ UserPromptSubmit is already defined in the codebase
 - ✅ All hook events from July 20 are present
 - ❌ Sync command needs implementation to register hooks
@@ -26,12 +28,14 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Policy Execution Model
 
 **Current Implementation:**
+
 - **Exit Codes**: Uses 0 (allow) and 2 (block with feedback)
 - **Response Types**: `PolicyDecision` enum with Allow/Block/Approve
 - **JSON Support**: Basic JSON response structure exists but uses old format
 - **Two-Pass System**: Sophisticated feedback aggregation already implemented
 
 **Key Findings:**
+
 - ✅ Exit code model aligns with Claude Code
 - ✅ Two-pass evaluation perfect for new feedback model
 - ❌ JSON output uses deprecated "approve"/"block" format
@@ -41,6 +45,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Action System
 
 **Current Actions:**
+
 - `ProvideFeedback` - Soft action for feedback
 - `BlockWithFeedback` - Hard action to block
 - `Approve` - Hard action to approve
@@ -49,6 +54,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 - `Conditional` - Conditional logic
 
 **Key Findings:**
+
 - ✅ Action system is extensible and well-designed
 - ❌ No "inject_context" action type
 - ❌ Actions don't map to new JSON output format
@@ -58,22 +64,26 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Critical Gaps
 
 1. **No Context Injection Capability**
+
    - UserPromptSubmit exists but can't inject context
    - No mechanism to add stdout to Claude's context
    - Missing "inject_context" action type
 
 2. **Outdated JSON Response Format**
+
    - Still using deprecated "approve"/"block" syntax
    - No support for `permissionDecision` field
    - No support for `hookSpecificOutput` structure
    - Missing universal fields (continue/stopReason/suppressOutput)
 
 3. **Missing Permission Model**
+
    - No "ask" decision type
    - Can't prompt users for confirmation
    - Binary allow/block model only
 
 4. **No MCP Tool Support**
+
    - No awareness of `mcp__` naming pattern
    - Can't create policies targeting MCP tools
 
@@ -84,6 +94,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Architecture Limitations
 
 1. **Hook Configuration Generation**
+
    - Generates old-style configurations
    - Doesn't leverage matcher flexibility
    - No support for timeout per command
@@ -98,11 +109,13 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### High-Value Quick Wins
 
 1. **UserPromptSubmit Context Injection**
+
    - Add stdout → context behavior
    - Create "inject_context" action
    - Enable proactive policy guidance
 
 2. **Update JSON Response Format**
+
    - Implement `permissionDecision` field
    - Add `hookSpecificOutput` support
    - Support universal control fields
@@ -115,11 +128,13 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Medium-Term Enhancements
 
 1. **MCP Tool Integration**
+
    - Pattern matching for `mcp__` tools
    - Policy templates for common MCP servers
    - Cross-server policy support
 
 2. **Enhanced State Management**
+
    - Track prompts in session state
    - Build context from session history
    - Dynamic context generation
@@ -132,6 +147,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Long-Term Strategic Features
 
 1. **Behavioral Guidance System**
+
    - Proactive context injection based on patterns
    - Learning from session history
    - Adaptive policy enforcement
@@ -146,6 +162,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Immediate Changes (Phase 1)
 
 1. **Update Response Handler** (`src/engine/response.rs`)
+
    ```rust
    pub enum PolicyDecision {
        Allow,
@@ -153,7 +170,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
        Approve { reason: Option<String> },
        Ask { reason: String }, // NEW
    }
-   
+
    pub struct CupcakeResponse {
        // Add new fields
        pub permission_decision: Option<String>,
@@ -163,6 +180,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
    ```
 
 2. **Add Context Injection Action** (`src/config/actions.rs`)
+
    ```rust
    pub enum Action {
        // ... existing actions ...
@@ -182,11 +200,13 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Core Enhancements (Phase 2)
 
 1. **Enhanced State Management**
+
    - Add prompt tracking to SessionState
    - Create context generation from state
    - Support dynamic context queries
 
 2. **MCP Tool Support**
+
    - Update matcher logic for `mcp__` pattern
    - Add MCP-aware policy templates
    - Document MCP integration patterns
@@ -199,6 +219,7 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ### Advanced Features (Phase 3)
 
 1. **Behavioral Guidance Engine**
+
    - Context injection based on session patterns
    - Proactive policy suggestions
    - Learning system for effective guidance
@@ -211,24 +232,28 @@ After comprehensive analysis of the Cupcake codebase, I've discovered that Cupca
 ## 5. Implementation Roadmap
 
 ### Week 1: Foundation Updates
+
 - [ ] Update PolicyDecision enum with Ask variant
 - [ ] Implement new JSON response format
 - [ ] Add InjectContext action type
 - [ ] Update response handler for new fields
 
 ### Week 2: Hook Integration
+
 - [ ] Implement sync command properly
 - [ ] Generate new-format hook configurations
 - [ ] Add UserPromptSubmit context injection
 - [ ] Test with Claude Code
 
 ### Week 3: State & Context
+
 - [ ] Enhance state management for prompts
 - [ ] Build context generation system
 - [ ] Implement dynamic context injection
 - [ ] Add session-aware policies
 
 ### Week 4: MCP & Advanced Features
+
 - [ ] Add MCP tool pattern support
 - [ ] Implement $CLAUDE_PROJECT_DIR injection
 - [ ] Create behavioral guidance templates

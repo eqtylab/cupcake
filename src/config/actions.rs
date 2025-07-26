@@ -118,6 +118,11 @@ pub enum Action {
         reason: Option<String>,
     },
 
+    /// Request user confirmation for operation (hard action)
+    Ask {
+        reason: String,
+    },
+
     /// Run a command (can be soft or hard based on on_failure)
     RunCommand {
         /// Command specification for secure execution
@@ -200,6 +205,7 @@ impl Action {
             Action::ProvideFeedback { .. } => ActionType::Soft,
             Action::BlockWithFeedback { .. } => ActionType::Hard,
             Action::Allow { .. } => ActionType::Hard,
+            Action::Ask { .. } => ActionType::Hard,
             Action::RunCommand { on_failure, .. } => match on_failure {
                 OnFailureBehavior::Continue => ActionType::Soft,
                 OnFailureBehavior::Block => ActionType::Hard,
@@ -308,6 +314,12 @@ mod tests {
             timeout_seconds: None,
         };
         assert_eq!(hard_command.action_type(), ActionType::Hard);
+
+        let ask_action = Action::Ask {
+            reason: "Please confirm this operation".to_string(),
+        };
+        assert_eq!(ask_action.action_type(), ActionType::Hard);
+        assert!(ask_action.is_hard_action());
     }
 
     #[test]
@@ -429,5 +441,34 @@ mod tests {
         
         let yaml2 = serde_yaml_ng::to_string(&inject_json).unwrap();
         assert!(yaml2.contains("use_stdout: false"));
+    }
+
+    #[test]
+    fn test_ask_action_serialization() {
+        let ask_action = Action::Ask {
+            reason: "Please confirm this operation".to_string(),
+        };
+
+        // Test classification
+        assert!(ask_action.is_hard_action());
+        assert!(!ask_action.is_soft_action());
+        assert_eq!(ask_action.action_type(), ActionType::Hard);
+
+        // Test YAML serialization
+        let yaml = serde_yaml_ng::to_string(&ask_action).unwrap();
+        assert!(yaml.contains("ask"));
+        assert!(yaml.contains("Please confirm this operation"));
+
+        // Test deserialization
+        let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(ask_action, deserialized);
+
+        // Verify the deserialized action maintains correct properties
+        match deserialized {
+            Action::Ask { reason } => {
+                assert_eq!(reason, "Please confirm this operation");
+            }
+            _ => panic!("Expected Ask action after deserialization"),
+        }
     }
 }

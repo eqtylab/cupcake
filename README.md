@@ -56,7 +56,7 @@ PreToolUse:
           expect_success: false
       action:
         type: "block_with_feedback"
-        message: "Tests must pass before committing"
+        feedback_message: "Tests must pass before committing"
         include_context: true
 
   "Write|Edit":
@@ -74,7 +74,7 @@ PreToolUse:
           expect_success: false
       action:
         type: "block_with_feedback"
-        message: "Read docs/architecture.md before editing engine"
+        feedback_message: "Read docs/architecture.md before editing engine"
         include_context: true
 
 # guardrails/policies/prompt-security.yaml - UserPromptSubmit policies
@@ -113,6 +113,63 @@ Beyond the exec array form for commands, Cupcake supports two other command exec
       find . -name "*.rs" | xargs cargo fmt --check
   on_failure: "block"
 ```
+
+## Action Types
+
+Cupcake supports several action types for different policy enforcement strategies:
+
+### Hard Actions (Stop Policy Evaluation)
+
+- **`allow`**: Explicitly permit the operation with optional reason
+  ```yaml
+  action:
+    type: "allow"
+    reason: "Safe operation - tests passed"
+  ```
+
+- **`ask`**: Request user confirmation before proceeding
+  ```yaml
+  action:
+    type: "ask"
+    reason: "Please confirm this {{tool_name}} operation"
+  ```
+
+- **`block_with_feedback`**: Block operation and provide feedback to Claude
+  ```yaml
+  action:
+    type: "block_with_feedback"
+    feedback_message: "Operation blocked: {{reason}}"
+    include_context: true
+  ```
+
+### Soft Actions (Continue Policy Evaluation)
+
+- **`provide_feedback`**: Provide transcript-only feedback
+  ```yaml
+  action:
+    type: "provide_feedback"
+    message: "Consider using {{tool_name}} carefully"
+    include_context: false
+  ```
+
+- **`inject_context`**: Add context to Claude's awareness
+  ```yaml
+  action:
+    type: "inject_context"
+    context: "Remember to follow coding standards"
+    use_stdout: true
+  ```
+
+- **`run_command`**: Execute commands with conditional blocking
+  ```yaml
+  action:
+    type: "run_command"
+    spec:
+      mode: array
+      command: ["cargo", "fmt", "--check"]
+    on_failure: "block"
+    on_failure_feedback: "Code must be formatted"
+  ```
 
 ## Architecture
 
@@ -256,9 +313,10 @@ NAME                       EVENT       TOOL       ACTION              CONDITIONS
 Git Commit Reminder        PreToolUse  Bash       provide_feedback    tool_input.command ~ "git\s+commit"
 Dangerous Command Warning  PreToolUse  Bash       block_with_feedback tool_input.command ~ "^(rm|dd)\s.*"
 Rust File Formatting       PreToolUse  Edit|Write provide_feedback    tool_input.file_path ~ "\.rs$"
+Permission Request          PreToolUse  Bash       ask                 tool_input.command ~ "^sudo\s"
 File Creation Confirmation PostToolUse Write      provide_feedback    tool_name = "Write"
 
-Total: 4 policies
+Total: 5 policies
 ```
 
 Perfect for debugging and understanding which policies are active.
@@ -274,9 +332,10 @@ Cupcake integrates with Claude Code through hooks:
 - **Stop/SubagentStop**: Handle session termination events
 - **PreCompact**: Manage context compaction events
 
-Response handling:
-- **Exit code 0**: Soft feedback (transcript only)
-- **Exit code 2**: Hard block (Claude sees feedback)
+Response handling via JSON protocol (Claude Code July 20):
+- **Soft feedback**: JSON with context injection for transcript visibility
+- **Hard decisions**: JSON with `permissionDecision` field ("allow", "deny", "ask")
+- **Context injection**: JSON with `additionalContext` for behavioral guidance
 
 ### Available Fields for Conditions
 

@@ -89,10 +89,7 @@ impl PolicyEvaluator {
         let decision = match hard_decision {
             HardDecision::Allow { reason } => {
                 // Either no hard action found or explicit allow action
-                match reason {
-                    Some(r) => EngineDecision::Approve { reason: Some(r) },
-                    None => EngineDecision::Allow,
-                }
+                EngineDecision::Allow { reason }
             }
             HardDecision::Block { feedback } => {
                 // Combine hard block feedback with all collected feedback
@@ -223,6 +220,12 @@ impl PolicyEvaluator {
                                 .as_ref()
                                 .map(|r| self.substitute_templates(r, evaluation_context));
                             Ok(HardDecision::Allow {
+                                reason: substituted_reason,
+                            })
+                        }
+                        crate::config::actions::Action::Ask { reason } => {
+                            let substituted_reason = self.substitute_templates(reason, evaluation_context);
+                            Ok(HardDecision::Ask {
                                 reason: substituted_reason,
                             })
                         }

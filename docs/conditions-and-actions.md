@@ -9,18 +9,21 @@ This guide explains the condition types (evaluations) and action types available
 1. **pattern** - Regex matching on any field
 2. **match** - Exact value comparison on any field
 3. **check** - Run a command and check exit code
-4. **and** - All conditions must be true
-5. **or** - Any condition must be true
-6. **not** - Inverts a condition
+4. **state_query** - Query session state history
+5. **and** - All conditions must be true
+6. **or** - Any condition must be true
+7. **not** - Inverts a condition
 
 ### Action Types
 
 1. **provide_feedback** - Show message (never blocks)
 2. **block_with_feedback** - Block operation with message
-3. **approve** - Auto-approve (bypass permission prompt)
+3. **allow** - Auto-allow (bypass permission prompt)
 4. **run_command** - Execute a command
 5. **update_state** - Record custom event to state
 6. **conditional** - If/then/else based on a condition
+7. **inject_context** - Inject context for UserPromptSubmit
+8. **ask** - Ask user for confirmation
 
 ### When Actions Execute
 
@@ -46,18 +49,18 @@ sequenceDiagram
 
     alt All Conditions Match
         Policy->>Action: Execute Action
-        alt Hard Action (Block)
-            Action->>Cupcake: Block Decision
-            Cupcake->>Hook: Exit 2 + Feedback
-            Hook->>Claude: Tool Blocked + Reason
+        alt Hard Action (Block, Ask, Allow)
+            Action->>Cupcake: Hard Decision
+            Cupcake->>Hook: JSON Response (e.g., {"permissionDecision": "deny", "permissionDecisionReason": "..."})
+            Hook->>Claude: Tool Blocked/Proceeds + Reason
         else Soft Action (Feedback)
             Action->>Cupcake: Feedback Message
-            Cupcake->>Hook: Exit 0 + Message
+            Cupcake->>Hook: JSON Response ({"permissionDecision": "allow"}) + stdout feedback
             Hook->>Claude: Tool Proceeds + Feedback
         end
     else Conditions Don't Match
         Policy->>Cupcake: No Match
-        Cupcake->>Hook: Exit 0 (Allow)
+        Cupcake->>Hook: JSON Response ({"permissionDecision": "allow"})
         Hook->>Claude: Tool Proceeds
     end
 ```
@@ -140,20 +143,27 @@ stateDiagram-v2
 
     ConditionsMatch --> ProvideFeedback: Soft Action
     ConditionsMatch --> BlockWithFeedback: Hard Action
-    ConditionsMatch --> Approve: Hard Action
+    ConditionsMatch --> Allow: Hard Action
+    ConditionsMatch --> Ask: Hard Action
     ConditionsMatch --> RunCommand: Variable
     ConditionsMatch --> UpdateState: Soft Action
+    ConditionsMatch --> InjectContext: Soft Action
     ConditionsMatch --> Conditional: Variable
 
     ProvideFeedback --> Continue: Never Blocks
     BlockWithFeedback --> Stop: Always Blocks
-    Approve --> Continue: Auto-Approve
+    Allow --> Continue: Auto-Allow
+    Ask --> UserPrompt: Request Confirmation
 
     RunCommand --> CheckExitCode: Execute
     CheckExitCode --> Continue: on_failure=continue
     CheckExitCode --> Stop: on_failure=block & failed
 
     UpdateState --> Continue: Record Event
+    InjectContext --> Continue: Add Context
+    
+    UserPrompt --> Continue: User Approves
+    UserPrompt --> Stop: User Denies
 
     Conditional --> IfBranch: Evaluate Condition
     IfBranch --> ThenAction: True
@@ -185,10 +195,12 @@ graph TD
     subgraph "Action Types"
         Action --> A1[provide_feedback]
         Action --> A2[block_with_feedback]
-        Action --> A3[approve]
+        Action --> A3[allow]
         Action --> A4[run_command]
         Action --> A5[update_state]
         Action --> A6[conditional]
+        Action --> A7[inject_context]
+        Action --> A8[ask]
     end
 
     style Policy fill:#f9f,stroke:#333,stroke-width:2px
@@ -304,7 +316,7 @@ action:
 
 #### Block with Feedback
 
-Prevents the operation and tells Claude why. Claude will try to correct and continue.
+Prevents the operation by returning a JSON response with `permissionDecision: "deny"`. The feedback message is sent to Claude, which will try to correct its action.
 
 ```yaml
 action:
@@ -313,14 +325,24 @@ action:
   include_context: true
 ```
 
-#### Approve
+#### Allow
 
-Auto-approves the tool use, bypassing Claude Code's permission prompt.
+Auto-allows the tool use by returning a JSON response with `permissionDecision: "allow"`. This bypasses Claude Code's permission prompt. The optional `reason` is shown to the user.
 
 ```yaml
 action:
-  type: "approve"
-  reason: "Auto-approved: editing test files" # Shown to user
+  type: "allow"
+  reason: "Auto-allowed: editing test files" # Shown to user
+```
+
+#### Ask
+
+Pauses the operation and prompts the end-user for explicit permission by returning a JSON response with `permissionDecision: "ask"`. This is useful for actions that are potentially sensitive but not always prohibited.
+
+```yaml
+action:
+  type: "ask"
+  reason: "You are attempting to edit a production configuration file. Are you sure?"
 ```
 
 #### Run Command
@@ -375,8 +397,21 @@ action:
     type: "block_with_feedback"
     feedback_message: "Production environment detected. Manual approval required."
   else:
-    type: "approve"
-    reason: "Development environment - auto-approved"
+    type: "allow"
+    reason: "Development environment - auto-allowed"
+```
+
+#### Inject Context
+
+Injects additional context into Claude's prompt processing for UserPromptSubmit events. The context is provided to Claude to help guide its response.
+
+```yaml
+action:
+  type: "inject_context"
+  context: |
+    Important: The user is working in a production environment.
+    Please double-check any destructive operations.
+  use_stdout: true  # Use stdout method (default) or JSON method
 ```
 
 ### Execution Flow
@@ -385,14 +420,14 @@ action:
 2. **Policy Matching** - Policies are filtered by event type and tool matcher
 3. **Condition Evaluation** - All conditions must evaluate to true
 4. **Action Execution** - The action runs if conditions match
-5. **Response** - Cupcake returns appropriate exit code and output to Claude Code
+5. **Response** - Cupcake returns JSON response to Claude Code
 
 ### Two-Pass Evaluation
 
 Cupcake uses a two-pass model to provide comprehensive feedback:
 
 1. **Pass 1**: Collects all `provide_feedback` messages
-2. **Pass 2**: Finds the first hard action (`block_with_feedback`, `approve`, etc.)
+2. **Pass 2**: Finds the first hard action (`block_with_feedback`, `allow`, `ask`, etc.)
 
 This ensures Claude receives all relevant feedback, not just the first match.
 
@@ -438,14 +473,14 @@ PreToolUse:
 ```yaml
 PreToolUse:
   "Write":
-    - name: "Auto-approve test files"
+    - name: "Auto-allow test files"
       conditions:
         - type: "pattern"
           field: "tool_input.file_path"
           regex: "(\\.test\\.|_test\\.|/tests?/)"
       action:
-        type: "approve"
-        reason: "Test file modification auto-approved"
+        type: "allow"
+        reason: "Test file modification auto-allowed"
 ```
 
 ### Field Reference

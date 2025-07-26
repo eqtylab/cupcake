@@ -9,10 +9,9 @@ This guide explains the condition types (evaluations) and action types available
 1. **pattern** - Regex matching on any field
 2. **match** - Exact value comparison on any field
 3. **check** - Run a command and check exit code
-4. **state_query** - Query session state history
-5. **and** - All conditions must be true
-6. **or** - Any condition must be true
-7. **not** - Inverts a condition
+4. **and** - All conditions must be true
+5. **or** - Any condition must be true
+6. **not** - Inverts a condition
 
 ### Action Types
 
@@ -20,10 +19,9 @@ This guide explains the condition types (evaluations) and action types available
 2. **block_with_feedback** - Block operation with message
 3. **allow** - Auto-allow (bypass permission prompt)
 4. **run_command** - Execute a command
-5. **update_state** - Record custom event to state
-6. **conditional** - If/then/else based on a condition
-7. **inject_context** - Inject context for UserPromptSubmit
-8. **ask** - Ask user for confirmation
+5. **conditional** - If/then/else based on a condition
+6. **inject_context** - Inject context for UserPromptSubmit
+7. **ask** - Ask user for confirmation
 
 ### When Actions Execute
 
@@ -146,7 +144,6 @@ stateDiagram-v2
     ConditionsMatch --> Allow: Hard Action
     ConditionsMatch --> Ask: Hard Action
     ConditionsMatch --> RunCommand: Variable
-    ConditionsMatch --> UpdateState: Soft Action
     ConditionsMatch --> InjectContext: Soft Action
     ConditionsMatch --> Conditional: Variable
 
@@ -159,7 +156,6 @@ stateDiagram-v2
     CheckExitCode --> Continue: on_failure=continue
     CheckExitCode --> Stop: on_failure=block & failed
 
-    UpdateState --> Continue: Record Event
     InjectContext --> Continue: Add Context
     
     UserPrompt --> Continue: User Approves
@@ -197,10 +193,9 @@ graph TD
         Action --> A2[block_with_feedback]
         Action --> A3[allow]
         Action --> A4[run_command]
-        Action --> A5[update_state]
-        Action --> A6[conditional]
-        Action --> A7[inject_context]
-        Action --> A8[ask]
+        Action --> A5[conditional]
+        Action --> A6[inject_context]
+        Action --> A7[ask]
     end
 
     style Policy fill:#f9f,stroke:#333,stroke-width:2px
@@ -365,20 +360,6 @@ The `on_failure` options:
 - `"block"` - If command exits non-zero, block the operation
 - `"continue"` - Run command but don't block on failure
 
-#### Update State
-
-Records custom events to Cupcake's state system for use in future conditions.
-
-```yaml
-action:
-  type: "update_state"
-  event: "DatabaseMigrationRun"
-  data:
-    version: "1.2.3"
-    timestamp: "{{now}}"
-```
-
-Note: Tool usage (Read, Write, Bash, etc.) is automatically tracked. Use update_state only for custom business logic events.
 
 #### Conditional
 

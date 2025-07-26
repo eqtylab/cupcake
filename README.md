@@ -18,7 +18,6 @@ Cupcake transforms natural language rules from CLAUDE.md files into deterministi
 ## Core Features
 
 - **Behavioral Guidance**: Inject context and reminders directly into Claude's awareness
-- **Stateful Workflows**: Track tool usage history and enforce time-based policies
 - **Project-Specific Policies**: Support for $CLAUDE_PROJECT_DIR for multi-project setups
 - **MCP Tool Support**: Pattern matching for Model Context Protocol tools
 - **Two-Pass Evaluation**: Aggregates all feedback before decisions
@@ -69,9 +68,9 @@ PreToolUse:
         - type: "check"
           spec:
             mode: array
-            command: ["cupcake"]
-            args: ["state", "has-read-file", "docs/architecture.md"]
-          expect_success: false
+            command: ["test"]
+            args: ["-f", "docs/architecture.md"]
+          expect_success: true
       action:
         type: "block_with_feedback"
         feedback_message: "Read docs/architecture.md before editing engine"
@@ -175,7 +174,6 @@ Cupcake supports several action types for different policy enforcement strategie
 
 - **CLI Binary**: Single Rust executable with init, sync, run, validate commands
 - **Hook Integration**: Registers with Claude Code's lifecycle events
-- **State Management**: Session tracking in `.cupcake/state/`
 - **Policy Cache**: Binary serialization for fast loading
 - **Two-pass evaluation**: Collects all feedback, then checks for blocks
 
@@ -222,44 +220,18 @@ UserPromptSubmit:
         - type: pattern
           field: prompt
           regex: "(?i)commit"
-        - type: not
-          condition:
-            type: state_query
-            filter:
-              tool: Bash
-              command_contains: "test"
-              result: success
-              within_minutes: 15
+        - type: pattern
+          field: prompt
+          regex: "(?!.*test).*"
       action:
         type: inject_context
         context: |
           📋 Pre-commit checklist:
-          ✗ Tests haven't been run recently
           
-          Consider running tests before committing.
+          Remember to run tests before committing!
         use_stdout: true
 ```
 
-### Stateful Workflows with StateQuery
-
-Track tool usage history and make decisions based on past actions:
-
-```yaml
-conditions:
-  - type: state_query
-    filter:
-      tool: Bash                    # Tool name
-      command_contains: "npm test"  # Command pattern (optional)
-      result: success              # "success" or "failure" (optional)
-      within_minutes: 30           # Time window (optional)
-    expect_exists: true            # true = must exist, false = must not exist
-```
-
-This enables sophisticated workflows like:
-- Ensure tests pass before allowing commits
-- Prevent dangerous operations after specific actions
-- Enforce time-based cool-downs between operations
-- Track and audit complex multi-step processes
 
 ### Project-Specific Policies
 
@@ -364,7 +336,6 @@ guardrails/
     └── security-checks.yaml
 .cupcake/
 ├── policy.cache         # Binary cache
-├── state/               # Session tracking
 └── audit.log           # Optional audit trail
 .claude/
 └── settings.json       # Hook configuration
@@ -376,7 +347,6 @@ Sub-100ms response times through:
 
 - Binary policy cache
 - Compiled regex patterns
-- Lazy state loading
 - Static binary with zero runtime dependencies
 
 ## Documentation

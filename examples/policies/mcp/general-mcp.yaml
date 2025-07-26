@@ -11,23 +11,17 @@ PreToolUse:
         type: provide_feedback
         feedback: "Using MCP tool: {{tool_name}}"
 
-  # Rate limit MCP tools that send messages or create content
+  # Caution for MCP tools that send messages or create content
   "mcp__.*(send|post|create|publish).*":
-    - name: mcp-rate-limit
-      description: Prevent spam/abuse via MCP messaging tools
-      conditions:
-        - type: state_query
-          filter:
-            tool: "mcp__.*(send|post|create|publish).*"
-            within_minutes: 1
-          expect_exists: true
+    - name: mcp-messaging-caution
+      description: Provide caution for MCP messaging tools
+      conditions: []
       action:
-        type: block_with_feedback
+        type: provide_feedback
         feedback: |
-          ⏱️ Rate limit: Please wait before using {{tool_name}} again.
+          📤 Using messaging/publishing tool: {{tool_name}}
           
-          You've used a similar MCP tool in the last minute.
-          This helps prevent accidental spam or abuse.
+          Please ensure your message content is appropriate.
 
   # Require description for data-modifying MCP operations
   "mcp__.*(create|update|delete|write).*":
@@ -54,21 +48,15 @@ PreToolUse:
   # Prevent mixing of dev/prod operations
   "mcp__(dev|test|staging)__.*":
     - name: dev-prod-isolation-check
-      description: Warn if prod operations happened recently
-      conditions:
-        - type: state_query
-          filter:
-            tool: "mcp__prod__.*"
-            within_minutes: 30
-          expect_exists: true
+      description: Warn when using dev tools
+      conditions: []
       action:
         type: provide_feedback
         feedback: |
-          ⚠️  Environment Warning
+          ⚠️  Environment Check
           
-          You're using a dev/test MCP tool ({{tool_name}}) but have recently
-          used production MCP tools. Please double-check you're in the right
-          environment to avoid mixing dev and prod operations.
+          You're using a dev/test MCP tool ({{tool_name}}). Please ensure
+          you're in the correct environment to avoid mixing dev and prod operations.
 
   "mcp__prod__.*":
     - name: prod-operation-warning
@@ -107,16 +95,12 @@ UserPromptSubmit:
           Use 'cupcake inspect' to see policies for MCP tools.
           Policies can match patterns like "mcp__github__.*" for all GitHub tools.
 
-# State tracking for MCP operations
+# MCP operation logging
 PostToolUse:
   "mcp__.*":
-    - name: track-mcp-state
-      description: Track all MCP operations for state queries
+    - name: log-mcp-operations
+      description: Log all MCP operations for audit trail
       conditions: []
       action:
-        type: update_state
-        event_name: mcp_operation
-        data:
-          server: "{{tool_name}}"  # Will extract server name in analysis
-          timestamp: "{{timestamp}}"
-          success: "{{tool_response}}"  # Track if operation succeeded
+        type: provide_feedback
+        feedback: "MCP operation completed: {{tool_name}}"

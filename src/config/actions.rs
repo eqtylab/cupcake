@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::conditions::Condition;
 
@@ -137,17 +136,6 @@ pub enum Action {
         timeout_seconds: Option<u32>,
     },
 
-    /// Update session state with custom data
-    UpdateState {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        event: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        key: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        value: Option<serde_json::Value>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        data: Option<HashMap<String, serde_json::Value>>,
-    },
 
     /// Conditional action based on runtime condition
     Conditional {
@@ -210,7 +198,6 @@ impl Action {
                 OnFailureBehavior::Continue => ActionType::Soft,
                 OnFailureBehavior::Block => ActionType::Hard,
             },
-            Action::UpdateState { .. } => ActionType::Soft,
             Action::InjectContext { .. } => ActionType::Soft,
             Action::Conditional {
                 then_action,
@@ -238,10 +225,6 @@ impl Action {
         matches!(self, Action::RunCommand { .. })
     }
 
-    /// Check if this action modifies state
-    pub fn modifies_state(&self) -> bool {
-        matches!(self, Action::UpdateState { .. })
-    }
 
     /// Check if this action is a "soft" action (feedback only)
     pub fn is_soft_action(&self) -> bool {
@@ -402,13 +385,6 @@ mod tests {
         };
         assert!(run_command.requires_execution());
 
-        let update_state = Action::UpdateState {
-            event: Some("test".to_string()),
-            key: None,
-            value: None,
-            data: None,
-        };
-        assert!(update_state.modifies_state());
     }
 
     #[test]

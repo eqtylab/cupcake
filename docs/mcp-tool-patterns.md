@@ -88,43 +88,14 @@ PreToolUse:
     - name: require-confirmation
       description: Require confirmation for filesystem/github operations
       conditions:
-        - type: not
-          condition:
-            type: state_query
-            filter:
-              tool: Bash
-              command_contains: "confirm"
-              within_minutes: 5
+        - type: pattern
+          field: tool_input.command
+          regex: "^(?!.*confirm).*"
       action:
         type: block_with_feedback
         feedback: "Please run 'confirm' command before using {{tool_name}}"
 ```
 
-## State-Aware MCP Policies
-
-Combine MCP patterns with StateQuery conditions for sophisticated workflows:
-
-```yaml
-UserPromptSubmit:
-  "*":
-    - name: mcp-usage-summary
-      description: Provide summary of recent MCP tool usage
-      conditions:
-        - type: pattern
-          field: prompt
-          regex: "(?i)what.*mcp.*tools"
-        - type: state_query
-          filter:
-            tool: "mcp__.*"  # Regex patterns work in StateQuery too
-            within_minutes: 60
-          expect_exists: true
-      action:
-        type: inject_context
-        context: |
-          Recent MCP tool usage in the last hour:
-          - Check session transcript for detailed MCP operations
-          - Use 'cupcake inspect' to see active MCP policies
-```
 
 ## Best Practices
 
@@ -149,11 +120,9 @@ UserPromptSubmit:
    "mcp__slack__send_message":
      - name: prevent-spam
        conditions:
-         - type: state_query
-           filter:
-             tool: "mcp__slack__send_message"
-             within_minutes: 1
-           expect_exists: false  # No messages in last minute
+         - type: pattern
+           field: tool_input.message
+           regex: "^(?!.*urgent).*"  # Example: allow only urgent messages
    ```
 
 4. **Document Intent**: Use clear names and descriptions

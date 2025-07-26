@@ -224,15 +224,18 @@ Cupcake integrates seamlessly with Claude Code hooks:
 Block shell commands in production:
 
 ```yaml
-policies:
-  - name: "Block shell in production"
-    hook_event: PreToolUse
-    matcher: "Bash"
-    conditions:
-      - state_exists: "production_env"
-    action:
-      block_with_feedback:
+PreToolUse:
+  "Bash":
+    - name: "Block shell in production"
+      description: "Prevent shell commands in production environment"
+      conditions:
+        - type: "match"
+          field: "env.APP_ENV"
+          value: "production"
+      action:
+        type: "block_with_feedback"
         feedback_message: "Shell commands not allowed in production. Use array format."
+        include_context: true
 ```
 
 ## Best Practices

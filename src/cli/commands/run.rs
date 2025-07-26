@@ -1,12 +1,10 @@
 use super::CommandHandler;
-use crate::config::conditions::Condition;
 use crate::config::loader::PolicyLoader;
 use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
 use crate::engine::events::HookEvent;
 use crate::engine::response::EngineDecision;
-use crate::state::manager::StateManager;
 use crate::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -66,24 +64,12 @@ impl CommandHandler for RunCommand {
             }
         }
 
-        // 3. Initialize state manager
-        let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        let mut state_manager = StateManager::new(&current_dir)?;
+        // 3. Get current directory (used by action context)
+        let _current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
 
         // 4. Build evaluation context
-        let mut evaluation_context = self.build_evaluation_context(&hook_event);
+        let evaluation_context = self.build_evaluation_context(&hook_event);
         
-        // Check if any policies use StateQuery conditions
-        let needs_state = configuration.policies.iter().any(|p| 
-            p.conditions.iter().any(|c| self.condition_uses_state_query(c))
-        );
-        
-        // Load session state if needed
-        if needs_state {
-            if let Ok(session_state) = state_manager.get_session_state(&evaluation_context.session_id) {
-                evaluation_context.full_session_state = Some(session_state.clone());
-            }
-        }
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
@@ -147,7 +133,6 @@ impl CommandHandler for RunCommand {
         let action_results = self.execute_matched_actions(
             &evaluation_result.matched_policies,
             &hook_event,
-            &mut state_manager,
             &mut action_executor,
         )?;
 
@@ -179,13 +164,6 @@ impl CommandHandler for RunCommand {
             }
         }
 
-        // 7. Track tool usage for PostToolUse events
-        if let Err(e) = self.track_tool_usage(&mut state_manager, &hook_event) {
-            if self.debug {
-                eprintln!("Debug: Failed to track tool usage: {}", e);
-            }
-            // Non-critical error - continue with response
-        }
 
         // 8. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
@@ -363,7 +341,6 @@ impl RunCommand {
             current_dir: current_dir_path,
             env_vars: std::env::vars().collect(),
             timestamp: Utc::now(),
-            full_session_state: None, // Will be loaded by state manager if needed
             prompt,
         }
     }
@@ -380,42 +357,12 @@ impl RunCommand {
     }
 
     /// Track tool usage in state for PostToolUse events
-    fn track_tool_usage(
-        &self,
-        state_manager: &mut StateManager,
-        hook_event: &HookEvent,
-    ) -> Result<()> {
-        if let HookEvent::PostToolUse {
-            common,
-            tool_name,
-            tool_input,
-            tool_response,
-        } = hook_event
-        {
-            // Extract input as HashMap
-            let input_map = self.extract_tool_input(tool_input);
-
-            // Determine success based on tool response (simplified - could be enhanced)
-            let success = !tool_response.is_null();
-
-            state_manager.add_tool_usage(
-                &common.session_id,
-                tool_name.clone(),
-                input_map,
-                success,
-                Some(tool_response.clone()),
-                None, // Duration not available from hook event
-            )?;
-        }
-        Ok(())
-    }
 
     /// Execute actions for matched policies
     fn execute_matched_actions(
         &self,
         matched_policies: &[crate::engine::evaluation::MatchedPolicy],
         hook_event: &HookEvent,
-        state_manager: &mut StateManager,
         action_executor: &mut ActionExecutor,
     ) -> Result<Vec<(String, ActionResult)>> {
         let mut results = Vec::new();
@@ -431,7 +378,7 @@ impl RunCommand {
             let action_context = self.build_action_context(hook_event);
 
             // Execute the action
-            let result = action_executor.execute(&matched_policy.action, &action_context, Some(state_manager));
+            let result = action_executor.execute(&matched_policy.action, &action_context);
             
             match &result {
                 ActionResult::Success { feedback, .. } => {
@@ -536,19 +483,6 @@ impl RunCommand {
         }
     }
     
-    /// Check if a condition uses StateQuery (recursively)
-    fn condition_uses_state_query(&self, condition: &Condition) -> bool {
-        use crate::config::conditions::Condition;
-        
-        match condition {
-            Condition::StateQuery { .. } => true,
-            Condition::Not { condition } => self.condition_uses_state_query(condition),
-            Condition::And { conditions } | Condition::Or { conditions } => {
-                conditions.iter().any(|c| self.condition_uses_state_query(c))
-            }
-            _ => false,
-        }
-    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,4 @@
 use cupcake::config::actions::Action;
-use cupcake::config::conditions::Condition;
 use cupcake::config::loader::PolicyLoader;
 use std::fs;
 use tempfile::tempdir;
@@ -48,51 +47,6 @@ UserPromptSubmit:
     }
 }
 
-#[test]
-fn test_state_query_condition_parsing() {
-    let temp_dir = tempdir().unwrap();
-    
-    // Create a policy with StateQuery condition
-    let policy_yaml = r#"# Test StateQuery condition
-PreToolUse:
-  "Bash":
-    - name: test-state-query
-      description: Test state query condition
-      conditions:
-        - type: state_query
-          filter:
-            tool: Bash
-            command_contains: "test"
-            result: success
-            within_minutes: 30
-          expect_exists: true
-      action:
-        type: allow
-"#;
-    
-    let policy_path = temp_dir.path().join("state-query.yaml");
-    fs::write(&policy_path, policy_yaml).unwrap();
-    
-    // Load and verify the policy
-    let mut loader = PolicyLoader::new();
-    let config = loader.load_configuration(&policy_path).unwrap();
-    
-    assert_eq!(config.policies.len(), 1);
-    assert_eq!(config.policies[0].name, "test-state-query");
-    
-    // Verify the condition is StateQuery
-    assert_eq!(config.policies[0].conditions.len(), 1);
-    match &config.policies[0].conditions[0] {
-        Condition::StateQuery { filter, expect_exists } => {
-            assert_eq!(filter.tool, "Bash");
-            assert_eq!(filter.command_contains, Some("test".to_string()));
-            assert_eq!(filter.result, Some("success".to_string()));
-            assert_eq!(filter.within_minutes, Some(30));
-            assert_eq!(*expect_exists, true);
-        }
-        _ => panic!("Expected StateQuery condition"),
-    }
-}
 
 #[test]
 fn test_claude_project_dir_support() {
@@ -300,20 +254,18 @@ settings:
     
     fs::write(policies_dir.join("policy1.yaml"), policy1).unwrap();
     
-    // Create second policy file with advanced features
+    // Create second policy file with context injection
     let policy2 = r#"UserPromptSubmit:
   "*":
     - name: policy-2
-      description: Second policy with state query
+      description: Second policy with context injection
       conditions:
-        - type: state_query
-          filter:
-            tool: "Bash"
-            within_minutes: 10
-          expect_exists: false
+        - type: pattern
+          field: prompt
+          regex: "(?i)help"
       action:
         type: inject_context
-        context: "No recent bash commands"
+        context: "Here's some helpful context!"
         use_stdout: true
 "#;
     

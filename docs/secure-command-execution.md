@@ -104,26 +104,29 @@ spec:
 ### YAML Format
 
 ```yaml
-policies:
-  - name: secure-build
-    trigger:
-      event: tool_called
-      name: bash
-      pattern: "cargo build"
-    actions:
-      - type: run_command
+PreToolUse:
+  "Bash":
+    - name: "secure-build"
+      description: "Secure cargo build execution"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "cargo build"
+      action:
+        type: "run_command"
         spec:
           mode: array
           command: ["cargo"]
           args: ["build", "--release"]
           env:
-            - name: RUSTFLAGS
-              value: "-C target-cpu=native"
-          redirectStdout: "build.log"
-          redirectStderr: "error.log"
-          onFailure:
+            RUSTFLAGS: "-C target-cpu=native"
+          redirect_stdout: "build.log"
+          redirect_stderr: "error.log"
+          on_failure:
             - command: ["notify-send"]
               args: ["Build failed"]
+        on_failure: "continue"
+        background: false
 ```
 
 ### Error Handling

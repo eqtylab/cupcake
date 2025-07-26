@@ -55,40 +55,27 @@ PreToolUse:
   # Require confirmation for write operations
   "mcp__filesystem__(write|create|delete|remove).*":
     - name: confirm-filesystem-writes
-      description: Require explicit confirmation before filesystem modifications
-      conditions:
-        - type: not
-          condition:
-            type: state_query
-            filter:
-              tool: Bash
-              command_contains: "confirm"
-              result: success
-              within_minutes: 2
+      description: Ask for confirmation before filesystem modifications
+      conditions: []
       action:
-        type: block_with_feedback
-        feedback: |
-          ✋ Filesystem modification requires confirmation.
+        type: ask
+        reason: |
+          Filesystem modification requested.
           
           Tool: {{tool_name}}
           Path: {{tool_input.path}}
           
-          Please run: confirm "I want to modify {{tool_input.path}}"
+          Are you sure you want to proceed?
 
 PostToolUse:
   # Log all filesystem operations
   "mcp__filesystem__.*":
     - name: audit-filesystem-operations
-      description: Create audit log of all MCP filesystem operations
+      description: Log all MCP filesystem operations
       conditions: []
       action:
-        type: update_state
-        event_name: mcp_filesystem_audit
-        data:
-          tool: "{{tool_name}}"
-          path: "{{tool_input.path}}"
-          operation: "{{tool_name}}"
-          timestamp: "{{timestamp}}"
+        type: provide_feedback
+        feedback: "📝 MCP filesystem operation logged: {{tool_name}} on {{tool_input.path}}"
 
     # Track file deletions specifically
     - name: track-deletions
@@ -101,26 +88,21 @@ PostToolUse:
         type: provide_feedback
         feedback: "📝 File deleted: {{tool_input.path}} - This action has been logged."
 
-# Stateful policies for repeated access patterns
+# Context injection for filesystem usage
 UserPromptSubmit:
   "*":
-    - name: detect-filesystem-scanning
-      description: Detect potential filesystem scanning behavior
+    - name: filesystem-usage-guidance
+      description: Provide guidance for filesystem operations
       conditions:
-        - type: state_query
-          filter:
-            tool: "mcp__filesystem__list_directory"
-            within_minutes: 5
-          expect_exists: true
         - type: pattern
           field: prompt
           regex: "(?i)(list|show|find).*files"
       action:
         type: inject_context
         context: |
-          📊 Filesystem Access Pattern Detected
+          📊 Filesystem Operation Guidance
           
-          You've been listing directories recently. Consider:
+          For efficient filesystem operations, consider:
           - Use specific paths instead of broad scans
           - Explain what you're looking for
           - Use grep/find commands for targeted searches

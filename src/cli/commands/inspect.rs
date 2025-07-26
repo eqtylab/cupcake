@@ -122,7 +122,6 @@ impl InspectCommand {
             crate::config::actions::Action::BlockWithFeedback { .. } => "block_with_feedback".to_string(),
             crate::config::actions::Action::Allow { .. } => "allow".to_string(),
             crate::config::actions::Action::RunCommand { .. } => "run_command".to_string(),
-            crate::config::actions::Action::UpdateState { .. } => "update_state".to_string(),
             crate::config::actions::Action::Conditional { .. } => "conditional".to_string(),
             crate::config::actions::Action::InjectContext { .. } => "inject_context".to_string(),
             crate::config::actions::Action::Ask { .. } => "ask".to_string(),
@@ -206,20 +205,6 @@ impl InspectCommand {
             }
             Condition::Not { condition } => {
                 format!("NOT {}", self.format_single_condition(condition))
-            }
-            Condition::StateQuery { filter, expect_exists } => {
-                let mut parts = vec![filter.tool.clone()];
-                if let Some(cmd) = &filter.command_contains {
-                    parts.push(format!("cmd:*{}*", cmd));
-                }
-                if let Some(result) = &filter.result {
-                    parts.push(format!("={}", result));
-                }
-                if let Some(mins) = filter.within_minutes {
-                    parts.push(format!("<{}m", mins));
-                }
-                let prefix = if *expect_exists { "has" } else { "no" };
-                format!("{} state[{}]", prefix, parts.join(" "))
             }
         }
     }

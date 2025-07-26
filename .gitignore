@@ -1,3 +1,6 @@
 /target
 
 .DS_Store
+
+# Cupcake state artifacts (system is now stateless)
+.cupcake/state/

@@ -3,7 +3,6 @@ pub mod config;
 pub mod engine;
 pub mod error;
 pub mod io;
-pub mod state;
 
 pub use error::{CupcakeError, Result};
 

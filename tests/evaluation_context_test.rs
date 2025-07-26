@@ -16,7 +16,6 @@ fn test_prompt_field_extraction() {
         current_dir: std::env::temp_dir(),
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
-        full_session_state: None,
         prompt: Some("Write a function to calculate factorial".to_string()),
     };
 
@@ -43,7 +42,6 @@ fn test_prompt_field_pattern_matching() {
         current_dir: std::env::temp_dir(),
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
-        full_session_state: None,
         prompt: Some("My API key is sk-1234567890abcdef".to_string()),
     };
 
@@ -70,7 +68,6 @@ fn test_prompt_field_no_match() {
         current_dir: std::env::temp_dir(),
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
-        full_session_state: None,
         prompt: None,
     };
 
@@ -95,7 +92,6 @@ fn test_cwd_from_evaluation_context() {
         current_dir: std::path::PathBuf::from("/home/user/project"),
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
-        full_session_state: None,
         prompt: None,
     };
 

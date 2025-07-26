@@ -1,6 +1,6 @@
 use cupcake::config::{
     actions::{Action, OnFailureBehavior},
-    conditions::{Condition, StateQueryFilter},
+    conditions::Condition,
     types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig, Settings, YamlPolicy},
 };
 use serde_json;
@@ -301,17 +301,6 @@ fn test_action_variants_yaml_serialization() {
             background: false,
             timeout_seconds: Some(30),
         },
-        Action::UpdateState {
-            event: Some("TestEvent".to_string()),
-            key: Some("test_key".to_string()),
-            value: Some(serde_json::json!("test_value")),
-            data: Some({
-                let mut map = HashMap::new();
-                map.insert("key1".to_string(), serde_json::json!("value1"));
-                map.insert("key2".to_string(), serde_json::json!(42));
-                map
-            }),
-        },
         Action::Conditional {
             if_condition: Condition::Match {
                 field: "event_type".to_string(),
@@ -383,25 +372,6 @@ fn test_hook_event_types_yaml_serialization() {
     }
 }
 
-#[test]
-fn test_state_query_filter_yaml_serialization() {
-    let query = StateQueryFilter {
-        tool: "Bash".to_string(),
-        command_contains: Some("npm test".to_string()),
-        result: Some("success".to_string()),
-        within_minutes: Some(30),
-    };
-
-    let yaml_str =
-        serde_yaml_ng::to_string(&query).expect("Failed to serialize state query filter");
-    let deserialized: StateQueryFilter =
-        serde_yaml_ng::from_str(&yaml_str).expect("Failed to deserialize state query filter");
-
-    assert_eq!(deserialized.tool, query.tool);
-    assert_eq!(deserialized.command_contains, query.command_contains);
-    assert_eq!(deserialized.result, query.result);
-    assert_eq!(deserialized.within_minutes, query.within_minutes);
-}
 
 #[test]
 fn test_complex_yaml_policy_serialization() {

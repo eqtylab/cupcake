@@ -29,10 +29,6 @@ You must use the versions for each lib as described in the doc names:
 
 Since cupcake will integrate with claude code, we provide claude code docs in @claude-code-docs/
 
-# design docs
-
-Critical design docs for cupcake are in @design_phase/
-
 # lnr work Overview
 
 lnr is an append-only, file-based lnr work management system designed for AI coding agents. Lnr work is organized into plans - coherent units of effort that match how AI agents naturally operate. The system requires no indices, no status tracking, and no complex tooling. State is derived entirely from which files exist in the directory.
@@ -281,7 +277,3 @@ The Git history becomes a perfect timeline of lnr work progress.
 Just create files as you lnr work. The system emerges from the naming patterns. No tools needed beyond a text editor and Git.
 
 Always read entire files to avoid confusion.
-
-## Github Issues
-
-Issues for some features will be found in @/Users/ramos/cupcake/cupcake-rs/context/issues

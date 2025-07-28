@@ -4,7 +4,6 @@ pub mod state;
 pub mod events;
 pub mod screens;
 pub mod components;
-pub mod theme;
 pub mod discovery;
 pub mod preview;
 pub mod modal;

@@ -1,35 +1,14 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
-use std::sync::Once;
-
-// Ensure we only build the binary once for all tests
-static BUILD_ONCE: Once = Once::new();
-static mut BINARY_PATH: Option<String> = None;
 
 fn get_cupcake_binary() -> String {
-    unsafe {
-        BUILD_ONCE.call_once(|| {
-            // Build the binary
-            let output = Command::new("cargo")
-                .args(&["build"])
-                .output()
-                .expect("Failed to build cupcake");
-            
-            if !output.status.success() {
-                panic!("Failed to build cupcake binary: {}", String::from_utf8_lossy(&output.stderr));
-            }
-            
-            let path = std::env::current_dir()
-                .unwrap()
-                .join("target")
-                .join("debug")
-                .join("cupcake");
-            
-            BINARY_PATH = Some(path.to_string_lossy().to_string());
-        });
-        
-        BINARY_PATH.clone().unwrap()
-    }
+    std::env::current_dir()
+        .unwrap()
+        .join("target")
+        .join("debug")
+        .join("cupcake")
+        .to_string_lossy()
+        .to_string()
 }
 
 #[test]

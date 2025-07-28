@@ -338,6 +338,16 @@ settings:
     
     fs::write(policies_dir.join("policy2.yaml"), policy2).unwrap();
     
+    // Force filesystem sync to ensure both files are visible before glob resolution
+    std::fs::File::open(policies_dir.join("policy1.yaml"))
+        .unwrap()
+        .sync_all()
+        .unwrap();
+    std::fs::File::open(policies_dir.join("policy2.yaml"))
+        .unwrap()
+        .sync_all()
+        .unwrap();
+    
     // Load from directory
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration_from_directory(temp_dir.path()).unwrap();

@@ -304,8 +304,7 @@ impl Default for ConditionEvaluator {
 }
 
 #[cfg(test)]
-#[allow(dead_code)] // Temporarily disabled for Plan 008 transition
-mod tests_disabled {
+mod tests {
     use super::*;
     use chrono::Utc;
     use pretty_assertions::assert_eq;

@@ -42,7 +42,6 @@ This is a hybrid testing environment with:
 
 ### Database and API Rules
 - Always validate request parameters in API routes
-- Log all database mutations for audit trail
 - Require error handling for all async operations
 - Block direct database access without proper ORM
 - Require rate limiting on public API endpoints

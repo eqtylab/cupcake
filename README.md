@@ -30,7 +30,6 @@ Policies are defined in YAML format using the guardrails structure:
 ```yaml
 # guardrails/cupcake.yaml - Root configuration
 settings:
-  audit_logging: true
   debug_mode: false
 
 imports:
@@ -296,7 +295,7 @@ Support for Model Context Protocol tools with pattern matching:
 PreToolUse:
   # Match all MCP tools
   "mcp__.*":
-    - name: audit-mcp
+    - name: validate-mcp
       ...
   
   # Match specific MCP server
@@ -381,8 +380,7 @@ guardrails/
     ├── code-quality.yaml
     └── security-checks.yaml
 .cupcake/
-├── policy.cache         # Binary cache
-└── audit.log           # Optional audit trail
+└── policy.cache         # Binary cache
 .claude/
 └── settings.json       # Hook configuration
 ```

@@ -1,7 +1,7 @@
 //! Tests for shell command execution with security controls
 //! 
 //! This test suite validates the shell execution functionality including
-//! security controls, audit logging, and proper error handling.
+//! security controls and proper error handling.
 
 use cupcake::config::actions::{CommandSpec, ShellCommandSpec};
 use cupcake::config::types::Settings;
@@ -18,7 +18,6 @@ mod shell_execution_tests {
         vars.insert("file_path".to_string(), "/tmp/test.txt".to_string());
         
         let settings = Settings {
-            audit_logging: true,
             debug_mode: true, // Enable debug mode to skip UID dropping in tests
             allow_shell,
             timeout_ms: 30000,
@@ -168,7 +167,7 @@ echo "Cleanup complete"
     }
 
     #[test]
-    fn test_shell_audit_mode_detection() {
+    fn test_shell_mode_detection() {
         let executor = create_executor_with_settings(true);
         
         // Test shell mode detection

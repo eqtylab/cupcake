@@ -14,12 +14,10 @@ mod parser;
 
 use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec};
 use crate::config::types::Settings;
-use crate::engine::audit::{AuditSinkImpl, create_default_sink};
 use parser::StringParser;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::time::Instant;
 
 /// Internal representation of a command execution graph
 /// 
@@ -122,8 +120,6 @@ pub enum ExecutionError {
     #[error("Invalid command specification: {0}")]
     InvalidSpec(String),
     
-    #[error("Audit logging failed: {0}")]
-    AuditFailure(String),
 }
 
 /// The main command executor that transforms specs into secure execution
@@ -132,8 +128,6 @@ pub struct CommandExecutor {
     template_vars: HashMap<String, String>,
     /// Global settings for security controls
     settings: Settings,
-    /// Audit sink for command execution logging
-    audit_sink: AuditSinkImpl,
 }
 
 impl CommandExecutor {
@@ -142,7 +136,6 @@ impl CommandExecutor {
         Self { 
             template_vars,
             settings: Settings::default(), // Use secure defaults
-            audit_sink: create_default_sink(),
         }
     }
 
@@ -151,7 +144,6 @@ impl CommandExecutor {
         Self { 
             template_vars, 
             settings,
-            audit_sink: create_default_sink(),
         }
     }
 
@@ -381,12 +373,12 @@ impl CommandExecutor {
         Ok(result)
     }
 
-    /// Execute a CommandSpec with audit logging and security controls
+    /// Execute a CommandSpec with security controls
     /// 
-    /// This is the main entry point for command execution with full audit trail.
+    /// This is the main entry point for command execution.
     pub async fn execute_spec(&self, spec: &CommandSpec) -> Result<ExecutionResult, ExecutionError> {
         let graph = self.build_graph(spec)?;
-        self.execute_graph_with_audit(spec, &graph).await
+        self.execute_graph(&graph).await
     }
 
     /// Execute a CommandGraph with secure, shell-free process spawning
@@ -394,72 +386,6 @@ impl CommandExecutor {
     /// This implements industry-standard async execution patterns with tokio,
     /// following the principle of elegance through simplicity and safety.
     pub async fn execute_graph(&self, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
-        // This method doesn't have access to original spec, so no audit logging
-        self.execute_graph_internal(graph).await
-    }
-
-    /// Execute CommandGraph with audit logging
-    async fn execute_graph_with_audit(&self, spec: &CommandSpec, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
-        let graph_id = uuid::Uuid::new_v4();
-        let start_time = Instant::now();
-        let start_timestamp = chrono::Utc::now();
-
-        // Determine execution mode
-        let mode = match spec {
-            CommandSpec::Array(_) => "array",
-            CommandSpec::String(_) => "string", 
-            CommandSpec::Shell(_) => "shell",
-        };
-
-        // Check if shell is being used
-        let shell_used = matches!(spec, CommandSpec::Shell(_));
-
-        // Extract command info for audit
-        let (argv, cwd, env) = if let Some(node) = graph.nodes.first() {
-            let mut argv = vec![node.command.program.clone()];
-            argv.extend(node.command.args.clone());
-            
-            let cwd = node.command.working_dir.as_ref()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|| std::env::current_dir()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| "unknown".to_string()));
-                    
-            (argv, cwd, node.command.env_vars.clone())
-        } else {
-            (vec![], "unknown".to_string(), HashMap::new())
-        };
-
-        // Execute the graph
-        let result = self.execute_graph_internal(graph).await?;
-
-        // Calculate duration
-        let duration_ms = start_time.elapsed().as_millis() as u64;
-
-        // Create audit record
-        let audit_record = serde_json::json!({
-            "graph": graph_id.to_string(),
-            "mode": mode,
-            "argv": argv,
-            "cwd": cwd,
-            "env": env,
-            "timestamp": start_timestamp.to_rfc3339(),
-            "exit_code": result.exit_code,
-            "duration_ms": duration_ms,
-            "shell_used": shell_used
-        });
-
-        // Write audit record through the audit sink if audit logging is enabled
-        if self.settings.audit_logging {
-            self.audit_sink.write(&audit_record).await
-                .map_err(|e| ExecutionError::AuditFailure(format!("Failed to write audit log: {}", e)))?;
-        }
-
-        Ok(result)
-    }
-
-    /// Internal graph execution without audit logging
-    async fn execute_graph_internal(&self, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
         let mut final_exit_code = 0;
         let mut captured_stdout = None;
         let mut captured_stderr = None;
@@ -634,7 +560,7 @@ impl CommandExecutor {
     /// This is a placeholder for future seccomp implementation.
     /// In production, this would set up seccomp-bpf filters to restrict system calls.
     fn apply_seccomp_stub(&self, _cmd: &mut tokio::process::Command, command: &Command) -> Result<(), ExecutionError> {
-        // Log seccomp application for audit purposes
+        // Log seccomp application in debug mode
         if self.settings.debug_mode {
             eprintln!("DEBUG: seccomp stub applied to command: {}", command.program);
         }

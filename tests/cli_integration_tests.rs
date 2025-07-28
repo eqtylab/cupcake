@@ -48,7 +48,6 @@ fn test_cli_help_command() {
     assert!(stdout.contains("run"));
     assert!(stdout.contains("sync"));
     assert!(stdout.contains("validate"));
-    assert!(stdout.contains("audit"));
 }
 
 
@@ -106,21 +105,6 @@ fn test_cli_validate_command() {
     );
 }
 
-#[test]
-fn test_cli_audit_command() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&["audit", "--tail", "10", "--format", "json"])
-        .output()
-        .expect("Failed to execute cupcake audit");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    // Audit command is still a stub
-    assert!(stdout.contains("audit command") || stderr.contains("Error"));
-    assert!(stdout.contains("implementation pending") || stderr.contains("not implemented"));
-}
 
 
 #[test]
@@ -177,27 +161,6 @@ fn test_cli_validate_with_format() {
     );
 }
 
-#[test]
-fn test_cli_audit_with_filters() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&[
-            "audit",
-            "--session",
-            "test-session",
-            "--event",
-            "PreToolUse",
-            "--follow",
-        ])
-        .output()
-        .expect("Failed to execute cupcake audit with filters");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Session filter: Some(\"test-session\")"));
-    assert!(stdout.contains("Event filter: Some(\"PreToolUse\")"));
-    assert!(stdout.contains("Follow: true"));
-}
 
 #[test]
 fn test_cli_invalid_command() {
@@ -286,18 +249,6 @@ fn test_cli_validate_default_file() {
     );
 }
 
-#[test]
-fn test_cli_audit_default_format() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&["audit", "--tail", "5"])
-        .output()
-        .expect("Failed to execute cupcake audit with default format");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Format: text"));
-}
 
 #[test]
 fn test_cli_all_subcommands_exist() {
@@ -310,7 +261,7 @@ fn test_cli_all_subcommands_exist() {
         .expect("Failed to execute cupcake --help");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    let expected_commands = vec!["init", "run", "sync", "validate", "audit"];
+    let expected_commands = vec!["init", "run", "sync", "validate"];
 
     for cmd in expected_commands {
         assert!(

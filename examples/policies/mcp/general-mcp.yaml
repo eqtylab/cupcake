@@ -41,7 +41,7 @@ PreToolUse:
           When using {{tool_name}}, please provide a meaningful description
           (at least 10 characters) explaining the change.
           
-          This helps with audit trails and understanding intent.
+          This helps with tracking changes and understanding intent.
 
 # Multi-server coordination policies
 PreToolUse:
@@ -95,11 +95,11 @@ UserPromptSubmit:
           Use 'cupcake inspect' to see policies for MCP tools.
           Policies can match patterns like "mcp__github__.*" for all GitHub tools.
 
-# MCP operation logging
+# MCP operation monitoring
 PostToolUse:
   "mcp__.*":
-    - name: log-mcp-operations
-      description: Log all MCP operations for audit trail
+    - name: monitor-mcp-operations
+      description: Monitor all MCP operations
       conditions: []
       action:
         type: provide_feedback

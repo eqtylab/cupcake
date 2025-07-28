@@ -9,7 +9,6 @@ use std::collections::HashMap;
 fn test_root_config_yaml_serialization() {
     let root_config = RootConfig {
         settings: Settings {
-            audit_logging: true,
             debug_mode: false,
             allow_shell: false,
             timeout_ms: 30000,
@@ -26,10 +25,6 @@ fn test_root_config_yaml_serialization() {
     let deserialized: RootConfig =
         serde_yaml_ng::from_str(&yaml_str).expect("Failed to deserialize from YAML");
 
-    assert_eq!(
-        deserialized.settings.audit_logging,
-        root_config.settings.audit_logging
-    );
     assert_eq!(
         deserialized.settings.debug_mode,
         root_config.settings.debug_mode
@@ -146,7 +141,6 @@ fn test_composed_policy_structure() {
 fn test_root_config_default() {
     let default_config = RootConfig::default();
 
-    assert!(!default_config.settings.audit_logging);
     assert!(!default_config.settings.debug_mode);
     assert_eq!(default_config.imports.len(), 1);
     assert_eq!(default_config.imports[0], "policies/*.yaml");

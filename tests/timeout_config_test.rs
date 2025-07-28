@@ -11,7 +11,6 @@ use std::collections::HashMap;
 #[tokio::test]
 async fn test_custom_timeout_short() {
     let settings = Settings {
-        audit_logging: false,
         debug_mode: true,
         allow_shell: false,
         timeout_ms: 100, // Very short timeout - 100ms
@@ -46,7 +45,6 @@ async fn test_custom_timeout_short() {
 #[tokio::test]
 async fn test_custom_timeout_long() {
     let settings = Settings {
-        audit_logging: false,
         debug_mode: true,
         allow_shell: false,
         timeout_ms: 5000, // 5 second timeout
@@ -106,7 +104,6 @@ async fn test_default_timeout() {
 fn test_timeout_serialization() {
     // Test that timeout_ms can be deserialized from YAML
     let yaml = r#"
-audit_logging: true
 debug_mode: false
 allow_shell: true
 timeout_ms: 60000
@@ -117,7 +114,6 @@ timeout_ms: 60000
     
     // Test that default is used when not specified
     let yaml_no_timeout = r#"
-audit_logging: true
 debug_mode: false
 "#;
     

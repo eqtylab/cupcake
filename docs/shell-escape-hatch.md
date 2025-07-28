@@ -1,6 +1,6 @@
 # Shell Escape Hatch
 
-> Secure shell command execution with explicit governance and comprehensive auditing
+> Secure shell command execution with explicit governance
 
 ## Overview
 
@@ -14,19 +14,17 @@ While Cupcake's secure `array:` and `string:` command formats eliminate shell in
 The shell escape hatch provides this capability with multiple security layers:
 
 1. **Explicit opt-in** via `allow_shell` setting
-2. **Comprehensive auditing** with correlation IDs
-3. **Sandboxing controls** including UID drop and timeouts
-4. **Migration tools** to convert shell to secure formats
+2. **Sandboxing controls** including UID drop and timeouts
+3. **Migration tools** to convert shell to secure formats
 
 ## Security Warning ⚠️
 
 **Shell commands bypass Cupcake's injection protections**. Before enabling shell:
 
 1. Understand the security implications
-2. Audit all shell command usage
+2. Review all shell command usage
 3. Migrate to secure formats where possible
-4. Enable comprehensive audit logging
-5. Restrict shell access in production environments
+4. Restrict shell access in production environments
 
 ## Configuration
 
@@ -38,8 +36,6 @@ settings:
   # SECURITY: Must be explicitly enabled (default: false)
   allow_shell: true
   
-  # RECOMMENDED: Always enable audit logging with shell
-  audit_logging: true
   
   # OPTIONAL: Drop privileges for shell commands
   sandbox_uid: "nobody"  # or numeric: "65534"
@@ -54,7 +50,6 @@ settings:
 ```yaml
 settings:
   allow_shell: true
-  audit_logging: true
   debug_mode: true  # Skip UID drop for debugging
 ```
 
@@ -62,7 +57,6 @@ settings:
 ```yaml
 settings:
   allow_shell: false  # Block all shell commands
-  audit_logging: true
 ```
 
 ## Shell Command Format
@@ -119,30 +113,6 @@ Error: Shell command execution is disabled. Set allow_shell=true in settings to 
 - Prevents runaway scripts
 - Applies to all commands (not just shell)
 
-### 3. Audit Logging
-
-Every shell execution is logged to `~/.cupcake/audit/exec-YYYYMMDD.jsonl`:
-
-```json
-{
-  "graph": "550e8400-e29b-41d4-a716-446655440000",
-  "mode": "shell",
-  "argv": ["/bin/sh", "-c", "echo 'Hello World'"],
-  "cwd": "/home/user/project",
-  "env": {},
-  "timestamp": "2025-01-15T10:00:00Z",
-  "exit_code": 0,
-  "duration_ms": 25,
-  "shell_used": true
-}
-```
-
-Key audit fields:
-- `graph`: Unique execution ID for correlation
-- `mode`: Command type (array/string/shell)
-- `shell_used`: Boolean flag for shell usage
-- `argv`: Actual command array passed to OS
-- `duration_ms`: Execution time for performance monitoring
 
 ## Migration to Secure Formats
 
@@ -247,7 +217,6 @@ Start restrictive and relax as needed:
 1. Begin with `allow_shell: false`
 2. Convert commands to secure array format
 3. Enable shell only for specific environments
-4. Monitor audit logs regularly
 
 ### 2. Shell Script Guidelines
 
@@ -271,21 +240,6 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 ```
 
-### 3. Audit Log Monitoring
-
-Regular audit review script:
-
-```bash
-#!/bin/bash
-# Find all shell executions today
-AUDIT_DIR="$HOME/.cupcake/audit"
-TODAY=$(date +%Y%m%d)
-
-echo "Shell executions today:"
-jq -r 'select(.shell_used == true) | 
-  "\(.timestamp) | \(.argv | join(" ")) | Exit: \(.exit_code)"' \
-  "$AUDIT_DIR/exec-$TODAY.jsonl"
-```
 
 ### 4. Environment Isolation
 
@@ -318,10 +272,6 @@ imports:
 **Error**: "Command execution timeout"
 **Solution**: Increase `timeout_ms` for long-running scripts
 
-### Audit Logs Missing
-
-**Issue**: No logs in ~/.cupcake/audit/
-**Solution**: Enable `audit_logging: true` in settings
 
 ## Security Considerations
 

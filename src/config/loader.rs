@@ -427,7 +427,7 @@ mod tests {
 
         let cupcake_yaml = guardrails_dir.join("cupcake.yaml");
         let mut file = File::create(&cupcake_yaml).unwrap();
-        file.write_all(b"settings:\n  audit_logging: true\nimports:\n  - \"policies/*.yaml\"")
+        file.write_all(b"settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"")
             .unwrap();
 
         let loader = PolicyLoader::new();
@@ -446,7 +446,7 @@ mod tests {
 
         let cupcake_yaml = guardrails_dir.join("cupcake.yaml");
         let mut file = File::create(&cupcake_yaml).unwrap();
-        file.write_all(b"settings:\n  audit_logging: true\nimports:\n  - \"policies/*.yaml\"")
+        file.write_all(b"settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"")
             .unwrap();
 
         let loader = PolicyLoader::new();
@@ -479,7 +479,6 @@ mod tests {
         file.write_all(
             br#"
 settings:
-  audit_logging: true
   debug_mode: false
 imports:
   - "policies/*.yaml"
@@ -491,7 +490,6 @@ imports:
         let loader = PolicyLoader::new();
         let root_config = loader.load_root_config(&cupcake_yaml).unwrap();
 
-        assert!(root_config.settings.audit_logging);
         assert!(!root_config.settings.debug_mode);
         assert_eq!(root_config.imports.len(), 2);
         assert_eq!(root_config.imports[0], "policies/*.yaml");
@@ -788,7 +786,7 @@ PostToolUse:
         let mut file = File::create(&config_path).unwrap();
         file.write_all(
             br#"settings:
-  audit_logging: true
+  debug_mode: false
 imports:
   - "policies/*.yaml"
 "#,
@@ -893,7 +891,6 @@ imports:
         file.write_all(
             br#"
 settings:
-  audit_logging: true
   debug_mode: false
 imports:
   - "policies/*.yaml"

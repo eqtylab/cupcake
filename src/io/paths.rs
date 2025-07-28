@@ -9,8 +9,6 @@ pub struct CupcakePaths {
     pub config_dir: PathBuf,
     /// Cache directory (.cupcake/cache/)
     pub cache_dir: PathBuf,
-    /// Audit log file (.cupcake/audit.log)
-    pub audit_file: PathBuf,
 }
 
 impl CupcakePaths {
@@ -22,12 +20,9 @@ impl CupcakePaths {
 
         let config_dir = dirs.config_dir().to_path_buf();
         let cache_dir = config_dir.join("cache");
-        let audit_file = config_dir.join("audit.log");
-
         Ok(Self {
             config_dir,
             cache_dir,
-            audit_file,
         })
     }
 
@@ -35,12 +30,9 @@ impl CupcakePaths {
     pub fn for_project(project_root: &std::path::Path) -> Self {
         let config_dir = project_root.join(".cupcake");
         let cache_dir = config_dir.join("cache");
-        let audit_file = config_dir.join("audit.log");
-
         Self {
             config_dir,
             cache_dir,
-            audit_file,
         }
     }
 
@@ -126,7 +118,6 @@ mod tests {
         let paths = paths.unwrap();
         assert!(paths.config_dir.ends_with("cupcake"));
         assert!(paths.cache_dir.ends_with("cache"));
-        assert!(paths.audit_file.ends_with("audit.log"));
     }
 
     #[test]
@@ -136,7 +127,6 @@ mod tests {
 
         assert_eq!(paths.config_dir, project_root.join(".cupcake"));
         assert_eq!(paths.cache_dir, project_root.join(".cupcake/cache"));
-        assert_eq!(paths.audit_file, project_root.join(".cupcake/audit.log"));
     }
 
 

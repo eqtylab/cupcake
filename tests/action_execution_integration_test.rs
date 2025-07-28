@@ -14,7 +14,6 @@ mod tests {
         // Create root config
         let root_config = r#"
 settings:
-  audit_logging: false
   debug_mode: false
 
 imports:

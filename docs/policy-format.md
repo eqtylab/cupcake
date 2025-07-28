@@ -32,7 +32,6 @@ The `guardrails/cupcake.yaml` file controls settings and imports:
 
 ```yaml
 settings:
-  audit_logging: true     # Log all policy decisions
   debug_mode: false       # Extra debug output
 
 imports:

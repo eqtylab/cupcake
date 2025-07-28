@@ -68,14 +68,14 @@ PreToolUse:
           Are you sure you want to proceed?
 
 PostToolUse:
-  # Log all filesystem operations
+  # Monitor filesystem operations
   "mcp__filesystem__.*":
-    - name: audit-filesystem-operations
-      description: Log all MCP filesystem operations
+    - name: monitor-filesystem-operations
+      description: Monitor all MCP filesystem operations
       conditions: []
       action:
         type: provide_feedback
-        feedback: "📝 MCP filesystem operation logged: {{tool_name}} on {{tool_input.path}}"
+        feedback: "📝 MCP filesystem operation completed: {{tool_name}} on {{tool_input.path}}"
 
     # Track file deletions specifically
     - name: track-deletions
@@ -86,7 +86,7 @@ PostToolUse:
           value: "mcp__filesystem__delete_file"
       action:
         type: provide_feedback
-        feedback: "📝 File deleted: {{tool_input.path}} - This action has been logged."
+        feedback: "📝 File deleted: {{tool_input.path}} - Please ensure this was intentional."
 
 # Context injection for filesystem usage
 UserPromptSubmit:

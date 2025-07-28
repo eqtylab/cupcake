@@ -73,8 +73,8 @@ You can use more sophisticated regex patterns:
 PreToolUse:
   # Match any MCP tool that modifies data
   "mcp__.*(create|update|delete|write|send).*":
-    - name: audit-mcp-modifications
-      description: Audit all MCP tools that modify data
+    - name: track-mcp-modifications
+      description: Track all MCP tools that modify data
       conditions: []
       action:
         type: run_command

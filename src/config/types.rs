@@ -6,9 +6,6 @@ use super::conditions::Condition;
 /// Global settings for the policy engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    /// Enable structured audit logging
-    #[serde(default)]
-    pub audit_logging: bool,
 
     /// Enable verbose debug logging
     #[serde(default)]
@@ -38,7 +35,6 @@ pub fn default_timeout_ms() -> u64 {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            audit_logging: false,
             debug_mode: false,
             allow_shell: false,
             timeout_ms: default_timeout_ms(),
@@ -50,8 +46,7 @@ impl Default for Settings {
 impl Settings {
     /// Check if settings have non-default values
     pub fn has_non_default_values(&self) -> bool {
-        self.audit_logging 
-            || self.debug_mode 
+        self.debug_mode 
             || self.allow_shell 
             || self.timeout_ms != default_timeout_ms() 
             || self.sandbox_uid.is_some()
@@ -169,7 +164,6 @@ mod tests {
     #[test]
     fn test_settings_default() {
         let settings = Settings::default();
-        assert!(!settings.audit_logging);
         assert!(!settings.debug_mode);
         assert!(!settings.allow_shell); // Security: default to false
         assert_eq!(settings.timeout_ms, 30000); // 30 seconds default

@@ -300,7 +300,6 @@ imports:
   - "policies/*.yaml"
 
 settings:
-  audit_logging: true
   timeout_ms: 3000
 "#;
     
@@ -347,7 +346,6 @@ settings:
     assert_eq!(config.policies.len(), 2);
     
     // Verify settings were loaded
-    assert_eq!(config.settings.audit_logging, true);
     assert_eq!(config.settings.timeout_ms, 3000);
     
     // Verify policies

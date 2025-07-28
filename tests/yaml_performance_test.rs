@@ -13,7 +13,6 @@ fn test_yaml_loading_performance() {
     // Create root config
     let root_config = r#"
 settings:
-  audit_logging: true
   debug_mode: false
 
 imports:
@@ -173,7 +172,7 @@ PreToolUse:
     
     fs::write(
         guardrails_dir.join("cupcake.yaml"),
-        "settings:\n  audit_logging: false\nimports:\n  - \"policies/*.yaml\"\n"
+        "settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"\n"
     ).unwrap();
     fs::write(policies_dir.join("test.yaml"), policy_yaml).unwrap();
     

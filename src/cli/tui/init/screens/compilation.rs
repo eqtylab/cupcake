@@ -45,10 +45,6 @@ pub fn render(frame: &mut Frame, state: &CompilationState) {
 }
 
 fn render_overall_progress(frame: &mut Frame, area: Rect, state: &CompilationState) {
-    let current_phase_name = state.phases.get(state.current_phase)
-        .map(|p| p.name.as_str())
-        .unwrap_or("Initializing");
-    
     let label = format!(
         "{}%  Phase {} of {}",
         (state.overall_progress * 100.0) as u8,

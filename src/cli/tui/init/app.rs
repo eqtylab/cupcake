@@ -11,7 +11,6 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::Result;
 use super::state::*;
 use super::events::*;
-use super::theme::Theme;
 
 /// Main application struct
 pub struct App {
@@ -19,8 +18,6 @@ pub struct App {
     state: WizardState,
     /// Whether the app should quit
     should_quit: bool,
-    /// Theme for styling
-    theme: Theme,
     /// Event sender for background tasks
     event_tx: Option<tokio::sync::mpsc::UnboundedSender<AppEvent>>,
     /// Track Ctrl+C presses for double-press exit
@@ -35,7 +32,6 @@ impl App {
         Self {
             state: WizardState::Landing(LandingState::default()),
             should_quit: false,
-            theme: Theme::default(),
             event_tx: None,
             ctrl_c_count: 0,
             last_ctrl_c: None,

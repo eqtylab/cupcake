@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
 };
 
 use crate::cli::tui::init::state::LandingState;
@@ -160,52 +160,6 @@ fn render_simple(frame: &mut Frame, area: Rect, state: &LandingState) {
     frame.render_widget(text_paragraph, chunks[1]);
 }
 
-fn render_mode_selection(frame: &mut Frame, area: Rect, state: &LandingState) {
-    let mode_text = if state.auto_discovery {
-        vec![
-            Line::from(vec![
-                Span::styled("▶ Auto-discover", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::raw("  "),
-                Span::styled("existing rule files", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(vec![
-                Span::raw("  Manual create"),
-                Span::raw("  "),
-                Span::styled("write rules from scratch", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("↑↓", Style::default().fg(Color::Cyan)),
-                Span::raw(" to switch modes"),
-            ]),
-        ]
-    } else {
-        vec![
-            Line::from(vec![
-                Span::raw("  Auto-discover"),
-                Span::raw("  "),
-                Span::styled("existing rule files", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(vec![
-                Span::styled("▶ Manual create", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::raw("  "),
-                Span::styled("write rules from scratch", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("↑↓", Style::default().fg(Color::Cyan)),
-                Span::raw(" to switch modes"),
-            ]),
-        ]
-    };
-
-    let mode_widget = Paragraph::new(mode_text)
-        .alignment(Alignment::Center)
-        .block(Block::default()
-            .borders(Borders::NONE));
-    
-    frame.render_widget(mode_widget, area);
-}
 
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = Line::from(vec![

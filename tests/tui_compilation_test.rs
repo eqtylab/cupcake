@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn test_compilation_state_with_phases() {
-        let mut state = CompilationState {
+        let state = CompilationState {
             phases: vec![
                 CompilationPhase {
                     name: "Phase 1".to_string(),

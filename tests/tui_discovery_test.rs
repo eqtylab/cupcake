@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use cupcake::cli::tui::init::discovery::{discover_files, mock_discover_files};
 use cupcake::cli::tui::init::state::Agent;
 

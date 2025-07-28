@@ -36,15 +36,17 @@ For full security best practices, see [Security Considerations](/en/docs/claude-
 
 ## Hook Events Overview
 
-Claude Code provides several hook events that run at different points in the workflow:
+Claude Code provides several hook events that run at different points in the
+workflow:
 
 - **PreToolUse**: Runs before tool calls (can block them)
 - **PostToolUse**: Runs after tool calls complete
 - **Notification**: Runs when Claude Code sends notifications
 - **Stop**: Runs when Claude Code finishes responding
-- **SubagentStop**: Runs when subagent tasks complete
+- **Sub Agent Stop**: Runs when sub agent tasks complete
 
-Each event receives different data and can control Claude's behavior in different ways.
+Each event receives different data and can control Claude's behavior in
+different ways.
 
 ## Quickstart
 
@@ -69,9 +71,7 @@ Select `+ Add new matcher…` to run your hook only on Bash tool calls.
 
 Type `Bash` for the matcher.
 
-<Note>
-  Use an empty string `""` to match all tools. The `*` character is not a valid matcher on its own.
-</Note>
+<Note>You can use `*` to match all tools.</Note>
 
 ### Step 3: Add the hook
 
@@ -201,4 +201,5 @@ Block edits to sensitive files:
 
 - For reference documentation on hooks, see [Hooks reference](/en/docs/claude-code/hooks).
 - For comprehensive security best practices and safety guidelines, see [Security Considerations](/en/docs/claude-code/hooks#security-considerations) in the hooks reference documentation.
-- For troubleshooting steps and debugging techniques, see [Debugging](/en/docs/claude-code/hooks#debugging) in the hooks reference documentation.
+- For troubleshooting steps and debugging techniques, see [Debugging](/en/docs/claude-code/hooks#debugging) in the hooks reference
+  documentation.

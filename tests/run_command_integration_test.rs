@@ -245,7 +245,7 @@ PreToolUse:
 
     let stderr_output2 = String::from_utf8_lossy(&output2.stderr);
     assert!(
-        stderr_output2.contains("Debug: Allowing operation"),
+        stderr_output2.contains("Debug: Sending Allow response for PreToolUse event"),
         "Expected allow operation message"
     );
 

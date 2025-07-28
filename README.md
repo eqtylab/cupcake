@@ -78,7 +78,7 @@ PreToolUse:
 
 # guardrails/policies/prompt-security.yaml - UserPromptSubmit policies
 UserPromptSubmit:
-  "":  # Empty string matcher required for non-tool events
+  "":  # Empty string or "*" matcher required in YAML format
     - name: "Block API keys in prompts"
       description: "Prevent accidental exposure of secrets"
       conditions:
@@ -209,8 +209,9 @@ cargo install --path .
 
 ### Behavioral Guidance with Context Injection
 
-Cupcake can inject context directly into Claude's prompt processing, providing gentle guidance without blocking:
+Cupcake can inject context directly into Claude's prompt processing, providing gentle guidance without blocking. This feature supports two modes to match your workflow:
 
+**Simple Mode (Default)** - Lightweight Unix-style injection:
 ```yaml
 UserPromptSubmit:
   "*":
@@ -229,19 +230,63 @@ UserPromptSubmit:
           📋 Pre-commit checklist:
           
           Remember to run tests before committing!
-        use_stdout: true
+        use_stdout: true  # Default - simple stdout injection
 ```
+
+**Advanced Mode** - Structured JSON responses:
+```yaml
+UserPromptSubmit:
+  "*":
+    - name: architecture-guidance
+      description: Provide architectural context
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(?i)(refactor|architecture|design)"
+      action:
+        type: inject_context
+        context: |
+          🏗️ Architecture Guidelines:
+          - Follow SOLID principles
+          - Prefer composition over inheritance
+          - Keep modules loosely coupled
+        use_stdout: false  # Use JSON with additionalContext field
+```
+
+Both modes are fully supported by Claude Code. Choose simple mode for quick context additions, or advanced mode when you need structured responses.
 
 
 ### Project-Specific Policies
 
-Set `$CLAUDE_PROJECT_DIR` to use project-specific policies:
+The `$CLAUDE_PROJECT_DIR` environment variable enables powerful project-aware features:
 
+**Policy Discovery**:
 ```bash
 export CLAUDE_PROJECT_DIR=/path/to/project
 ```
 
 Cupcake will first check `$CLAUDE_PROJECT_DIR/guardrails/cupcake.yaml` before searching upward from the current directory.
+
+**Project-Relative Commands**:
+```yaml
+# Use project-specific scripts in policies
+action:
+  type: run_command
+  spec:
+    mode: array
+    command: ["{{env.CLAUDE_PROJECT_DIR}}/scripts/validate.sh"]
+    args: ["{{file_path}}"]
+
+# Check project-specific files
+conditions:
+  - type: check
+    spec:
+      mode: string
+      command: "test -f {{env.CLAUDE_PROJECT_DIR}}/.cupcake/config.json"
+    expect_success: true
+```
+
+This variable is automatically set by Claude Code when spawning hooks, making your policies portable across different machines and environments.
 
 ### MCP Tool Pattern Matching
 
@@ -264,7 +309,8 @@ PreToolUse:
     - name: dangerous-mcp-ops
       ...
 ```
-   ```
+
+See [MCP Tool Patterns Guide](docs/mcp-tool-patterns.md) for detailed examples and best practices.
 
 ## Commands
 
@@ -352,6 +398,7 @@ Sub-100ms response times through:
 ## Documentation
 
 - [Policy Format](docs/policy-format.md) - Writing YAML policies
+- [MCP Tool Patterns](docs/mcp-tool-patterns.md) - Matching and controlling MCP tools
 - [Secure Command Execution](docs/secure-command-execution.md) - Array and string command modes
 - [Shell Escape Hatch](docs/shell-escape-hatch.md) - Shell mode with security controls
 - [Command Execution Reference](docs/command-execution-reference.md) - Technical details

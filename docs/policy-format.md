@@ -71,10 +71,14 @@ PreToolUse:              # When to evaluate (before tool use)
 For tool events (PreToolUse/PostToolUse):
 - Exact match: `"Bash"`
 - Multiple tools: `"Edit|Write"`
+- All tools: `"*"`
 - Regex pattern: `".*Test$"` (matches any tool ending with "Test")
+- MCP tools: `"mcp__.*"` (matches all MCP tools)
 
 For non-tool events (UserPromptSubmit, Notification, etc.):
-- Must use empty string: `""`
+- In Cupcake's YAML format, a matcher is required as a map key
+- Use `""` (empty string) or `"*"` (wildcard) - both are equivalent
+- Note: This differs from Claude Code's JSON spec where matcher can be omitted
 
 ## Conditions
 
@@ -313,7 +317,7 @@ PreToolUse:
 
 ```yaml
 UserPromptSubmit:
-  "":  # Empty string matcher for non-tool events
+  "":  # Empty string matcher required in YAML (map key)
     - name: "Block Secrets in Prompts"
       conditions:
         - type: "pattern"

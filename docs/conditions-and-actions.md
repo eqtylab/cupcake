@@ -382,18 +382,47 @@ action:
     reason: "Development environment - auto-allowed"
 ```
 
-#### Inject Context
+#### Inject Context (UserPromptSubmit Only)
 
-Injects additional context into Claude's prompt processing for UserPromptSubmit events. The context is provided to Claude to help guide its response.
+Injects additional context into Claude's prompt processing for UserPromptSubmit events. This powerful feature supports two distinct modes, allowing you to choose between simplicity and structure based on your needs.
+
+**Dual-Mode Context Injection:**
+
+1. **Simple Mode (default)**: Uses stdout for Unix-style context injection
+   - Set `use_stdout: true` (this is the default)
+   - Context is printed to stdout with exit code 0
+   - Claude Code reads this and adds it to the prompt context
+   - Ideal for straightforward context additions
+
+2. **Advanced Mode**: Uses JSON response with `additionalContext` field
+   - Set `use_stdout: false`
+   - Context is sent via structured JSON response
+   - Allows for more complex interactions
+   - Can be combined with other response fields
 
 ```yaml
+# Example 1: Simple stdout mode (default)
 action:
   type: "inject_context"
   context: |
     Important: The user is working in a production environment.
     Please double-check any destructive operations.
-  use_stdout: true  # Use stdout method (default) or JSON method
+  use_stdout: true  # Optional, as true is the default
+
+# Example 2: Advanced JSON mode
+action:
+  type: "inject_context"
+  context: |
+    Project Guidelines:
+    - All code must have unit tests
+    - Use TypeScript strict mode
+    - Follow the team's style guide
+  use_stdout: false  # Use JSON response with additionalContext
 ```
+
+Both modes are fully supported by Claude Code's hooks specification. Choose based on your needs:
+- Use **simple mode** for lightweight context injection
+- Use **advanced mode** when you need structured responses or are combining with other features
 
 ### Execution Flow
 

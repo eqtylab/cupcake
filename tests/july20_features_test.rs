@@ -224,7 +224,69 @@ PreToolUse:
     }
 }
 
-// TODO: Add test for Ask action once it's implemented
+#[test]
+fn test_ask_action_parsing() {
+    let temp_dir = tempdir().unwrap();
+    
+    // Create a policy with Ask action
+    let policy_yaml = r#"# Test Ask action
+PreToolUse:
+  "Bash":
+    - name: confirm-dangerous-commands
+      description: Ask user to confirm dangerous commands
+      conditions:
+        - type: pattern
+          field: tool_input.command
+          regex: "^(rm|dd|mkfs|fdisk)\\s"
+      action:
+        type: ask
+        reason: "This command could be destructive. Are you sure you want to run it?"
+"#;
+    
+    let policy_path = temp_dir.path().join("ask.yaml");
+    fs::write(&policy_path, policy_yaml).unwrap();
+    
+    // Load and verify the policy
+    let mut loader = PolicyLoader::new();
+    let config = loader.load_configuration(&policy_path).unwrap();
+    
+    assert_eq!(config.policies.len(), 1);
+    assert_eq!(config.policies[0].name, "confirm-dangerous-commands");
+    assert_eq!(config.policies[0].hook_event.to_string(), "PreToolUse");
+    assert_eq!(config.policies[0].matcher, "Bash");
+    
+    // Verify the action is Ask
+    match &config.policies[0].action {
+        Action::Ask { reason } => {
+            assert_eq!(reason, "This command could be destructive. Are you sure you want to run it?");
+        }
+        _ => panic!("Expected Ask action"),
+    }
+}
+
+#[test]
+fn test_ask_action_json_output() {
+    use cupcake::engine::response::{CupcakeResponse, EngineDecision};
+    
+    // Test that Ask action generates correct JSON output
+    let decision = EngineDecision::Ask {
+        reason: "Please confirm this action".to_string(),
+    };
+    
+    let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
+    
+    // Serialize to JSON and verify structure
+    let json = serde_json::to_value(&response).unwrap();
+    
+    // Verify hookSpecificOutput structure
+    assert!(json["hookSpecificOutput"].is_object());
+    assert_eq!(json["hookSpecificOutput"]["hookEventName"], "PreToolUse");
+    assert_eq!(json["hookSpecificOutput"]["permissionDecision"], "ask");
+    assert_eq!(
+        json["hookSpecificOutput"]["permissionDecisionReason"], 
+        "Please confirm this action"
+    );
+}
 
 #[test]
 fn test_complex_policy_with_imports() {

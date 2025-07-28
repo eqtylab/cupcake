@@ -119,7 +119,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event PreToolUse",
-                            "timeout": 5
+                            "timeout": 5  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }
@@ -131,7 +131,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event PostToolUse",
-                            "timeout": 2
+                            "timeout": 2  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }
@@ -142,7 +142,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event UserPromptSubmit",
-                            "timeout": 1
+                            "timeout": 1  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }
@@ -153,7 +153,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event Notification",
-                            "timeout": 1
+                            "timeout": 1  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }
@@ -164,7 +164,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event Stop",
-                            "timeout": 1
+                            "timeout": 1  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }
@@ -175,7 +175,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event SubagentStop",
-                            "timeout": 1
+                            "timeout": 1  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }
@@ -187,7 +187,7 @@ impl SyncCommand {
                         {
                             "type": "command",
                             "command": "cupcake run --event PreCompact",
-                            "timeout": 1
+                            "timeout": 1  // timeout in seconds per Claude Code spec
                         }
                     ]
                 }

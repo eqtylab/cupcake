@@ -11,42 +11,92 @@ pub fn update_claude_settings() -> Result<()> {
     let settings_path = get_claude_settings_path();
     
     // Create modern hook configuration matching July 20 updates
+    // Uses the correct nested array format per Claude Code spec
     let hooks = json!({
-        "PreToolUse": {
-            "command": "cupcake run PreToolUse",
-            "timeout": 5000,
-            "description": "Cupcake policy evaluation before tool execution"
-        },
-        "PostToolUse": {
-            "command": "cupcake run PostToolUse",
-            "timeout": 2000,
-            "description": "Cupcake policy evaluation after tool execution"
-        },
-        "UserPromptSubmit": {
-            "command": "cupcake run UserPromptSubmit",
-            "timeout": 1000,
-            "description": "Cupcake context injection for user prompts"
-        },
-        "Notification": {
-            "command": "cupcake run Notification",
-            "timeout": 1000,
-            "description": "Cupcake notification handling"
-        },
-        "Stop": {
-            "command": "cupcake run Stop",
-            "timeout": 1000,
-            "description": "Cupcake session cleanup"
-        },
-        "SubagentStop": {
-            "command": "cupcake run SubagentStop",
-            "timeout": 1000,
-            "description": "Cupcake subagent cleanup"
-        },
-        "PreCompact": {
-            "command": "cupcake run PreCompact",
-            "timeout": 1000,
-            "description": "Cupcake pre-compaction handling"
-        }
+        "PreToolUse": [
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event PreToolUse",
+                        "timeout": 5  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event PostToolUse",
+                        "timeout": 2  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ],
+        "UserPromptSubmit": [
+            {
+                // No matcher for non-tool events
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event UserPromptSubmit",
+                        "timeout": 1  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ],
+        "Notification": [
+            {
+                // No matcher for non-tool events
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event Notification",
+                        "timeout": 1  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ],
+        "Stop": [
+            {
+                // No matcher for non-tool events
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event Stop",
+                        "timeout": 1  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ],
+        "SubagentStop": [
+            {
+                // No matcher for non-tool events
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event SubagentStop",
+                        "timeout": 1  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ],
+        "PreCompact": [
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event PreCompact",
+                        "timeout": 1  // seconds per Claude Code spec
+                    }
+                ]
+            }
+        ]
     });
     
     // Read existing settings if present

@@ -20,8 +20,6 @@ pub struct EvaluationContext {
     pub env_vars: HashMap<String, String>,
     /// Timestamp of current evaluation
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    /// Full session state for advanced queries (optional)
-    pub full_session_state: Option<crate::state::types::SessionState>,
     /// Prompt text for UserPromptSubmit events
     pub prompt: Option<String>,
 }
@@ -294,6 +292,7 @@ impl ConditionEvaluator {
             .ok_or_else(|| crate::CupcakeError::Condition("Regex cache inconsistency".to_string()))
     }
 
+
     // Legacy insecure command conversion removed in Plan 008
     // All command execution now uses secure CommandExecutor with zero shell involvement
 }
@@ -339,7 +338,6 @@ mod tests_disabled {
             current_dir: std::env::temp_dir(),
             env_vars,
             timestamp: Utc::now(),
-            full_session_state: None,
             prompt: None,
         }
     }

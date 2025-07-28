@@ -42,28 +42,15 @@ pub enum Condition {
 
     /// Logical OR operator
     Or { conditions: Vec<Condition> },
+
 }
+
 
 /// Default value for expect_success field
 fn default_expect_success() -> bool {
     true
 }
 
-/// State query parameters for tracking tool usage and custom events
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct StateQueryFilter {
-    /// Tool name (Read, Write, Edit, Bash, etc.) - for automatic tracking
-    pub tool: String,
-    /// Command pattern for Bash tool
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub command_contains: Option<String>,
-    /// Result of the operation (success, failure)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<String>,
-    /// Time constraint in minutes
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub within_minutes: Option<u32>,
-}
 
 #[cfg(test)]
 mod tests {
@@ -109,4 +96,5 @@ mod tests {
         let yaml = serde_yaml_ng::to_string(&condition).unwrap();
         let _deserialized: Condition = serde_yaml_ng::from_str(&yaml).unwrap();
     }
+
 }

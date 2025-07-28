@@ -47,7 +47,6 @@ fn test_empty_matcher_for_user_prompt_submit() {
         current_dir: std::path::PathBuf::from("/home/user"),
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
-        full_session_state: None,
         prompt: Some("My API key is sk-1234567890abcdef123456".to_string()),
     };
 
@@ -57,7 +56,7 @@ fn test_empty_matcher_for_user_prompt_submit() {
 
     // Should block due to API key detection
     match result.decision {
-        cupcake::engine::response::PolicyDecision::Block { feedback } => {
+        cupcake::engine::response::EngineDecision::Block { feedback } => {
             assert!(feedback.contains("Detected API key"));
         }
         _ => panic!("Expected block decision"),
@@ -102,7 +101,6 @@ fn test_empty_matcher_only_matches_non_tool_events() {
         current_dir: std::path::PathBuf::from("/home/user"),
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
-        full_session_state: None,
         prompt: None,
     };
 

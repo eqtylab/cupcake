@@ -4,8 +4,7 @@ use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::PolicyEvaluator;
 use crate::engine::events::HookEvent;
-use crate::engine::response::PolicyDecision;
-use crate::state::manager::StateManager;
+use crate::engine::response::EngineDecision;
 use crate::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -65,12 +64,12 @@ impl CommandHandler for RunCommand {
             }
         }
 
-        // 3. Initialize state manager
-        let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        let mut state_manager = StateManager::new(&current_dir)?;
+        // 3. Get current directory (used by action context)
+        let _current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
 
         // 4. Build evaluation context
         let evaluation_context = self.build_evaluation_context(&hook_event);
+        
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
@@ -90,7 +89,7 @@ impl CommandHandler for RunCommand {
                     );
                 }
                 // Graceful degradation - allow operation on evaluation error
-                self.send_response_safely(PolicyDecision::Allow)
+                self.send_response_safely(EngineDecision::Allow { reason: None }, &hook_event)
             }
         };
 
@@ -107,13 +106,19 @@ impl CommandHandler for RunCommand {
             }
         }
 
-        // Output soft feedback to stdout if we're allowing the operation
-        if matches!(evaluation_result.decision, PolicyDecision::Allow)
-            && !evaluation_result.feedback_messages.is_empty()
-        {
-            // Combine all soft feedback messages
-            let feedback_output = evaluation_result.feedback_messages.join("\n");
-            println!("{}", feedback_output);
+        // Special handling for UserPromptSubmit context injection
+        let is_user_prompt_submit = hook_event.event_name() == "UserPromptSubmit";
+        
+        // For UserPromptSubmit, we'll handle stdout differently
+        if !is_user_prompt_submit {
+            // Output soft feedback to stdout if we're allowing the operation (non-UserPromptSubmit)
+            if matches!(evaluation_result.decision, EngineDecision::Allow { .. })
+                && !evaluation_result.feedback_messages.is_empty()
+            {
+                // Combine all soft feedback messages
+                let feedback_output = evaluation_result.feedback_messages.join("\n");
+                println!("{}", feedback_output);
+            }
         }
 
         // 6. Execute actions for matched policies
@@ -128,45 +133,58 @@ impl CommandHandler for RunCommand {
         let action_results = self.execute_matched_actions(
             &evaluation_result.matched_policies,
             &hook_event,
-            &mut state_manager,
             &mut action_executor,
         )?;
 
-        // Check if any action resulted in a block
+        // Check if any action resulted in a block or collect context for injection
         let mut final_decision = evaluation_result.decision.clone();
+        let mut context_to_inject = Vec::new();
+        
         for (_policy_name, result) in &action_results {
-            if let ActionResult::Block { feedback } = result {
-                // An action execution resulted in block - override the evaluation decision
-                final_decision = PolicyDecision::Block {
-                    feedback: feedback.clone(),
-                };
-                break;
+            match result {
+                ActionResult::Block { feedback } => {
+                    // An action execution resulted in block - override the evaluation decision
+                    final_decision = EngineDecision::Block {
+                        feedback: feedback.clone(),
+                    };
+                    break;
+                }
+                ActionResult::Ask { reason } => {
+                    // An action execution resulted in ask - override the evaluation decision
+                    final_decision = EngineDecision::Ask {
+                        reason: reason.clone(),
+                    };
+                    break;
+                }
+                ActionResult::Success { feedback: Some(ctx), .. } if is_user_prompt_submit => {
+                    // Collect context from InjectContext actions
+                    context_to_inject.push(ctx.clone());
+                }
+                _ => {}
             }
         }
 
-        // 7. Track tool usage for PostToolUse events
-        if let Err(e) = self.track_tool_usage(&mut state_manager, &hook_event) {
-            if self.debug {
-                eprintln!("Debug: Failed to track tool usage: {}", e);
-            }
-            // Non-critical error - continue with response
-        }
 
         // 8. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
         let response_decision = if hook_event.event_name() == "PostToolUse"
-            && matches!(final_decision, PolicyDecision::Allow)
+            && matches!(final_decision, EngineDecision::Allow { .. })
             && !evaluation_result.feedback_messages.is_empty()
         {
             // Convert soft feedback to a "block" for PostToolUse so Claude sees it
-            PolicyDecision::Block {
+            EngineDecision::Block {
                 feedback: evaluation_result.feedback_messages.join("\n"),
             }
         } else {
             final_decision
         };
 
-        self.send_response_safely(response_decision)
+        // For UserPromptSubmit, handle context injection via stdout or JSON
+        if is_user_prompt_submit {
+            self.send_response_with_context(response_decision, context_to_inject)
+        } else {
+            self.send_response_safely(response_decision, &hook_event)
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -323,7 +341,6 @@ impl RunCommand {
             current_dir: current_dir_path,
             env_vars: std::env::vars().collect(),
             timestamp: Utc::now(),
-            full_session_state: None, // Will be loaded by state manager if needed
             prompt,
         }
     }
@@ -340,42 +357,12 @@ impl RunCommand {
     }
 
     /// Track tool usage in state for PostToolUse events
-    fn track_tool_usage(
-        &self,
-        state_manager: &mut StateManager,
-        hook_event: &HookEvent,
-    ) -> Result<()> {
-        if let HookEvent::PostToolUse {
-            common,
-            tool_name,
-            tool_input,
-            tool_response,
-        } = hook_event
-        {
-            // Extract input as HashMap
-            let input_map = self.extract_tool_input(tool_input);
-
-            // Determine success based on tool response (simplified - could be enhanced)
-            let success = !tool_response.is_null();
-
-            state_manager.add_tool_usage(
-                &common.session_id,
-                tool_name.clone(),
-                input_map,
-                success,
-                Some(tool_response.clone()),
-                None, // Duration not available from hook event
-            )?;
-        }
-        Ok(())
-    }
 
     /// Execute actions for matched policies
     fn execute_matched_actions(
         &self,
         matched_policies: &[crate::engine::evaluation::MatchedPolicy],
         hook_event: &HookEvent,
-        state_manager: &mut StateManager,
         action_executor: &mut ActionExecutor,
     ) -> Result<Vec<(String, ActionResult)>> {
         let mut results = Vec::new();
@@ -391,7 +378,7 @@ impl RunCommand {
             let action_context = self.build_action_context(hook_event);
 
             // Execute the action
-            let result = action_executor.execute(&matched_policy.action, &action_context, Some(state_manager));
+            let result = action_executor.execute(&matched_policy.action, &action_context);
             
             match &result {
                 ActionResult::Success { feedback, .. } => {
@@ -406,9 +393,14 @@ impl RunCommand {
                         eprintln!("Debug: Action execution resulted in block: {}", feedback);
                     }
                 }
-                ActionResult::Approve { .. } => {
+                ActionResult::Allow { .. } => {
                     if self.debug {
-                        eprintln!("Debug: Action execution resulted in approval");
+                        eprintln!("Debug: Action execution resulted in allow");
+                    }
+                }
+                ActionResult::Ask { reason } => {
+                    if self.debug {
+                        eprintln!("Debug: Action execution resulted in ask: {}", reason);
                     }
                 }
                 ActionResult::Error { message } => {
@@ -423,43 +415,74 @@ impl RunCommand {
     }
 
     /// Send response to Claude Code with error handling
-    fn send_response_safely(&self, decision: PolicyDecision) -> ! {
-        match decision {
-            PolicyDecision::Allow => {
-                if self.debug {
-                    eprintln!("Debug: Allowing operation (exit code 0)");
-                }
-                std::process::exit(0);
-            }
-            PolicyDecision::Block { feedback } => {
-                if self.debug {
-                    eprintln!("Debug: Blocking operation with feedback (exit code 2)");
-                }
-                eprintln!("{}", feedback);
-                std::process::exit(2);
-            }
-            PolicyDecision::Approve { reason } => {
-                if self.debug {
-                    eprintln!("Debug: Approving operation (exit code 0)");
-                }
+    fn send_response_safely(&self, decision: EngineDecision, hook_event: &HookEvent) -> ! {
+        use crate::engine::response::ResponseHandler;
+        
+        // Use ResponseHandler which implements the JSON protocol
+        let handler = ResponseHandler::new(self.debug);
+        
+        // Use hook-aware response method for correct JSON format per event type
+        handler.send_response_for_hook(decision, hook_event.event_name());
+    }
 
-                // Send JSON response for approval
-                match serde_json::to_string(&crate::engine::response::CupcakeResponse::approve(
-                    reason,
-                )) {
-                    Ok(json) => println!("{}", json),
-                    Err(e) => {
-                        eprintln!("Error serializing approval response: {}", e);
-                        if self.debug {
-                            eprintln!("Debug: Graceful degradation - allowing operation despite serialization error");
-                        }
-                        // Graceful degradation - just allow without JSON response
+    /// Send response with context injection for UserPromptSubmit events
+    fn send_response_with_context(&self, decision: EngineDecision, context_to_inject: Vec<String>) -> ! {
+        use crate::engine::response::{CupcakeResponse, HookSpecificOutput, ResponseHandler};
+        
+        let handler = ResponseHandler::new(self.debug);
+        
+        // For UserPromptSubmit, we have special handling based on the decision
+        match &decision {
+            EngineDecision::Allow { .. } => {
+                // For Allow, check if we have context to inject
+                if !context_to_inject.is_empty() {
+                    // Use stdout method: print context to stdout with exit code 0
+                    let combined_context = context_to_inject.join("\n");
+                    if self.debug {
+                        eprintln!("Debug: Injecting context via stdout for UserPromptSubmit");
+                        eprintln!("Debug: Context length: {} chars", combined_context.len());
                     }
+                    println!("{}", combined_context);
+                    std::process::exit(0);
+                } else {
+                    // No context to inject, just allow
+                    if self.debug {
+                        eprintln!("Debug: Allowing UserPromptSubmit without context injection");
+                    }
+                    std::process::exit(0);
                 }
-                std::process::exit(0);
+            }
+            EngineDecision::Block { feedback } => {
+                // For Block, use JSON response to block prompt processing
+                if self.debug {
+                    eprintln!("Debug: Blocking UserPromptSubmit with feedback");
+                }
+                let response = CupcakeResponse {
+                    hook_specific_output: None,
+                    continue_execution: Some(false),
+                    stop_reason: Some(feedback.clone()),
+                    suppress_output: None,
+                };
+                handler.send_json_response(response);
+            }
+            EngineDecision::Ask { reason } => {
+                // For Ask, use JSON response with UserPromptSubmit output
+                if self.debug {
+                    eprintln!("Debug: Sending Ask response for UserPromptSubmit");
+                }
+                let response = CupcakeResponse {
+                    hook_specific_output: Some(HookSpecificOutput::UserPromptSubmit {
+                        additional_context: Some(reason.clone()),
+                    }),
+                    continue_execution: Some(true),
+                    stop_reason: None,
+                    suppress_output: Some(false),
+                };
+                handler.send_json_response(response);
             }
         }
     }
+    
 }
 
 #[cfg(test)]
@@ -489,6 +512,7 @@ mod tests {
             "hook_event_name": "PreToolUse",
             "session_id": "test-session-123",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/home/user/project",
             "tool_name": "Bash",
             "tool_input": {
                 "command": "echo 'Hello, World!'",
@@ -521,6 +545,7 @@ mod tests {
             "hook_event_name": "Notification",
             "session_id": "test-session-456",
             "transcript_path": "/tmp/transcript.jsonl",
+            "cwd": "/home/user/project",
             "message": "Claude needs your permission to use Bash"
         }
         "#;

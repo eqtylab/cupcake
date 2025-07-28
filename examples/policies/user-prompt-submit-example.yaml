@@ -51,8 +51,8 @@ UserPromptSubmit:
         feedback_message: "This prompt appears to request a potentially destructive action. Please reconsider."
         include_context: true
 
-    # Log certain types of prompts for audit purposes
-    - name: "Audit security-related prompts"
+    # Monitor certain types of prompts
+    - name: "Monitor security-related prompts"
       conditions:
         - type: pattern
           field: prompt
@@ -87,7 +87,7 @@ UserPromptSubmit:
 # 3. Common use cases include:
 #    - Blocking sensitive information (API keys, passwords, credentials)
 #    - Warning about potentially dangerous operations
-#    - Logging/auditing certain types of requests
+#    - Logging/monitoring certain types of requests
 #    - Enforcing prompt guidelines or best practices
 # 4. Available fields for conditions:
 #    - prompt: The user's prompt text

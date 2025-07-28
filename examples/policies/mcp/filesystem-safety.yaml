@@ -1,0 +1,110 @@
+# MCP Filesystem Server Safety Policies
+# Protect against dangerous filesystem operations via MCP
+
+PreToolUse:
+  # Block access to sensitive system directories
+  "mcp__filesystem__.*":
+    - name: block-system-directories
+      description: Prevent MCP filesystem access to sensitive system directories
+      conditions:
+        - type: or
+          conditions:
+            - type: pattern
+              field: tool_input.path
+              regex: "^/etc/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/var/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/usr/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/System/"  # macOS
+            - type: pattern
+              field: tool_input.path
+              regex: "^C:\\\\Windows"  # Windows
+      action:
+        type: block_with_feedback
+        feedback: |
+          🚫 Access Denied: MCP filesystem operations in system directories are not allowed.
+          
+          Blocked path: {{tool_input.path}}
+          
+          If you need to read system configuration, please explain your use case.
+
+    # Warn about home directory access
+    - name: warn-home-directory
+      description: Warn when accessing home directory via MCP
+      conditions:
+        - type: or
+          conditions:
+            - type: pattern
+              field: tool_input.path
+              regex: "^/home/"
+            - type: pattern
+              field: tool_input.path
+              regex: "^/Users/"
+            - type: pattern
+              field: tool_input.path
+              regex: "~/|\\$HOME"
+      action:
+        type: provide_feedback
+        feedback: "⚠️  Accessing home directory via MCP. Be careful with personal files."
+
+  # Require confirmation for write operations
+  "mcp__filesystem__(write|create|delete|remove).*":
+    - name: confirm-filesystem-writes
+      description: Ask for confirmation before filesystem modifications
+      conditions: []
+      action:
+        type: ask
+        reason: |
+          Filesystem modification requested.
+          
+          Tool: {{tool_name}}
+          Path: {{tool_input.path}}
+          
+          Are you sure you want to proceed?
+
+PostToolUse:
+  # Monitor filesystem operations
+  "mcp__filesystem__.*":
+    - name: monitor-filesystem-operations
+      description: Monitor all MCP filesystem operations
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: "📝 MCP filesystem operation completed: {{tool_name}} on {{tool_input.path}}"
+
+    # Track file deletions specifically
+    - name: track-deletions
+      description: Special tracking for file deletions
+      conditions:
+        - type: match
+          field: tool_name
+          value: "mcp__filesystem__delete_file"
+      action:
+        type: provide_feedback
+        feedback: "📝 File deleted: {{tool_input.path}} - Please ensure this was intentional."
+
+# Context injection for filesystem usage
+UserPromptSubmit:
+  "*":
+    - name: filesystem-usage-guidance
+      description: Provide guidance for filesystem operations
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(?i)(list|show|find).*files"
+      action:
+        type: inject_context
+        context: |
+          📊 Filesystem Operation Guidance
+          
+          For efficient filesystem operations, consider:
+          - Use specific paths instead of broad scans
+          - Explain what you're looking for
+          - Use grep/find commands for targeted searches
+          
+          This helps maintain system performance and security.

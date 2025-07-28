@@ -48,30 +48,8 @@ fn test_cli_help_command() {
     assert!(stdout.contains("run"));
     assert!(stdout.contains("sync"));
     assert!(stdout.contains("validate"));
-    assert!(stdout.contains("audit"));
 }
 
-#[test]
-fn test_cli_init_command() {
-    let cupcake_binary = get_cupcake_binary();
-    let temp_dir = tempdir().unwrap();
-    let output_dir = temp_dir.path().join("test-guardrails");
-
-    let output = Command::new(&cupcake_binary)
-        .args(&[
-            "init",
-            "--output",
-            output_dir.to_str().unwrap(),
-            "--yes",
-        ])
-        .output()
-        .expect("Failed to execute cupcake init");
-
-    // Should succeed and create the guardrails structure
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Cupcake guardrails initialized successfully"));
-    assert!(stdout.contains("Created structure"));
-}
 
 #[test]
 fn test_cli_run_command() {
@@ -100,8 +78,9 @@ fn test_cli_sync_command() {
         .expect("Failed to execute cupcake sync");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("sync command"));
-    assert!(stdout.contains("implementation pending"));
+    // Sync command shows syncing message and dry run mode
+    assert!(stdout.contains("Syncing Cupcake hooks") || stdout.contains("🔄"));
+    assert!(stdout.contains("Dry run mode") || stdout.contains("🔍"));
 }
 
 #[test]
@@ -126,41 +105,7 @@ fn test_cli_validate_command() {
     );
 }
 
-#[test]
-fn test_cli_audit_command() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&["audit", "--tail", "10", "--format", "json"])
-        .output()
-        .expect("Failed to execute cupcake audit");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("audit command"));
-    assert!(stdout.contains("implementation pending"));
-}
-
-#[test]
-fn test_cli_init_with_verbose() {
-    let cupcake_binary = get_cupcake_binary();
-    let temp_dir = tempdir().unwrap();
-    let output_dir = temp_dir.path().join("verbose-test-guardrails");
-
-    let output = Command::new(&cupcake_binary)
-        .args(&[
-            "init",
-            "--output",
-            output_dir.to_str().unwrap(),
-            "--verbose",
-            "--yes",
-        ])
-        .output()
-        .expect("Failed to execute cupcake init --verbose");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Output directory:"));
-    assert!(stdout.contains("Initializing Cupcake guardrails"));
-}
 
 #[test]
 fn test_cli_run_with_debug() {
@@ -190,8 +135,10 @@ fn test_cli_sync_with_force() {
         .expect("Failed to execute cupcake sync --force");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Force: true"));
-    assert!(stdout.contains("Dry run: true"));
+    // Sync command with force and dry-run shows appropriate output
+    assert!(stdout.contains("Dry run mode") || stdout.contains("🔍") || stdout.contains("would write"));
+    // The JSON output should be present in dry run mode
+    assert!(stdout.contains("hooks") || stdout.contains("PreToolUse"));
 }
 
 #[test]
@@ -214,27 +161,6 @@ fn test_cli_validate_with_format() {
     );
 }
 
-#[test]
-fn test_cli_audit_with_filters() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&[
-            "audit",
-            "--session",
-            "test-session",
-            "--event",
-            "PreToolUse",
-            "--follow",
-        ])
-        .output()
-        .expect("Failed to execute cupcake audit with filters");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Session filter: Some(\"test-session\")"));
-    assert!(stdout.contains("Event filter: Some(\"PreToolUse\")"));
-    assert!(stdout.contains("Follow: true"));
-}
 
 #[test]
 fn test_cli_invalid_command() {
@@ -302,18 +228,6 @@ fn test_cli_default_values() {
     assert!(stderr.contains("Event: PreToolUse"));
 }
 
-#[test]
-fn test_cli_init_default_output() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&["init", "--yes"])
-        .output()
-        .expect("Failed to execute cupcake init with default output");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("guardrails initialized successfully"));
-}
 
 #[test]
 fn test_cli_validate_default_file() {
@@ -335,18 +249,6 @@ fn test_cli_validate_default_file() {
     );
 }
 
-#[test]
-fn test_cli_audit_default_format() {
-    let cupcake_binary = get_cupcake_binary();
-    
-    let output = Command::new(&cupcake_binary)
-        .args(&["audit", "--tail", "5"])
-        .output()
-        .expect("Failed to execute cupcake audit with default format");
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Format: text"));
-}
 
 #[test]
 fn test_cli_all_subcommands_exist() {
@@ -359,7 +261,7 @@ fn test_cli_all_subcommands_exist() {
         .expect("Failed to execute cupcake --help");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    let expected_commands = vec!["init", "run", "sync", "validate", "audit"];
+    let expected_commands = vec!["init", "run", "sync", "validate"];
 
     for cmd in expected_commands {
         assert!(

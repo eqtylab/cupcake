@@ -1,6 +1,6 @@
 use cupcake::config::{
     actions::{Action, OnFailureBehavior},
-    conditions::{Condition, StateQueryFilter},
+    conditions::Condition,
     types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig, Settings, YamlPolicy},
 };
 use serde_json;
@@ -10,7 +10,6 @@ use std::collections::HashMap;
 fn test_root_config_yaml_serialization() {
     let root_config = RootConfig {
         settings: Settings {
-            audit_logging: true,
             debug_mode: false,
             allow_shell: false,
             timeout_ms: 30000,
@@ -27,10 +26,6 @@ fn test_root_config_yaml_serialization() {
     let deserialized: RootConfig =
         serde_yaml_ng::from_str(&yaml_str).expect("Failed to deserialize from YAML");
 
-    assert_eq!(
-        deserialized.settings.audit_logging,
-        root_config.settings.audit_logging
-    );
     assert_eq!(
         deserialized.settings.debug_mode,
         root_config.settings.debug_mode
@@ -175,7 +170,7 @@ fn test_condition_variants_yaml_serialization() {
             regex: "\\.rs$".to_string(),
         },
         Condition::Check {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["{{tool_input.file_path}}".to_string()]),
                 working_dir: None,
@@ -189,7 +184,7 @@ fn test_condition_variants_yaml_serialization() {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         },
         Condition::Pattern {
@@ -215,7 +210,7 @@ fn test_condition_variants_yaml_serialization() {
             ],
         },
         Condition::Check {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["test".to_string()],
                 args: Some(vec!["$(date +%H)".to_string(), "-ge".to_string(), "09".to_string()]),
                 working_dir: None,
@@ -239,11 +234,11 @@ fn test_condition_variants_yaml_serialization() {
                     on_failure: None,
                 }]),
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         },
         Condition::Check {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["sh".to_string()],
                 args: Some(vec!["-c".to_string(), "case $(date +%a) in Mon|Tue|Wed) exit 0 ;; *) exit 1 ;; esac".to_string()]),
                 working_dir: None,
@@ -255,7 +250,7 @@ fn test_condition_variants_yaml_serialization() {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            }))),
             expect_success: true,
         },
     ];
@@ -279,11 +274,11 @@ fn test_action_variants_yaml_serialization() {
             feedback_message: "Blocked".to_string(),
             include_context: false,
         },
-        Action::Approve {
+        Action::Allow {
             reason: Some("Auto-approved".to_string()),
         },
         Action::RunCommand {
-            spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+            spec: cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                 command: vec!["echo".to_string()],
                 args: Some(vec!["test".to_string()]),
                 working_dir: None,
@@ -295,29 +290,18 @@ fn test_action_variants_yaml_serialization() {
                 merge_stderr: None,
                 on_success: None,
                 on_failure: None,
-            }),
+            })),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Command failed".to_string()),
             background: false,
             timeout_seconds: Some(30),
-        },
-        Action::UpdateState {
-            event: Some("TestEvent".to_string()),
-            key: Some("test_key".to_string()),
-            value: Some(serde_json::json!("test_value")),
-            data: Some({
-                let mut map = HashMap::new();
-                map.insert("key1".to_string(), serde_json::json!("value1"));
-                map.insert("key2".to_string(), serde_json::json!(42));
-                map
-            }),
         },
         Action::Conditional {
             if_condition: Condition::Match {
                 field: "event_type".to_string(),
                 value: "TestEvent".to_string(),
             },
-            then_action: Box::new(Action::Approve { reason: None }),
+            then_action: Box::new(Action::Allow { reason: None }),
             else_action: Some(Box::new(Action::ProvideFeedback {
                 message: "Condition not met".to_string(),
                 include_context: false,
@@ -345,7 +329,7 @@ fn test_hook_event_types_yaml_serialization() {
             field: "tool_name".to_string(),
             value: "Bash".to_string(),
         }],
-        action: Action::Approve { reason: None },
+        action: Action::Allow { reason: None },
     };
 
     let yaml_str =
@@ -383,25 +367,6 @@ fn test_hook_event_types_yaml_serialization() {
     }
 }
 
-#[test]
-fn test_state_query_filter_yaml_serialization() {
-    let query = StateQueryFilter {
-        tool: "Bash".to_string(),
-        command_contains: Some("npm test".to_string()),
-        result: Some("success".to_string()),
-        within_minutes: Some(30),
-    };
-
-    let yaml_str =
-        serde_yaml_ng::to_string(&query).expect("Failed to serialize state query filter");
-    let deserialized: StateQueryFilter =
-        serde_yaml_ng::from_str(&yaml_str).expect("Failed to deserialize state query filter");
-
-    assert_eq!(deserialized.tool, query.tool);
-    assert_eq!(deserialized.command_contains, query.command_contains);
-    assert_eq!(deserialized.result, query.result);
-    assert_eq!(deserialized.within_minutes, query.within_minutes);
-}
 
 #[test]
 fn test_complex_yaml_policy_serialization() {
@@ -422,7 +387,7 @@ fn test_complex_yaml_policy_serialization() {
                         },
                         Condition::Not {
                             condition: Box::new(Condition::Check {
-                                spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+                                spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                                     command: vec!["test".to_string()],
                                     args: Some(vec!["-f".to_string(), "SAFETY.md".to_string()]),
                                     working_dir: None,
@@ -434,7 +399,7 @@ fn test_complex_yaml_policy_serialization() {
                                     merge_stderr: None,
                                     on_success: None,
                                     on_failure: None,
-                                }),
+                                }))),
                                 expect_success: true,
                             }),
                         },
@@ -444,7 +409,7 @@ fn test_complex_yaml_policy_serialization() {
         }],
         action: Action::Conditional {
             if_condition: Condition::Check {
-                spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+                spec: Box::new(cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                     command: vec!["test".to_string()],
                     args: Some(vec!["$(date +%H)".to_string(), "-ge".to_string(), "09".to_string()]),
                     working_dir: None,
@@ -468,7 +433,7 @@ fn test_complex_yaml_policy_serialization() {
                         on_failure: None,
                     }]),
                     on_failure: None,
-                }),
+                }))),
                 expect_success: true,
             },
             then_action: Box::new(Action::BlockWithFeedback {
@@ -526,7 +491,7 @@ fn test_round_trip_yaml_serialization() {
                 regex: "\\.rs$".to_string(),
             }],
             action: Action::RunCommand {
-                spec: cupcake::config::actions::CommandSpec::Array(cupcake::config::actions::ArrayCommandSpec {
+                spec: cupcake::config::actions::CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
                     command: vec!["rustfmt".to_string()],
                     args: Some(vec!["{{tool_input.file_path}}".to_string()]),
                     working_dir: None,
@@ -538,7 +503,7 @@ fn test_round_trip_yaml_serialization() {
                     merge_stderr: None,
                     on_success: None,
                     on_failure: None,
-                }),
+                })),
                 on_failure: OnFailureBehavior::Continue,
                 on_failure_feedback: None,
                 background: true,

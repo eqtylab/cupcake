@@ -1,0 +1,106 @@
+# General MCP Tool Policies
+# Apply guardrails to all MCP tools across different servers
+
+PreToolUse:
+  # Log all MCP tool usage
+  "mcp__.*":
+    - name: mcp-usage-tracking
+      description: Track all MCP tool usage for analytics
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: "Using MCP tool: {{tool_name}}"
+
+  # Caution for MCP tools that send messages or create content
+  "mcp__.*(send|post|create|publish).*":
+    - name: mcp-messaging-caution
+      description: Provide caution for MCP messaging tools
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: |
+          📤 Using messaging/publishing tool: {{tool_name}}
+          
+          Please ensure your message content is appropriate.
+
+  # Require description for data-modifying MCP operations
+  "mcp__.*(create|update|delete|write).*":
+    - name: require-description
+      description: Ensure data modifications have descriptions
+      conditions:
+        - type: not
+          condition:
+            type: pattern
+            field: tool_input.description
+            regex: ".{10,}"  # At least 10 characters
+      action:
+        type: block_with_feedback
+        feedback: |
+          📝 Description Required
+          
+          When using {{tool_name}}, please provide a meaningful description
+          (at least 10 characters) explaining the change.
+          
+          This helps with tracking changes and understanding intent.
+
+# Multi-server coordination policies
+PreToolUse:
+  # Prevent mixing of dev/prod operations
+  "mcp__(dev|test|staging)__.*":
+    - name: dev-prod-isolation-check
+      description: Warn when using dev tools
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: |
+          ⚠️  Environment Check
+          
+          You're using a dev/test MCP tool ({{tool_name}}). Please ensure
+          you're in the correct environment to avoid mixing dev and prod operations.
+
+  "mcp__prod__.*":
+    - name: prod-operation-warning
+      description: Extra caution for production MCP operations
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: |
+          🔴 PRODUCTION OPERATION: {{tool_name}}
+          
+          You're about to perform an operation on PRODUCTION.
+          Please ensure this is intentional.
+
+# Context injection for MCP tool discovery
+UserPromptSubmit:
+  "*":
+    - name: mcp-tool-help
+      description: Provide help about available MCP tools
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: "(?i)(what|which|list).*(mcp|model context protocol).*tools"
+      action:
+        type: inject_context
+        context: |
+          🔧 MCP (Model Context Protocol) Tools
+          
+          MCP tools follow the pattern: mcp__<server>__<tool>
+          
+          Common MCP servers include:
+          - filesystem: File operations
+          - github: GitHub integration
+          - slack: Slack messaging
+          - database: Database queries
+          
+          Use 'cupcake inspect' to see policies for MCP tools.
+          Policies can match patterns like "mcp__github__.*" for all GitHub tools.
+
+# MCP operation monitoring
+PostToolUse:
+  "mcp__.*":
+    - name: monitor-mcp-operations
+      description: Monitor all MCP operations
+      conditions: []
+      action:
+        type: provide_feedback
+        feedback: "MCP operation completed: {{tool_name}}"

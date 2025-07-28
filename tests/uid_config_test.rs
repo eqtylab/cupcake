@@ -9,7 +9,6 @@ use cupcake::config::types::Settings;
 fn test_uid_configuration() {
     // Test numeric UID
     let yaml = r#"
-audit_logging: true
 debug_mode: false
 allow_shell: true
 sandbox_uid: "65534"
@@ -20,7 +19,6 @@ sandbox_uid: "65534"
     
     // Test username
     let yaml_username = r#"
-audit_logging: true
 debug_mode: false
 allow_shell: true
 sandbox_uid: "nobody"
@@ -31,7 +29,6 @@ sandbox_uid: "nobody"
     
     // Test default (no UID drop)
     let yaml_no_uid = r#"
-audit_logging: true
 debug_mode: false
 allow_shell: true
 "#;

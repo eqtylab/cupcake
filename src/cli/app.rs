@@ -75,33 +75,6 @@ pub enum Commands {
         format: String,
     },
 
-    /// Views audit logs
-    Audit {
-        /// Number of recent entries to show
-        #[arg(short, long)]
-        tail: Option<usize>,
-
-        /// Follow mode - watch for new entries
-        #[arg(short, long)]
-        follow: bool,
-
-        /// Filter by session ID
-        #[arg(long)]
-        session: Option<String>,
-
-        /// Filter by hook event type
-        #[arg(long)]
-        event: Option<String>,
-
-        /// Output format (text, json)
-        #[arg(long, default_value = "text")]
-        format: String,
-
-        /// Clear audit log
-        #[arg(long)]
-        clear: bool,
-    },
-
     /// Inspect loaded policies in compact table format
     Inspect {
         /// Configuration file path (automatically discovered from guardrails/cupcake.yaml)
@@ -119,7 +92,6 @@ impl Commands {
             Commands::Run { .. } => "run",
             Commands::Sync { .. } => "sync",
             Commands::Validate { .. } => "validate",
-            Commands::Audit { .. } => "audit",
             Commands::Inspect { .. } => "inspect",
         }
     }
@@ -194,37 +166,6 @@ mod tests {
                 assert_eq!(policy_file, "my-guardrails");
                 assert!(strict);
                 assert_eq!(format, "text");
-            }
-            _ => panic!("Wrong command parsed"),
-        }
-    }
-
-    #[test]
-    fn test_audit_command() {
-        let cli = Cli::parse_from(&[
-            "cupcake",
-            "audit",
-            "--tail",
-            "100",
-            "--session",
-            "test-session",
-        ]);
-
-        match cli.command {
-            Commands::Audit {
-                tail,
-                follow,
-                session,
-                event,
-                format,
-                clear,
-            } => {
-                assert_eq!(tail, Some(100));
-                assert!(!follow);
-                assert_eq!(session, Some("test-session".to_string()));
-                assert_eq!(event, None);
-                assert_eq!(format, "text");
-                assert!(!clear);
             }
             _ => panic!("Wrong command parsed"),
         }

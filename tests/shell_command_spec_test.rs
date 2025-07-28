@@ -118,7 +118,6 @@ done"#.to_string(),
     #[test]
     fn test_settings_allow_shell_serialization() {
         let settings = Settings {
-            audit_logging: true,
             debug_mode: false,
             allow_shell: true,
             timeout_ms: 30000,
@@ -127,20 +126,17 @@ done"#.to_string(),
 
         let yaml = serde_yaml_ng::to_string(&settings).unwrap();
         assert!(yaml.contains("allow_shell: true"));
-        assert!(yaml.contains("audit_logging: true"));
         assert!(yaml.contains("debug_mode: false"));
     }
 
     #[test]
     fn test_settings_allow_shell_deserialization() {
         let yaml = r#"
-audit_logging: false
 debug_mode: true
 allow_shell: true
 "#;
 
         let settings: Settings = serde_yaml_ng::from_str(yaml).unwrap();
-        assert!(!settings.audit_logging);
         assert!(settings.debug_mode);
         assert!(settings.allow_shell);
     }

@@ -40,6 +40,7 @@ fn test_run_command_stdin_parsing() {
         "hook_event_name": "PreToolUse",
         "session_id": "test-session-integration",
         "transcript_path": "/tmp/test-transcript.jsonl",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "echo 'Integration test'",
@@ -129,6 +130,7 @@ PreToolUse:
         "hook_event_name": "PreToolUse",
         "session_id": "test-eval-session",
         "transcript_path": "/tmp/test-transcript.jsonl",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "rm -rf /",
@@ -166,12 +168,21 @@ PreToolUse:
         .wait_with_output()
         .expect("Failed to wait for command");
 
-    // Should exit with code 2 (blocked)
+    // Should exit with code 0 (success) but provide JSON response for block
     assert_eq!(
         output.status.code(),
-        Some(2),
-        "Expected exit code 2 for blocked operation"
+        Some(0),
+        "Expected exit code 0 with JSON response for blocked operation"
     );
+
+    // Should provide JSON response with block decision
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let response_json: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("stdout was not valid JSON");
+
+    // Should be a block decision in JSON format
+    let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
+    assert_eq!(decision, "deny", "JSON response should have permissionDecision: deny");
 
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -189,6 +200,7 @@ PreToolUse:
         "hook_event_name": "PreToolUse",
         "session_id": "test-eval-session-2",
         "transcript_path": "/tmp/test-transcript.jsonl",
+        "cwd": "/tmp",
         "tool_name": "Bash",
         "tool_input": {
             "command": "echo 'safe command'",
@@ -233,7 +245,7 @@ PreToolUse:
 
     let stderr_output2 = String::from_utf8_lossy(&output2.stderr);
     assert!(
-        stderr_output2.contains("Debug: Allowing operation"),
+        stderr_output2.contains("Debug: Sending Allow response for PreToolUse event"),
         "Expected allow operation message"
     );
 

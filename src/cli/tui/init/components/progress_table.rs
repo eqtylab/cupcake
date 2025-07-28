@@ -1,0 +1,1 @@
+//! Progress table with embedded gauges

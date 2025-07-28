@@ -60,12 +60,33 @@ impl PolicyLoader {
         // Try parsing as RootConfig first, then fall back to PolicyFragment
         match serde_yaml_ng::from_str::<RootConfig>(&content) {
             Ok(root_config) => {
-                let settings = root_config.settings.clone();
-                let policies = self.load_from_root_config(root_config, config_path)?;
-                Ok(LoadedConfiguration {
-                    settings,
-                    policies,
-                })
+                // Check if this is actually a meaningful RootConfig (has imports or non-default settings)
+                if root_config.has_meaningful_content() {
+                    let settings = root_config.settings.clone();
+                    let policies = self.load_from_root_config(root_config, config_path)?;
+                    Ok(LoadedConfiguration {
+                        settings,
+                        policies,
+                    })
+                } else {
+                    // This looks like a PolicyFragment that just happened to parse as RootConfig
+                    match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
+                        Ok(fragment) => {
+                            let policies = self.load_from_policy_fragment(fragment)?;
+                            Ok(LoadedConfiguration {
+                                settings: Settings::default(),
+                                policies,
+                            })
+                        }
+                        Err(e) => {
+                            Err(CupcakeError::Config(format!(
+                                "Config file {} could not be parsed as PolicyFragment: {}",
+                                config_path.display(),
+                                e
+                            )))
+                        }
+                    }
+                }
             }
             Err(_) => {
                 // Failed as RootConfig, try as PolicyFragment
@@ -184,7 +205,19 @@ impl PolicyLoader {
     }
 
     /// Step 1: Search upward from start_dir for guardrails/cupcake.yaml
+    /// Also checks $CLAUDE_PROJECT_DIR if set
     fn discover_root_config(&self, start_dir: &Path) -> Result<PathBuf> {
+        // First, check if $CLAUDE_PROJECT_DIR is set
+        if let Ok(claude_dir) = std::env::var("CLAUDE_PROJECT_DIR") {
+            let claude_path = Path::new(&claude_dir);
+            let candidate = claude_path.join("guardrails").join("cupcake.yaml");
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+            // If $CLAUDE_PROJECT_DIR is set but doesn't have the config, continue to regular search
+        }
+
+        // Regular upward search from start_dir
         let mut current_dir = start_dir;
 
         loop {
@@ -394,7 +427,7 @@ mod tests {
 
         let cupcake_yaml = guardrails_dir.join("cupcake.yaml");
         let mut file = File::create(&cupcake_yaml).unwrap();
-        file.write_all(b"settings:\n  audit_logging: true\nimports:\n  - \"policies/*.yaml\"")
+        file.write_all(b"settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"")
             .unwrap();
 
         let loader = PolicyLoader::new();
@@ -413,7 +446,7 @@ mod tests {
 
         let cupcake_yaml = guardrails_dir.join("cupcake.yaml");
         let mut file = File::create(&cupcake_yaml).unwrap();
-        file.write_all(b"settings:\n  audit_logging: true\nimports:\n  - \"policies/*.yaml\"")
+        file.write_all(b"settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"")
             .unwrap();
 
         let loader = PolicyLoader::new();
@@ -446,7 +479,6 @@ mod tests {
         file.write_all(
             br#"
 settings:
-  audit_logging: true
   debug_mode: false
 imports:
   - "policies/*.yaml"
@@ -458,7 +490,6 @@ imports:
         let loader = PolicyLoader::new();
         let root_config = loader.load_root_config(&cupcake_yaml).unwrap();
 
-        assert!(root_config.settings.audit_logging);
         assert!(!root_config.settings.debug_mode);
         assert_eq!(root_config.imports.len(), 2);
         assert_eq!(root_config.imports[0], "policies/*.yaml");
@@ -755,7 +786,7 @@ PostToolUse:
         let mut file = File::create(&config_path).unwrap();
         file.write_all(
             br#"settings:
-  audit_logging: true
+  debug_mode: false
 imports:
   - "policies/*.yaml"
 "#,
@@ -860,7 +891,6 @@ imports:
         file.write_all(
             br#"
 settings:
-  audit_logging: true
   debug_mode: false
 imports:
   - "policies/*.yaml"

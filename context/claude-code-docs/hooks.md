@@ -8,8 +8,7 @@
 
 ## Configuration
 
-Claude Code hooks are configured in your
-[settings files](/en/docs/claude-code/settings):
+Claude Code hooks are configured in your [settings files](/en/docs/claude-code/settings):
 
 - `~/.claude/settings.json` - User settings
 - `.claude/settings.json` - Project settings
@@ -42,14 +41,17 @@ Hooks are organized by matchers, where each matcher can have multiple hooks:
   `PreToolUse` and `PostToolUse`)
   - Simple strings match exactly: `Write` matches only the Write tool
   - Supports regex: `Edit|Write` or `Notebook.*`
-  - If omitted or empty string, hooks run for all matching events
+  - Use `*` to match all tools. You can also use empty string (`""`) or leave
+    `matcher` blank.
 - **hooks**: Array of commands to execute when the pattern matches
   - `type`: Currently only `"command"` is supported
-  - `command`: The bash command to execute
+  - `command`: The bash command to execute (can use `$CLAUDE_PROJECT_DIR`
+    environment variable)
   - `timeout`: (Optional) How long a command should run, in seconds, before
     canceling that specific command.
 
-For events like `UserPromptSubmit`, `Notification`, `Stop`, and `SubagentStop` that don't use matchers, you can omit the matcher field:
+For events like `UserPromptSubmit`, `Notification`, `Stop`, and `SubagentStop`
+that don't use matchers, you can omit the matcher field:
 
 ```json
 {
@@ -68,9 +70,29 @@ For events like `UserPromptSubmit`, `Notification`, `Stop`, and `SubagentStop` t
 }
 ```
 
-<Warning>
-  `"matcher": "*"` is invalid. Instead, omit "matcher" or use `"matcher": ""`.
-</Warning>
+### Project-Specific Hook Scripts
+
+You can use the environment variable `CLAUDE_PROJECT_DIR` (only available when
+Claude Code spawns the hook command) to reference scripts stored in your project,
+ensuring they work regardless of Claude's current directory:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-style.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## Hook Events
 
@@ -80,7 +102,7 @@ Runs after Claude creates tool parameters and before processing the tool call.
 
 **Common matchers:**
 
-- `Task` - Agent tasks
+- `Task` - Sub agent tasks (see [sub agents documentation](/en/docs/claude-code/sub-agents))
 - `Bash` - Shell commands
 - `Glob` - File pattern matching
 - `Grep` - Content search
@@ -99,20 +121,25 @@ Recognizes the same matcher values as PreToolUse.
 
 Runs when Claude Code sends notifications. Notifications are sent when:
 
-1. Claude needs your permission to use a tool. Example: "Claude needs your permission to use Bash"
-2. The prompt input has been idle for at least 60 seconds. "Claude is waiting for your input"
+1. Claude needs your permission to use a tool. Example: "Claude needs your
+   permission to use Bash"
+2. The prompt input has been idle for at least 60 seconds. "Claude is waiting
+   for your input"
 
 ### UserPromptSubmit
 
-Runs when the user submits a prompt, before Claude processes it. This allows you to add additional context based on the prompt/conversation, validate prompts, or block certain types of prompts.
+Runs when the user submits a prompt, before Claude processes it. This allows you
+to add additional context based on the prompt/conversation, validate prompts, or
+block certain types of prompts.
 
 ### Stop
 
-Runs when the main Claude Code agent has finished responding. Does not run if the stoppage occurred due to a user interrupt.
+Runs when the main Claude Code agent has finished responding. Does not run if
+the stoppage occurred due to a user interrupt.
 
 ### SubagentStop
 
-Runs when a Claude Code subagent (Task tool call) has finished responding.
+Runs when a Claude Code sub agent (Task tool call) has finished responding.
 
 ### PreCompact
 
@@ -246,14 +273,15 @@ and the user.
 Hooks communicate status through exit codes, stdout, and stderr:
 
 - **Exit code 0**: Success. `stdout` is shown to the user in transcript mode
-  (CTRL-R).
+  (CTRL-R), except for `UserPromptSubmit`, where stdout is added to the context.
 - **Exit code 2**: Blocking error. `stderr` is fed back to Claude to process
   automatically. See per-hook-event behavior below.
 - **Other exit codes**: Non-blocking error. `stderr` is shown to the user and
   execution continues.
 
 <Warning>
-  Reminder: Claude Code does not see stdout if the exit code is 0.
+  Reminder: Claude Code does not see stdout if the exit code is 0, except for
+  the `UserPromptSubmit` hook where stdout is injected as context.
 </Warning>
 
 #### Exit Code 2 Behavior
@@ -286,8 +314,8 @@ All hook types can include these optional fields:
 
 If `continue` is false, Claude stops processing after the hooks run.
 
-- For `PreToolUse`, this is different from `"decision": "block"`, which only
-  blocks a specific tool call and provides automatic feedback to Claude.
+- For `PreToolUse`, this is different from `"permissionDecision": "deny"`, which
+  only blocks a specific tool call and provides automatic feedback to Claude.
 - For `PostToolUse`, this is different from `"decision": "block"`, which
   provides automated feedback to Claude.
 - For `UserPromptSubmit`, this prevents the prompt from being processed.
@@ -303,15 +331,23 @@ to Claude.
 
 `PreToolUse` hooks can control whether a tool call proceeds.
 
-- "approve" bypasses the permission system. `reason` is shown to the user but
-  not to Claude.
-- "block" prevents the tool call from executing. `reason` is shown to Claude.
-- `undefined` leads to the existing permission flow. `reason` is ignored.
+- `"allow"` bypasses the permission system. `permissionDecisionReason` is shown
+  to the user but not to Claude. (_Deprecated `"approve"` value + `reason` has
+  the same behavior._)
+- `"deny"` prevents the tool call from executing. `permissionDecisionReason` is
+  shown to Claude. (_`"block"` value + `reason` has the same behavior._)
+- `"ask"` asks the user to confirm the tool call in the UI.
+  `permissionDecisionReason` is shown to the user but not to Claude.
 
 ```json
 {
-  "decision": "approve" | "block" | undefined,
-  "reason": "Explanation for decision"
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow" | "deny" | "ask",
+    "permissionDecisionReason": "My reason here (shown to user)"
+  },
+  "decision": "approve" | "block" | undefined, // Deprecated for PreToolUse but still supported
+  "reason": "Explanation for decision" // Deprecated for PreToolUse but still supported
 }
 ```
 
@@ -319,7 +355,7 @@ to Claude.
 
 `PostToolUse` hooks can control whether a tool call proceeds.
 
-- "block" automatically prompts Claude with `reason`.
+- `"block"` automatically prompts Claude with `reason`.
 - `undefined` does nothing. `reason` is ignored.
 
 ```json
@@ -333,13 +369,20 @@ to Claude.
 
 `UserPromptSubmit` hooks can control whether a user prompt is processed.
 
-- `"block"` prevents the prompt from being processed. The submitted prompt is erased from context. `"reason"` is shown to the user but not added to context.
+- `"block"` prevents the prompt from being processed. The submitted prompt is
+  erased from context. `"reason"` is shown to the user but not added to context.
 - `undefined` allows the prompt to proceed normally. `"reason"` is ignored.
+- `"hookSpecificOutput.additionalContext"` adds the string to the context if not
+  blocked.
 
 ```json
 {
   "decision": "block" | undefined,
-  "reason": "Explanation for decision"
+  "reason": "Explanation for decision",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "My additional context here"
+  }
 }
 ```
 
@@ -347,7 +390,7 @@ to Claude.
 
 `Stop` and `SubagentStop` hooks can control whether Claude must continue.
 
-- "block" prevents Claude from stopping. You must populate `reason` for Claude
+- `"block"` prevents Claude from stopping. You must populate `reason` for Claude
   to know how to proceed.
 - `undefined` allows Claude to stop. `reason` is ignored.
 
@@ -358,7 +401,7 @@ to Claude.
 }
 ```
 
-#### JSON Output Example: Bash Command Editing
+#### Exit Code Example: Bash Command Validation
 
 ```python
 #!/usr/bin/env python3
@@ -410,7 +453,14 @@ if issues:
     sys.exit(2)
 ```
 
-#### UserPromptSubmit Example: Adding Context and Validation
+#### JSON Output Example: UserPromptSubmit to Add Context and Validation
+
+<Note>
+  For `UserPromptSubmit` hooks, you can inject context using either method:
+
+- Exit code 0 with stdout: Claude sees the context (special case for `UserPromptSubmit`)
+- JSON output: Provides more control over the behavior
+  </Note>
 
 ```python
 #!/usr/bin/env python3
@@ -447,7 +497,51 @@ for pattern, message in sensitive_patterns:
 context = f"Current time: {datetime.datetime.now()}"
 print(context)
 
+"""
+The following is also equivalent:
+print(json.dumps({
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": context,
+  },
+}))
+"""
+
 # Allow the prompt to proceed with the additional context
+sys.exit(0)
+```
+
+#### JSON Output Example: PreToolUse with Approval
+
+```python
+#!/usr/bin/env python3
+import json
+import sys
+
+# Load input from stdin
+try:
+    input_data = json.load(sys.stdin)
+except json.JSONDecodeError as e:
+    print(f"Error: Invalid JSON input: {e}", file=sys.stderr)
+    sys.exit(1)
+
+tool_name = input_data.get("tool_name", "")
+tool_input = input_data.get("tool_input", {})
+
+# Example: Auto-approve file reads for documentation files
+if tool_name == "Read":
+    file_path = tool_input.get("file_path", "")
+    if file_path.endswith((".md", ".mdx", ".txt", ".json")):
+        # Use JSON output to auto-approve the tool call
+        output = {
+            "decision": "approve",
+            "reason": "Documentation file auto-approved",
+            "suppressOutput": True  # Don't show in transcript mode
+        }
+        print(json.dumps(output))
+        sys.exit(0)
+
+# For other cases, let the normal permission flow proceed
 sys.exit(0)
 ```
 
@@ -527,7 +621,8 @@ Here are some key practices for writing more secure hooks:
 1. **Validate and sanitize inputs** - Never trust input data blindly
 2. **Always quote shell variables** - Use `"$VAR"` not `$VAR`
 3. **Block path traversal** - Check for `..` in file paths
-4. **Use absolute paths** - Specify full paths for scripts
+4. **Use absolute paths** - Specify full paths for scripts (use
+   `$CLAUDE_PROJECT_DIR` for the project path)
 5. **Skip sensitive files** - Avoid `.env`, `.git/`, keys, etc.
 
 ### Configuration Safety
@@ -548,6 +643,8 @@ This prevents malicious hook modifications from affecting your current session.
   - A timeout for an individual command does not affect the other commands.
 - **Parallelization**: All matching hooks run in parallel
 - **Environment**: Runs in current directory with Claude Code's environment
+  - The `CLAUDE_PROJECT_DIR` environment variable is available and contains the
+    absolute path to the project root directory
 - **Input**: JSON via stdin
 - **Output**:
   - PreToolUse/PostToolUse/Stop: Progress shown in transcript (Ctrl-R)
@@ -575,11 +672,13 @@ Common issues:
 
 For complex hook issues:
 
-1. **Inspect hook execution** - Use `claude --debug` to see detailed hook execution
+1. **Inspect hook execution** - Use `claude --debug` to see detailed hook
+   execution
 2. **Validate JSON schemas** - Test hook input/output with external tools
 3. **Check environment variables** - Verify Claude Code's environment is correct
 4. **Test edge cases** - Try hooks with unusual file paths or inputs
-5. **Monitor system resources** - Check for resource exhaustion during hook execution
+5. **Monitor system resources** - Check for resource exhaustion during hook
+   execution
 6. **Use structured logging** - Implement logging in your hook scripts
 
 ### Debug Output Example

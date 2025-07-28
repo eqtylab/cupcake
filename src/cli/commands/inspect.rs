@@ -120,10 +120,11 @@ impl InspectCommand {
         match &policy.action {
             crate::config::actions::Action::ProvideFeedback { .. } => "provide_feedback".to_string(),
             crate::config::actions::Action::BlockWithFeedback { .. } => "block_with_feedback".to_string(),
-            crate::config::actions::Action::Approve { .. } => "approve".to_string(),
+            crate::config::actions::Action::Allow { .. } => "allow".to_string(),
             crate::config::actions::Action::RunCommand { .. } => "run_command".to_string(),
-            crate::config::actions::Action::UpdateState { .. } => "update_state".to_string(),
             crate::config::actions::Action::Conditional { .. } => "conditional".to_string(),
+            crate::config::actions::Action::InjectContext { .. } => "inject_context".to_string(),
+            crate::config::actions::Action::Ask { .. } => "ask".to_string(),
         }
     }
 

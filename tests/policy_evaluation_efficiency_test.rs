@@ -58,9 +58,10 @@ PreToolUse:
         type: "provide_feedback"
         message: "Test feedback 2"
 "#).unwrap();
+    policy_file.flush().unwrap();
 
     // Create test hook event
-    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
+    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "cwd": "/tmp", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
 
     // Run cupcake with debug logging, piping hook event to stdin
     let cupcake_binary = get_cupcake_binary();
@@ -107,9 +108,10 @@ PreToolUse:
         type: "provide_feedback"
         message: "Single policy feedback"
 "#).unwrap();
+    policy_file.flush().unwrap();
 
     // Create test hook event
-    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
+    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "cwd": "/tmp", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
 
     // Run cupcake with debug logging
     let cupcake_binary = get_cupcake_binary();
@@ -191,9 +193,10 @@ PreToolUse:
         type: "provide_feedback"
         message: "Markdown file editing"
 "#).unwrap();
+    policy_file.flush().unwrap();
 
     // Create test hook event that matches some policies
-    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "tool_name": "Bash", "tool_input": {"command": "echo hello world"}}"#;
+    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "cwd": "/tmp", "tool_name": "Bash", "tool_input": {"command": "echo hello world"}}"#;
 
     // Run cupcake with debug logging
     let cupcake_binary = get_cupcake_binary();

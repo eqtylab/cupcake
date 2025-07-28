@@ -1,6 +1,6 @@
 use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::{ConditionEvaluator, EvaluationContext};
-use crate::engine::response::PolicyDecision;
+use crate::engine::response::EngineDecision;
 use crate::Result;
 
 /// Two-pass policy evaluation engine
@@ -18,19 +18,19 @@ pub struct FeedbackCollection {
 /// Result of Pass 2 evaluation (hard action detection)
 #[derive(Debug, Clone)]
 pub enum HardDecision {
-    /// No hard action found, allow operation
-    Allow,
+    /// Allow operation (either no hard action found or explicit allow)
+    Allow { reason: Option<String> },
     /// Block operation with feedback
     Block { feedback: String },
-    /// Approve operation
-    Approve { reason: Option<String> },
+    /// Ask user for confirmation
+    Ask { reason: String },
 }
 
 /// Complete evaluation result combining both passes
 #[derive(Debug, Clone)]
 pub struct EvaluationResult {
     /// Final decision (from Pass 2)
-    pub decision: PolicyDecision,
+    pub decision: EngineDecision,
     /// All feedback collected (from Pass 1)
     pub feedback_messages: Vec<String>,
     /// Policies that matched and their actions
@@ -87,20 +87,20 @@ impl PolicyEvaluator {
 
         // Combine results
         let decision = match hard_decision {
-            HardDecision::Allow => {
-                // Soft feedback doesn't block - it's just informational
-                PolicyDecision::Allow
+            HardDecision::Allow { reason } => {
+                // Either no hard action found or explicit allow action
+                EngineDecision::Allow { reason }
             }
             HardDecision::Block { feedback } => {
                 // Combine hard block feedback with all collected feedback
                 let mut all_feedback = vec![feedback];
                 all_feedback.extend(feedback_collection.feedback_messages.clone());
                 let combined_feedback = all_feedback.join("\n");
-                PolicyDecision::Block {
+                EngineDecision::Block {
                     feedback: combined_feedback,
                 }
             }
-            HardDecision::Approve { reason } => PolicyDecision::Approve { reason },
+            HardDecision::Ask { reason } => EngineDecision::Ask { reason },
         };
 
         Ok(EvaluationResult {
@@ -134,8 +134,11 @@ impl PolicyEvaluator {
                 if tool_name.is_some() {
                     continue; // Skip this policy for tool events
                 }
+            } else if policy.matcher == "*" {
+                // Special case: "*" matches everything (both tool and non-tool events)
+                // Continue to next check
             } else {
-                // Non-empty matcher: only matches tool events with regex
+                // Non-empty, non-wildcard matcher: only matches tool events with regex
                 if let Some(tool) = tool_name {
                     let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
                         crate::CupcakeError::Config(format!(
@@ -148,7 +151,7 @@ impl PolicyEvaluator {
                         continue;
                     }
                 } else {
-                    // Non-tool event with non-empty matcher: no match
+                    // Non-tool event with non-wildcard matcher: no match
                     continue;
                 }
             }
@@ -212,11 +215,17 @@ impl PolicyEvaluator {
                                 self.substitute_templates(feedback_message, evaluation_context);
                             Ok(HardDecision::Block { feedback })
                         }
-                        crate::config::actions::Action::Approve { reason } => {
+                        crate::config::actions::Action::Allow { reason } => {
                             let substituted_reason = reason
                                 .as_ref()
                                 .map(|r| self.substitute_templates(r, evaluation_context));
-                            Ok(HardDecision::Approve {
+                            Ok(HardDecision::Allow {
+                                reason: substituted_reason,
+                            })
+                        }
+                        crate::config::actions::Action::Ask { reason } => {
+                            let substituted_reason = self.substitute_templates(reason, evaluation_context);
+                            Ok(HardDecision::Ask {
                                 reason: substituted_reason,
                             })
                         }
@@ -243,7 +252,7 @@ impl PolicyEvaluator {
         }
 
         // No hard action found
-        Ok(HardDecision::Allow)
+        Ok(HardDecision::Allow { reason: None })
     }
 
 
@@ -292,9 +301,8 @@ impl PolicyEvaluator {
             crate::config::actions::Action::ProvideFeedback { message, .. } => {
                 Some(self.substitute_templates(message, context))
             }
-            crate::config::actions::Action::UpdateState { .. } => {
-                // State updates don't provide feedback
-                None
+            crate::config::actions::Action::InjectContext { context: ctx, .. } => {
+                Some(self.substitute_templates(ctx, context))
             }
             _ => None, // Other actions handled elsewhere
         }

@@ -106,13 +106,37 @@ spec:
 
 Available in all command contexts:
 
-| Variable | Description |
-|----------|-------------|
-| `{{file_path}}` | Current file being processed |
-| `{{tool_name}}` | Tool invoking the command |
-| `{{session_id}}` | Claude session identifier |
-| `{{env.VAR}}` | Environment variable |
-| `{{match.N}}` | Regex capture group from conditions |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{file_path}}` | Current file being processed | `/path/to/file.js` |
+| `{{tool_name}}` | Tool invoking the command | `Bash`, `Write`, etc. |
+| `{{session_id}}` | Claude session identifier | `abc-123-def` |
+| `{{env.VAR}}` | Environment variable | `{{env.USER}}`, `{{env.PATH}}` |
+| `{{env.CLAUDE_PROJECT_DIR}}` | Project root directory (when set) | `/Users/alice/myproject` |
+| `{{match.N}}` | Regex capture group from conditions | `{{match.1}}` from pattern |
+
+### Using $CLAUDE_PROJECT_DIR
+
+The `CLAUDE_PROJECT_DIR` environment variable is automatically set by Claude Code when spawning hooks. This enables portable, project-aware policies:
+
+```yaml
+# Example: Run project-specific linter
+action:
+  type: run_command
+  spec:
+    mode: array
+    command: ["{{env.CLAUDE_PROJECT_DIR}}/.cupcake/scripts/lint.sh"]
+    args: ["{{file_path}}"]
+
+# Example: Check if file exists relative to project root
+conditions:
+  - type: check
+    spec:
+      mode: array
+      command: ["test"]
+      args: ["-f", "{{env.CLAUDE_PROJECT_DIR}}/config/settings.json"]
+    expect_success: true
+```
 
 ## Exit Code Handling
 

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::conditions::Condition;
 
@@ -112,10 +111,15 @@ pub enum Action {
         include_context: bool,
     },
 
-    /// Auto-approve operation (hard action)
-    Approve {
+    /// Auto-allow operation bypassing permission system (hard action)
+    Allow {
         #[serde(skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+    },
+
+    /// Request user confirmation for operation (hard action)
+    Ask {
+        reason: String,
     },
 
     /// Run a command (can be soft or hard based on on_failure)
@@ -132,17 +136,6 @@ pub enum Action {
         timeout_seconds: Option<u32>,
     },
 
-    /// Update session state with custom data
-    UpdateState {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        event: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        key: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        value: Option<serde_json::Value>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        data: Option<HashMap<String, serde_json::Value>>,
-    },
 
     /// Conditional action based on runtime condition
     Conditional {
@@ -153,6 +146,30 @@ pub enum Action {
         #[serde(rename = "else", skip_serializing_if = "Option::is_none")]
         else_action: Option<Box<Action>>,
     },
+
+    /// Inject context into Claude's awareness (UserPromptSubmit only)
+    InjectContext {
+        /// Context to inject into Claude's prompt processing
+        context: String,
+        /// Whether to use stdout method (true) or JSON method (false)
+        #[serde(default = "default_use_stdout")]
+        use_stdout: bool,
+    },
+}
+
+/// Returns the default method for context injection.
+/// 
+/// The `stdout` method is chosen as the default because it is simple and
+/// does not require additional parsing or processing. This makes it
+/// suitable for most use cases where the injected context is directly
+/// consumed by a process or script.
+///
+/// The JSON method, on the other hand, should be used when the context
+/// needs to be structured or when it will be consumed by a system that
+/// expects JSON-formatted input. This method provides more flexibility
+/// but requires additional handling to parse the JSON data.
+fn default_use_stdout() -> bool {
+    true  // Default to simple stdout method
 }
 
 /// Behavior when RunCommand fails
@@ -186,12 +203,13 @@ impl Action {
         match self {
             Action::ProvideFeedback { .. } => ActionType::Soft,
             Action::BlockWithFeedback { .. } => ActionType::Hard,
-            Action::Approve { .. } => ActionType::Hard,
+            Action::Allow { .. } => ActionType::Hard,
+            Action::Ask { .. } => ActionType::Hard,
             Action::RunCommand { on_failure, .. } => match on_failure {
                 OnFailureBehavior::Continue => ActionType::Soft,
                 OnFailureBehavior::Block => ActionType::Hard,
             },
-            Action::UpdateState { .. } => ActionType::Soft,
+            Action::InjectContext { .. } => ActionType::Soft,
             Action::Conditional {
                 then_action,
                 else_action,
@@ -218,10 +236,6 @@ impl Action {
         matches!(self, Action::RunCommand { .. })
     }
 
-    /// Check if this action modifies state
-    pub fn modifies_state(&self) -> bool {
-        matches!(self, Action::UpdateState { .. })
-    }
 
     /// Check if this action is a "soft" action (feedback only)
     pub fn is_soft_action(&self) -> bool {
@@ -294,6 +308,12 @@ mod tests {
             timeout_seconds: None,
         };
         assert_eq!(hard_command.action_type(), ActionType::Hard);
+
+        let ask_action = Action::Ask {
+            reason: "Please confirm this operation".to_string(),
+        };
+        assert_eq!(ask_action.action_type(), ActionType::Hard);
+        assert!(ask_action.is_hard_action());
     }
 
     #[test]
@@ -347,7 +367,7 @@ mod tests {
                 feedback_message: "Blocked".to_string(),
                 include_context: false,
             }),
-            else_action: Some(Box::new(Action::Approve { reason: None })),
+            else_action: Some(Box::new(Action::Allow { reason: None })),
         };
 
         assert_eq!(conditional.action_type(), ActionType::Hard);
@@ -376,12 +396,66 @@ mod tests {
         };
         assert!(run_command.requires_execution());
 
-        let update_state = Action::UpdateState {
-            event: Some("test".to_string()),
-            key: None,
-            value: None,
-            data: None,
+    }
+
+    #[test]
+    fn test_inject_context_action() {
+        // Test creation and classification
+        let inject_context = Action::InjectContext {
+            context: "Remember to validate user input".to_string(),
+            use_stdout: true,
         };
-        assert!(update_state.modifies_state());
+        
+        assert!(inject_context.is_soft_action());
+        assert!(!inject_context.is_hard_action());
+        assert_eq!(inject_context.action_type(), ActionType::Soft);
+        
+        // Test serialization
+        let yaml = serde_yaml_ng::to_string(&inject_context).unwrap();
+        assert!(yaml.contains("inject_context"));
+        assert!(yaml.contains("Remember to validate user input"));
+        assert!(yaml.contains("use_stdout: true"));
+        
+        // Test deserialization
+        let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(inject_context, deserialized);
+        
+        // Test with use_stdout = false
+        let inject_json = Action::InjectContext {
+            context: "Use JSON method".to_string(),
+            use_stdout: false,
+        };
+        
+        let yaml2 = serde_yaml_ng::to_string(&inject_json).unwrap();
+        assert!(yaml2.contains("use_stdout: false"));
+    }
+
+    #[test]
+    fn test_ask_action_serialization() {
+        let ask_action = Action::Ask {
+            reason: "Please confirm this operation".to_string(),
+        };
+
+        // Test classification
+        assert!(ask_action.is_hard_action());
+        assert!(!ask_action.is_soft_action());
+        assert_eq!(ask_action.action_type(), ActionType::Hard);
+
+        // Test YAML serialization
+        let yaml = serde_yaml_ng::to_string(&ask_action).unwrap();
+        assert!(yaml.contains("ask"));
+        assert!(yaml.contains("Please confirm this operation"));
+
+        // Test deserialization
+        let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(ask_action, deserialized);
+
+        // Verify the deserialized action maintains correct properties
+        match deserialized {
+            Action::Ask { reason } => {
+                assert_eq!(reason, "Please confirm this operation");
+            }
+            _ => panic!("Expected Ask action after deserialization"),
+        }
     }
 }

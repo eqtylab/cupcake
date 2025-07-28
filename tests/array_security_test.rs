@@ -19,7 +19,7 @@ fn test_malicious_input_isolation() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["Processing {{user_input}}".to_string(), "from {{file_path}}".to_string()]),
         working_dir: None,
@@ -31,7 +31,7 @@ fn test_malicious_input_isolation() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
     
@@ -56,7 +56,7 @@ fn test_shell_metacharacter_sanitization() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
             "{{dangerous_arg}}".to_string(),
@@ -72,7 +72,7 @@ fn test_shell_metacharacter_sanitization() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -96,7 +96,7 @@ fn test_command_path_template_injection_prevention() {
     
     // This should not be possible in the current implementation
     // because command paths don't support template substitution
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()], // Templates not supported in command[0]
         args: Some(vec!["safe argument".to_string()]),
         working_dir: None,
@@ -108,7 +108,7 @@ fn test_command_path_template_injection_prevention() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -126,7 +126,7 @@ fn test_environment_variable_isolation() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["env".to_string()],
         args: None,
         working_dir: None,
@@ -143,7 +143,7 @@ fn test_environment_variable_isolation() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -160,7 +160,7 @@ fn test_working_directory_safety() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["pwd".to_string()],
         args: None,
         working_dir: Some("{{malicious_dir}}".to_string()),
@@ -172,7 +172,7 @@ fn test_working_directory_safety() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
@@ -189,7 +189,7 @@ async fn test_piped_command_isolation() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["hello world".to_string()]),
         working_dir: None,
@@ -205,7 +205,7 @@ async fn test_piped_command_isolation() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     
@@ -234,7 +234,7 @@ fn test_complex_malicious_input_neutralization() {
     
     let executor = CommandExecutor::new(vars);
     
-    let spec = CommandSpec::Array(ArrayCommandSpec {
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
             "cmd: {{cmd_injection}}".to_string(),
@@ -251,7 +251,7 @@ fn test_complex_malicious_input_neutralization() {
         merge_stderr: None,
         on_success: None,
         on_failure: None,
-    });
+    }));
     
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];

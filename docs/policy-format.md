@@ -32,7 +32,6 @@ The `guardrails/cupcake.yaml` file controls settings and imports:
 
 ```yaml
 settings:
-  audit_logging: true     # Log all policy decisions
   debug_mode: false       # Extra debug output
 
 imports:
@@ -71,10 +70,14 @@ PreToolUse:              # When to evaluate (before tool use)
 For tool events (PreToolUse/PostToolUse):
 - Exact match: `"Bash"`
 - Multiple tools: `"Edit|Write"`
+- All tools: `"*"`
 - Regex pattern: `".*Test$"` (matches any tool ending with "Test")
+- MCP tools: `"mcp__.*"` (matches all MCP tools)
 
 For non-tool events (UserPromptSubmit, Notification, etc.):
-- Must use empty string: `""`
+- In Cupcake's YAML format, a matcher is required as a map key
+- Use `""` (empty string) or `"*"` (wildcard) - both are equivalent
+- Note: This differs from Claude Code's JSON spec where matcher can be omitted
 
 ## Conditions
 
@@ -151,7 +154,12 @@ conditions:
 
 ## Actions
 
-### Soft Feedback (Non-blocking)
+Actions define what happens when policy conditions match. There are two categories:
+
+### Soft Actions (Continue Policy Evaluation)
+These provide feedback but don't stop policy evaluation:
+
+#### Soft Feedback (Non-blocking)
 
 ```yaml
 action:
@@ -160,7 +168,10 @@ action:
   include_context: false
 ```
 
-### Hard Block
+### Hard Actions (Stop Policy Evaluation)
+These make final decisions and stop further policy evaluation:
+
+#### Hard Block
 
 ```yaml
 action:
@@ -169,15 +180,34 @@ action:
   include_context: true          # Include tool details in message
 ```
 
-### Auto-approve
+#### Auto-allow
 
 ```yaml
 action:
-  type: "approve"
+  type: "allow"
   reason: "Pre-approved safe operation"
 ```
 
-### Run Command
+#### Request User Confirmation
+
+```yaml
+action:
+  type: "ask"
+  reason: "Please confirm this {{tool_name}} operation"
+```
+
+### Soft Actions (Continued)
+
+#### Context Injection
+
+```yaml
+action:
+  type: "inject_context"
+  context: "Remember to follow coding standards when editing {{tool_input.file_path}}"
+  use_stdout: true  # true = stdout method, false = JSON method
+```
+
+#### Run Command
 
 ```yaml
 action:
@@ -186,7 +216,7 @@ action:
     mode: array
     command: ["cargo"]
     args: ["fmt", "--all"]
-  on_failure: "continue"  # or "block"
+  on_failure: "continue"  # or "block" - determines if action is soft or hard
   timeout_seconds: 30
 ```
 
@@ -286,7 +316,7 @@ PreToolUse:
 
 ```yaml
 UserPromptSubmit:
-  "":  # Empty string matcher for non-tool events
+  "":  # Empty string matcher required in YAML (map key)
     - name: "Block Secrets in Prompts"
       conditions:
         - type: "pattern"

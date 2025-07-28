@@ -157,6 +157,17 @@ pub enum Action {
     },
 }
 
+/// Returns the default method for context injection.
+/// 
+/// The `stdout` method is chosen as the default because it is simple and
+/// does not require additional parsing or processing. This makes it
+/// suitable for most use cases where the injected context is directly
+/// consumed by a process or script.
+///
+/// The JSON method, on the other hand, should be used when the context
+/// needs to be structured or when it will be consumed by a system that
+/// expects JSON-formatted input. This method provides more flexibility
+/// but requires additional handling to parse the JSON data.
 fn default_use_stdout() -> bool {
     true  // Default to simple stdout method
 }

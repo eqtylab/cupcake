@@ -175,26 +175,6 @@ impl ResponseHandler {
         }
     }
 
-    /// Send response to Claude Code as JSON and terminate the hook process.
-    ///
-    /// This method NEVER returns (`-> !`) because Claude Code expects the hook
-    /// process to terminate after sending its response. The process exit is
-    /// part of the Claude Code July 20 hook protocol specification.
-    pub fn send_response(&self, decision: EngineDecision) -> ! {
-        // Always use JSON response protocol
-        if self.debug {
-            match &decision {
-                EngineDecision::Allow { .. } => eprintln!("Debug: Allowing operation"),
-                EngineDecision::Block { .. } => eprintln!("Debug: Blocking operation with feedback"),
-                EngineDecision::Ask { .. } => eprintln!("Debug: Asking for confirmation"),
-            }
-        }
-        
-        // Always create JSON response for all decision types
-        let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
-        self.send_json_response(response);
-    }
-
     /// Send JSON response to Claude Code (for advanced control)
     pub fn send_json_response(&self, response: CupcakeResponse) -> ! {
         if self.debug {
@@ -211,21 +191,6 @@ impl ResponseHandler {
                 process::exit(1);
             }
         }
-    }
-
-    /// Send simple blocking response (for most common case)
-    pub fn block_with_feedback(&self, feedback: String) -> ! {
-        self.send_response(EngineDecision::Block { feedback })
-    }
-
-    /// Send simple allow response (for most common case)
-    pub fn allow(&self) -> ! {
-        self.send_response(EngineDecision::Allow { reason: None })
-    }
-
-    /// Send ask response for user confirmation
-    pub fn ask(&self, reason: String) -> ! {
-        self.send_response(EngineDecision::Ask { reason })
     }
 
     /// Send response based on hook event context - correctly formats JSON per Claude Code spec

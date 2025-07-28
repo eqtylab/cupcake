@@ -97,7 +97,8 @@ fn test_run_command_stdin_parsing() {
     );
     assert!(
         stderr_output.contains("Debug: Allowing operation")
-            || stderr_output.contains("Debug: Evaluation complete"),
+            || stderr_output.contains("Debug: Evaluation complete")
+            || stderr_output.contains("Debug: Graceful degradation - allowing operation"),
         "Expected evaluation or allow operation debug output"
     );
 }

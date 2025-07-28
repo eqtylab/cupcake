@@ -140,10 +140,41 @@ fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
 fn discover_children(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut children = Vec::new();
     
+    // Common directories to exclude from traversal
+    let excluded_dirs = [
+        "node_modules", ".git", "target", "build", "dist", ".next", "__pycache__",
+        ".env", "vendor", "bin", "obj", ".terraform", ".cache", "tmp", "temp",
+        ".nyc_output", "coverage", ".pytest_cache", ".vscode", ".idea", 
+        ".DS_Store", "Thumbs.db", ".tmp", ".temp", "logs", "log", ".log",
+        "out", "output", ".output", ".build", ".dist", ".target", ".bin",
+        ".gradle", ".maven", "bazel-*", ".bazel", "cmake-build-*"
+    ];
+    
+    // Check if a directory should be excluded
+    let should_exclude_dir = |dir_name: &str| -> bool {
+        excluded_dirs.iter().any(|&excluded| {
+            dir_name == excluded || 
+            dir_name.starts_with(excluded) ||
+            (excluded.contains('*') && dir_name.contains(&excluded.replace('*', "")))
+        })
+    };
+    
     for entry in WalkDir::new(dir)
         .min_depth(1)
-        .max_depth(3) // Don't go too deep
+        .max_depth(12) // Increased depth for deeper project structures
         .into_iter()
+        .filter_entry(|e| {
+            // Allow files, but filter out excluded directories
+            if e.file_type().is_dir() {
+                if let Some(dir_name) = e.file_name().to_str() {
+                    !should_exclude_dir(dir_name)
+                } else {
+                    true // Allow if we can't get the name
+                }
+            } else {
+                true // Always allow files
+            }
+        })
         .filter_map(|e| e.ok())
     {
         let path = entry.path();

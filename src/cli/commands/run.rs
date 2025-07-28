@@ -89,7 +89,7 @@ impl CommandHandler for RunCommand {
                     );
                 }
                 // Graceful degradation - allow operation on evaluation error
-                self.send_response_safely(EngineDecision::Allow { reason: None })
+                self.send_response_safely(EngineDecision::Allow { reason: None }, &hook_event)
             }
         };
 
@@ -183,7 +183,7 @@ impl CommandHandler for RunCommand {
         if is_user_prompt_submit {
             self.send_response_with_context(response_decision, context_to_inject)
         } else {
-            self.send_response_safely(response_decision)
+            self.send_response_safely(response_decision, &hook_event)
         }
     }
 
@@ -415,14 +415,14 @@ impl RunCommand {
     }
 
     /// Send response to Claude Code with error handling
-    fn send_response_safely(&self, decision: EngineDecision) -> ! {
+    fn send_response_safely(&self, decision: EngineDecision, hook_event: &HookEvent) -> ! {
         use crate::engine::response::ResponseHandler;
         
         // Use ResponseHandler which implements the JSON protocol
         let handler = ResponseHandler::new(self.debug);
         
-        // All decisions now use JSON via ResponseHandler
-        handler.send_response(decision);
+        // Use hook-aware response method for correct JSON format per event type
+        handler.send_response_for_hook(decision, hook_event.event_name());
     }
 
     /// Send response with context injection for UserPromptSubmit events

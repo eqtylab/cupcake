@@ -119,6 +119,48 @@ impl CupcakeResponse {
             hook_specific_output: None,
         }
     }
+
+    /// Create a response for PostToolUse, Stop, SubagentStop events
+    /// These use the decision/reason format per Claude Code July 20 spec
+    pub fn from_decision_block(decision: &EngineDecision) -> Self {
+        let mut response = Self::empty();
+        
+        match decision {
+            EngineDecision::Block { feedback } => {
+                // For these events, blocking uses continue: false with stopReason
+                response.continue_execution = Some(false);
+                response.stop_reason = Some(feedback.clone());
+            }
+            EngineDecision::Allow { .. } | EngineDecision::Ask { .. } => {
+                // Allow and Ask don't set any special fields for these events
+                // The response remains empty (which means allow by default)
+            }
+        }
+        
+        response
+    }
+
+    /// Create a response for UserPromptSubmit events with optional context
+    /// Combines decision/reason format with optional additionalContext
+    pub fn from_user_prompt_decision(decision: &EngineDecision, context: Option<String>) -> Self {
+        let mut response = Self::from_decision_block(decision);
+        
+        // Add context injection if provided
+        if let Some(ctx) = context {
+            response.hook_specific_output = Some(HookSpecificOutput::UserPromptSubmit {
+                additional_context: Some(ctx),
+            });
+        }
+        
+        response
+    }
+
+    /// Create a response for generic events (Notification, PreCompact)
+    /// These events use minimal response format without hook-specific output
+    pub fn from_generic_decision(decision: &EngineDecision) -> Self {
+        // These events only use the common fields, no hook-specific output
+        Self::from_decision_block(decision)
+    }
 }
 
 /// Response handler for communicating with Claude Code
@@ -184,6 +226,46 @@ impl ResponseHandler {
     /// Send ask response for user confirmation
     pub fn ask(&self, reason: String) -> ! {
         self.send_response(EngineDecision::Ask { reason })
+    }
+
+    /// Send response based on hook event context - correctly formats JSON per Claude Code spec
+    ///
+    /// This method ensures each hook event type gets the appropriate JSON format:
+    /// - PreToolUse: hookSpecificOutput with permissionDecision
+    /// - PostToolUse/Stop/SubagentStop: decision/reason fields
+    /// - Notification/PreCompact: minimal response
+    /// - UserPromptSubmit: handled separately via send_response_with_context
+    pub fn send_response_for_hook(&self, decision: EngineDecision, hook_event: &str) -> ! {
+        if self.debug {
+            eprintln!("Debug: Sending {} response for {} event", 
+                match &decision {
+                    EngineDecision::Allow { .. } => "Allow",
+                    EngineDecision::Block { .. } => "Block",
+                    EngineDecision::Ask { .. } => "Ask",
+                },
+                hook_event
+            );
+        }
+
+        let response = match hook_event {
+            "PreToolUse" => CupcakeResponse::from_pre_tool_use_decision(&decision),
+            "PostToolUse" | "Stop" | "SubagentStop" => CupcakeResponse::from_decision_block(&decision),
+            "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision),
+            "UserPromptSubmit" => {
+                // UserPromptSubmit should use send_response_with_context in run.rs
+                // This is a fallback for direct calls
+                CupcakeResponse::from_user_prompt_decision(&decision, None)
+            }
+            _ => {
+                // Unknown hook types get generic handling
+                if self.debug {
+                    eprintln!("Debug: Unknown hook event type '{}', using generic response", hook_event);
+                }
+                CupcakeResponse::from_generic_decision(&decision)
+            }
+        };
+
+        self.send_json_response(response);
     }
 }
 

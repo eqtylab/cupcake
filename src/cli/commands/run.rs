@@ -55,7 +55,10 @@ impl CommandHandler for RunCommand {
         };
 
         if self.debug {
-            eprintln!("Debug: Loaded {} composed policies", configuration.policies.len());
+            eprintln!(
+                "Debug: Loaded {} composed policies",
+                configuration.policies.len()
+            );
             for (i, policy) in configuration.policies.iter().enumerate() {
                 eprintln!(
                     "Debug: Policy {}: {} ({}:{})",
@@ -65,16 +68,16 @@ impl CommandHandler for RunCommand {
         }
 
         // 3. Get current directory (used by action context)
-        let _current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let _current_dir =
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
 
         // 4. Build evaluation context
         let evaluation_context = self.build_evaluation_context(&hook_event);
-        
 
         // 5. Execute two-pass evaluation
         let mut policy_evaluator = PolicyEvaluator::new();
         let mut action_executor = ActionExecutor::with_settings(configuration.settings);
-        
+
         let evaluation_result = match policy_evaluator.evaluate(
             &configuration.policies,
             &hook_event,
@@ -108,7 +111,7 @@ impl CommandHandler for RunCommand {
 
         // Special handling for UserPromptSubmit context injection
         let is_user_prompt_submit = hook_event.event_name() == "UserPromptSubmit";
-        
+
         // For UserPromptSubmit, we'll handle stdout differently
         if !is_user_prompt_submit {
             // Output soft feedback to stdout if we're allowing the operation (non-UserPromptSubmit)
@@ -139,7 +142,7 @@ impl CommandHandler for RunCommand {
         // Check if any action resulted in a block or collect context for injection
         let mut final_decision = evaluation_result.decision.clone();
         let mut context_to_inject = Vec::new();
-        
+
         for (_policy_name, result) in &action_results {
             match result {
                 ActionResult::Block { feedback } => {
@@ -156,14 +159,16 @@ impl CommandHandler for RunCommand {
                     };
                     break;
                 }
-                ActionResult::Success { feedback: Some(ctx), .. } if is_user_prompt_submit => {
+                ActionResult::Success {
+                    feedback: Some(ctx),
+                    ..
+                } if is_user_prompt_submit => {
                     // Collect context from InjectContext actions
                     context_to_inject.push(ctx.clone());
                 }
                 _ => {}
             }
         }
-
 
         // 8. Send response to Claude Code
         // For PostToolUse events, soft feedback should use exit code 2 so Claude sees it
@@ -231,9 +236,18 @@ impl RunCommand {
             let configuration = loader.load_configuration(config_path)?;
 
             if self.debug {
-                eprintln!("Debug: Loaded configuration from config file: {}", self.config);
-                eprintln!("Debug: Found and composed {} policies", configuration.policies.len());
-                eprintln!("Debug: Timeout setting: {}ms", configuration.settings.timeout_ms);
+                eprintln!(
+                    "Debug: Loaded configuration from config file: {}",
+                    self.config
+                );
+                eprintln!(
+                    "Debug: Found and composed {} policies",
+                    configuration.policies.len()
+                );
+                eprintln!(
+                    "Debug: Timeout setting: {}ms",
+                    configuration.settings.timeout_ms
+                );
             }
 
             Ok(configuration)
@@ -248,8 +262,14 @@ impl RunCommand {
             if self.debug {
                 eprintln!("Debug: Searched for YAML configuration starting from:");
                 eprintln!("  - {}/guardrails/cupcake.yaml", current_dir.display());
-                eprintln!("Debug: Found and composed {} policies", configuration.policies.len());
-                eprintln!("Debug: Timeout setting: {}ms", configuration.settings.timeout_ms);
+                eprintln!(
+                    "Debug: Found and composed {} policies",
+                    configuration.policies.len()
+                );
+                eprintln!(
+                    "Debug: Timeout setting: {}ms",
+                    configuration.settings.timeout_ms
+                );
             }
 
             Ok(configuration)
@@ -324,9 +344,12 @@ impl RunCommand {
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => {
-                (common.session_id.clone(), String::new(), HashMap::new(), None)
-            }
+            | HookEvent::PreCompact { common, .. } => (
+                common.session_id.clone(),
+                String::new(),
+                HashMap::new(),
+                None,
+            ),
         };
 
         // Use cwd from hook data as authoritative source
@@ -356,8 +379,6 @@ impl RunCommand {
         }
     }
 
-    /// Track tool usage in state for PostToolUse events
-
     /// Execute actions for matched policies
     fn execute_matched_actions(
         &self,
@@ -379,7 +400,7 @@ impl RunCommand {
 
             // Execute the action
             let result = action_executor.execute(&matched_policy.action, &action_context);
-            
+
             match &result {
                 ActionResult::Success { feedback, .. } => {
                     if let Some(msg) = feedback {
@@ -404,11 +425,14 @@ impl RunCommand {
                     }
                 }
                 ActionResult::Error { message } => {
-                    eprintln!("Error executing action for policy '{}': {}", matched_policy.name, message);
+                    eprintln!(
+                        "Error executing action for policy '{}': {}",
+                        matched_policy.name, message
+                    );
                     // Continue with other actions - graceful degradation
                 }
             }
-            
+
             results.push((matched_policy.name.clone(), result));
         }
         Ok(results)
@@ -417,20 +441,24 @@ impl RunCommand {
     /// Send response to Claude Code with error handling
     fn send_response_safely(&self, decision: EngineDecision, hook_event: &HookEvent) -> ! {
         use crate::engine::response::ResponseHandler;
-        
+
         // Use ResponseHandler which implements the JSON protocol
         let handler = ResponseHandler::new(self.debug);
-        
+
         // Use hook-aware response method for correct JSON format per event type
         handler.send_response_for_hook(decision, hook_event.event_name());
     }
 
     /// Send response with context injection for UserPromptSubmit events
-    fn send_response_with_context(&self, decision: EngineDecision, context_to_inject: Vec<String>) -> ! {
+    fn send_response_with_context(
+        &self,
+        decision: EngineDecision,
+        context_to_inject: Vec<String>,
+    ) -> ! {
         use crate::engine::response::{CupcakeResponse, HookSpecificOutput, ResponseHandler};
-        
+
         let handler = ResponseHandler::new(self.debug);
-        
+
         // For UserPromptSubmit, we have special handling based on the decision
         match &decision {
             EngineDecision::Allow { .. } => {
@@ -482,7 +510,6 @@ impl RunCommand {
             }
         }
     }
-    
 }
 
 #[cfg(test)]
@@ -593,5 +620,4 @@ mod tests {
 
     // Note: We can't test the full execute() method easily because it calls std::process::exit
     // Integration tests in tests/ directory handle the full execution path
-
 }

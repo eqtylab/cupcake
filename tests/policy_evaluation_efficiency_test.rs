@@ -64,10 +64,9 @@ PreToolUse:
     // Count "Evaluating policy conditions" which shows each condition evaluation
     let evaluation_count = debug_output.matches("Evaluating policy conditions").count();
     
-    // We expect exactly 2 evaluations (1 per policy), but current system does 3x evaluations  
-    // This test should FAIL initially, showing 6 evaluations (3x2 policies)
+    // Verify efficient policy evaluation: exactly 1 evaluation per policy
     assert_eq!(evaluation_count, 2, 
-        "Expected 2 policy evaluations (1 per policy), but found {}. This indicates inefficient multiple evaluations. Debug output:\n{}", 
+        "Expected 2 policy evaluations (1 per policy), but found {}. Debug output:\n{}", 
         evaluation_count, debug_output);
 }
 

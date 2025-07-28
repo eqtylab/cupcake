@@ -4,100 +4,15 @@ use std::fs;
 use std::path::PathBuf;
 use serde_json::json;
 use crate::Result;
+use crate::config::claude_hooks;
 use std::io::Write;
 
 /// Update Claude Code settings with hook configuration
 pub fn update_claude_settings() -> Result<()> {
     let settings_path = get_claude_settings_path();
     
-    // Create modern hook configuration matching July 20 updates
-    // Uses the correct nested array format per Claude Code spec
-    let hooks = json!({
-        "PreToolUse": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event PreToolUse",
-                        "timeout": 5  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ],
-        "PostToolUse": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event PostToolUse",
-                        "timeout": 2  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ],
-        "UserPromptSubmit": [
-            {
-                // No matcher for non-tool events
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event UserPromptSubmit",
-                        "timeout": 1  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ],
-        "Notification": [
-            {
-                // No matcher for non-tool events
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event Notification",
-                        "timeout": 1  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ],
-        "Stop": [
-            {
-                // No matcher for non-tool events
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event Stop",
-                        "timeout": 1  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ],
-        "SubagentStop": [
-            {
-                // No matcher for non-tool events
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event SubagentStop",
-                        "timeout": 1  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ],
-        "PreCompact": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "cupcake run --event PreCompact",
-                        "timeout": 1  // seconds per Claude Code spec
-                    }
-                ]
-            }
-        ]
-    });
+    // Get the standard Cupcake hook configuration
+    let hooks = claude_hooks::build_cupcake_hooks();
     
     // Read existing settings if present
     let mut settings = if settings_path.exists() {

@@ -1,5 +1,6 @@
 use super::CommandHandler;
 use crate::Result;
+use crate::config::claude_hooks;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -111,88 +112,7 @@ impl SyncCommand {
     
     /// Build the Cupcake hook configuration using July 20 structure
     fn build_cupcake_hooks(&self) -> Value {
-        json!({
-            "PreToolUse": [
-                {
-                    "matcher": "*",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event PreToolUse",
-                            "timeout": 5  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ],
-            "PostToolUse": [
-                {
-                    "matcher": "*",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event PostToolUse",
-                            "timeout": 2  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ],
-            "UserPromptSubmit": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event UserPromptSubmit",
-                            "timeout": 1  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ],
-            "Notification": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event Notification",
-                            "timeout": 1  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ],
-            "Stop": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event Stop",
-                            "timeout": 1  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ],
-            "SubagentStop": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event SubagentStop",
-                            "timeout": 1  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ],
-            "PreCompact": [
-                {
-                    "matcher": "*",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "cupcake run --event PreCompact",
-                            "timeout": 1  // timeout in seconds per Claude Code spec
-                        }
-                    ]
-                }
-            ]
-        })
+        claude_hooks::build_cupcake_hooks()
     }
     
     /// Merge Cupcake hooks into existing settings using July 20 structure

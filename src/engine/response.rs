@@ -133,7 +133,11 @@ impl ResponseHandler {
         }
     }
 
-    /// Send response to Claude Code as JSON and exit
+    /// Send response to Claude Code as JSON and terminate the hook process.
+    ///
+    /// This method NEVER returns (`-> !`) because Claude Code expects the hook
+    /// process to terminate after sending its response. The process exit is
+    /// part of the Claude Code July 20 hook protocol specification.
     pub fn send_response(&self, decision: EngineDecision) -> ! {
         // Always use JSON response protocol
         if self.debug {

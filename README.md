@@ -292,8 +292,9 @@ action:
 conditions:
   - type: check
     spec:
-      mode: string
-      command: "test -f {{env.CLAUDE_PROJECT_DIR}}/.cupcake/config.json"
+      mode: array
+      command: ["test"]
+      args: ["-f", "{{env.CLAUDE_PROJECT_DIR}}/.cupcake/config.json"]
     expect_success: true
 ```
 

@@ -156,8 +156,9 @@ Control flow based on exit codes:
 action:
   type: run_command
   spec:
-    mode: string
-    command: "npm test"
+    mode: array
+    command: ["npm"]
+    args: ["test"]
   on_failure: block  # Non-zero exit blocks operation
   on_failure_feedback: "Tests must pass:\n{{stderr}}"
 ```

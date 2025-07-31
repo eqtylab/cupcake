@@ -8,6 +8,12 @@ use std::path::PathBuf;
 /// Builds execution contexts from hook events
 pub struct ExecutionContextBuilder;
 
+impl Default for ExecutionContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExecutionContextBuilder {
     pub fn new() -> Self {
         Self

@@ -5,8 +5,14 @@
 ```rust
 pub enum CommandSpec {
     Array(ArrayCommandSpec),
+    Shell(ShellCommandSpec),  // ⚠️ Requires explicit opt-in
 }
 ```
+
+> **Note**: While Shell mode exists as an escape hatch for complex shell operations,
+> it requires explicit `allow_shell: true` in your policy configuration. Array mode
+> is strongly recommended for security. See [Shell Escape Hatch](shell-escape-hatch.md)
+> for details on when and how to use shell mode safely.
 
 ## ArrayCommandSpec Fields
 

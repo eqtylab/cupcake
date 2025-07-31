@@ -38,11 +38,9 @@ impl EngineRunner {
         action_context: &ActionContext,
     ) -> Result<EngineResult> {
         // Evaluate policies
-        let evaluation_result = self.policy_evaluator.evaluate(
-            policies,
-            hook_event,
-            evaluation_context,
-        )?;
+        let evaluation_result =
+            self.policy_evaluator
+                .evaluate(policies, hook_event, evaluation_context)?;
 
         if self.debug {
             eprintln!(
@@ -58,10 +56,8 @@ impl EngineRunner {
         }
 
         // Execute actions for matched policies
-        let action_results = self.execute_matched_actions(
-            &evaluation_result.matched_policies,
-            action_context,
-        )?;
+        let action_results =
+            self.execute_matched_actions(&evaluation_result.matched_policies, action_context)?;
 
         // Process action results
         let mut final_decision = evaluation_result.decision.clone();
@@ -121,7 +117,9 @@ impl EngineRunner {
                 );
             }
 
-            let result = self.action_executor.execute(&matched_policy.action, action_context);
+            let result = self
+                .action_executor
+                .execute(&matched_policy.action, action_context);
 
             match &result {
                 ActionResult::Success { feedback, .. } => {

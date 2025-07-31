@@ -74,7 +74,6 @@ pub struct PipeCommand {
     pub cmd: Vec<String>,
 }
 
-
 /// Shell script specification for legacy/complex scripts
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShellCommandSpec {

@@ -1,10 +1,10 @@
-mod parser;
 mod context;
 mod engine;
+mod parser;
 
-pub use self::parser::HookEventParser;
 pub use self::context::ExecutionContextBuilder;
 pub use self::engine::EngineRunner;
+pub use self::parser::HookEventParser;
 
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
@@ -90,7 +90,9 @@ impl CommandHandler for RunCommand {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("Error loading configuration: {}", e);
-                self.log_debug("Graceful degradation - allowing operation due to configuration loading error");
+                self.log_debug(
+                    "Graceful degradation - allowing operation due to configuration loading error",
+                );
                 std::process::exit(0);
             }
         };
@@ -117,8 +119,10 @@ impl CommandHandler for RunCommand {
             Err(e) => {
                 eprintln!("Error during policy evaluation: {}", e);
                 self.log_debug("Graceful degradation - allowing operation due to evaluation error");
-                ResponseHandler::new(self.debug)
-                    .send_response_for_hook(EngineDecision::Allow { reason: None }, hook_event.event_name());
+                ResponseHandler::new(self.debug).send_response_for_hook(
+                    EngineDecision::Allow { reason: None },
+                    hook_event.event_name(),
+                );
             }
         };
 

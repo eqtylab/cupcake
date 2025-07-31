@@ -9,9 +9,7 @@
 //! SAFETY: These tests validate that security boundaries between modes are maintained.
 //! They ensure that choosing a different mode doesn't bypass security controls.
 
-use cupcake::config::actions::{
-    ArrayCommandSpec, CommandSpec, ShellCommandSpec,
-};
+use cupcake::config::actions::{ArrayCommandSpec, CommandSpec, ShellCommandSpec};
 use cupcake::config::types::Settings;
 use cupcake::engine::command_executor::CommandExecutor;
 use std::collections::HashMap;
@@ -45,7 +43,6 @@ fn test_array_mode_no_shell_escalation() {
     assert_eq!(node.command.program, "echo");
     assert_eq!(node.command.args, vec!["$(whoami)"]);
 }
-
 
 /// Test that shell mode requires explicit governance
 #[test]
@@ -92,7 +89,6 @@ fn test_allow_shell_false_cannot_be_bypassed() {
     let array_result = executor.build_graph(&array_spec);
     assert!(array_result.is_ok());
 
-
     // Test shell mode is blocked
     let shell_spec = CommandSpec::Shell(ShellCommandSpec {
         script: "echo test".to_string(),
@@ -103,7 +99,6 @@ fn test_allow_shell_false_cannot_be_bypassed() {
     let error = shell_result.unwrap_err();
     assert!(error.to_string().contains("allow_shell=true"));
 }
-
 
 /// Test that shell mode with governance enabled handles the same input differently
 #[test]
@@ -189,7 +184,6 @@ fn test_mode_boundaries_with_complex_scenarios() {
         vec!["test && echo success || echo failure"]
     );
 }
-
 
 /// Test that security boundaries prevent privilege escalation between modes
 #[test]

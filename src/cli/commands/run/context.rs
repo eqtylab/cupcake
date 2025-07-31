@@ -53,7 +53,12 @@ impl ExecutionContextBuilder {
     fn extract_event_data(
         &self,
         hook_event: &HookEvent,
-    ) -> (String, String, HashMap<String, serde_json::Value>, Option<String>) {
+    ) -> (
+        String,
+        String,
+        HashMap<String, serde_json::Value>,
+        Option<String>,
+    ) {
         match hook_event {
             HookEvent::PreToolUse {
                 common,

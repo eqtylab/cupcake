@@ -195,7 +195,11 @@ impl ResponseHandler {
     }
 
     /// Send response for UserPromptSubmit with context injection
-    pub fn send_user_prompt_response(&self, decision: EngineDecision, context_to_inject: Vec<String>) -> ! {
+    pub fn send_user_prompt_response(
+        &self,
+        decision: EngineDecision,
+        context_to_inject: Vec<String>,
+    ) -> ! {
         match &decision {
             EngineDecision::Allow { .. } => {
                 if !context_to_inject.is_empty() {

@@ -251,7 +251,11 @@ fn test_pipe_command_path_template_injection_is_blocked() {
         working_dir: None,
         env: None,
         pipe: Some(vec![cupcake::config::actions::PipeCommand {
-            cmd: vec!["{{malicious_cmd}}".to_string(), "-c".to_string(), "rm -rf /".to_string()],
+            cmd: vec![
+                "{{malicious_cmd}}".to_string(),
+                "-c".to_string(),
+                "rm -rf /".to_string(),
+            ],
         }]),
         redirect_stdout: None,
         append_stdout: None,

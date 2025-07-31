@@ -10,9 +10,7 @@
 //! They test that malicious template content becomes literal strings,
 //! not executable code, regardless of command mode.
 
-use cupcake::config::actions::{
-    ArrayCommandSpec, CommandSpec, EnvVar, ShellCommandSpec,
-};
+use cupcake::config::actions::{ArrayCommandSpec, CommandSpec, EnvVar, ShellCommandSpec};
 use cupcake::config::types::Settings;
 use cupcake::engine::command_executor::CommandExecutor;
 use std::collections::HashMap;
@@ -202,7 +200,6 @@ fn test_cross_context_contamination_prevention() {
     );
 }
 
-
 /// Test template injection in shell mode (requires governance)
 #[test]
 fn test_template_injection_shell_mode() {
@@ -234,7 +231,6 @@ fn test_template_injection_shell_mode() {
         vec!["-c", "echo 'Processing ; rm -rf /tmp/test in shell'"]
     );
 }
-
 
 /// Test template injection with nested patterns
 /// Note: This test was removed due to inconsistent nested template behavior

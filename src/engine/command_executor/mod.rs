@@ -10,7 +10,6 @@
 //! - Secure pipe and redirect handling
 //! - Template substitution only in safe contexts
 
-
 use crate::config::actions::{ArrayCommandSpec, CommandSpec, ShellCommandSpec};
 use crate::config::types::Settings;
 use std::collections::HashMap;
@@ -266,7 +265,7 @@ impl CommandExecutor {
                         "Pipe command cannot be empty".to_string(),
                     ));
                 }
-                
+
                 // SECURITY: Pipe command paths must not contain template variables
                 // This prevents injection attacks through malicious template substitution
                 let program = pipe_cmd.cmd[0].clone();
@@ -275,7 +274,7 @@ impl CommandExecutor {
                         "Template variables are not allowed in pipe command paths for security reasons".to_string(),
                     ));
                 }
-                
+
                 let command = Command {
                     program,
                     args: pipe_cmd.cmd[1..]

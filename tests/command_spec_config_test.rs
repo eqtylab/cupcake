@@ -313,7 +313,7 @@ mod command_spec_tests {
 
         let spec = CommandSpec::Array(Box::new(deepest));
         let executor = CommandExecutor::new(HashMap::new());
-        
+
         // This MUST fail with depth error
         let result = executor.build_graph(&spec);
         assert!(result.is_err());

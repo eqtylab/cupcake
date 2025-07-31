@@ -1,9 +1,9 @@
 use cupcake::config::actions::Action;
 use serde_json::json;
-use std::process::Command;
-use tempfile::TempDir;
 use std::fs;
 use std::io::Write;
+use std::process::Command;
+use tempfile::TempDir;
 
 #[test]
 fn test_inject_context_action_serialization() {
@@ -11,11 +11,11 @@ fn test_inject_context_action_serialization() {
         context: "Remember to follow security best practices".to_string(),
         use_stdout: true,
     };
-    
+
     let yaml = serde_yaml_ng::to_string(&action).unwrap();
     assert!(yaml.contains("inject_context"));
     assert!(yaml.contains("Remember to follow security best practices"));
-    
+
     let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
     assert_eq!(action, deserialized);
 }
@@ -26,7 +26,7 @@ fn test_inject_context_soft_action() {
         context: "Test context".to_string(),
         use_stdout: false,
     };
-    
+
     assert!(action.is_soft_action());
     assert!(!action.is_hard_action());
 }
@@ -37,7 +37,7 @@ fn test_user_prompt_submit_with_context_injection() {
     let temp_dir = TempDir::new().unwrap();
     let config_dir = temp_dir.path().join("guardrails");
     fs::create_dir(&config_dir).unwrap();
-    
+
     // Create a test policy that injects context on UserPromptSubmit
     let policy_content = r#"
 UserPromptSubmit:
@@ -50,9 +50,9 @@ UserPromptSubmit:
         context: "Security Reminder: Never expose API keys or secrets in code"
         use_stdout: true
 "#;
-    
+
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-    
+
     // Create UserPromptSubmit event JSON
     let event_json = json!({
         "hook_event_name": "UserPromptSubmit",
@@ -61,7 +61,7 @@ UserPromptSubmit:
         "cwd": temp_dir.path().to_str().unwrap(),
         "prompt": "How do I connect to a database?"
     });
-    
+
     // Run cupcake with the test configuration
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -79,10 +79,10 @@ UserPromptSubmit:
         })
         .wait_with_output()
         .unwrap();
-    
+
     // Should exit with code 0 (allow)
     assert_eq!(output.status.code(), Some(0));
-    
+
     // Should output the injected context to stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Security Reminder: Never expose API keys or secrets"));
@@ -93,7 +93,7 @@ fn test_multiple_context_injections() {
     let temp_dir = TempDir::new().unwrap();
     let config_dir = temp_dir.path().join("guardrails");
     fs::create_dir(&config_dir).unwrap();
-    
+
     // Create a test policy with multiple inject_context actions
     let policy_content = r#"
 UserPromptSubmit:
@@ -114,9 +114,9 @@ UserPromptSubmit:
         context: "Context 2: Always validate data"
         use_stdout: true
 "#;
-    
+
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-    
+
     let event_json = json!({
         "hook_event_name": "UserPromptSubmit",
         "session_id": "test-session",
@@ -124,7 +124,7 @@ UserPromptSubmit:
         "cwd": temp_dir.path().to_str().unwrap(),
         "prompt": "Process user data"
     });
-    
+
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
         .arg("--event")
@@ -141,7 +141,7 @@ UserPromptSubmit:
         })
         .wait_with_output()
         .unwrap();
-    
+
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Context 1: Be careful with user input"));
     assert!(stdout.contains("Context 2: Always validate data"));
@@ -152,7 +152,7 @@ fn test_context_injection_with_block() {
     let temp_dir = TempDir::new().unwrap();
     let config_dir = temp_dir.path().join("guardrails");
     fs::create_dir(&config_dir).unwrap();
-    
+
     // Policy that blocks certain prompts but still tries to inject context
     let policy_content = r#"
 UserPromptSubmit:
@@ -175,9 +175,9 @@ UserPromptSubmit:
         context: "This context won't be seen due to block"
         use_stdout: true
 "#;
-    
+
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-    
+
     let event_json = json!({
         "hook_event_name": "UserPromptSubmit",
         "session_id": "test-session",
@@ -185,7 +185,7 @@ UserPromptSubmit:
         "cwd": temp_dir.path().to_str().unwrap(),
         "prompt": "How do I run rm -rf /"
     });
-    
+
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
         .arg("--event")
@@ -202,15 +202,15 @@ UserPromptSubmit:
         })
         .wait_with_output()
         .unwrap();
-    
+
     // Should exit with code 0 (success) but provide JSON response for block
     assert_eq!(output.status.code(), Some(0));
-    
+
     // Should output JSON with block decision to stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
     assert!(stdout.contains("\"stopReason\"") && stdout.contains("Dangerous command detected"));
-    
+
     // Context should not appear in stdout due to block (block overrides context injection)
     assert!(!stdout.contains("This context won't be seen"));
 }
@@ -220,7 +220,7 @@ fn test_context_injection_with_template_substitution() {
     let temp_dir = TempDir::new().unwrap();
     let config_dir = temp_dir.path().join("guardrails");
     fs::create_dir(&config_dir).unwrap();
-    
+
     // Policy that uses template variables in context
     let policy_content = r#"
 UserPromptSubmit:
@@ -233,9 +233,9 @@ UserPromptSubmit:
         context: "Session {{session_id}}: Remember to validate inputs in {{env.USER}}'s project"
         use_stdout: true
 "#;
-    
+
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-    
+
     let event_json = json!({
         "hook_event_name": "UserPromptSubmit",
         "session_id": "abc-123",
@@ -243,7 +243,7 @@ UserPromptSubmit:
         "cwd": temp_dir.path().to_str().unwrap(),
         "prompt": "Create input handler"
     });
-    
+
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
         .arg("--event")
@@ -260,7 +260,7 @@ UserPromptSubmit:
         })
         .wait_with_output()
         .unwrap();
-    
+
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Session abc-123:"));
     // USER env var should be substituted
@@ -272,7 +272,7 @@ fn test_ask_permission_with_user_prompt_submit() {
     let temp_dir = TempDir::new().unwrap();
     let config_dir = temp_dir.path().join("guardrails");
     fs::create_dir(&config_dir).unwrap();
-    
+
     // Policy that returns Ask decision
     let policy_content = r#"
 policies:
@@ -291,9 +291,9 @@ policies:
       on_failure: block
       on_failure_feedback: "Need approval for database-related prompts"
 "#;
-    
+
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-    
+
     // For now, Ask is not directly supported in actions, but we've laid the groundwork
     // This test documents the expected future behavior
 }

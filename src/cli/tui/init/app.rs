@@ -1,16 +1,16 @@
-use std::time::Duration;
-use std::collections::HashSet;
-use std::path::PathBuf;
 use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
-    DefaultTerminal, Frame
+    DefaultTerminal, Frame,
 };
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::time::Duration;
 use tokio::time;
 use tui_input::backend::crossterm::EventHandler;
 
-use crate::Result;
-use super::state::*;
 use super::events::*;
+use super::state::*;
+use crate::Result;
 
 /// Main application struct
 pub struct App {
@@ -229,59 +229,68 @@ impl App {
                         // Pass custom instructions if provided
                         let mut extraction = ExtractionState::default();
                         if !discovery.custom_prompt_input.value().trim().is_empty() {
-                            extraction.custom_instructions = Some(discovery.custom_prompt_input.value().to_string());
+                            extraction.custom_instructions =
+                                Some(discovery.custom_prompt_input.value().to_string());
                         }
-                        
+
                         // Start extraction for selected files
                         self.start_extraction(&discovery.selected, &mut extraction)?;
                         WizardState::Extraction(extraction)
                     }
                     WizardState::Extraction(extraction) => {
                         let mut review = ReviewState::default();
-                        
+
                         // Compile and deduplicate rules
-                        let compiled_rules = super::extraction::compile_rules(extraction.extracted_rules.clone());
-                        
+                        let compiled_rules =
+                            super::extraction::compile_rules(extraction.extracted_rules.clone());
+
                         // Populate review with real extracted rules
                         review.rules = compiled_rules;
-                        
+
                         // Select all rules by default
                         for i in 0..review.rules.len() {
                             review.selected.insert(i);
                         }
-                        
+
                         // All sections expanded by default - no need to track
-                        
+
                         WizardState::Review(review)
                     }
                     WizardState::Review(review) => {
                         let mut compilation = CompilationState::default();
-                        
+
                         // Store rule counts for success screen
-                        let selected_rules: Vec<_> = review.rules.iter()
+                        let selected_rules: Vec<_> = review
+                            .rules
+                            .iter()
                             .enumerate()
                             .filter(|(idx, _)| review.selected.contains(idx))
                             .map(|(_, rule)| rule)
                             .collect();
-                        
-                        compilation.high_count = selected_rules.iter()
+
+                        compilation.high_count = selected_rules
+                            .iter()
                             .filter(|r| matches!(r.severity, Severity::High))
                             .count();
-                        compilation.medium_count = selected_rules.iter()
+                        compilation.medium_count = selected_rules
+                            .iter()
                             .filter(|r| matches!(r.severity, Severity::Medium))
                             .count();
-                        compilation.low_count = selected_rules.iter()
+                        compilation.low_count = selected_rules
+                            .iter()
                             .filter(|r| matches!(r.severity, Severity::Low))
                             .count();
-                        
+
                         self.start_compilation(&mut compilation)?;
                         WizardState::Compilation(compilation)
                     }
                     WizardState::Compilation(compilation) => {
                         let output_dir = super::yaml_writer::get_output_dir();
-                        
+
                         WizardState::Success(SuccessState {
-                            total_rules: compilation.high_count + compilation.medium_count + compilation.low_count,
+                            total_rules: compilation.high_count
+                                + compilation.medium_count
+                                + compilation.low_count,
                             high_count: compilation.high_count,
                             medium_count: compilation.medium_count,
                             low_count: compilation.low_count,
@@ -313,7 +322,7 @@ impl App {
         tokio::spawn(async move {
             // Use real file discovery
             let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            
+
             match super::discovery::discover_files(&current_dir).await {
                 Ok(files) => {
                     let total = files.len();
@@ -342,7 +351,10 @@ impl App {
         });
     }
 
-    fn handle_landing_event(state: &mut LandingState, event: AppEvent) -> Result<Option<StateTransition>> {
+    fn handle_landing_event(
+        state: &mut LandingState,
+        event: AppEvent,
+    ) -> Result<Option<StateTransition>> {
         if let AppEvent::Key(key) = event {
             match key.code {
                 KeyCode::Enter => {
@@ -359,7 +371,10 @@ impl App {
         Ok(None)
     }
 
-    fn handle_discovery_event(state: &mut DiscoveryState, event: AppEvent) -> Result<Option<StateTransition>> {
+    fn handle_discovery_event(
+        state: &mut DiscoveryState,
+        event: AppEvent,
+    ) -> Result<Option<StateTransition>> {
         match event {
             AppEvent::Key(key) => {
                 // Handle modal input first if modal is showing
@@ -391,7 +406,7 @@ impl App {
                     }
                     return Ok(None);
                 }
-                
+
                 // Normal discovery screen key handling
                 match key.code {
                     KeyCode::Tab | KeyCode::Left | KeyCode::Right => {
@@ -416,7 +431,8 @@ impl App {
                             Pane::Preview => {
                                 // Scroll preview up
                                 if state.preview_scroll_offset > 0 {
-                                    state.preview_scroll_offset = state.preview_scroll_offset.saturating_sub(1);
+                                    state.preview_scroll_offset =
+                                        state.preview_scroll_offset.saturating_sub(1);
                                 }
                             }
                         }
@@ -438,7 +454,8 @@ impl App {
                                 if let Some(content) = &state.preview_content {
                                     let _line_count = content.lines().count() as u16;
                                     // This is approximate - render function will handle actual limit
-                                    state.preview_scroll_offset = state.preview_scroll_offset.saturating_add(1);
+                                    state.preview_scroll_offset =
+                                        state.preview_scroll_offset.saturating_add(1);
                                 }
                             }
                         }
@@ -446,13 +463,15 @@ impl App {
                     KeyCode::PageUp => {
                         if state.focused_pane == Pane::Preview {
                             // Scroll up by ~10 lines
-                            state.preview_scroll_offset = state.preview_scroll_offset.saturating_sub(10);
+                            state.preview_scroll_offset =
+                                state.preview_scroll_offset.saturating_sub(10);
                         }
                     }
                     KeyCode::PageDown => {
                         if state.focused_pane == Pane::Preview {
                             // Scroll down by ~10 lines
-                            state.preview_scroll_offset = state.preview_scroll_offset.saturating_add(10);
+                            state.preview_scroll_offset =
+                                state.preview_scroll_offset.saturating_add(10);
                         }
                     }
                     KeyCode::Home => {
@@ -513,14 +532,19 @@ impl App {
         Ok(None)
     }
 
-    fn handle_extraction_event(state: &mut ExtractionState, event: AppEvent) -> Result<Option<StateTransition>> {
+    fn handle_extraction_event(
+        state: &mut ExtractionState,
+        event: AppEvent,
+    ) -> Result<Option<StateTransition>> {
         match event {
             AppEvent::Key(key) => {
                 if key.code == KeyCode::Enter {
                     // Only allow continue when all tasks are complete
-                    let all_complete = state.tasks.iter()
+                    let all_complete = state
+                        .tasks
+                        .iter()
                         .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
-                    
+
                     if all_complete {
                         return Ok(Some(StateTransition::Continue));
                     }
@@ -532,7 +556,9 @@ impl App {
                     task.status = TaskStatus::InProgress;
                     task.progress = 0.0;
                     // Track start time
-                    state.task_start_times.insert(file, std::time::Instant::now());
+                    state
+                        .task_start_times
+                        .insert(file, std::time::Instant::now());
                 }
             }
             AppEvent::ExtractionProgress { file, progress } => {
@@ -561,12 +587,17 @@ impl App {
                 }
                 // Store extracted rules
                 state.extracted_rules.extend(rules);
-                
+
                 // Check if all tasks are complete and start compilation timer
-                let all_complete = state.tasks.iter()
+                let all_complete = state
+                    .tasks
+                    .iter()
                     .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
-                
-                if all_complete && state.compilation_started_at == 0 && !state.extracted_rules.is_empty() {
+
+                if all_complete
+                    && state.compilation_started_at == 0
+                    && !state.extracted_rules.is_empty()
+                {
                     state.compilation_started_at = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
@@ -592,9 +623,11 @@ impl App {
                         }
                     }
                 }
-                
+
                 // Force redraw to update compilation timer if needed
-                let all_complete = state.tasks.iter()
+                let all_complete = state
+                    .tasks
+                    .iter()
                     .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
                 if all_complete && state.compilation_started_at > 0 && !state.compilation_complete {
                     // Check if compilation should be marked complete (after 2-3 seconds)
@@ -602,13 +635,14 @@ impl App {
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_millis() as u64;
-                    
+
                     if current_time - state.compilation_started_at > 2500 {
                         state.compilation_complete = true;
                         state.compilation_completed_at = current_time;
-                        
+
                         // Simulate deduplication - remove ~20% of rules
-                        let deduplicated_count = (state.extracted_rules.len() as f64 * 0.8) as usize;
+                        let deduplicated_count =
+                            (state.extracted_rules.len() as f64 * 0.8) as usize;
                         state.compiled_rule_count = deduplicated_count.max(1);
                     }
                 }
@@ -618,13 +652,16 @@ impl App {
         Ok(None)
     }
 
-    fn handle_review_event(state: &mut ReviewState, event: AppEvent) -> Result<Option<StateTransition>> {
+    fn handle_review_event(
+        state: &mut ReviewState,
+        event: AppEvent,
+    ) -> Result<Option<StateTransition>> {
         if let AppEvent::Key(key) = event {
             match key.code {
                 KeyCode::Up => {
                     // Since rules are sorted by severity, we need to find actual rule indices
                     let _sorted_indices = Self::get_sorted_rule_indices(&state.rules);
-                    
+
                     if state.selected_index > 0 {
                         state.selected_index -= 1;
                     }
@@ -668,7 +705,10 @@ impl App {
         Ok(None)
     }
 
-    fn handle_compilation_event(state: &mut CompilationState, event: AppEvent) -> Result<Option<StateTransition>> {
+    fn handle_compilation_event(
+        state: &mut CompilationState,
+        event: AppEvent,
+    ) -> Result<Option<StateTransition>> {
         match event {
             AppEvent::Key(key) => {
                 match key.code {
@@ -695,20 +735,24 @@ impl App {
                 // Calculate overall progress first
                 let phase_count = state.phases.len();
                 state.overall_progress = (phase as f64 + progress) / phase_count as f64;
-                
+
                 if let Some(current) = state.phases.get_mut(phase) {
                     current.status = PhaseStatus::InProgress;
-                    
+
                     // Update phase details based on progress
                     match phase {
                         0 => {
                             // Policy compilation phase
                             current.details.clear();
                             if progress >= 0.3 {
-                                current.details.push("✓ Parsing extracted rules".to_string());
+                                current
+                                    .details
+                                    .push("✓ Parsing extracted rules".to_string());
                             }
                             if progress >= 0.6 {
-                                current.details.push("✓ Generating YAML policies".to_string());
+                                current
+                                    .details
+                                    .push("✓ Generating YAML policies".to_string());
                             }
                             if progress >= 0.9 {
                                 current.details.push("⟳ Optimizing patterns...".to_string());
@@ -718,23 +762,33 @@ impl App {
                             // Hook installation phase
                             current.details.clear();
                             if progress >= 0.25 {
-                                current.details.push("✓ Created .claude/hooks/ directory".to_string());
+                                current
+                                    .details
+                                    .push("✓ Created .claude/hooks/ directory".to_string());
                             }
                             if progress >= 0.5 {
-                                current.details.push("✓ Installed pre-commit hook".to_string());
+                                current
+                                    .details
+                                    .push("✓ Installed pre-commit hook".to_string());
                             }
                             if progress >= 0.75 {
-                                current.details.push("⟳ Installing file-change watchers...".to_string());
+                                current
+                                    .details
+                                    .push("⟳ Installing file-change watchers...".to_string());
                             }
                         }
                         2 => {
                             // Validation phase
                             current.details.clear();
                             if progress >= 0.5 {
-                                current.details.push("✓ Policy syntax validated".to_string());
+                                current
+                                    .details
+                                    .push("✓ Policy syntax validated".to_string());
                             }
                             if progress >= 0.8 {
-                                current.details.push("⟳ Testing hook execution...".to_string());
+                                current
+                                    .details
+                                    .push("⟳ Testing hook execution...".to_string());
                             }
                         }
                         _ => {}
@@ -745,35 +799,55 @@ impl App {
                 if let Some(current) = state.phases.get_mut(phase) {
                     current.status = PhaseStatus::Complete;
                     current.elapsed_ms = 348 + (phase as u64 * 127); // Mock elapsed time
-                    
+
                     // Update final details
                     match phase {
                         0 => {
                             current.details.clear();
-                            current.details.push("✓ Generated 3 policy files".to_string());
-                            current.details.push("✓ 18 critical, 23 warning, 11 info rules".to_string());
+                            current
+                                .details
+                                .push("✓ Generated 3 policy files".to_string());
+                            current
+                                .details
+                                .push("✓ 18 critical, 23 warning, 11 info rules".to_string());
                         }
                         1 => {
                             current.details.clear();
-                            current.details.push("✓ Created .claude/hooks/ directory".to_string());
-                            current.details.push("✓ Installed pre-commit hook".to_string());
-                            current.details.push("✓ Installed file-change watchers".to_string());
-                            current.details.push("✓ Updated .claude/settings.local.json".to_string());
+                            current
+                                .details
+                                .push("✓ Created .claude/hooks/ directory".to_string());
+                            current
+                                .details
+                                .push("✓ Installed pre-commit hook".to_string());
+                            current
+                                .details
+                                .push("✓ Installed file-change watchers".to_string());
+                            current
+                                .details
+                                .push("✓ Updated .claude/settings.local.json".to_string());
                         }
                         2 => {
                             current.details.clear();
-                            current.details.push("✓ Policy syntax validated".to_string());
+                            current
+                                .details
+                                .push("✓ Policy syntax validated".to_string());
                             current.details.push("✓ Hook execution tested".to_string());
-                            current.details.push("✓ All systems operational".to_string());
+                            current
+                                .details
+                                .push("✓ All systems operational".to_string());
                         }
                         _ => {}
                     }
-                    
+
                     state.current_phase = (phase + 1).min(state.phases.len() - 1);
                 }
-                
+
                 // If all phases complete, transition to success
-                if state.phases.iter().all(|p| matches!(p.status, PhaseStatus::Complete)) {
+                if state
+                    .phases
+                    .iter()
+                    .all(|p| matches!(p.status, PhaseStatus::Complete))
+                {
                     return Ok(Some(StateTransition::Continue));
                 }
             }
@@ -799,14 +873,19 @@ impl App {
         Ok(None)
     }
 
-    fn start_extraction(&self, selected_files: &HashSet<PathBuf>, state: &mut ExtractionState) -> Result<()> {
+    fn start_extraction(
+        &self,
+        selected_files: &HashSet<PathBuf>,
+        state: &mut ExtractionState,
+    ) -> Result<()> {
         // Create extraction tasks for selected files
         for path in selected_files.iter() {
-            let file_name = path.file_name()
+            let file_name = path
+                .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
-            
+
             let task = ExtractionTask {
                 file_path: path.clone(),
                 file_name,
@@ -815,20 +894,20 @@ impl App {
                 elapsed_ms: 0,
                 rules_found: 0,
             };
-            
+
             state.tasks.push(task);
         }
-        
+
         // Set overall progress
         state.overall_progress = 0.0;
-        
+
         // Spawn extraction tasks
         if let Some(tx) = &self.event_tx {
             for path in selected_files {
                 super::extraction::spawn_extraction_task(path.clone(), tx.clone());
             }
         }
-        
+
         Ok(())
     }
 
@@ -838,9 +917,7 @@ impl App {
             CompilationPhase {
                 name: "Policy Compilation".to_string(),
                 status: PhaseStatus::InProgress,
-                details: vec![
-                    "⟳ Compiling rules into Cupcake YAML format...".to_string(),
-                ],
+                details: vec!["⟳ Compiling rules into Cupcake YAML format...".to_string()],
                 elapsed_ms: 0,
             },
             CompilationPhase {
@@ -856,92 +933,153 @@ impl App {
                 elapsed_ms: 0,
             },
         ];
-        
+
         state.current_phase = 0;
         state.overall_progress = 0.0;
-        
+
         // Start simulating compilation progress
         if let Some(tx) = &self.event_tx {
             let event_tx = tx.clone();
             tokio::spawn(async move {
                 // Phase 1: Policy Compilation
                 tokio::time::sleep(Duration::from_millis(500)).await;
-                let _ = event_tx.send(AppEvent::CompilationLog("Starting policy compilation...".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Starting policy compilation...".to_string(),
+                ));
+
                 tokio::time::sleep(Duration::from_millis(300)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.3 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Creating guardrails directory...".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 0,
+                    progress: 0.3,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Creating guardrails directory...".to_string(),
+                ));
+
                 // Actually generate stub YAML files
                 let output_dir = super::yaml_writer::get_output_dir();
                 match super::yaml_writer::generate_stub_files(&output_dir, 52) {
                     Ok(_) => {
-                        let _ = event_tx.send(AppEvent::CompilationLog(format!("✓ Created {}", output_dir.display())));
+                        let _ = event_tx.send(AppEvent::CompilationLog(format!(
+                            "✓ Created {}",
+                            output_dir.display()
+                        )));
                     }
                     Err(e) => {
-                        let _ = event_tx.send(AppEvent::CompilationLog(format!("⚠️  Failed to create files: {}", e)));
+                        let _ = event_tx.send(AppEvent::CompilationLog(format!(
+                            "⚠️  Failed to create files: {}",
+                            e
+                        )));
                     }
                 }
-                
+
                 tokio::time::sleep(Duration::from_millis(400)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.6 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Writing policy files...".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 0,
+                    progress: 0.6,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Writing policy files...".to_string(),
+                ));
+
                 tokio::time::sleep(Duration::from_millis(300)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 0, progress: 0.9 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Generated 3 policy files (18 critical, 23 warning, 11 info)".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 0,
+                    progress: 0.9,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Generated 3 policy files (18 critical, 23 warning, 11 info)".to_string(),
+                ));
+
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 let _ = event_tx.send(AppEvent::CompilationPhaseComplete { phase: 0 });
-                
+
                 // Phase 2: Hook Installation
                 tokio::time::sleep(Duration::from_millis(300)).await;
-                let _ = event_tx.send(AppEvent::CompilationLog("Beginning Claude Code hook installation...".to_string()));
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.0 });
-                
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Beginning Claude Code hook installation...".to_string(),
+                ));
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 1,
+                    progress: 0.0,
+                });
+
                 tokio::time::sleep(Duration::from_millis(400)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.25 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Creating .claude directory...".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 1,
+                    progress: 0.25,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Creating .claude directory...".to_string(),
+                ));
+
                 // Actually update Claude settings
                 match super::claude_settings::update_claude_settings() {
                     Ok(_) => {
-                        let _ = event_tx.send(AppEvent::CompilationLog("✓ Updated .claude/settings.local.json".to_string()));
+                        let _ = event_tx.send(AppEvent::CompilationLog(
+                            "✓ Updated .claude/settings.local.json".to_string(),
+                        ));
                     }
                     Err(e) => {
-                        let _ = event_tx.send(AppEvent::CompilationLog(format!("⚠️  Failed to update settings: {}", e)));
+                        let _ = event_tx.send(AppEvent::CompilationLog(format!(
+                            "⚠️  Failed to update settings: {}",
+                            e
+                        )));
                     }
                 }
-                
+
                 tokio::time::sleep(Duration::from_millis(300)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.5 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Hook registered: pre-commit → cupcake check".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 1,
+                    progress: 0.5,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Hook registered: pre-commit → cupcake check".to_string(),
+                ));
+
                 tokio::time::sleep(Duration::from_millis(400)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 1, progress: 0.75 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Installing file-change watchers...".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 1,
+                    progress: 0.75,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Installing file-change watchers...".to_string(),
+                ));
+
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 let _ = event_tx.send(AppEvent::CompilationPhaseComplete { phase: 1 });
-                
+
                 // Phase 3: Validation
                 tokio::time::sleep(Duration::from_millis(300)).await;
-                let _ = event_tx.send(AppEvent::CompilationLog("Running validation tests...".to_string()));
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 2, progress: 0.0 });
-                
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Running validation tests...".to_string(),
+                ));
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 2,
+                    progress: 0.0,
+                });
+
                 tokio::time::sleep(Duration::from_millis(500)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 2, progress: 0.5 });
-                let _ = event_tx.send(AppEvent::CompilationLog("Testing hook execution...".to_string()));
-                
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 2,
+                    progress: 0.5,
+                });
+                let _ = event_tx.send(AppEvent::CompilationLog(
+                    "Testing hook execution...".to_string(),
+                ));
+
                 tokio::time::sleep(Duration::from_millis(400)).await;
-                let _ = event_tx.send(AppEvent::CompilationProgress { phase: 2, progress: 0.8 });
+                let _ = event_tx.send(AppEvent::CompilationProgress {
+                    phase: 2,
+                    progress: 0.8,
+                });
                 let _ = event_tx.send(AppEvent::CompilationLog("All tests passed!".to_string()));
-                
+
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 let _ = event_tx.send(AppEvent::CompilationPhaseComplete { phase: 2 });
             });
         }
-        
+
         Ok(())
     }
 }
@@ -949,23 +1087,21 @@ impl App {
 impl App {
     /// Get sorted rule indices matching the display order in the review screen
     fn get_sorted_rule_indices(rules: &[ExtractedRule]) -> Vec<(usize, &ExtractedRule)> {
-        let mut sorted_rules: Vec<(usize, &ExtractedRule)> = rules.iter()
-            .enumerate()
-            .collect();
-        
+        let mut sorted_rules: Vec<(usize, &ExtractedRule)> = rules.iter().enumerate().collect();
+
         sorted_rules.sort_by(|a, b| {
             let severity_order = |s: &Severity| match s {
                 Severity::High => 0,
                 Severity::Medium => 1,
                 Severity::Low => 2,
             };
-            
+
             match severity_order(&a.1.severity).cmp(&severity_order(&b.1.severity)) {
                 std::cmp::Ordering::Equal => a.1.id.cmp(&b.1.id),
                 other => other,
             }
         });
-        
+
         sorted_rules
     }
 }
@@ -976,9 +1112,8 @@ fn load_file_preview(path: &PathBuf) -> Option<String> {
         // Show directory contents
         if let Ok(entries) = std::fs::read_dir(path) {
             let mut contents = vec![format!("📁 Directory: {}\n", path.display())];
-            let mut count = 0;
-            for entry in entries.flatten() {
-                if count >= 20 { 
+            for (count, entry) in entries.flatten().enumerate() {
+                if count >= 20 {
                     contents.push("... (more files)".to_string());
                     break;
                 }
@@ -988,7 +1123,6 @@ fn load_file_preview(path: &PathBuf) -> Option<String> {
                 } else {
                     contents.push(format!("  📄 {}", name));
                 }
-                count += 1;
             }
             Some(contents.join("\n"))
         } else {
@@ -1001,13 +1135,16 @@ fn load_file_preview(path: &PathBuf) -> Option<String> {
                 let lines: Vec<&str> = content.lines().take(50).collect();
                 let preview = lines.join("\n");
                 if content.lines().count() > 50 {
-                    Some(format!("{}\n\n... ({} more lines)", preview, content.lines().count() - 50))
+                    Some(format!(
+                        "{}\n\n... ({} more lines)",
+                        preview,
+                        content.lines().count() - 50
+                    ))
                 } else {
                     Some(preview)
                 }
             }
-            Err(_) => Some(format!("Cannot preview: {}", path.display()))
+            Err(_) => Some(format!("Cannot preview: {}", path.display())),
         }
     }
 }
-

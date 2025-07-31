@@ -1,12 +1,12 @@
-use cupcake::engine::conditions::{ConditionEvaluator, ConditionResult, EvaluationContext};
-use cupcake::config::conditions::Condition;
-use std::collections::HashMap;
 use chrono::Utc;
+use cupcake::config::conditions::Condition;
+use cupcake::engine::conditions::{ConditionEvaluator, ConditionResult, EvaluationContext};
+use std::collections::HashMap;
 
 #[test]
 fn test_prompt_field_extraction() {
     let mut evaluator = ConditionEvaluator::new();
-    
+
     // Create context with prompt
     let context = EvaluationContext {
         event_type: "UserPromptSubmit".to_string(),
@@ -32,7 +32,7 @@ fn test_prompt_field_extraction() {
 #[test]
 fn test_prompt_field_pattern_matching() {
     let mut evaluator = ConditionEvaluator::new();
-    
+
     // Create context with prompt containing sensitive data
     let context = EvaluationContext {
         event_type: "UserPromptSubmit".to_string(),
@@ -58,7 +58,7 @@ fn test_prompt_field_pattern_matching() {
 #[test]
 fn test_prompt_field_no_match() {
     let mut evaluator = ConditionEvaluator::new();
-    
+
     // Create context without prompt (non-UserPromptSubmit event)
     let context = EvaluationContext {
         event_type: "PreToolUse".to_string(),

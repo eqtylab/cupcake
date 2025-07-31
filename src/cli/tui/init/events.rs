@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use crate::cli::tui::init::state::{ExtractedRule, RuleFile};
 use ratatui::crossterm::event::{KeyEvent, MouseEvent};
-use crate::cli::tui::init::state::{RuleFile, ExtractedRule};
+use std::path::PathBuf;
 
 /// All possible events in the application
 #[derive(Debug)]
@@ -16,15 +16,34 @@ pub enum AppEvent {
     ScanComplete,
 
     // Async task events - Extraction
-    ExtractionStarted { file: PathBuf },
-    ExtractionProgress { file: PathBuf, progress: f64 },
-    ExtractionComplete { file: PathBuf, rules: Vec<ExtractedRule> },
-    ExtractionFailed { file: PathBuf, error: String },
+    ExtractionStarted {
+        file: PathBuf,
+    },
+    ExtractionProgress {
+        file: PathBuf,
+        progress: f64,
+    },
+    ExtractionComplete {
+        file: PathBuf,
+        rules: Vec<ExtractedRule>,
+    },
+    ExtractionFailed {
+        file: PathBuf,
+        error: String,
+    },
 
     // Async task events - Compilation
-    CompilationProgress { phase: usize, progress: f64 },
-    CompilationPhaseComplete { phase: usize },
-    CompilationPhaseFailed { phase: usize, error: String },
+    CompilationProgress {
+        phase: usize,
+        progress: f64,
+    },
+    CompilationPhaseComplete {
+        phase: usize,
+    },
+    CompilationPhaseFailed {
+        phase: usize,
+        error: String,
+    },
     CompilationLog(String),
 
     // UI events

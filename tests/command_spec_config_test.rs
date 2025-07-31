@@ -1,5 +1,5 @@
 //! Comprehensive tests for CommandSpec configuration structures
-//! 
+//!
 //! These tests validate the new secure command specification system
 //! introduced in Plan 008 to replace vulnerable shell-based execution.
 
@@ -95,7 +95,7 @@ mod command_spec_tests {
 
         // Serialize to YAML
         let yaml = serde_yaml_ng::to_string(&spec).expect("Failed to serialize to YAML");
-        
+
         // Verify YAML contains expected structure
         assert!(yaml.contains("mode: array"));
         assert!(yaml.contains("command:"));
@@ -104,8 +104,8 @@ mod command_spec_tests {
         assert!(yaml.contains("RUSTFLAGS"));
 
         // Deserialize back
-        let deserialized: CommandSpec = serde_yaml_ng::from_str(&yaml)
-            .expect("Failed to deserialize from YAML");
+        let deserialized: CommandSpec =
+            serde_yaml_ng::from_str(&yaml).expect("Failed to deserialize from YAML");
 
         // Verify round-trip correctness
         match deserialized {
@@ -169,10 +169,7 @@ mod command_spec_tests {
         // Validate conditional execution
         assert!(spec.on_success.is_some());
         assert_eq!(spec.on_success.as_ref().unwrap().len(), 1);
-        assert_eq!(
-            spec.on_success.as_ref().unwrap()[0].command,
-            vec!["echo"]
-        );
+        assert_eq!(spec.on_success.as_ref().unwrap()[0].command, vec!["echo"]);
     }
 
     /// Test Action::RunCommand with new CommandSpec
@@ -271,7 +268,7 @@ mod command_spec_tests {
         // Serialize and verify template variables are preserved exactly
         let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(spec)))
             .expect("Failed to serialize");
-        
+
         assert!(yaml.contains("{{tool_input.file_path}}"));
         assert!(yaml.contains("{{env.USER}}"));
         assert!(yaml.contains("{{tool_input.working_dir}}"));
@@ -307,8 +304,8 @@ onFailure:
     redirectStderr: error.log
 "#;
 
-        let spec: CommandSpec = serde_yaml_ng::from_str(yaml_input)
-            .expect("Failed to parse complex YAML");
+        let spec: CommandSpec =
+            serde_yaml_ng::from_str(yaml_input).expect("Failed to parse complex YAML");
 
         match spec {
             CommandSpec::Array(array_spec) => {
@@ -366,8 +363,8 @@ onFailure:
 
         let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(minimal)))
             .expect("Failed to serialize minimal spec");
-        let _: CommandSpec = serde_yaml_ng::from_str(&yaml)
-            .expect("Failed to deserialize minimal spec");
+        let _: CommandSpec =
+            serde_yaml_ng::from_str(&yaml).expect("Failed to deserialize minimal spec");
 
         // Empty environment list should work
         let with_empty_env = ArrayCommandSpec {
@@ -386,7 +383,7 @@ onFailure:
 
         let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(with_empty_env)))
             .expect("Failed to serialize with empty env");
-        let _: CommandSpec = serde_yaml_ng::from_str(&yaml)
-            .expect("Failed to deserialize with empty env");
+        let _: CommandSpec =
+            serde_yaml_ng::from_str(&yaml).expect("Failed to deserialize with empty env");
     }
 }

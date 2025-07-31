@@ -1,10 +1,10 @@
+use glob::glob;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use glob::glob;
 use walkdir::WalkDir;
 
-use crate::Result;
 use super::state::{Agent, RuleFile};
+use crate::Result;
 
 /// Pattern for discovering agent configuration files
 pub struct DiscoveryPattern {
@@ -46,7 +46,11 @@ impl DiscoveryPattern {
             },
             // Copilot
             DiscoveryPattern {
-                patterns: vec!["copilot-instructions", ".copilot-instructions", ".github/copilot-instructions.md"],
+                patterns: vec![
+                    "copilot-instructions",
+                    ".copilot-instructions",
+                    ".github/copilot-instructions.md",
+                ],
                 agent: Agent::Copilot,
                 is_directory: false,
             },
@@ -69,12 +73,12 @@ impl DiscoveryPattern {
 /// Discover rule files in the given directory
 pub async fn discover_files(root_dir: &Path) -> Result<Vec<RuleFile>> {
     let root_dir = root_dir.to_path_buf();
-    
+
     // Run discovery in blocking task
-    let files = tokio::task::spawn_blocking(move || {
-        discover_files_sync(&root_dir)
-    }).await.map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
-    
+    let files = tokio::task::spawn_blocking(move || discover_files_sync(&root_dir))
+        .await
+        .map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
+
     Ok(files)
 }
 
@@ -82,33 +86,33 @@ pub async fn discover_files(root_dir: &Path) -> Result<Vec<RuleFile>> {
 fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
     let mut discovered = Vec::new();
     let mut seen = HashMap::new();
-    
+
     // For case-insensitive deduplication on macOS
     let mut seen_canonical = HashMap::new();
-    
+
     for pattern in DiscoveryPattern::all() {
         for glob_pattern in pattern.patterns {
             // Try both relative and absolute patterns
             let full_pattern = root_dir.join(glob_pattern);
             let pattern_str = full_pattern.to_string_lossy();
-            
+
             // Use glob for pattern matching
             if let Ok(entries) = glob(&pattern_str) {
                 for entry in entries.flatten() {
                     // Get canonical path for deduplication
                     let canonical = entry.canonicalize().unwrap_or(entry.clone());
-                    
+
                     // Skip if we've already seen this file (case-insensitive check)
                     if seen_canonical.contains_key(&canonical) {
                         continue;
                     }
-                    
+
                     // Check if it matches our expectations
                     let is_dir = entry.is_dir();
                     if pattern.is_directory != is_dir {
                         continue;
                     }
-                    
+
                     // Create RuleFile
                     let mut rule_file = RuleFile {
                         path: entry.clone(),
@@ -116,12 +120,12 @@ fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
                         is_directory: is_dir,
                         children: vec![],
                     };
-                    
+
                     // If it's a directory, discover children
                     if is_dir {
                         rule_file.children = discover_children(&entry)?;
                     }
-                    
+
                     seen.insert(entry.clone(), discovered.len());
                     seen_canonical.insert(canonical, discovered.len());
                     discovered.push(rule_file);
@@ -129,36 +133,69 @@ fn discover_files_sync(root_dir: &Path) -> Result<Vec<RuleFile>> {
             }
         }
     }
-    
+
     // Sort by agent type for consistent ordering
     discovered.sort_by_key(|f| f.agent as u8);
-    
+
     Ok(discovered)
 }
 
 /// Discover markdown and yaml files within a directory
 fn discover_children(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut children = Vec::new();
-    
+
     // Common directories to exclude from traversal
     let excluded_dirs = [
-        "node_modules", ".git", "target", "build", "dist", ".next", "__pycache__",
-        ".env", "vendor", "bin", "obj", ".terraform", ".cache", "tmp", "temp",
-        ".nyc_output", "coverage", ".pytest_cache", ".vscode", ".idea", 
-        ".DS_Store", "Thumbs.db", ".tmp", ".temp", "logs", "log", ".log",
-        "out", "output", ".output", ".build", ".dist", ".target", ".bin",
-        ".gradle", ".maven", "bazel-*", ".bazel", "cmake-build-*"
+        "node_modules",
+        ".git",
+        "target",
+        "build",
+        "dist",
+        ".next",
+        "__pycache__",
+        ".env",
+        "vendor",
+        "bin",
+        "obj",
+        ".terraform",
+        ".cache",
+        "tmp",
+        "temp",
+        ".nyc_output",
+        "coverage",
+        ".pytest_cache",
+        ".vscode",
+        ".idea",
+        ".DS_Store",
+        "Thumbs.db",
+        ".tmp",
+        ".temp",
+        "logs",
+        "log",
+        ".log",
+        "out",
+        "output",
+        ".output",
+        ".build",
+        ".dist",
+        ".target",
+        ".bin",
+        ".gradle",
+        ".maven",
+        "bazel-*",
+        ".bazel",
+        "cmake-build-*",
     ];
-    
+
     // Check if a directory should be excluded
     let should_exclude_dir = |dir_name: &str| -> bool {
         excluded_dirs.iter().any(|&excluded| {
-            dir_name == excluded || 
-            dir_name.starts_with(excluded) ||
-            (excluded.contains('*') && dir_name.contains(&excluded.replace('*', "")))
+            dir_name == excluded
+                || dir_name.starts_with(excluded)
+                || (excluded.contains('*') && dir_name.contains(&excluded.replace('*', "")))
         })
     };
-    
+
     for entry in WalkDir::new(dir)
         .min_depth(1)
         .max_depth(12) // Increased depth for deeper project structures
@@ -178,7 +215,7 @@ fn discover_children(dir: &Path) -> Result<Vec<PathBuf>> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        
+
         // Only include markdown and yaml files
         if path.is_file() {
             if let Some(ext) = path.extension() {
@@ -189,7 +226,7 @@ fn discover_children(dir: &Path) -> Result<Vec<PathBuf>> {
             }
         }
     }
-    
+
     Ok(children)
 }
 
@@ -197,10 +234,10 @@ fn discover_children(dir: &Path) -> Result<Vec<PathBuf>> {
 pub async fn mock_discover_files() -> Result<Vec<RuleFile>> {
     use std::time::Duration;
     use tokio::time::sleep;
-    
+
     // Simulate some delay
     sleep(Duration::from_millis(100)).await;
-    
+
     Ok(vec![
         RuleFile {
             path: PathBuf::from("CLAUDE.md"),

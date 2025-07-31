@@ -81,7 +81,6 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         config: String,
     },
-
 }
 
 impl Commands {
@@ -98,7 +97,10 @@ impl Commands {
 
     /// Check if this command requires a policy file
     pub fn requires_policy_file(&self) -> bool {
-        matches!(self, Commands::Run { .. } | Commands::Validate { .. } | Commands::Inspect { .. })
+        matches!(
+            self,
+            Commands::Run { .. } | Commands::Validate { .. } | Commands::Inspect { .. }
+        )
     }
 
     /// Check if this command modifies files
@@ -247,7 +249,5 @@ mod tests {
         assert!(!sync_cmd.requires_policy_file());
         assert!(sync_cmd.modifies_files());
         assert!(sync_cmd.requires_permissions());
-
     }
-
 }

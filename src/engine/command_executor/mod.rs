@@ -1,5 +1,5 @@
 //! Secure Command Executor Module
-//! 
+//!
 //! This module implements shell-free command execution for Plan 008.
 //! It transforms ArrayCommandSpec into a CommandGraph and executes it
 //! using direct process spawning with tokio::process::Command.
@@ -12,7 +12,7 @@
 
 mod parser;
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, StringCommandSpec, ShellCommandSpec};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, ShellCommandSpec, StringCommandSpec};
 use crate::config::types::Settings;
 use parser::StringParser;
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 /// Internal representation of a command execution graph
-/// 
+///
 /// This represents the parsed and validated command structure that will be
 /// executed securely without shell involvement.
 #[derive(Debug, Clone, PartialEq)]
@@ -104,22 +104,21 @@ struct ProcessedOutput {
 pub enum ExecutionError {
     #[error("Command graph construction failed: {0}")]
     GraphConstruction(String),
-    
+
     #[error("Process spawn failed: {0}")]
     ProcessSpawn(String),
-    
+
     #[error("I/O operation failed: {0}")]
     IoOperation(String),
-    
+
     #[error("Template substitution failed: {0}")]
     TemplateSubstitution(String),
-    
+
     #[error("Timeout exceeded")]
     Timeout,
-    
+
     #[error("Invalid command specification: {0}")]
     InvalidSpec(String),
-    
 }
 
 /// The main command executor that transforms specs into secure execution
@@ -133,7 +132,7 @@ pub struct CommandExecutor {
 impl CommandExecutor {
     /// Create a new command executor with template variables
     pub fn new(template_vars: HashMap<String, String>) -> Self {
-        Self { 
+        Self {
             template_vars,
             settings: Settings::default(), // Use secure defaults
         }
@@ -141,14 +140,14 @@ impl CommandExecutor {
 
     /// Create a new command executor with template variables and settings
     pub fn with_settings(template_vars: HashMap<String, String>, settings: Settings) -> Self {
-        Self { 
-            template_vars, 
+        Self {
+            template_vars,
             settings,
         }
     }
 
     /// Build a CommandGraph from a CommandSpec
-    /// 
+    ///
     /// This is the core transformation that converts the user-facing YAML
     /// specification into an internal execution graph.
     pub fn build_graph(&self, spec: &CommandSpec) -> Result<CommandGraph, ExecutionError> {
@@ -160,20 +159,23 @@ impl CommandExecutor {
     }
 
     /// Build CommandGraph from ArrayCommandSpec
-    fn build_graph_from_array(&self, spec: &ArrayCommandSpec) -> Result<CommandGraph, ExecutionError> {
+    fn build_graph_from_array(
+        &self,
+        spec: &ArrayCommandSpec,
+    ) -> Result<CommandGraph, ExecutionError> {
         // Validate basic command structure
         if spec.command.is_empty() {
             return Err(ExecutionError::InvalidSpec(
-                "Command array cannot be empty".to_string()
+                "Command array cannot be empty".to_string(),
             ));
         }
 
         // Build the primary command with secure template substitution
         let command = self.build_command(spec)?;
-        
+
         // Build operations from composition keys
         let operations = self.build_operations(spec)?;
-        
+
         // Build conditional execution
         let conditional = self.build_conditional_execution(spec)?;
 
@@ -183,26 +185,25 @@ impl CommandExecutor {
             conditional,
         };
 
-        Ok(CommandGraph {
-            nodes: vec![node],
-        })
+        Ok(CommandGraph { nodes: vec![node] })
     }
 
     /// Build secure Command from ArrayCommandSpec
     fn build_command(&self, spec: &ArrayCommandSpec) -> Result<Command, ExecutionError> {
         // SECURITY: Use command path literally - no template substitution allowed
         let program = spec.command[0].clone();
-        
+
         // Validate command path doesn't contain template syntax
         if program.contains("{{") || program.contains("}}") {
             return Err(ExecutionError::InvalidSpec(
-                "Template variables are not allowed in command paths for security reasons".to_string()
+                "Template variables are not allowed in command paths for security reasons"
+                    .to_string(),
             ));
         }
-        
+
         // Remaining command elements plus args become arguments
         let mut args = Vec::new();
-        
+
         // Add remaining command elements as args (if any)
         // SAFE: Template substitution only in arguments
         if spec.command.len() > 1 {
@@ -210,7 +211,7 @@ impl CommandExecutor {
                 args.push(self.substitute_template(arg)?);
             }
         }
-        
+
         // Add explicit args
         // SAFE: Template substitution in arguments is allowed
         if let Some(explicit_args) = &spec.args {
@@ -252,10 +253,11 @@ impl CommandExecutor {
             for pipe_cmd in pipe_commands {
                 let command = Command {
                     program: self.substitute_template(&pipe_cmd.cmd[0])?,
-                    args: pipe_cmd.cmd[1..].iter()
+                    args: pipe_cmd.cmd[1..]
+                        .iter()
                         .map(|arg| self.substitute_template(arg))
                         .collect::<Result<Vec<_>, _>>()?,
-                    working_dir: None, // Pipes inherit working dir
+                    working_dir: None,        // Pipes inherit working dir
                     env_vars: HashMap::new(), // Pipes inherit environment
                 };
                 operations.push(Operation::Pipe(command));
@@ -289,7 +291,10 @@ impl CommandExecutor {
     }
 
     /// Build conditional execution from onSuccess/onFailure
-    fn build_conditional_execution(&self, spec: &ArrayCommandSpec) -> Result<Option<ConditionalExecution>, ExecutionError> {
+    fn build_conditional_execution(
+        &self,
+        spec: &ArrayCommandSpec,
+    ) -> Result<Option<ConditionalExecution>, ExecutionError> {
         let on_success = if let Some(success_specs) = &spec.on_success {
             let mut nodes = Vec::new();
             for success_spec in success_specs {
@@ -323,20 +328,27 @@ impl CommandExecutor {
     }
 
     /// Build CommandGraph from StringCommandSpec
-    fn build_graph_from_string(&self, spec: &StringCommandSpec) -> Result<CommandGraph, ExecutionError> {
+    fn build_graph_from_string(
+        &self,
+        spec: &StringCommandSpec,
+    ) -> Result<CommandGraph, ExecutionError> {
         let parser = StringParser::new(self.template_vars.clone());
         parser.parse(spec).map_err(|e| e.into())
     }
 
     /// Build CommandGraph from ShellCommandSpec
-    /// 
+    ///
     /// Shell commands are executed directly via /bin/sh -c, bypassing the secure
     /// CommandGraph architecture. This requires explicit allow_shell=true setting.
-    fn build_graph_from_shell(&self, spec: &ShellCommandSpec) -> Result<CommandGraph, ExecutionError> {
+    fn build_graph_from_shell(
+        &self,
+        spec: &ShellCommandSpec,
+    ) -> Result<CommandGraph, ExecutionError> {
         // Security check: shell execution must be explicitly enabled
         if !self.settings.allow_shell {
             return Err(ExecutionError::InvalidSpec(
-                "Shell command execution is disabled. Set allow_shell=true in settings to enable.".to_string()
+                "Shell command execution is disabled. Set allow_shell=true in settings to enable."
+                    .to_string(),
             ));
         }
 
@@ -359,33 +371,39 @@ impl CommandExecutor {
     }
 
     /// Safely substitute template variables
-    /// 
+    ///
     /// This is the critical security function - it only substitutes in safe contexts
     /// (arguments and environment values) and never in command paths.
     fn substitute_template(&self, template: &str) -> Result<String, ExecutionError> {
         let mut result = template.to_string();
-        
+
         for (key, value) in &self.template_vars {
             let placeholder = format!("{{{{{}}}}}", key);
             result = result.replace(&placeholder, value);
         }
-        
+
         Ok(result)
     }
 
     /// Execute a CommandSpec with security controls
-    /// 
+    ///
     /// This is the main entry point for command execution.
-    pub async fn execute_spec(&self, spec: &CommandSpec) -> Result<ExecutionResult, ExecutionError> {
+    pub async fn execute_spec(
+        &self,
+        spec: &CommandSpec,
+    ) -> Result<ExecutionResult, ExecutionError> {
         let graph = self.build_graph(spec)?;
         self.execute_graph(&graph).await
     }
 
     /// Execute a CommandGraph with secure, shell-free process spawning
-    /// 
+    ///
     /// This implements industry-standard async execution patterns with tokio,
     /// following the principle of elegance through simplicity and safety.
-    pub async fn execute_graph(&self, graph: &CommandGraph) -> Result<ExecutionResult, ExecutionError> {
+    pub async fn execute_graph(
+        &self,
+        graph: &CommandGraph,
+    ) -> Result<ExecutionResult, ExecutionError> {
         let mut final_exit_code = 0;
         let mut captured_stdout = None;
         let mut captured_stderr = None;
@@ -393,7 +411,7 @@ impl CommandExecutor {
         // Execute each node in the graph sequentially
         for node in &graph.nodes {
             let result = self.execute_node(node).await?;
-            
+
             // Update final result based on execution
             final_exit_code = result.exit_code;
             if result.stdout.is_some() {
@@ -406,11 +424,13 @@ impl CommandExecutor {
             // Handle conditional execution based on exit code
             if let Some(conditional) = &node.conditional {
                 let conditional_result = if result.success {
-                    self.execute_conditional_nodes(&conditional.on_success).await?
+                    self.execute_conditional_nodes(&conditional.on_success)
+                        .await?
                 } else {
-                    self.execute_conditional_nodes(&conditional.on_failure).await?
+                    self.execute_conditional_nodes(&conditional.on_failure)
+                        .await?
                 };
-                
+
                 // Conditional execution can override the final result
                 if !conditional_result.success {
                     final_exit_code = conditional_result.exit_code;
@@ -430,7 +450,7 @@ impl CommandExecutor {
     async fn execute_node(&self, node: &ExecutionNode) -> Result<ExecutionResult, ExecutionError> {
         // Build the tokio command with secure configuration
         let mut cmd = self.build_tokio_command(&node.command)?;
-        
+
         // Configure I/O based on operations - industry standard stdio handling
         let (stdout_config, stderr_config) = self.configure_stdio(&node.operations)?;
         cmd.stdout(stdout_config);
@@ -455,31 +475,38 @@ impl CommandExecutor {
     }
 
     /// Build tokio::process::Command with secure, direct process spawning
-    fn build_tokio_command(&self, command: &Command) -> Result<tokio::process::Command, ExecutionError> {
+    fn build_tokio_command(
+        &self,
+        command: &Command,
+    ) -> Result<tokio::process::Command, ExecutionError> {
         let mut cmd = tokio::process::Command::new(&command.program);
-        
+
         // Add arguments - each as separate argument (secure argv approach)
         cmd.args(&command.args);
-        
+
         // Set working directory if specified
         if let Some(working_dir) = &command.working_dir {
             cmd.current_dir(working_dir);
         }
-        
+
         // Add environment variables (extends system environment)
         for (key, value) in &command.env_vars {
             cmd.env(key, value);
         }
-        
+
         Ok(cmd)
     }
 
     /// Apply sandboxing controls to the command
-    /// 
+    ///
     /// Implements the security controls outlined in Plan 008 Part 3:
     /// - UID drop (if supported on platform and not in debug mode)
     /// - seccomp stub (placeholder for future implementation)
-    fn apply_sandboxing_controls(&self, cmd: &mut tokio::process::Command, command: &Command) -> Result<(), ExecutionError> {
+    fn apply_sandboxing_controls(
+        &self,
+        cmd: &mut tokio::process::Command,
+        command: &Command,
+    ) -> Result<(), ExecutionError> {
         // UID drop for shell commands (Unix platforms only, not in debug mode)
         #[cfg(unix)]
         if command.program == "/bin/sh" && !self.settings.debug_mode {
@@ -487,7 +514,7 @@ impl CommandExecutor {
                 // Resolve UID from string (either numeric or username)
                 let uid = self.resolve_uid(sandbox_uid_str)?;
                 cmd.uid(uid);
-                
+
                 // Also set GID to match the UID
                 cmd.gid(uid);
             }
@@ -507,26 +534,30 @@ impl CommandExecutor {
         if let Ok(uid) = uid_str.parse::<u32>() {
             return Ok(uid);
         }
-        
+
         // Otherwise try to resolve as username
         #[cfg(target_os = "linux")]
         {
             use std::ffi::CString;
             use std::ptr;
-            
+
             unsafe {
-                let username = CString::new(uid_str)
-                    .map_err(|_| ExecutionError::InvalidSpec(format!("Invalid username: {}", uid_str)))?;
+                let username = CString::new(uid_str).map_err(|_| {
+                    ExecutionError::InvalidSpec(format!("Invalid username: {}", uid_str))
+                })?;
                 let pwd = libc::getpwnam(username.as_ptr());
-                
+
                 if pwd.is_null() {
-                    return Err(ExecutionError::InvalidSpec(format!("Unknown user: {}", uid_str)));
+                    return Err(ExecutionError::InvalidSpec(format!(
+                        "Unknown user: {}",
+                        uid_str
+                    )));
                 }
-                
+
                 Ok((*pwd).pw_uid)
             }
         }
-        
+
         #[cfg(not(target_os = "linux"))]
         {
             // For non-Linux Unix systems, require numeric UID
@@ -537,40 +568,53 @@ impl CommandExecutor {
     }
 
     /// Execute command with timeout protection
-    /// 
+    ///
     /// Implements the timeout control outlined in Plan 008 Part 3
-    async fn execute_with_timeout(&self, mut cmd: tokio::process::Command) -> Result<std::process::Output, ExecutionError> {
+    async fn execute_with_timeout(
+        &self,
+        mut cmd: tokio::process::Command,
+    ) -> Result<std::process::Output, ExecutionError> {
         use tokio::time::{timeout, Duration};
-        
+
         // Use configurable timeout for command execution
         // This prevents runaway processes from consuming resources
         let timeout_duration = Duration::from_millis(self.settings.timeout_ms);
-        
+
         let output_future = cmd.output();
-        
+
         match timeout(timeout_duration, output_future).await {
             Ok(Ok(output)) => Ok(output),
-            Ok(Err(e)) => Err(ExecutionError::ProcessSpawn(format!("Failed to execute command: {}", e))),
+            Ok(Err(e)) => Err(ExecutionError::ProcessSpawn(format!(
+                "Failed to execute command: {}",
+                e
+            ))),
             Err(_) => Err(ExecutionError::Timeout),
         }
     }
 
     /// Apply seccomp restrictions (stub implementation)
-    /// 
+    ///
     /// This is a placeholder for future seccomp implementation.
     /// In production, this would set up seccomp-bpf filters to restrict system calls.
-    fn apply_seccomp_stub(&self, _cmd: &mut tokio::process::Command, command: &Command) -> Result<(), ExecutionError> {
+    fn apply_seccomp_stub(
+        &self,
+        _cmd: &mut tokio::process::Command,
+        command: &Command,
+    ) -> Result<(), ExecutionError> {
         // Log seccomp application in debug mode
         if self.settings.debug_mode {
-            eprintln!("DEBUG: seccomp stub applied to command: {}", command.program);
+            eprintln!(
+                "DEBUG: seccomp stub applied to command: {}",
+                command.program
+            );
         }
-        
+
         // TODO: Implement actual seccomp-bpf filters
         // This would involve:
         // 1. Creating a seccomp filter that allows only necessary system calls
         // 2. Loading the filter using prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)
         // 3. Different filter profiles for different command types
-        
+
         Ok(())
     }
 
@@ -578,7 +622,7 @@ impl CommandExecutor {
     fn configure_stdio(&self, operations: &[Operation]) -> Result<(Stdio, Stdio), ExecutionError> {
         let mut stdout_config = Stdio::piped(); // Default: capture for processing
         let mut stderr_config = Stdio::piped(); // Default: capture for processing
-        
+
         // Check for redirect operations that override defaults
         for operation in operations {
             match operation {
@@ -598,7 +642,7 @@ impl CommandExecutor {
                 }
             }
         }
-        
+
         Ok((stdout_config, stderr_config))
     }
 
@@ -643,13 +687,25 @@ impl CommandExecutor {
         }
 
         Ok(ProcessedOutput {
-            stdout: if current_stdout.is_empty() { None } else { Some(current_stdout) },
-            stderr: if current_stderr.is_empty() { None } else { Some(current_stderr) },
+            stdout: if current_stdout.is_empty() {
+                None
+            } else {
+                Some(current_stdout)
+            },
+            stderr: if current_stderr.is_empty() {
+                None
+            } else {
+                Some(current_stderr)
+            },
         })
     }
 
     /// Execute pipe command with industry-standard async process handling and sandboxing
-    async fn execute_pipe(&self, pipe_cmd: &Command, input: &str) -> Result<String, ExecutionError> {
+    async fn execute_pipe(
+        &self,
+        pipe_cmd: &Command,
+        input: &str,
+    ) -> Result<String, ExecutionError> {
         let mut cmd = self.build_tokio_command(pipe_cmd)?;
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::piped());
@@ -658,31 +714,34 @@ impl CommandExecutor {
         // Apply sandboxing controls to pipe commands as well
         self.apply_sandboxing_controls(&mut cmd, pipe_cmd)?;
 
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| ExecutionError::ProcessSpawn(format!("Failed to spawn pipe command: {}", e)))?;
+        let mut child = cmd.spawn().map_err(|e| {
+            ExecutionError::ProcessSpawn(format!("Failed to spawn pipe command: {}", e))
+        })?;
 
         // Write input to stdin - elegant async I/O
         if let Some(stdin) = child.stdin.take() {
             use tokio::io::AsyncWriteExt;
             let mut stdin = stdin;
-            stdin
-                .write_all(input.as_bytes())
-                .await
-                .map_err(|e| ExecutionError::IoOperation(format!("Failed to write to pipe stdin: {}", e)))?;
-            stdin
-                .shutdown()
-                .await
-                .map_err(|e| ExecutionError::IoOperation(format!("Failed to close pipe stdin: {}", e)))?;
+            stdin.write_all(input.as_bytes()).await.map_err(|e| {
+                ExecutionError::IoOperation(format!("Failed to write to pipe stdin: {}", e))
+            })?;
+            stdin.shutdown().await.map_err(|e| {
+                ExecutionError::IoOperation(format!("Failed to close pipe stdin: {}", e))
+            })?;
         }
 
         // Wait for completion and capture output with timeout
         use tokio::time::{timeout, Duration};
         let timeout_duration = Duration::from_millis(self.settings.timeout_ms);
-        
+
         let output = match timeout(timeout_duration, child.wait_with_output()).await {
             Ok(Ok(output)) => output,
-            Ok(Err(e)) => return Err(ExecutionError::ProcessSpawn(format!("Failed to read pipe output: {}", e))),
+            Ok(Err(e)) => {
+                return Err(ExecutionError::ProcessSpawn(format!(
+                    "Failed to read pipe output: {}",
+                    e
+                )))
+            }
             Err(_) => return Err(ExecutionError::Timeout),
         };
 
@@ -697,7 +756,12 @@ impl CommandExecutor {
     }
 
     /// Write to file with async I/O - industry standard file handling
-    async fn write_to_file(&self, path: &std::path::Path, content: &str, append: bool) -> Result<(), ExecutionError> {
+    async fn write_to_file(
+        &self,
+        path: &std::path::Path,
+        content: &str,
+        append: bool,
+    ) -> Result<(), ExecutionError> {
         use tokio::fs::OpenOptions;
         use tokio::io::AsyncWriteExt;
 
@@ -708,21 +772,26 @@ impl CommandExecutor {
             .truncate(!append)
             .open(path)
             .await
-            .map_err(|e| ExecutionError::IoOperation(format!("Failed to open file {:?}: {}", path, e)))?;
+            .map_err(|e| {
+                ExecutionError::IoOperation(format!("Failed to open file {:?}: {}", path, e))
+            })?;
 
-        file.write_all(content.as_bytes())
-            .await
-            .map_err(|e| ExecutionError::IoOperation(format!("Failed to write to file {:?}: {}", path, e)))?;
+        file.write_all(content.as_bytes()).await.map_err(|e| {
+            ExecutionError::IoOperation(format!("Failed to write to file {:?}: {}", path, e))
+        })?;
 
-        file.flush()
-            .await
-            .map_err(|e| ExecutionError::IoOperation(format!("Failed to flush file {:?}: {}", path, e)))?;
+        file.flush().await.map_err(|e| {
+            ExecutionError::IoOperation(format!("Failed to flush file {:?}: {}", path, e))
+        })?;
 
         Ok(())
     }
 
     /// Execute conditional nodes sequentially
-    async fn execute_conditional_nodes(&self, nodes: &[ExecutionNode]) -> Result<ExecutionResult, ExecutionError> {
+    async fn execute_conditional_nodes(
+        &self,
+        nodes: &[ExecutionNode],
+    ) -> Result<ExecutionResult, ExecutionError> {
         let mut final_result = ExecutionResult {
             exit_code: 0,
             stdout: None,
@@ -732,13 +801,13 @@ impl CommandExecutor {
 
         for node in nodes {
             let result = self.execute_node(node).await?;
-            
+
             // Update final result - last failing command determines overall result
             if !result.success {
                 final_result.exit_code = result.exit_code;
                 final_result.success = false;
             }
-            
+
             // Capture output from last command
             if result.stdout.is_some() {
                 final_result.stdout = result.stdout;
@@ -755,7 +824,7 @@ impl CommandExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::actions::{PipeCommand, EnvVar};
+    use crate::config::actions::{EnvVar, PipeCommand};
 
     fn create_template_vars() -> HashMap<String, String> {
         let mut vars = HashMap::new();
@@ -768,7 +837,7 @@ mod tests {
     #[test]
     fn test_command_graph_construction() {
         let executor = CommandExecutor::new(create_template_vars());
-        
+
         let spec = ArrayCommandSpec {
             command: vec!["echo".to_string()],
             args: Some(vec!["Hello {{user}}".to_string()]),
@@ -787,16 +856,19 @@ mod tests {
         };
 
         let graph = executor.build_graph_from_array(&spec).unwrap();
-        
+
         assert_eq!(graph.nodes.len(), 1);
         let node = &graph.nodes[0];
-        
+
         // Validate command construction
         assert_eq!(node.command.program, "echo");
         assert_eq!(node.command.args, vec!["Hello testuser"]);
         assert_eq!(node.command.working_dir, Some(PathBuf::from("/tmp")));
-        assert_eq!(node.command.env_vars.get("SESSION"), Some(&"test-123".to_string()));
-        
+        assert_eq!(
+            node.command.env_vars.get("SESSION"),
+            Some(&"test-123".to_string())
+        );
+
         // Validate no operations
         assert!(node.operations.is_empty());
         assert!(node.conditional.is_none());
@@ -805,7 +877,7 @@ mod tests {
     #[test]
     fn test_pipe_operations() {
         let executor = CommandExecutor::new(create_template_vars());
-        
+
         let spec = ArrayCommandSpec {
             command: vec!["npm".to_string()],
             args: Some(vec!["test".to_string()]),
@@ -829,10 +901,10 @@ mod tests {
 
         let graph = executor.build_graph_from_array(&spec).unwrap();
         let node = &graph.nodes[0];
-        
+
         // Validate pipe operations
         assert_eq!(node.operations.len(), 2);
-        
+
         match &node.operations[0] {
             Operation::Pipe(cmd) => {
                 assert_eq!(cmd.program, "grep");
@@ -840,7 +912,7 @@ mod tests {
             }
             _ => panic!("Expected Pipe operation"),
         }
-        
+
         match &node.operations[1] {
             Operation::Pipe(cmd) => {
                 assert_eq!(cmd.program, "tee");
@@ -853,7 +925,7 @@ mod tests {
     #[test]
     fn test_redirect_operations() {
         let executor = CommandExecutor::new(create_template_vars());
-        
+
         let spec = ArrayCommandSpec {
             command: vec!["cargo".to_string()],
             args: Some(vec!["build".to_string()]),
@@ -870,10 +942,10 @@ mod tests {
 
         let graph = executor.build_graph_from_array(&spec).unwrap();
         let node = &graph.nodes[0];
-        
+
         // Validate redirect operations
         assert_eq!(node.operations.len(), 3);
-        
+
         assert!(matches!(node.operations[0], Operation::RedirectStdout(_)));
         assert!(matches!(node.operations[1], Operation::RedirectStderr(_)));
         assert!(matches!(node.operations[2], Operation::MergeStderr));
@@ -882,7 +954,7 @@ mod tests {
     #[test]
     fn test_conditional_execution() {
         let executor = CommandExecutor::new(create_template_vars());
-        
+
         let spec = ArrayCommandSpec {
             command: vec!["test".to_string()],
             args: Some(vec!["-f".to_string(), "{{file_path}}".to_string()]),
@@ -923,22 +995,25 @@ mod tests {
 
         let graph = executor.build_graph_from_array(&spec).unwrap();
         let node = &graph.nodes[0];
-        
+
         // Validate main command
         assert_eq!(node.command.program, "test");
         assert_eq!(node.command.args, vec!["-f", "/tmp/test.txt"]);
-        
+
         // Validate conditional execution
         assert!(node.conditional.is_some());
         let conditional = node.conditional.as_ref().unwrap();
-        
+
         assert_eq!(conditional.on_success.len(), 1);
         assert_eq!(conditional.on_success[0].command.program, "echo");
         assert_eq!(conditional.on_success[0].command.args, vec!["File exists"]);
-        
+
         assert_eq!(conditional.on_failure.len(), 1);
         assert_eq!(conditional.on_failure[0].command.program, "echo");
-        assert_eq!(conditional.on_failure[0].command.args, vec!["File not found"]);
+        assert_eq!(
+            conditional.on_failure[0].command.args,
+            vec!["File not found"]
+        );
     }
 
     #[test]
@@ -946,9 +1021,9 @@ mod tests {
         let mut vars = HashMap::new();
         vars.insert("safe_arg".to_string(), "normal_value".to_string());
         vars.insert("malicious_arg".to_string(), "; rm -rf /".to_string());
-        
+
         let executor = CommandExecutor::new(vars);
-        
+
         let spec = ArrayCommandSpec {
             command: vec!["echo".to_string()],
             args: Some(vec!["{{malicious_arg}}".to_string()]),
@@ -965,11 +1040,11 @@ mod tests {
 
         let graph = executor.build_graph_from_array(&spec).unwrap();
         let node = &graph.nodes[0];
-        
+
         // The malicious content becomes a literal argument, not executed
         assert_eq!(node.command.program, "echo");
         assert_eq!(node.command.args, vec!["; rm -rf /"]);
-        
+
         // This is SAFE because:
         // 1. No shell is involved
         // 2. The malicious content is just a literal string argument
@@ -979,7 +1054,7 @@ mod tests {
     #[test]
     fn test_empty_command_validation() {
         let executor = CommandExecutor::new(HashMap::new());
-        
+
         let spec = ArrayCommandSpec {
             command: vec![], // Empty command should fail
             args: None,
@@ -996,7 +1071,10 @@ mod tests {
 
         let result = executor.build_graph_from_array(&spec);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ExecutionError::InvalidSpec(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            ExecutionError::InvalidSpec(_)
+        ));
     }
 
     #[test]
@@ -1004,9 +1082,9 @@ mod tests {
         let mut vars = HashMap::new();
         vars.insert("cmd".to_string(), "/bin/sh".to_string());
         vars.insert("malicious".to_string(), "../../bin/evil".to_string());
-        
+
         let executor = CommandExecutor::new(vars);
-        
+
         // Test 1: Full template in command path
         let spec = ArrayCommandSpec {
             command: vec!["{{cmd}}".to_string()],
@@ -1021,7 +1099,7 @@ mod tests {
             on_success: None,
             on_failure: None,
         };
-        
+
         let result = executor.build_graph_from_array(&spec);
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -1030,7 +1108,7 @@ mod tests {
             }
             _ => panic!("Expected InvalidSpec error for template in command path"),
         }
-        
+
         // Test 2: Partial template in command path
         let spec2 = ArrayCommandSpec {
             command: vec!["/usr/bin/{{malicious}}".to_string()],
@@ -1045,7 +1123,7 @@ mod tests {
             on_success: None,
             on_failure: None,
         };
-        
+
         let result2 = executor.build_graph_from_array(&spec2);
         assert!(result2.is_err());
         match result2.unwrap_err() {
@@ -1054,7 +1132,7 @@ mod tests {
             }
             _ => panic!("Expected InvalidSpec error for partial template in command path"),
         }
-        
+
         // Test 3: Templates in args should still work
         let spec3 = ArrayCommandSpec {
             command: vec!["echo".to_string()],
@@ -1069,11 +1147,14 @@ mod tests {
             on_success: None,
             on_failure: None,
         };
-        
+
         let result3 = executor.build_graph_from_array(&spec3);
         assert!(result3.is_ok());
         let graph = result3.unwrap();
         assert_eq!(graph.nodes[0].command.program, "echo");
-        assert_eq!(graph.nodes[0].command.args, vec!["/bin/sh", "../../bin/evil"]);
+        assert_eq!(
+            graph.nodes[0].command.args,
+            vec!["/bin/sh", "../../bin/evil"]
+        );
     }
 }

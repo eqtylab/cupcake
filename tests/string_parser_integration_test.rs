@@ -1,5 +1,5 @@
 //! Integration tests for string command parsing
-//! 
+//!
 //! This test suite validates the integration between StringCommandSpec and
 //! the CommandExecutor, ensuring that string commands are properly parsed
 //! and executed securely.
@@ -29,7 +29,7 @@ mod string_parser_integration_tests {
 
         let graph = executor.build_graph(&spec).unwrap();
         assert_eq!(graph.nodes.len(), 1);
-        
+
         let node = &graph.nodes[0];
         assert_eq!(node.command.program, "echo");
         assert_eq!(node.command.args, vec!["hello", "world"]);
@@ -60,7 +60,10 @@ mod string_parser_integration_tests {
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
         assert_eq!(node.command.program, "echo");
-        assert_eq!(node.command.args, vec!["User: alice", "file:", "/tmp/test.txt"]);
+        assert_eq!(
+            node.command.args,
+            vec!["User: alice", "file:", "/tmp/test.txt"]
+        );
     }
 
     #[test]
@@ -111,12 +114,12 @@ mod string_parser_integration_tests {
 
         let graph = executor.build_graph(&spec).unwrap();
         assert_eq!(graph.nodes.len(), 1);
-        
+
         let node = &graph.nodes[0];
         assert_eq!(node.command.program, "echo");
         assert_eq!(node.command.args, vec!["hello", "world"]);
         assert_eq!(node.operations.len(), 1);
-        
+
         match &node.operations[0] {
             cupcake::engine::command_executor::Operation::Pipe(cmd) => {
                 assert_eq!(cmd.program, "grep");
@@ -129,7 +132,7 @@ mod string_parser_integration_tests {
     #[test]
     fn test_string_command_redirect_operators() {
         let executor = create_executor();
-        
+
         // Test > redirect
         let spec = CommandSpec::String(StringCommandSpec {
             command: "echo test content > output.txt".to_string(),
@@ -139,8 +142,11 @@ mod string_parser_integration_tests {
         assert_eq!(node.command.program, "echo");
         assert_eq!(node.command.args, vec!["test", "content"]);
         assert_eq!(node.operations.len(), 1);
-        assert!(matches!(&node.operations[0], cupcake::engine::command_executor::Operation::RedirectStdout(_)));
-        
+        assert!(matches!(
+            &node.operations[0],
+            cupcake::engine::command_executor::Operation::RedirectStdout(_)
+        ));
+
         // Test >> append
         let spec2 = CommandSpec::String(StringCommandSpec {
             command: "echo more content >> output.txt".to_string(),
@@ -148,13 +154,16 @@ mod string_parser_integration_tests {
         let graph2 = executor.build_graph(&spec2).unwrap();
         let node2 = &graph2.nodes[0];
         assert_eq!(node2.operations.len(), 1);
-        assert!(matches!(&node2.operations[0], cupcake::engine::command_executor::Operation::AppendStdout(_)));
+        assert!(matches!(
+            &node2.operations[0],
+            cupcake::engine::command_executor::Operation::AppendStdout(_)
+        ));
     }
 
     #[test]
     fn test_string_command_conditional_operators() {
         let executor = create_executor();
-        
+
         // Test && operator
         let spec = CommandSpec::String(StringCommandSpec {
             command: "test -f {{file_path}} && echo file exists".to_string(),
@@ -167,7 +176,7 @@ mod string_parser_integration_tests {
         let cond = node.conditional.as_ref().unwrap();
         assert_eq!(cond.on_success.len(), 1);
         assert_eq!(cond.on_success[0].command.program, "echo");
-        
+
         // Test || operator
         let spec2 = CommandSpec::String(StringCommandSpec {
             command: "test -f missing.txt || echo file not found".to_string(),
@@ -191,7 +200,7 @@ mod string_parser_integration_tests {
         assert_eq!(node.command.program, "cat");
         assert_eq!(node.command.args, vec!["/tmp/test.txt"]);
         assert_eq!(node.operations.len(), 3);
-        
+
         // Verify template substitution in pipe args
         match &node.operations[0] {
             cupcake::engine::command_executor::Operation::Pipe(cmd) => {
@@ -222,8 +231,15 @@ mod string_parser_integration_tests {
             let result = executor.build_graph(&spec);
             assert!(result.is_err(), "Command should fail: '{}'", command);
             let error_msg = result.unwrap_err().to_string();
-            assert!(error_msg.to_lowercase().contains(&expected_msg.to_lowercase()), 
-                "Error should mention '{}' for command '{}', got: {}", expected_msg, command, error_msg);
+            assert!(
+                error_msg
+                    .to_lowercase()
+                    .contains(&expected_msg.to_lowercase()),
+                "Error should mention '{}' for command '{}', got: {}",
+                expected_msg,
+                command,
+                error_msg
+            );
         }
     }
 
@@ -247,8 +263,13 @@ mod string_parser_integration_tests {
             let result = executor.build_graph(&spec);
             assert!(result.is_err(), "Command should fail: '{}'", command);
             let error_msg = result.unwrap_err().to_string();
-            assert!(error_msg.contains(expected_msg), 
-                "Error should mention '{}' for command '{}', got: {}", expected_msg, command, error_msg);
+            assert!(
+                error_msg.contains(expected_msg),
+                "Error should mention '{}' for command '{}', got: {}",
+                expected_msg,
+                command,
+                error_msg
+            );
         }
     }
 
@@ -256,17 +277,22 @@ mod string_parser_integration_tests {
     fn test_string_command_complex_quoting() {
         let executor = create_executor();
         let spec = CommandSpec::String(StringCommandSpec {
-            command: r#"echo 'Single quotes: {{message}}' "Double quotes: {{user}}" plain_{{file_path}}"#.to_string(),
+            command:
+                r#"echo 'Single quotes: {{message}}' "Double quotes: {{user}}" plain_{{file_path}}"#
+                    .to_string(),
         });
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
         assert_eq!(node.command.program, "echo");
-        assert_eq!(node.command.args, vec![
-            "Single quotes: Hello World",
-            "Double quotes: alice", 
-            "plain_/tmp/test.txt"
-        ]);
+        assert_eq!(
+            node.command.args,
+            vec![
+                "Single quotes: Hello World",
+                "Double quotes: alice",
+                "plain_/tmp/test.txt"
+            ]
+        );
     }
 
     #[test]
@@ -291,7 +317,7 @@ mod string_parser_integration_tests {
 
         let graph = executor.build_graph(&spec).unwrap();
         let result = executor.execute_graph(&graph).await.unwrap();
-        
+
         assert!(result.success);
         assert_eq!(result.exit_code, 0);
         assert!(result.stdout.is_some());

@@ -1,9 +1,9 @@
 //! Tests for StringCommandSpec configuration and serialization
-//! 
+//!
 //! This test suite validates the configuration structures for string-based
 //! command specifications and their YAML serialization/deserialization.
 
-use cupcake::config::actions::{CommandSpec, StringCommandSpec, Action, OnFailureBehavior};
+use cupcake::config::actions::{Action, CommandSpec, OnFailureBehavior, StringCommandSpec};
 
 #[cfg(test)]
 mod string_command_spec_tests {
@@ -14,7 +14,7 @@ mod string_command_spec_tests {
         let spec = StringCommandSpec {
             command: "npm test | grep PASS".to_string(),
         };
-        
+
         assert_eq!(spec.command, "npm test | grep PASS");
     }
 
@@ -23,7 +23,7 @@ mod string_command_spec_tests {
         let spec = CommandSpec::String(StringCommandSpec {
             command: "echo hello | grep hello".to_string(),
         });
-        
+
         match spec {
             CommandSpec::String(string_spec) => {
                 assert_eq!(string_spec.command, "echo hello | grep hello");
@@ -72,14 +72,12 @@ command: "npm test | tee result.log"
         };
 
         match action {
-            Action::RunCommand { spec, .. } => {
-                match spec {
-                    CommandSpec::String(string_spec) => {
-                        assert_eq!(string_spec.command, "echo test && echo success");
-                    }
-                    _ => panic!("Expected String CommandSpec"),
+            Action::RunCommand { spec, .. } => match spec {
+                CommandSpec::String(string_spec) => {
+                    assert_eq!(string_spec.command, "echo test && echo success");
                 }
-            }
+                _ => panic!("Expected String CommandSpec"),
+            },
             _ => panic!("Expected RunCommand action"),
         }
     }
@@ -88,7 +86,8 @@ command: "npm test | tee result.log"
     fn test_complex_pipeline_yaml_serialization() {
         let action = Action::RunCommand {
             spec: CommandSpec::String(StringCommandSpec {
-                command: "docker ps -a | grep backend | awk '{print $1}' > containers.txt".to_string(),
+                command: "docker ps -a | grep backend | awk '{print $1}' > containers.txt"
+                    .to_string(),
             }),
             on_failure: OnFailureBehavior::Block,
             on_failure_feedback: Some("Docker command failed".to_string()),
@@ -122,7 +121,7 @@ command: "npm test | tee result.log"
             // Test serialization roundtrip
             let yaml = serde_yaml_ng::to_string(&spec).unwrap();
             let deserialized: CommandSpec = serde_yaml_ng::from_str(&yaml).unwrap();
-            
+
             assert_eq!(spec, deserialized);
         }
     }
@@ -135,7 +134,7 @@ command: "npm test | tee result.log"
 
         let yaml = serde_yaml_ng::to_string(&spec).unwrap();
         let deserialized: CommandSpec = serde_yaml_ng::from_str(&yaml).unwrap();
-        
+
         assert_eq!(spec, deserialized);
     }
 
@@ -147,7 +146,7 @@ command: "npm test | tee result.log"
 
         let yaml = serde_yaml_ng::to_string(&spec).unwrap();
         let deserialized: CommandSpec = serde_yaml_ng::from_str(&yaml).unwrap();
-        
+
         assert_eq!(spec, deserialized);
     }
 
@@ -159,7 +158,7 @@ command: "npm test | tee result.log"
 
         let yaml = serde_yaml_ng::to_string(&spec).unwrap();
         let deserialized: CommandSpec = serde_yaml_ng::from_str(&yaml).unwrap();
-        
+
         assert_eq!(spec, deserialized);
     }
 }

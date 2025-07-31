@@ -4,7 +4,6 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-
     /// Create a test policy file with RunCommand action
     fn create_run_command_policy(dir: &TempDir, expect_success: bool) -> PathBuf {
         let guardrails_dir = dir.path().join("guardrails");
@@ -47,7 +46,6 @@ PreToolUse:
 
         guardrails_dir
     }
-
 
     #[test]
     fn test_run_command_execution_success() {
@@ -92,11 +90,7 @@ PreToolUse:
 
         // Write hook event to stdin
         let mut child = output;
-        std::io::Write::write_all(
-            child.stdin.as_mut().unwrap(),
-            hook_event.as_bytes(),
-        )
-        .unwrap();
+        std::io::Write::write_all(child.stdin.as_mut().unwrap(), hook_event.as_bytes()).unwrap();
 
         let output = child.wait_with_output().unwrap();
 
@@ -160,25 +154,28 @@ PreToolUse:
 
         // Write hook event to stdin
         let mut child = output;
-        std::io::Write::write_all(
-            child.stdin.as_mut().unwrap(),
-            hook_event.as_bytes(),
-        )
-        .unwrap();
+        std::io::Write::write_all(child.stdin.as_mut().unwrap(), hook_event.as_bytes()).unwrap();
 
         let output = child.wait_with_output().unwrap();
 
         // Should exit with code 0 (success) but provide JSON response for block
-        assert_eq!(output.status.code(), Some(0), "Expected exit code 0 with JSON response");
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "Expected exit code 0 with JSON response"
+        );
 
         // Should provide JSON response with block decision
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let response_json: serde_json::Value = serde_json::from_str(&stdout)
-            .expect("stdout was not valid JSON");
+        let response_json: serde_json::Value =
+            serde_json::from_str(&stdout).expect("stdout was not valid JSON");
 
         // Should be a block decision in JSON format
         let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
-        assert_eq!(decision, "deny", "JSON response should have permissionDecision: deny");
+        assert_eq!(
+            decision, "deny",
+            "JSON response should have permissionDecision: deny"
+        );
 
         // Should contain the failure feedback
         let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];

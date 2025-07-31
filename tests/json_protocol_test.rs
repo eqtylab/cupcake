@@ -1,6 +1,5 @@
 /// Integration tests to verify the new JSON-based communication protocol
 /// These tests ensure that the Claude Code July 20 hook specification is correctly implemented
-
 use std::fs;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -52,24 +51,38 @@ PreToolUse:
         .spawn()
         .expect("Failed to spawn cupcake");
 
-    cmd.stdin.as_mut().unwrap().write_all(hook_event_json.as_bytes()).unwrap();
+    cmd.stdin
+        .as_mut()
+        .unwrap()
+        .write_all(hook_event_json.as_bytes())
+        .unwrap();
     let output = cmd.wait_with_output().unwrap();
 
     // VERIFY THE NEW CONTRACT
     // 1. Assert the process exits successfully (code 0)
-    assert_eq!(output.status.code(), Some(0), "Process should exit 0 even when blocking");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Process should exit 0 even when blocking"
+    );
 
     // 2. Assert the decision is communicated via JSON on stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response_json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout was not valid JSON");
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout was not valid JSON");
 
     // 3. Assert the JSON has the correct structure for a block decision
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
-    assert_eq!(decision, "deny", "JSON response should have permissionDecision: deny");
+    assert_eq!(
+        decision, "deny",
+        "JSON response should have permissionDecision: deny"
+    );
 
     let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];
-    assert_eq!(reason, "Blocked by test policy", "JSON should contain the feedback message");
+    assert_eq!(
+        reason, "Blocked by test policy",
+        "JSON should contain the feedback message"
+    );
 }
 
 #[test]
@@ -118,24 +131,38 @@ PreToolUse:
         .spawn()
         .expect("Failed to spawn cupcake");
 
-    cmd.stdin.as_mut().unwrap().write_all(hook_event_json.as_bytes()).unwrap();
+    cmd.stdin
+        .as_mut()
+        .unwrap()
+        .write_all(hook_event_json.as_bytes())
+        .unwrap();
     let output = cmd.wait_with_output().unwrap();
 
     // VERIFY THE NEW CONTRACT
     // 1. Assert the process exits successfully (code 0)
-    assert_eq!(output.status.code(), Some(0), "Process should exit 0 for allow");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Process should exit 0 for allow"
+    );
 
     // 2. Assert the decision is communicated via JSON on stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response_json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout was not valid JSON");
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout was not valid JSON");
 
     // 3. Assert the JSON has the correct structure for an allow decision
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
-    assert_eq!(decision, "allow", "JSON response should have permissionDecision: allow");
+    assert_eq!(
+        decision, "allow",
+        "JSON response should have permissionDecision: allow"
+    );
 
     let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];
-    assert_eq!(reason, "Allowed by test policy", "JSON should contain the allow reason");
+    assert_eq!(
+        reason, "Allowed by test policy",
+        "JSON should contain the allow reason"
+    );
 }
 
 #[test]
@@ -184,21 +211,32 @@ PreToolUse:
         .spawn()
         .expect("Failed to spawn cupcake");
 
-    cmd.stdin.as_mut().unwrap().write_all(hook_event_json.as_bytes()).unwrap();
+    cmd.stdin
+        .as_mut()
+        .unwrap()
+        .write_all(hook_event_json.as_bytes())
+        .unwrap();
     let output = cmd.wait_with_output().unwrap();
 
     // VERIFY THE NEW CONTRACT
     // 1. Assert the process exits successfully (code 0)
-    assert_eq!(output.status.code(), Some(0), "Process should exit 0 for default allow");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Process should exit 0 for default allow"
+    );
 
     // 2. Assert the decision is communicated via JSON on stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response_json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout was not valid JSON");
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout was not valid JSON");
 
     // 3. Assert the JSON has the correct structure for a default allow decision
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
-    assert_eq!(decision, "allow", "JSON response should have permissionDecision: allow by default");
+    assert_eq!(
+        decision, "allow",
+        "JSON response should have permissionDecision: allow by default"
+    );
 
     // Should have no reason for the default allow case
     let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];

@@ -1,7 +1,7 @@
 use super::CommandHandler;
+use crate::config::conditions::Condition;
 use crate::config::loader::PolicyLoader;
 use crate::config::types::ComposedPolicy;
-use crate::config::conditions::Condition;
 use crate::Result;
 use std::path::Path;
 
@@ -52,25 +52,29 @@ impl InspectCommand {
     /// Print policies in compact table format
     fn print_policies_table(&self, policies: &[ComposedPolicy]) {
         // Calculate column widths
-        let name_width = policies.iter()
+        let name_width = policies
+            .iter()
             .map(|p| p.name.len())
             .max()
             .unwrap_or(4)
             .max(4); // "NAME"
 
-        let event_width = policies.iter()
+        let event_width = policies
+            .iter()
             .map(|p| p.hook_event.to_string().len())
             .max()
             .unwrap_or(5)
             .max(5); // "EVENT"
 
-        let tool_width = policies.iter()
+        let tool_width = policies
+            .iter()
             .map(|p| p.matcher.len())
             .max()
             .unwrap_or(4)
             .max(4); // "TOOL"
 
-        let action_width = policies.iter()
+        let action_width = policies
+            .iter()
             .map(|p| self.format_action_type(p).len())
             .max()
             .unwrap_or(6)
@@ -79,7 +83,10 @@ impl InspectCommand {
         // Print header
         println!(
             "{:<name_width$} {:<event_width$} {:<tool_width$} {:<action_width$} CONDITIONS",
-            "NAME", "EVENT", "TOOL", "ACTION",
+            "NAME",
+            "EVENT",
+            "TOOL",
+            "ACTION",
             name_width = name_width,
             event_width = event_width,
             tool_width = tool_width,
@@ -118,8 +125,12 @@ impl InspectCommand {
     /// Format action type as a short string
     fn format_action_type(&self, policy: &ComposedPolicy) -> String {
         match &policy.action {
-            crate::config::actions::Action::ProvideFeedback { .. } => "provide_feedback".to_string(),
-            crate::config::actions::Action::BlockWithFeedback { .. } => "block_with_feedback".to_string(),
+            crate::config::actions::Action::ProvideFeedback { .. } => {
+                "provide_feedback".to_string()
+            }
+            crate::config::actions::Action::BlockWithFeedback { .. } => {
+                "block_with_feedback".to_string()
+            }
             crate::config::actions::Action::Allow { .. } => "allow".to_string(),
             crate::config::actions::Action::RunCommand { .. } => "run_command".to_string(),
             crate::config::actions::Action::Conditional { .. } => "conditional".to_string(),
@@ -138,7 +149,11 @@ impl InspectCommand {
             self.format_single_condition(&conditions[0])
         } else {
             // Multiple conditions - show count and first one
-            format!("{} conditions: {}", conditions.len(), self.format_single_condition(&conditions[0]))
+            format!(
+                "{} conditions: {}",
+                conditions.len(),
+                self.format_single_condition(&conditions[0])
+            )
         }
     }
 
@@ -152,7 +167,10 @@ impl InspectCommand {
             Condition::Match { field, value } => {
                 format!("{} = \"{}\"", field, value)
             }
-            Condition::Check { spec, expect_success } => {
+            Condition::Check {
+                spec,
+                expect_success,
+            } => {
                 // TODO: Improve display of CommandSpec in Phase 2
                 let command_display = match spec.as_ref() {
                     crate::config::actions::CommandSpec::Array(array_spec) => {
@@ -166,7 +184,10 @@ impl InspectCommand {
                         string_spec.command.clone()
                     }
                     crate::config::actions::CommandSpec::Shell(shell_spec) => {
-                        format!("shell: {}", shell_spec.script.chars().take(50).collect::<String>())
+                        format!(
+                            "shell: {}",
+                            shell_spec.script.chars().take(50).collect::<String>()
+                        )
                     }
                 };
                 if *expect_success {
@@ -183,7 +204,8 @@ impl InspectCommand {
                         self.format_single_condition(&conditions[1])
                     )
                 } else {
-                    format!("({} AND {} more)", 
+                    format!(
+                        "({} AND {} more)",
                         self.format_single_condition(&conditions[0]),
                         conditions.len() - 1
                     )
@@ -197,7 +219,8 @@ impl InspectCommand {
                         self.format_single_condition(&conditions[1])
                     )
                 } else {
-                    format!("({} OR {} more)", 
+                    format!(
+                        "({} OR {} more)",
                         self.format_single_condition(&conditions[0]),
                         conditions.len() - 1
                     )

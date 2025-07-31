@@ -29,7 +29,7 @@ mod tests {
                 rationale: "Important test rule".to_string(),
             },
         };
-        
+
         assert_eq!(rule.id, 1);
         assert_eq!(rule.description, "Test rule");
         assert!(matches!(rule.severity, Severity::High));
@@ -41,7 +41,7 @@ mod tests {
         let high = Severity::High;
         let medium = Severity::Medium;
         let low = Severity::Low;
-        
+
         assert!(matches!(high, Severity::High));
         assert!(matches!(medium, Severity::Medium));
         assert!(matches!(low, Severity::Low));
@@ -54,7 +54,7 @@ mod tests {
         assert!(form.description.value().is_empty());
         assert_eq!(form.severity, Severity::Medium);
         assert!(!form.block_on_violation);
-        
+
         // Test field navigation
         form.current_field = FormField::Severity;
         assert!(matches!(form.current_field, FormField::Severity));
@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn test_review_state_with_rules() {
         let mut state = ReviewState::default();
-        
+
         // Add some rules
         state.rules.push(ExtractedRule {
             id: 0,
@@ -79,7 +79,7 @@ mod tests {
                 rationale: "High severity rule should be enforced".to_string(),
             },
         });
-        
+
         state.rules.push(ExtractedRule {
             id: 1,
             source_file: PathBuf::from("CLAUDE.md"),
@@ -94,14 +94,14 @@ mod tests {
                 rationale: "Medium severity rule for guidance".to_string(),
             },
         });
-        
+
         assert_eq!(state.rules.len(), 2);
-        
+
         // Test selection
         state.selected.insert(0);
         assert!(state.selected.contains(&0));
         assert!(!state.selected.contains(&1));
-        
+
         // Test expanded sections
         state.expanded_sections.insert("CLAUDE.md".to_string());
         assert!(state.expanded_sections.contains("CLAUDE.md"));
@@ -114,6 +114,9 @@ mod tests {
         assert!(matches!(FormField::Severity, FormField::Severity));
         assert!(matches!(FormField::Category, FormField::Category));
         assert!(matches!(FormField::When, FormField::When));
-        assert!(matches!(FormField::BlockOnViolation, FormField::BlockOnViolation));
+        assert!(matches!(
+            FormField::BlockOnViolation,
+            FormField::BlockOnViolation
+        ));
     }
 }

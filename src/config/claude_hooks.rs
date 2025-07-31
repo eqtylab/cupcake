@@ -1,11 +1,11 @@
 //! Claude Code hooks configuration
-//! 
+//!
 //! Provides the standard Cupcake hook configuration for Claude Code integration.
 
 use serde_json::{json, Value};
 
 /// Build the standard Cupcake hook configuration for Claude Code
-/// 
+///
 /// This configuration follows the July 20 Claude Code specification with:
 /// - Nested array format for hooks
 /// - Matcher field for tool events (PreToolUse, PostToolUse, PreCompact)

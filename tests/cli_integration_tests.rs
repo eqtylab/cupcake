@@ -14,7 +14,7 @@ fn get_cupcake_binary() -> String {
 #[test]
 fn test_cli_help_command() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .arg("--help")
         .output()
@@ -29,11 +29,10 @@ fn test_cli_help_command() {
     assert!(stdout.contains("validate"));
 }
 
-
 #[test]
 fn test_cli_run_command() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["run", "--event", "PreToolUse", "--debug"])
         .output()
@@ -50,7 +49,7 @@ fn test_cli_run_command() {
 #[test]
 fn test_cli_sync_command() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["sync", "--dry-run"])
         .output()
@@ -66,7 +65,7 @@ fn test_cli_sync_command() {
 fn test_cli_validate_command() {
     let temp_dir = tempdir().unwrap();
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["validate", "--strict"])
         .current_dir(temp_dir.path())
@@ -76,27 +75,20 @@ fn test_cli_validate_command() {
     // Check that validation fails with proper error message
     let stderr = String::from_utf8(output.stderr).unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();
-    
+
     // Should fail with config not found error
     assert!(
-        stderr.contains("No guardrails/cupcake.yaml found") || 
-        stdout.contains("No guardrails/cupcake.yaml found")
+        stderr.contains("No guardrails/cupcake.yaml found")
+            || stdout.contains("No guardrails/cupcake.yaml found")
     );
 }
-
-
 
 #[test]
 fn test_cli_run_with_debug() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
-        .args([
-            "run",
-            "--event",
-            "PostToolUse",
-            "--debug",
-        ])
+        .args(["run", "--event", "PostToolUse", "--debug"])
         .output()
         .expect("Failed to execute cupcake run --debug");
 
@@ -107,7 +99,7 @@ fn test_cli_run_with_debug() {
 #[test]
 fn test_cli_sync_with_force() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["sync", "--force", "--dry-run"])
         .output()
@@ -115,7 +107,9 @@ fn test_cli_sync_with_force() {
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     // Sync command with force and dry-run shows appropriate output
-    assert!(stdout.contains("Dry run mode") || stdout.contains("🔍") || stdout.contains("would write"));
+    assert!(
+        stdout.contains("Dry run mode") || stdout.contains("🔍") || stdout.contains("would write")
+    );
     // The JSON output should be present in dry run mode
     assert!(stdout.contains("hooks") || stdout.contains("PreToolUse"));
 }
@@ -124,7 +118,7 @@ fn test_cli_sync_with_force() {
 fn test_cli_validate_with_format() {
     let temp_dir = tempdir().unwrap();
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["validate", "--format", "json"])
         .current_dir(temp_dir.path())
@@ -135,26 +129,25 @@ fn test_cli_validate_with_format() {
     let stderr = String::from_utf8(output.stderr).unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stderr.contains("No guardrails/cupcake.yaml found") || 
-        stdout.contains("No guardrails/cupcake.yaml found")
+        stderr.contains("No guardrails/cupcake.yaml found")
+            || stdout.contains("No guardrails/cupcake.yaml found")
     );
 }
-
 
 #[test]
 fn test_cli_invalid_command() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .arg("invalid-command")
         .output()
         .expect("Failed to execute cupcake with invalid command");
 
     assert!(!output.status.success(), "Command should have failed");
-    
+
     let stderr = String::from_utf8(output.stderr).unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();
-    
+
     // More robust check - error message might be in stdout or stderr
     let combined = format!("{}{}", stderr, stdout);
     assert!(
@@ -168,7 +161,7 @@ fn test_cli_invalid_command() {
 #[test]
 fn test_cli_missing_required_args() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["run"])
         .output()
@@ -182,7 +175,7 @@ fn test_cli_missing_required_args() {
 #[test]
 fn test_cli_version() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .arg("--version")
         .output()
@@ -196,7 +189,7 @@ fn test_cli_version() {
 #[test]
 fn test_cli_default_values() {
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["run", "--event", "PreToolUse", "--debug"])
         .output()
@@ -207,12 +200,11 @@ fn test_cli_default_values() {
     assert!(stderr.contains("Event: PreToolUse"));
 }
 
-
 #[test]
 fn test_cli_validate_default_file() {
     let temp_dir = tempdir().unwrap();
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .args(["validate"])
         .current_dir(temp_dir.path())
@@ -223,17 +215,16 @@ fn test_cli_validate_default_file() {
     let stderr = String::from_utf8(output.stderr).unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stderr.contains("No guardrails/cupcake.yaml found") || 
-        stdout.contains("No guardrails/cupcake.yaml found")
+        stderr.contains("No guardrails/cupcake.yaml found")
+            || stdout.contains("No guardrails/cupcake.yaml found")
     );
 }
-
 
 #[test]
 fn test_cli_all_subcommands_exist() {
     // Test that all expected subcommands are available
     let cupcake_binary = get_cupcake_binary();
-    
+
     let output = Command::new(&cupcake_binary)
         .arg("--help")
         .output()
@@ -250,4 +241,3 @@ fn test_cli_all_subcommands_exist() {
         );
     }
 }
-

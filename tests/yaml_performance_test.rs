@@ -83,11 +83,18 @@ PostToolUse:
     for i in 0..5 {
         let filename = format!("{:02}-policies.yaml", i);
         // Modify policy names to be unique per file
-        let unique_content = policy_content.replace("Block dangerous commands", &format!("Block dangerous commands {}", i))
+        let unique_content = policy_content
+            .replace(
+                "Block dangerous commands",
+                &format!("Block dangerous commands {}", i),
+            )
             .replace("Git commit checks", &format!("Git commit checks {}", i))
             .replace("NPM install warning", &format!("NPM install warning {}", i))
             .replace("Python formatting", &format!("Python formatting {}", i))
-            .replace("File creation logging", &format!("File creation logging {}", i));
+            .replace(
+                "File creation logging",
+                &format!("File creation logging {}", i),
+            );
         fs::write(policies_dir.join(&filename), &unique_content).unwrap();
     }
 
@@ -103,21 +110,21 @@ PostToolUse:
 
     for _ in 0..ITERATIONS {
         let mut loader = cupcake::config::loader::PolicyLoader::new();
-        
+
         let start = Instant::now();
         let policies = loader.load_and_compose_policies(temp_dir.path()).unwrap();
         let duration = start.elapsed();
-        
+
         total_duration += duration;
         min_duration = min_duration.min(duration);
         max_duration = max_duration.max(duration);
-        
+
         // Verify we loaded the expected number of policies
         assert_eq!(policies.len(), 25); // 5 policies per file * 5 files
     }
 
     let avg_duration = total_duration / ITERATIONS;
-    
+
     println!("=== YAML Loading Performance ===");
     println!("Iterations: {}", ITERATIONS);
     println!("Total policies loaded: 25 (5 files × 5 policies)");
@@ -155,48 +162,49 @@ PreToolUse:
     // Test 1: Pure YAML parsing performance
     let mut parse_total = std::time::Duration::new(0, 0);
     const ITERATIONS: u32 = 1000;
-    
+
     for _ in 0..ITERATIONS {
         let start = Instant::now();
-        let _: cupcake::config::types::PolicyFragment = 
+        let _: cupcake::config::types::PolicyFragment =
             serde_yaml_ng::from_str(policy_yaml).unwrap();
         parse_total += start.elapsed();
     }
-    
+
     let avg_parse = parse_total / ITERATIONS;
-    
+
     // Test 2: Full load cycle (includes file I/O)
     let guardrails_dir = temp_dir.path().join("guardrails");
     let policies_dir = guardrails_dir.join("policies");
     fs::create_dir_all(&policies_dir).unwrap();
-    
+
     fs::write(
         guardrails_dir.join("cupcake.yaml"),
-        "settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"\n"
-    ).unwrap();
+        "settings:\n  debug_mode: false\nimports:\n  - \"policies/*.yaml\"\n",
+    )
+    .unwrap();
     fs::write(policies_dir.join("test.yaml"), policy_yaml).unwrap();
-    
+
     let mut load_total = std::time::Duration::new(0, 0);
-    
+
     // Fewer iterations for full load test since it includes I/O
     const LOAD_ITERATIONS: u32 = 100;
-    
+
     for _ in 0..LOAD_ITERATIONS {
         let mut loader = cupcake::config::loader::PolicyLoader::new();
         let start = Instant::now();
         let _ = loader.load_and_compose_policies(temp_dir.path()).unwrap();
         load_total += start.elapsed();
     }
-    
+
     let avg_load = load_total / LOAD_ITERATIONS;
-    
+
     println!("=== YAML Parsing vs Full Load ===");
     println!("Parse iterations: {}", ITERATIONS);
     println!("Load iterations: {}", LOAD_ITERATIONS);
     println!("Pure YAML parsing: {:?}", avg_parse);
     println!("Full load cycle: {:?}", avg_load);
     println!("=================================");
-    
+
     // Both should be well under 100ms
     assert!(avg_parse.as_millis() < 10, "Parsing takes too long");
     assert!(avg_load.as_millis() < 100, "Full load takes too long");

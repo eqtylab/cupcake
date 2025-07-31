@@ -1,8 +1,8 @@
 use clap::Parser;
 use cupcake::{
     cli::commands::{
-        init::InitCommand, inspect::InspectCommand, run::RunCommand, 
-        sync::SyncCommand, validate::ValidateCommand, CommandHandler,
+        init::InitCommand, inspect::InspectCommand, run::RunCommand, sync::SyncCommand,
+        validate::ValidateCommand, CommandHandler,
     },
     cli::{Cli, Commands},
     Result,

@@ -42,15 +42,12 @@ pub enum Condition {
 
     /// Logical OR operator
     Or { conditions: Vec<Condition> },
-
 }
-
 
 /// Default value for expect_success field
 fn default_expect_success() -> bool {
     true
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -96,5 +93,4 @@ mod tests {
         let yaml = serde_yaml_ng::to_string(&condition).unwrap();
         let _deserialized: Condition = serde_yaml_ng::from_str(&yaml).unwrap();
     }
-
 }

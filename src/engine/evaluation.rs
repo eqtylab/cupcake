@@ -65,12 +65,12 @@ impl PolicyEvaluator {
         let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
         let mut matched_policies = Vec::new();
         let mut evaluation_cache = std::collections::HashMap::new();
-        
+
         // Evaluate each policy exactly once
         for policy in &ordered_policies {
             let conditions_match = self.evaluate_policy_conditions(policy, evaluation_context)?;
             evaluation_cache.insert(policy.name.clone(), conditions_match);
-            
+
             if conditions_match {
                 matched_policies.push(MatchedPolicy {
                     name: policy.name.clone(),
@@ -80,10 +80,12 @@ impl PolicyEvaluator {
         }
 
         // Pass 1: Collect all feedback from soft actions (using cached results)
-        let feedback_collection = self.execute_pass_1_cached(&ordered_policies, &evaluation_cache, evaluation_context)?;
+        let feedback_collection =
+            self.execute_pass_1_cached(&ordered_policies, &evaluation_cache, evaluation_context)?;
 
         // Pass 2: Find first hard action decision (using cached results)
-        let hard_decision = self.execute_pass_2_cached(&ordered_policies, &evaluation_cache, evaluation_context)?;
+        let hard_decision =
+            self.execute_pass_2_cached(&ordered_policies, &evaluation_cache, evaluation_context)?;
 
         // Combine results
         let decision = match hard_decision {
@@ -191,7 +193,6 @@ impl PolicyEvaluator {
         Ok(FeedbackCollection { feedback_messages })
     }
 
-
     /// Execute Pass 2: Find first hard action decision (using cached evaluation results)
     fn execute_pass_2_cached(
         &mut self,
@@ -224,14 +225,13 @@ impl PolicyEvaluator {
                             })
                         }
                         crate::config::actions::Action::Ask { reason } => {
-                            let substituted_reason = self.substitute_templates(reason, evaluation_context);
+                            let substituted_reason =
+                                self.substitute_templates(reason, evaluation_context);
                             Ok(HardDecision::Ask {
                                 reason: substituted_reason,
                             })
                         }
-                        crate::config::actions::Action::RunCommand {
-                            on_failure, ..
-                        } => {
+                        crate::config::actions::Action::RunCommand { on_failure, .. } => {
                             // RunCommand actions are executed in the action phase
                             // For now, we continue to find other hard actions
                             // The action phase will handle the actual blocking decision
@@ -255,7 +255,6 @@ impl PolicyEvaluator {
         Ok(HardDecision::Allow { reason: None })
     }
 
-
     /// Evaluate all conditions for a policy
     fn evaluate_policy_conditions(
         &mut self,
@@ -264,7 +263,7 @@ impl PolicyEvaluator {
     ) -> Result<bool> {
         // Debug: Track policy condition evaluations
         eprintln!("Debug: Evaluating policy conditions for '{}'", policy.name);
-        
+
         // If no conditions, policy always matches
         if policy.conditions.is_empty() {
             return Ok(true);

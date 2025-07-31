@@ -64,10 +64,7 @@ impl PolicyLoader {
                 if root_config.has_meaningful_content() {
                     let settings = root_config.settings.clone();
                     let policies = self.load_from_root_config(root_config, config_path)?;
-                    Ok(LoadedConfiguration {
-                        settings,
-                        policies,
-                    })
+                    Ok(LoadedConfiguration { settings, policies })
                 } else {
                     // This looks like a PolicyFragment that just happened to parse as RootConfig
                     match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
@@ -78,13 +75,11 @@ impl PolicyLoader {
                                 policies,
                             })
                         }
-                        Err(e) => {
-                            Err(CupcakeError::Config(format!(
-                                "Config file {} could not be parsed as PolicyFragment: {}",
-                                config_path.display(),
-                                e
-                            )))
-                        }
+                        Err(e) => Err(CupcakeError::Config(format!(
+                            "Config file {} could not be parsed as PolicyFragment: {}",
+                            config_path.display(),
+                            e
+                        ))),
                     }
                 }
             }
@@ -109,9 +104,12 @@ impl PolicyLoader {
             }
         }
     }
-    
+
     /// Load and compose policies with settings from YAML guardrails directory
-    pub fn load_configuration_from_directory(&mut self, start_dir: &Path) -> Result<LoadedConfiguration> {
+    pub fn load_configuration_from_directory(
+        &mut self,
+        start_dir: &Path,
+    ) -> Result<LoadedConfiguration> {
         // Step 1: Discover - find guardrails/cupcake.yaml
         let root_config_path = self.discover_root_config(start_dir)?;
         let root_config = self.load_root_config(&root_config_path)?;
@@ -152,16 +150,12 @@ impl PolicyLoader {
                 } else {
                     // This looks like a PolicyFragment that just happened to parse as RootConfig
                     match serde_yaml_ng::from_str::<PolicyFragment>(&content) {
-                        Ok(fragment) => {
-                            self.load_from_policy_fragment(fragment)
-                        }
-                        Err(e) => {
-                            Err(CupcakeError::Config(format!(
-                                "Config file {} could not be parsed as PolicyFragment: {}",
-                                config_path.display(),
-                                e
-                            )))
-                        }
+                        Ok(fragment) => self.load_from_policy_fragment(fragment),
+                        Err(e) => Err(CupcakeError::Config(format!(
+                            "Config file {} could not be parsed as PolicyFragment: {}",
+                            config_path.display(),
+                            e
+                        ))),
                     }
                 }
             }
@@ -184,7 +178,11 @@ impl PolicyLoader {
     }
 
     /// Load from RootConfig with imports resolved relative to config file location
-    fn load_from_root_config(&mut self, root_config: RootConfig, config_path: &Path) -> Result<Vec<ComposedPolicy>> {
+    fn load_from_root_config(
+        &mut self,
+        root_config: RootConfig,
+        config_path: &Path,
+    ) -> Result<Vec<ComposedPolicy>> {
         // Step 1: Resolve imports using glob patterns relative to config file
         let policy_fragment_paths = self.resolve_imports(&root_config, config_path)?;
 
@@ -198,7 +196,10 @@ impl PolicyLoader {
     }
 
     /// Load from a bare PolicyFragment (no imports, default settings)
-    fn load_from_policy_fragment(&mut self, fragment: PolicyFragment) -> Result<Vec<ComposedPolicy>> {
+    fn load_from_policy_fragment(
+        &mut self,
+        fragment: PolicyFragment,
+    ) -> Result<Vec<ComposedPolicy>> {
         // Skip composition step since we only have one fragment
         // Go directly to validation and flattening
         self.validate_and_flatten(fragment)
@@ -856,7 +857,7 @@ imports:
     fn test_load_from_config_file_missing_file() {
         let mut loader = PolicyLoader::new();
         let result = loader.load_from_config_file(Path::new("/nonexistent/file.yaml"));
-        
+
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("Failed to read config file"));
@@ -872,7 +873,7 @@ imports:
 
         let mut loader = PolicyLoader::new();
         let result = loader.load_from_config_file(&config_path);
-        
+
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("could not be parsed"));

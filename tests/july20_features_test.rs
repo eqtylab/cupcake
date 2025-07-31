@@ -9,7 +9,7 @@ use tempfile::tempdir;
 #[test]
 fn test_inject_context_action_parsing() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a policy with InjectContext action
     let policy_yaml = r#"# Test InjectContext action
 UserPromptSubmit:
@@ -25,21 +25,27 @@ UserPromptSubmit:
         context: "This is injected context"
         use_stdout: true
 "#;
-    
+
     let policy_path = temp_dir.path().join("inject.yaml");
     fs::write(&policy_path, policy_yaml).unwrap();
-    
+
     // Load and verify the policy
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration(&policy_path).unwrap();
-    
+
     assert_eq!(config.policies.len(), 1);
     assert_eq!(config.policies[0].name, "test-inject");
-    assert_eq!(config.policies[0].hook_event.to_string(), "UserPromptSubmit");
-    
+    assert_eq!(
+        config.policies[0].hook_event.to_string(),
+        "UserPromptSubmit"
+    );
+
     // Verify the action is InjectContext
     match &config.policies[0].action {
-        Action::InjectContext { context, use_stdout } => {
+        Action::InjectContext {
+            context,
+            use_stdout,
+        } => {
             assert_eq!(context, "This is injected context");
             assert!(*use_stdout);
         }
@@ -47,25 +53,24 @@ UserPromptSubmit:
     }
 }
 
-
 #[test]
 fn test_claude_project_dir_support() {
     // Create two directories - one for CLAUDE_PROJECT_DIR, one for current
     let claude_dir = tempdir().unwrap();
     let current_dir = tempdir().unwrap();
-    
+
     // Create policy in CLAUDE_PROJECT_DIR
     let claude_guardrails = claude_dir.path().join("guardrails");
     fs::create_dir(&claude_guardrails).unwrap();
-    
+
     // Create RootConfig that imports policies
     let claude_root = r#"# CLAUDE_PROJECT_DIR root config
 imports:
   - "policy.yaml"
 "#;
-    
+
     fs::write(claude_guardrails.join("cupcake.yaml"), claude_root).unwrap();
-    
+
     // Create the actual policy file
     let claude_policy = r#"PreToolUse:
   "*":
@@ -75,21 +80,21 @@ imports:
       action:
         type: allow
 "#;
-    
+
     fs::write(claude_guardrails.join("policy.yaml"), claude_policy).unwrap();
-    
+
     // Create different policy in current directory
     let current_guardrails = current_dir.path().join("guardrails");
     fs::create_dir(&current_guardrails).unwrap();
-    
+
     // Create RootConfig for current directory
     let current_root = r#"# Current directory root config
 imports:
   - "policy.yaml"
 "#;
-    
+
     fs::write(current_guardrails.join("cupcake.yaml"), current_root).unwrap();
-    
+
     // Create the actual policy file
     let current_policy = r#"PreToolUse:
   "*":
@@ -100,12 +105,12 @@ imports:
         type: block_with_feedback
         feedback_message: "Blocked"
 "#;
-    
+
     fs::write(current_guardrails.join("policy.yaml"), current_policy).unwrap();
-    
+
     // Test with CLAUDE_PROJECT_DIR set
     std::env::set_var("CLAUDE_PROJECT_DIR", claude_dir.path());
-    
+
     // Ensure cleanup happens even on panic using RAII
     struct EnvGuard;
     impl Drop for EnvGuard {
@@ -114,14 +119,19 @@ imports:
         }
     }
     let _guard = EnvGuard;
-    
+
     let mut loader = PolicyLoader::new();
     let result = loader.load_configuration_from_directory(current_dir.path());
-    
+
     match result {
         Ok(config) => {
             // Should use policy from CLAUDE_PROJECT_DIR
-            assert_eq!(config.policies.len(), 1, "Expected 1 policy but got {}", config.policies.len());
+            assert_eq!(
+                config.policies.len(),
+                1,
+                "Expected 1 policy but got {}",
+                config.policies.len()
+            );
             assert_eq!(config.policies[0].name, "claude-policy");
         }
         Err(e) => panic!("Failed to load config: {}", e),
@@ -131,7 +141,7 @@ imports:
 #[test]
 fn test_mcp_tool_pattern_matching() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create policies with various MCP patterns
     let policy_yaml = r#"# MCP pattern matching test
 PreToolUse:
@@ -157,22 +167,20 @@ PreToolUse:
         type: block_with_feedback
         feedback_message: "Blocked"
 "#;
-    
+
     let policy_path = temp_dir.path().join("mcp.yaml");
     fs::write(&policy_path, policy_yaml).unwrap();
-    
+
     // Load policies
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration(&policy_path).unwrap();
-    
+
     // Should have 3 policies
     assert_eq!(config.policies.len(), 3);
-    
+
     // Verify matchers
-    let matchers: Vec<&str> = config.policies.iter()
-        .map(|p| p.matcher.as_str())
-        .collect();
-    
+    let matchers: Vec<&str> = config.policies.iter().map(|p| p.matcher.as_str()).collect();
+
     assert!(matchers.contains(&"mcp__.*"));
     assert!(matchers.contains(&"mcp__github__.*"));
     assert!(matchers.contains(&"mcp__.*(delete|remove).*"));
@@ -181,7 +189,7 @@ PreToolUse:
 #[test]
 fn test_wildcard_matcher_for_all_events() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create policy with "*" matcher for UserPromptSubmit
     let policy_yaml = r#"# Wildcard matcher test
 UserPromptSubmit:
@@ -200,24 +208,22 @@ PreToolUse:
       action:
         type: allow
 "#;
-    
+
     let policy_path = temp_dir.path().join("wildcard.yaml");
     fs::write(&policy_path, policy_yaml).unwrap();
-    
+
     // Load policies
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration(&policy_path).unwrap();
-    
+
     assert_eq!(config.policies.len(), 2);
-    
+
     // Check the policies loaded correctly
-    let policy_names: Vec<&str> = config.policies.iter()
-        .map(|p| p.name.as_str())
-        .collect();
-    
+    let policy_names: Vec<&str> = config.policies.iter().map(|p| p.name.as_str()).collect();
+
     assert!(policy_names.contains(&"all-prompts"));
     assert!(policy_names.contains(&"all-tools"));
-    
+
     // Check matchers
     for policy in &config.policies {
         assert_eq!(policy.matcher, "*");
@@ -227,7 +233,7 @@ PreToolUse:
 #[test]
 fn test_ask_action_parsing() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a policy with Ask action
     let policy_yaml = r#"# Test Ask action
 PreToolUse:
@@ -242,23 +248,26 @@ PreToolUse:
         type: ask
         reason: "This command could be destructive. Are you sure you want to run it?"
 "#;
-    
+
     let policy_path = temp_dir.path().join("ask.yaml");
     fs::write(&policy_path, policy_yaml).unwrap();
-    
+
     // Load and verify the policy
     let mut loader = PolicyLoader::new();
     let config = loader.load_configuration(&policy_path).unwrap();
-    
+
     assert_eq!(config.policies.len(), 1);
     assert_eq!(config.policies[0].name, "confirm-dangerous-commands");
     assert_eq!(config.policies[0].hook_event.to_string(), "PreToolUse");
     assert_eq!(config.policies[0].matcher, "Bash");
-    
+
     // Verify the action is Ask
     match &config.policies[0].action {
         Action::Ask { reason } => {
-            assert_eq!(reason, "This command could be destructive. Are you sure you want to run it?");
+            assert_eq!(
+                reason,
+                "This command could be destructive. Are you sure you want to run it?"
+            );
         }
         _ => panic!("Expected Ask action"),
     }
@@ -267,23 +276,23 @@ PreToolUse:
 #[test]
 fn test_ask_action_json_output() {
     use cupcake::engine::response::{CupcakeResponse, EngineDecision};
-    
+
     // Test that Ask action generates correct JSON output
     let decision = EngineDecision::Ask {
         reason: "Please confirm this action".to_string(),
     };
-    
+
     let response = CupcakeResponse::from_pre_tool_use_decision(&decision);
-    
+
     // Serialize to JSON and verify structure
     let json = serde_json::to_value(&response).unwrap();
-    
+
     // Verify hookSpecificOutput structure
     assert!(json["hookSpecificOutput"].is_object());
     assert_eq!(json["hookSpecificOutput"]["hookEventName"], "PreToolUse");
     assert_eq!(json["hookSpecificOutput"]["permissionDecision"], "ask");
     assert_eq!(
-        json["hookSpecificOutput"]["permissionDecisionReason"], 
+        json["hookSpecificOutput"]["permissionDecisionReason"],
         "Please confirm this action"
     );
 }
@@ -293,7 +302,7 @@ fn test_complex_policy_with_imports() {
     let temp_dir = tempdir().unwrap();
     let guardrails_dir = temp_dir.path().join("guardrails");
     fs::create_dir(&guardrails_dir).unwrap();
-    
+
     // Create root config with imports
     let root_config = r#"# Root configuration
 imports:
@@ -302,13 +311,13 @@ imports:
 settings:
   timeout_ms: 3000
 "#;
-    
+
     fs::write(guardrails_dir.join("cupcake.yaml"), root_config).unwrap();
-    
+
     // Create policies directory
     let policies_dir = guardrails_dir.join("policies");
     fs::create_dir(&policies_dir).unwrap();
-    
+
     // Create first policy file
     let policy1 = r#"PreToolUse:
   "Write":
@@ -318,9 +327,9 @@ settings:
       action:
         type: allow
 "#;
-    
+
     fs::write(policies_dir.join("policy1.yaml"), policy1).unwrap();
-    
+
     // Create second policy file with context injection
     let policy2 = r#"UserPromptSubmit:
   "*":
@@ -335,9 +344,9 @@ settings:
         context: "Here's some helpful context!"
         use_stdout: true
 "#;
-    
+
     fs::write(policies_dir.join("policy2.yaml"), policy2).unwrap();
-    
+
     // Force filesystem sync to ensure both files are visible before glob resolution
     std::fs::File::open(policies_dir.join("policy1.yaml"))
         .unwrap()
@@ -347,22 +356,22 @@ settings:
         .unwrap()
         .sync_all()
         .unwrap();
-    
+
     // Load from directory
     let mut loader = PolicyLoader::new();
-    let config = loader.load_configuration_from_directory(temp_dir.path()).unwrap();
-    
+    let config = loader
+        .load_configuration_from_directory(temp_dir.path())
+        .unwrap();
+
     // Should have both policies
     assert_eq!(config.policies.len(), 2);
-    
+
     // Verify settings were loaded
     assert_eq!(config.settings.timeout_ms, 3000);
-    
+
     // Verify policies
-    let policy_names: Vec<&str> = config.policies.iter()
-        .map(|p| p.name.as_str())
-        .collect();
-    
+    let policy_names: Vec<&str> = config.policies.iter().map(|p| p.name.as_str()).collect();
+
     assert!(policy_names.contains(&"policy-1"));
     assert!(policy_names.contains(&"policy-2"));
 }

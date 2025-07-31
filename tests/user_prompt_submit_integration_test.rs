@@ -1,7 +1,7 @@
-use std::io::Write;
-use tempfile::tempdir;
 use std::fs;
+use std::io::Write;
 use std::process::{Command, Stdio};
+use tempfile::tempdir;
 
 #[test]
 fn test_user_prompt_submit_blocking() {
@@ -53,7 +53,13 @@ UserPromptSubmit:
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "UserPromptSubmit",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -77,14 +83,21 @@ UserPromptSubmit:
     // Should have JSON response on stdout with blocking information
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!stdout.is_empty(), "Should have JSON response on stdout");
-    
+
     // Parse JSON response
-    let json_response: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("Should be valid JSON response");
-    
+    let json_response: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Should be valid JSON response");
+
     // Verify it's a blocking response
-    assert_eq!(json_response.get("continue").and_then(|v| v.as_bool()), Some(false));
-    assert!(json_response.get("stopReason").and_then(|v| v.as_str()).unwrap_or("").contains("API key detected in prompt"));
+    assert_eq!(
+        json_response.get("continue").and_then(|v| v.as_bool()),
+        Some(false)
+    );
+    assert!(json_response
+        .get("stopReason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .contains("API key detected in prompt"));
 }
 
 #[test]
@@ -136,7 +149,13 @@ UserPromptSubmit:
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "UserPromptSubmit",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -211,7 +230,13 @@ UserPromptSubmit:
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "UserPromptSubmit",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -235,12 +260,12 @@ UserPromptSubmit:
     // Should have no output (except possibly state tracking messages)
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     // Debug what we got
     if !stderr.trim().is_empty() {
         eprintln!("Unexpected stderr: {}", stderr);
     }
-    
+
     assert!(stdout.is_empty() || stdout.trim().is_empty());
     // Allow state tracking messages on stderr
     assert!(!stderr.contains("Should not see this"));

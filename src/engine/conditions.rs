@@ -132,19 +132,19 @@ impl ConditionEvaluator {
     ) -> ConditionResult {
         // Create template variables from context for secure substitution
         let mut template_vars = std::collections::HashMap::new();
-        
+
         // Add basic context variables
         template_vars.insert("tool_name".to_string(), context.tool_name.clone());
         template_vars.insert("session_id".to_string(), context.session_id.clone());
         template_vars.insert("event_type".to_string(), context.event_type.clone());
-        
+
         // Add tool input variables
         for (key, value) in &context.tool_input {
             if let Some(str_value) = value.as_str() {
                 template_vars.insert(format!("tool_input.{}", key), str_value.to_string());
             }
         }
-        
+
         // Add environment variables
         for (key, value) in &context.env_vars {
             template_vars.insert(format!("env.{}", key), value.clone());
@@ -153,23 +153,26 @@ impl ConditionEvaluator {
         // Create secure CommandExecutor
         let command_executor = crate::engine::command_executor::CommandExecutor::new(template_vars);
 
-        // Build secure CommandGraph 
+        // Build secure CommandGraph
         let graph = match command_executor.build_graph(spec) {
             Ok(graph) => graph,
-            Err(e) => return ConditionResult::Error(format!("Command graph construction failed: {}", e)),
+            Err(e) => {
+                return ConditionResult::Error(format!("Command graph construction failed: {}", e))
+            }
         };
 
         // Execute with secure, shell-free process spawning
         let rt = match tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build() {
+            .build()
+        {
             Ok(rt) => rt,
-            Err(e) => return ConditionResult::Error(format!("Failed to create async runtime: {}", e)),
+            Err(e) => {
+                return ConditionResult::Error(format!("Failed to create async runtime: {}", e))
+            }
         };
 
-        let execution_result = rt.block_on(async {
-            command_executor.execute_graph(&graph).await
-        });
+        let execution_result = rt.block_on(async { command_executor.execute_graph(&graph).await });
 
         match execution_result {
             Ok(result) => {
@@ -291,7 +294,6 @@ impl ConditionEvaluator {
             .get(pattern)
             .ok_or_else(|| crate::CupcakeError::Condition("Regex cache inconsistency".to_string()))
     }
-
 
     // Legacy insecure command conversion removed in Plan 008
     // All command execution now uses secure CommandExecutor with zero shell involvement
@@ -417,19 +419,21 @@ mod tests {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
-                command: vec!["echo".to_string()],
-                args: Some(vec!["test".to_string()]),
-                working_dir: None,
-                env: None,
-                pipe: None,
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            }))),
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(
+                crate::config::actions::ArrayCommandSpec {
+                    command: vec!["echo".to_string()],
+                    args: Some(vec!["test".to_string()]),
+                    working_dir: None,
+                    env: None,
+                    pipe: None,
+                    redirect_stdout: None,
+                    append_stdout: None,
+                    redirect_stderr: None,
+                    merge_stderr: None,
+                    on_success: None,
+                    on_failure: None,
+                },
+            ))),
             expect_success: true,
         };
 
@@ -443,19 +447,21 @@ mod tests {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
-                command: vec!["false".to_string()],
-                args: None,
-                working_dir: None,
-                env: None,
-                pipe: None,
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            }))),
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(
+                crate::config::actions::ArrayCommandSpec {
+                    command: vec!["false".to_string()],
+                    args: None,
+                    working_dir: None,
+                    env: None,
+                    pipe: None,
+                    redirect_stdout: None,
+                    append_stdout: None,
+                    redirect_stderr: None,
+                    merge_stderr: None,
+                    on_success: None,
+                    on_failure: None,
+                },
+            ))),
             expect_success: true,
         };
 
@@ -469,19 +475,21 @@ mod tests {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
-                command: vec!["false".to_string()],
-                args: None,
-                working_dir: None,
-                env: None,
-                pipe: None,
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            }))),
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(
+                crate::config::actions::ArrayCommandSpec {
+                    command: vec!["false".to_string()],
+                    args: None,
+                    working_dir: None,
+                    env: None,
+                    pipe: None,
+                    redirect_stdout: None,
+                    append_stdout: None,
+                    redirect_stderr: None,
+                    merge_stderr: None,
+                    on_success: None,
+                    on_failure: None,
+                },
+            ))),
             expect_success: false,
         };
 
@@ -495,19 +503,25 @@ mod tests {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
-                command: vec!["test".to_string()],
-                args: Some(vec!["{{tool_name}}".to_string(), "=".to_string(), "Bash".to_string()]),
-                working_dir: None,
-                env: None,
-                pipe: None,
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            }))),
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(
+                crate::config::actions::ArrayCommandSpec {
+                    command: vec!["test".to_string()],
+                    args: Some(vec![
+                        "{{tool_name}}".to_string(),
+                        "=".to_string(),
+                        "Bash".to_string(),
+                    ]),
+                    working_dir: None,
+                    env: None,
+                    pipe: None,
+                    redirect_stdout: None,
+                    append_stdout: None,
+                    redirect_stderr: None,
+                    merge_stderr: None,
+                    on_success: None,
+                    on_failure: None,
+                },
+            ))),
             expect_success: true,
         };
 
@@ -676,21 +690,23 @@ mod tests {
         let context = create_test_context();
 
         let condition = Condition::Check {
-            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(crate::config::actions::ArrayCommandSpec {
-                command: vec!["echo".to_string()],
-                args: Some(vec!["{{tool_input.file_path}}".to_string()]),
-                working_dir: None,
-                env: None,
-                pipe: Some(vec![crate::config::actions::PipeCommand {
-                    cmd: vec!["grep".to_string(), "-q".to_string(), "\\.rs$".to_string()],
-                }]),
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            }))),
+            spec: Box::new(crate::config::actions::CommandSpec::Array(Box::new(
+                crate::config::actions::ArrayCommandSpec {
+                    command: vec!["echo".to_string()],
+                    args: Some(vec!["{{tool_input.file_path}}".to_string()]),
+                    working_dir: None,
+                    env: None,
+                    pipe: Some(vec![crate::config::actions::PipeCommand {
+                        cmd: vec!["grep".to_string(), "-q".to_string(), "\\.rs$".to_string()],
+                    }]),
+                    redirect_stdout: None,
+                    append_stdout: None,
+                    redirect_stderr: None,
+                    merge_stderr: None,
+                    on_success: None,
+                    on_failure: None,
+                },
+            ))),
             expect_success: true,
         };
 

@@ -15,13 +15,19 @@ use std::collections::HashMap;
 fn test_malicious_input_isolation() {
     let mut vars = HashMap::new();
     vars.insert("user_input".to_string(), "; rm -rf / #".to_string());
-    vars.insert("file_path".to_string(), "/tmp/safe.txt; cat /etc/passwd".to_string());
-    
+    vars.insert(
+        "file_path".to_string(),
+        "/tmp/safe.txt; cat /etc/passwd".to_string(),
+    );
+
     let executor = CommandExecutor::new(vars);
-    
+
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
-        args: Some(vec!["Processing {{user_input}}".to_string(), "from {{file_path}}".to_string()]),
+        args: Some(vec![
+            "Processing {{user_input}}".to_string(),
+            "from {{file_path}}".to_string(),
+        ]),
         working_dir: None,
         env: None,
         pipe: None,
@@ -34,14 +40,17 @@ fn test_malicious_input_isolation() {
     }));
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
-    
+
     // Malicious content becomes literal arguments - this is SAFE
     assert_eq!(node.command.program, "echo");
-    assert_eq!(node.command.args, vec![
-        "Processing ; rm -rf / #",
-        "from /tmp/safe.txt; cat /etc/passwd"
-    ]);
-    
+    assert_eq!(
+        node.command.args,
+        vec![
+            "Processing ; rm -rf / #",
+            "from /tmp/safe.txt; cat /etc/passwd"
+        ]
+    );
+
     // Key security property: No shell is involved, so the malicious content
     // is just literal string arguments that echo will print, not execute
 }
@@ -53,9 +62,9 @@ fn test_shell_metacharacter_sanitization() {
     vars.insert("dangerous_arg".to_string(), "$(whoami)".to_string());
     vars.insert("pipe_attack".to_string(), "| rm -rf /".to_string());
     vars.insert("redirect_attack".to_string(), "> /etc/passwd".to_string());
-    
+
     let executor = CommandExecutor::new(vars);
-    
+
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
@@ -73,17 +82,16 @@ fn test_shell_metacharacter_sanitization() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
-    
+
     // All shell metacharacters become literal arguments
     assert_eq!(node.command.program, "echo");
-    assert_eq!(node.command.args, vec![
-        "$(whoami)",
-        "| rm -rf /",
-        "> /etc/passwd"
-    ]);
+    assert_eq!(
+        node.command.args,
+        vec!["$(whoami)", "| rm -rf /", "> /etc/passwd"]
+    );
 }
 
 /// Test that command path template injection is prevented
@@ -91,9 +99,9 @@ fn test_shell_metacharacter_sanitization() {
 fn test_command_path_template_injection_prevention() {
     let mut vars = HashMap::new();
     vars.insert("malicious_cmd".to_string(), "rm".to_string());
-    
+
     let executor = CommandExecutor::new(vars);
-    
+
     // This should not be possible in the current implementation
     // because command paths don't support template substitution
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
@@ -109,10 +117,10 @@ fn test_command_path_template_injection_prevention() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
-    
+
     // Command path is never substituted - remains literal
     assert_eq!(node.command.program, "echo");
     assert_eq!(node.command.args, vec!["safe argument"]);
@@ -123,19 +131,17 @@ fn test_command_path_template_injection_prevention() {
 fn test_environment_variable_isolation() {
     let mut vars = HashMap::new();
     vars.insert("malicious_env".to_string(), "$(rm -rf /)".to_string());
-    
+
     let executor = CommandExecutor::new(vars);
-    
+
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["env".to_string()],
         args: None,
         working_dir: None,
-        env: Some(vec![
-            EnvVar {
-                name: "DANGEROUS_VAR".to_string(),
-                value: "{{malicious_env}}".to_string(),
-            }
-        ]),
+        env: Some(vec![EnvVar {
+            name: "DANGEROUS_VAR".to_string(),
+            value: "{{malicious_env}}".to_string(),
+        }]),
         pipe: None,
         redirect_stdout: None,
         append_stdout: None,
@@ -144,12 +150,15 @@ fn test_environment_variable_isolation() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
-    
+
     // Environment variable contains literal malicious content, not executed
-    assert_eq!(node.command.env_vars.get("DANGEROUS_VAR").unwrap(), "$(rm -rf /)");
+    assert_eq!(
+        node.command.env_vars.get("DANGEROUS_VAR").unwrap(),
+        "$(rm -rf /)"
+    );
 }
 
 /// Test that working directory with malicious content is handled safely
@@ -157,9 +166,9 @@ fn test_environment_variable_isolation() {
 fn test_working_directory_safety() {
     let mut vars = HashMap::new();
     vars.insert("malicious_dir".to_string(), "/tmp; rm -rf /".to_string());
-    
+
     let executor = CommandExecutor::new(vars);
-    
+
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["pwd".to_string()],
         args: None,
@@ -173,32 +182,36 @@ fn test_working_directory_safety() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
-    
+
     // Working directory becomes literal path (may fail to execute, but safe)
-    assert_eq!(node.command.working_dir.as_ref().unwrap().to_string_lossy(), "/tmp; rm -rf /");
+    assert_eq!(
+        node.command.working_dir.as_ref().unwrap().to_string_lossy(),
+        "/tmp; rm -rf /"
+    );
 }
 
 /// Test that piped commands with malicious content are isolated
 #[tokio::test]
 async fn test_piped_command_isolation() {
     let mut vars = HashMap::new();
-    vars.insert("malicious_grep".to_string(), "password; rm -rf /".to_string());
-    
+    vars.insert(
+        "malicious_grep".to_string(),
+        "password; rm -rf /".to_string(),
+    );
+
     let executor = CommandExecutor::new(vars);
-    
+
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec!["hello world".to_string()]),
         working_dir: None,
         env: None,
-        pipe: Some(vec![
-            cupcake::config::actions::PipeCommand {
-                cmd: vec!["grep".to_string(), "{{malicious_grep}}".to_string()],
-            }
-        ]),
+        pipe: Some(vec![cupcake::config::actions::PipeCommand {
+            cmd: vec!["grep".to_string(), "{{malicious_grep}}".to_string()],
+        }]),
         redirect_stdout: None,
         append_stdout: None,
         redirect_stderr: None,
@@ -206,13 +219,13 @@ async fn test_piped_command_isolation() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let graph = executor.build_graph(&spec).unwrap();
-    
+
     // First node is echo
     assert_eq!(graph.nodes[0].command.program, "echo");
     assert_eq!(graph.nodes[0].command.args, vec!["hello world"]);
-    
+
     // Second node is grep with malicious content as literal argument
     let pipe_op = &graph.nodes[0].operations[0];
     if let cupcake::engine::command_executor::Operation::Pipe(cmd) = pipe_op {
@@ -229,11 +242,14 @@ fn test_complex_malicious_input_neutralization() {
     let mut vars = HashMap::new();
     vars.insert("cmd_injection".to_string(), "$(whoami)".to_string());
     vars.insert("path_traversal".to_string(), "../../etc/passwd".to_string());
-    vars.insert("shell_escape".to_string(), "; cat /etc/shadow #".to_string());
+    vars.insert(
+        "shell_escape".to_string(),
+        "; cat /etc/shadow #".to_string(),
+    );
     vars.insert("null_byte".to_string(), "file\x00.txt".to_string());
-    
+
     let executor = CommandExecutor::new(vars);
-    
+
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
         args: Some(vec![
@@ -252,16 +268,19 @@ fn test_complex_malicious_input_neutralization() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let graph = executor.build_graph(&spec).unwrap();
     let node = &graph.nodes[0];
-    
+
     // All malicious inputs become literal arguments
     assert_eq!(node.command.program, "echo");
-    assert_eq!(node.command.args, vec![
-        "cmd: $(whoami)",
-        "path: ../../etc/passwd", 
-        "shell: ; cat /etc/shadow #",
-        "null: file\x00.txt"
-    ]);
+    assert_eq!(
+        node.command.args,
+        vec![
+            "cmd: $(whoami)",
+            "path: ../../etc/passwd",
+            "shell: ; cat /etc/shadow #",
+            "null: file\x00.txt"
+        ]
+    );
 }

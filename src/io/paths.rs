@@ -36,9 +36,6 @@ impl CupcakePaths {
         }
     }
 
-
-
-
     /// Get policy cache file path
     pub fn policy_cache_file(&self, project_root: &std::path::Path) -> PathBuf {
         self.cache_dir.join(format!(
@@ -70,7 +67,6 @@ impl CupcakePaths {
         std::fs::create_dir_all(&self.cache_dir)?;
         Ok(())
     }
-
 }
 
 impl Default for CupcakePaths {
@@ -87,7 +83,6 @@ impl Default for CupcakePaths {
 pub struct PathUtils;
 
 impl PathUtils {
-
     /// Check if path is safe (no traversal attacks)
     pub fn is_safe_path(path: &std::path::Path) -> bool {
         !path
@@ -128,8 +123,6 @@ mod tests {
         assert_eq!(paths.config_dir, project_root.join(".cupcake"));
         assert_eq!(paths.cache_dir, project_root.join(".cupcake/cache"));
     }
-
-
 
     #[test]
     fn test_path_utils_safety() {

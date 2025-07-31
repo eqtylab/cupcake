@@ -1,9 +1,9 @@
 //! Tests for ShellCommandSpec configuration and serialization
-//! 
+//!
 //! This test suite validates the configuration structures for shell-based
 //! command specifications and their YAML serialization/deserialization.
 
-use cupcake::config::actions::{CommandSpec, ShellCommandSpec, Action, OnFailureBehavior};
+use cupcake::config::actions::{Action, CommandSpec, OnFailureBehavior, ShellCommandSpec};
 use cupcake::config::types::Settings;
 
 #[cfg(test)]
@@ -15,7 +15,7 @@ mod shell_command_spec_tests {
         let spec = ShellCommandSpec {
             script: "find /tmp -name '*.old' -delete".to_string(),
         };
-        
+
         assert_eq!(spec.script, "find /tmp -name '*.old' -delete");
     }
 
@@ -24,10 +24,13 @@ mod shell_command_spec_tests {
         let spec = CommandSpec::Shell(ShellCommandSpec {
             script: "set -euo pipefail\necho 'Complex shell script'".to_string(),
         });
-        
+
         match spec {
             CommandSpec::Shell(shell_spec) => {
-                assert_eq!(shell_spec.script, "set -euo pipefail\necho 'Complex shell script'");
+                assert_eq!(
+                    shell_spec.script,
+                    "set -euo pipefail\necho 'Complex shell script'"
+                );
             }
             _ => panic!("Expected Shell variant"),
         }
@@ -36,7 +39,8 @@ mod shell_command_spec_tests {
     #[test]
     fn test_shell_command_spec_yaml_serialization() {
         let spec = CommandSpec::Shell(ShellCommandSpec {
-            script: "terraform state list | grep '^module.old' | xargs -r terraform state rm".to_string(),
+            script: "terraform state list | grep '^module.old' | xargs -r terraform state rm"
+                .to_string(),
         });
 
         let yaml = serde_yaml_ng::to_string(&spec).unwrap();
@@ -78,14 +82,12 @@ script: |
         };
 
         match action {
-            Action::RunCommand { spec, .. } => {
-                match spec {
-                    CommandSpec::Shell(shell_spec) => {
-                        assert_eq!(shell_spec.script, "legacy-cleanup.sh --force");
-                    }
-                    _ => panic!("Expected Shell command spec"),
+            Action::RunCommand { spec, .. } => match spec {
+                CommandSpec::Shell(shell_spec) => {
+                    assert_eq!(shell_spec.script, "legacy-cleanup.sh --force");
                 }
-            }
+                _ => panic!("Expected Shell command spec"),
+            },
             _ => panic!("Expected RunCommand action"),
         }
     }
@@ -102,7 +104,8 @@ for service in api worker scheduler; do
         echo "Stopping $service"
         systemctl stop "$service"
     fi
-done"#.to_string(),
+done"#
+                .to_string(),
         };
 
         assert!(spec.script.contains("#!/bin/bash"));
@@ -183,7 +186,12 @@ timeout_seconds: 600
 
         let action: Action = serde_yaml_ng::from_str(yaml_action).unwrap();
         match action {
-            Action::RunCommand { spec, on_failure, timeout_seconds, .. } => {
+            Action::RunCommand {
+                spec,
+                on_failure,
+                timeout_seconds,
+                ..
+            } => {
                 assert!(matches!(spec, CommandSpec::Shell(_)));
                 assert_eq!(on_failure, OnFailureBehavior::Block);
                 assert_eq!(timeout_seconds, Some(600));

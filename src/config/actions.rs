@@ -19,45 +19,44 @@ pub enum CommandSpec {
 pub struct ArrayCommandSpec {
     /// Command to execute (e.g., ["/usr/bin/git"])
     pub command: Vec<String>,
-    
+
     /// Arguments to pass to command (e.g., ["status", "-s"])
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args: Option<Vec<String>>,
-    
+
     /// Working directory for execution
     #[serde(skip_serializing_if = "Option::is_none", rename = "workingDir")]
     pub working_dir: Option<String>,
-    
+
     /// Environment variables
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<Vec<EnvVar>>,
-    
+
     // Composition operators for shell-free command chaining
-    
     /// Pipe stdout to subsequent commands
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pipe: Option<Vec<PipeCommand>>,
-    
+
     /// Redirect stdout to file (truncate)
     #[serde(skip_serializing_if = "Option::is_none", rename = "redirectStdout")]
     pub redirect_stdout: Option<String>,
-    
+
     /// Append stdout to file
     #[serde(skip_serializing_if = "Option::is_none", rename = "appendStdout")]
     pub append_stdout: Option<String>,
-    
+
     /// Redirect stderr to file
     #[serde(skip_serializing_if = "Option::is_none", rename = "redirectStderr")]
     pub redirect_stderr: Option<String>,
-    
+
     /// Merge stderr into stdout
     #[serde(skip_serializing_if = "Option::is_none", rename = "mergeStderr")]
     pub merge_stderr: Option<bool>,
-    
+
     /// Commands to run on success (exit code 0)
     #[serde(skip_serializing_if = "Option::is_none", rename = "onSuccess")]
     pub on_success: Option<Vec<ArrayCommandSpec>>,
-    
+
     /// Commands to run on failure (exit code != 0)
     #[serde(skip_serializing_if = "Option::is_none", rename = "onFailure")]
     pub on_failure: Option<Vec<ArrayCommandSpec>>,
@@ -118,9 +117,7 @@ pub enum Action {
     },
 
     /// Request user confirmation for operation (hard action)
-    Ask {
-        reason: String,
-    },
+    Ask { reason: String },
 
     /// Run a command (can be soft or hard based on on_failure)
     RunCommand {
@@ -135,7 +132,6 @@ pub enum Action {
         #[serde(default)]
         timeout_seconds: Option<u32>,
     },
-
 
     /// Conditional action based on runtime condition
     Conditional {
@@ -158,7 +154,7 @@ pub enum Action {
 }
 
 /// Returns the default method for context injection.
-/// 
+///
 /// The `stdout` method is chosen as the default because it is simple and
 /// does not require additional parsing or processing. This makes it
 /// suitable for most use cases where the injected context is directly
@@ -169,7 +165,7 @@ pub enum Action {
 /// expects JSON-formatted input. This method provides more flexibility
 /// but requires additional handling to parse the JSON data.
 fn default_use_stdout() -> bool {
-    true  // Default to simple stdout method
+    true // Default to simple stdout method
 }
 
 /// Behavior when RunCommand fails
@@ -235,7 +231,6 @@ impl Action {
     pub fn requires_execution(&self) -> bool {
         matches!(self, Action::RunCommand { .. })
     }
-
 
     /// Check if this action is a "soft" action (feedback only)
     pub fn is_soft_action(&self) -> bool {
@@ -395,7 +390,6 @@ mod tests {
             timeout_seconds: None,
         };
         assert!(run_command.requires_execution());
-
     }
 
     #[test]
@@ -405,27 +399,27 @@ mod tests {
             context: "Remember to validate user input".to_string(),
             use_stdout: true,
         };
-        
+
         assert!(inject_context.is_soft_action());
         assert!(!inject_context.is_hard_action());
         assert_eq!(inject_context.action_type(), ActionType::Soft);
-        
+
         // Test serialization
         let yaml = serde_yaml_ng::to_string(&inject_context).unwrap();
         assert!(yaml.contains("inject_context"));
         assert!(yaml.contains("Remember to validate user input"));
         assert!(yaml.contains("use_stdout: true"));
-        
+
         // Test deserialization
         let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
         assert_eq!(inject_context, deserialized);
-        
+
         // Test with use_stdout = false
         let inject_json = Action::InjectContext {
             context: "Use JSON method".to_string(),
             use_stdout: false,
         };
-        
+
         let yaml2 = serde_yaml_ng::to_string(&inject_json).unwrap();
         assert!(yaml2.contains("use_stdout: false"));
     }

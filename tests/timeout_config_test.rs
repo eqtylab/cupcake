@@ -1,5 +1,5 @@
 //! Tests for configurable timeout functionality
-//! 
+//!
 //! This test validates that the timeout_ms setting properly controls
 //! command execution timeouts.
 
@@ -16,9 +16,9 @@ async fn test_custom_timeout_short() {
         timeout_ms: 100, // Very short timeout - 100ms
         sandbox_uid: None,
     };
-    
+
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
-    
+
     // Command that takes longer than 100ms
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["sleep".to_string()],
@@ -33,7 +33,7 @@ async fn test_custom_timeout_short() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let result = executor.execute_spec(&spec).await;
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -50,9 +50,9 @@ async fn test_custom_timeout_long() {
         timeout_ms: 5000, // 5 second timeout
         sandbox_uid: None,
     };
-    
+
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
-    
+
     // Command that completes quickly
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
@@ -67,7 +67,7 @@ async fn test_custom_timeout_long() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let result = executor.execute_spec(&spec).await.unwrap();
     assert_eq!(result.exit_code, 0);
     assert!(result.success);
@@ -78,9 +78,9 @@ async fn test_default_timeout() {
     // Test that default timeout is applied when not specified
     let settings = Settings::default();
     assert_eq!(settings.timeout_ms, 30000); // 30 seconds
-    
+
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
-    
+
     // Quick command should complete within default timeout
     let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
         command: vec!["echo".to_string()],
@@ -95,7 +95,7 @@ async fn test_default_timeout() {
         on_success: None,
         on_failure: None,
     }));
-    
+
     let result = executor.execute_spec(&spec).await.unwrap();
     assert_eq!(result.exit_code, 0);
 }
@@ -108,15 +108,15 @@ debug_mode: false
 allow_shell: true
 timeout_ms: 60000
 "#;
-    
+
     let settings: Settings = serde_yaml_ng::from_str(yaml).unwrap();
     assert_eq!(settings.timeout_ms, 60000);
-    
+
     // Test that default is used when not specified
     let yaml_no_timeout = r#"
 debug_mode: false
 "#;
-    
+
     let settings2: Settings = serde_yaml_ng::from_str(yaml_no_timeout).unwrap();
     assert_eq!(settings2.timeout_ms, 30000); // Default
 }

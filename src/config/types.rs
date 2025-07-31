@@ -6,7 +6,6 @@ use super::conditions::Condition;
 /// Global settings for the policy engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-
     /// Enable verbose debug logging
     #[serde(default)]
     pub debug_mode: bool,
@@ -46,9 +45,9 @@ impl Default for Settings {
 impl Settings {
     /// Check if settings have non-default values
     pub fn has_non_default_values(&self) -> bool {
-        self.debug_mode 
-            || self.allow_shell 
-            || self.timeout_ms != default_timeout_ms() 
+        self.debug_mode
+            || self.allow_shell
+            || self.timeout_ms != default_timeout_ms()
             || self.sandbox_uid.is_some()
     }
 }

@@ -1,14 +1,14 @@
-use cupcake::config::types::{ComposedPolicy, HookEventType};
-use cupcake::config::loader::PolicyLoader;
-use cupcake::engine::evaluation::PolicyEvaluator;
-use cupcake::engine::conditions::EvaluationContext;
-use cupcake::engine::events::{CommonEventData, HookEvent};
-use cupcake::config::conditions::Condition;
-use cupcake::config::actions::Action;
-use std::collections::HashMap;
-use tempfile::tempdir;
-use std::fs;
 use chrono::Utc;
+use cupcake::config::actions::Action;
+use cupcake::config::conditions::Condition;
+use cupcake::config::loader::PolicyLoader;
+use cupcake::config::types::{ComposedPolicy, HookEventType};
+use cupcake::engine::conditions::EvaluationContext;
+use cupcake::engine::evaluation::PolicyEvaluator;
+use cupcake::engine::events::{CommonEventData, HookEvent};
+use std::collections::HashMap;
+use std::fs;
+use tempfile::tempdir;
 
 #[test]
 fn test_empty_matcher_for_user_prompt_submit() {
@@ -52,7 +52,9 @@ fn test_empty_matcher_for_user_prompt_submit() {
 
     // Evaluate the policy
     let mut evaluator = PolicyEvaluator::new();
-    let result = evaluator.evaluate(&[policy], &hook_event, &context).unwrap();
+    let result = evaluator
+        .evaluate(&[policy], &hook_event, &context)
+        .unwrap();
 
     // Should block due to API key detection
     match result.decision {
@@ -106,7 +108,9 @@ fn test_empty_matcher_only_matches_non_tool_events() {
 
     // Evaluate the policy
     let mut evaluator = PolicyEvaluator::new();
-    let result = evaluator.evaluate(&[policy], &hook_event, &context).unwrap();
+    let result = evaluator
+        .evaluate(&[policy], &hook_event, &context)
+        .unwrap();
 
     // Should not match because PreToolUse has a tool name but policy has empty matcher
     assert_eq!(result.matched_policies.len(), 0);
@@ -150,7 +154,9 @@ UserPromptSubmit:
 
     // Load the configuration
     let mut loader = PolicyLoader::new();
-    let loaded = loader.load_configuration_from_directory(temp_dir.path()).unwrap();
+    let loaded = loader
+        .load_configuration_from_directory(temp_dir.path())
+        .unwrap();
 
     // Verify the policy was loaded correctly
     assert_eq!(loaded.policies.len(), 1);

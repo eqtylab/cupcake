@@ -28,10 +28,14 @@ impl CommandHandler for RunCommand {
         {
             use std::io::Write;
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
-            writeln!(file, "[{}] Cupcake invoked - Event: {}, Config: {}, Debug: {}", 
-                     timestamp, self.event, self.config, self.debug).ok();
+            writeln!(
+                file,
+                "[{}] Cupcake invoked - Event: {}, Config: {}, Debug: {}",
+                timestamp, self.event, self.config, self.debug
+            )
+            .ok();
         }
-        
+
         if self.debug {
             eprintln!("Debug: Event: {}", self.event);
             eprintln!("Debug: Config file: {}", self.config);
@@ -241,7 +245,16 @@ impl RunCommand {
             .open("/tmp/cupcake-debug.log")
         {
             use std::io::Write;
-            writeln!(file, "  STDIN received: {}", if input.trim().is_empty() { "[EMPTY]" } else { input.trim() }).ok();
+            writeln!(
+                file,
+                "  STDIN received: {}",
+                if input.trim().is_empty() {
+                    "[EMPTY]"
+                } else {
+                    input.trim()
+                }
+            )
+            .ok();
         }
 
         if input.trim().is_empty() {

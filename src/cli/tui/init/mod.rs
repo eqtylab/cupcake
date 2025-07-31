@@ -1,15 +1,15 @@
 /// Interactive init wizard implementation
 pub mod app;
-pub mod state;
-pub mod events;
-pub mod screens;
+pub mod claude_settings;
 pub mod components;
 pub mod discovery;
-pub mod preview;
-pub mod modal;
-pub mod yaml_writer;
-pub mod claude_settings;
+pub mod events;
 pub mod extraction;
+pub mod modal;
+pub mod preview;
+pub mod screens;
+pub mod state;
+pub mod yaml_writer;
 
 use crate::Result;
 

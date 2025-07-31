@@ -1,8 +1,8 @@
-use std::process::{Command, Stdio};
-use std::io::Write;
 use serde_json::{json, Value};
-use tempfile::tempdir;
 use std::fs;
+use std::io::Write;
+use std::process::{Command, Stdio};
+use tempfile::tempdir;
 
 /// Integration tests that verify Cupcake correctly implements the Claude Code hook contract
 /// These tests run the actual cupcake binary and verify its JSON input/output
@@ -10,7 +10,7 @@ use std::fs;
 #[test]
 fn test_pretooluse_allow_json_output() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a simple allow policy
     let policy = r#"
 PreToolUse:
@@ -25,10 +25,10 @@ PreToolUse:
         type: allow
         reason: "ls is safe"
 "#;
-    
+
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
-    
+
     // Create hook event JSON
     let hook_event = json!({
         "hook_event_name": "PreToolUse",
@@ -40,17 +40,13 @@ PreToolUse:
             "command": "ls -la"
         }
     });
-    
+
     // Run cupcake and capture output
-    let output = run_cupcake_with_json(
-        &policy_path,
-        "PreToolUse",
-        &hook_event
-    );
-    
+    let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
+
     // Parse and verify JSON response
     let response: Value = serde_json::from_str(&output).expect("Invalid JSON output");
-    
+
     // Verify it has the correct permission decision
     assert_eq!(
         response["hookSpecificOutput"]["permissionDecision"],
@@ -65,7 +61,7 @@ PreToolUse:
 #[test]
 fn test_pretooluse_deny_json_output() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a block policy
     let policy = r#"
 PreToolUse:
@@ -80,10 +76,10 @@ PreToolUse:
         type: block_with_feedback
         feedback_message: "rm command blocked for safety"
 "#;
-    
+
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
-    
+
     // Create hook event JSON
     let hook_event = json!({
         "hook_event_name": "PreToolUse",
@@ -95,22 +91,15 @@ PreToolUse:
             "command": "rm -rf /"
         }
     });
-    
+
     // Run cupcake and capture output
-    let output = run_cupcake_with_json(
-        &policy_path,
-        "PreToolUse",
-        &hook_event
-    );
-    
+    let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
+
     // Parse and verify JSON response
     let response: Value = serde_json::from_str(&output).expect("Invalid JSON output");
-    
+
     // Verify it has the correct permission decision
-    assert_eq!(
-        response["hookSpecificOutput"]["permissionDecision"],
-        "deny"
-    );
+    assert_eq!(response["hookSpecificOutput"]["permissionDecision"], "deny");
     assert_eq!(
         response["hookSpecificOutput"]["permissionDecisionReason"],
         "rm command blocked for safety"
@@ -120,7 +109,7 @@ PreToolUse:
 #[test]
 fn test_pretooluse_ask_json_output() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create an ask policy
     let policy = r#"
 PreToolUse:
@@ -135,10 +124,10 @@ PreToolUse:
         type: ask
         reason: "This command requires sudo. Are you sure?"
 "#;
-    
+
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
-    
+
     // Create hook event JSON
     let hook_event = json!({
         "hook_event_name": "PreToolUse",
@@ -150,22 +139,15 @@ PreToolUse:
             "command": "sudo apt update"
         }
     });
-    
+
     // Run cupcake and capture output
-    let output = run_cupcake_with_json(
-        &policy_path,
-        "PreToolUse",
-        &hook_event
-    );
-    
+    let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
+
     // Parse and verify JSON response
     let response: Value = serde_json::from_str(&output).expect("Invalid JSON output");
-    
+
     // Verify it has the correct permission decision
-    assert_eq!(
-        response["hookSpecificOutput"]["permissionDecision"],
-        "ask"
-    );
+    assert_eq!(response["hookSpecificOutput"]["permissionDecision"], "ask");
     assert_eq!(
         response["hookSpecificOutput"]["permissionDecisionReason"],
         "This command requires sudo. Are you sure?"
@@ -175,7 +157,7 @@ PreToolUse:
 #[test]
 fn test_userpromptsubmit_context_injection_stdout() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a context injection policy with stdout mode
     let policy = r#"
 UserPromptSubmit:
@@ -191,10 +173,10 @@ UserPromptSubmit:
         context: "TEST CONTEXT INJECTED"
         use_stdout: true
 "#;
-    
+
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
-    
+
     // Create hook event JSON
     let hook_event = json!({
         "hook_event_name": "UserPromptSubmit",
@@ -203,14 +185,10 @@ UserPromptSubmit:
         "cwd": "/tmp",
         "prompt": "Run a test please"
     });
-    
+
     // Run cupcake and capture output
-    let output = run_cupcake_with_json(
-        &policy_path,
-        "UserPromptSubmit",
-        &hook_event
-    );
-    
+    let output = run_cupcake_with_json(&policy_path, "UserPromptSubmit", &hook_event);
+
     // For stdout mode, the output should be the raw context (not JSON)
     assert_eq!(output.trim(), "TEST CONTEXT INJECTED");
 }
@@ -218,7 +196,7 @@ UserPromptSubmit:
 #[test]
 fn test_userpromptsubmit_block_json_output() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a block policy for prompts
     let policy = r#"
 UserPromptSubmit:
@@ -233,10 +211,10 @@ UserPromptSubmit:
         type: block_with_feedback
         feedback_message: "Detected potential secret in prompt"
 "#;
-    
+
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
-    
+
     // Create hook event JSON
     let hook_event = json!({
         "hook_event_name": "UserPromptSubmit",
@@ -245,26 +223,25 @@ UserPromptSubmit:
         "cwd": "/tmp",
         "prompt": "Set password = supersecret123"
     });
-    
+
     // Run cupcake and capture output
-    let output = run_cupcake_with_json(
-        &policy_path,
-        "UserPromptSubmit",
-        &hook_event
-    );
-    
+    let output = run_cupcake_with_json(&policy_path, "UserPromptSubmit", &hook_event);
+
     // Parse and verify JSON response
     let response: Value = serde_json::from_str(&output).expect("Invalid JSON output");
-    
+
     // For UserPromptSubmit blocks, it should use continue: false
     assert_eq!(response["continue"], false);
-    assert_eq!(response["stopReason"], "Detected potential secret in prompt");
+    assert_eq!(
+        response["stopReason"],
+        "Detected potential secret in prompt"
+    );
 }
 
 #[test]
 fn test_no_matching_policy_allows_by_default() {
     let temp_dir = tempdir().unwrap();
-    
+
     // Create a policy that won't match
     let policy = r#"
 PreToolUse:
@@ -277,10 +254,10 @@ PreToolUse:
       action:
         type: allow
 "#;
-    
+
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
-    
+
     // Create hook event JSON for a different tool
     let hook_event = json!({
         "hook_event_name": "PreToolUse",
@@ -292,17 +269,13 @@ PreToolUse:
             "command": "echo hello"
         }
     });
-    
+
     // Run cupcake and capture output
-    let output = run_cupcake_with_json(
-        &policy_path,
-        "PreToolUse",
-        &hook_event
-    );
-    
+    let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
+
     // Should get an empty JSON response (which means allow)
     let response: Value = serde_json::from_str(&output).expect("Invalid JSON output");
-    
+
     // Empty response or no permissionDecision means allow
     if let Some(hook_output) = response.get("hookSpecificOutput") {
         if let Some(decision) = hook_output.get("permissionDecision") {
@@ -325,20 +298,21 @@ fn run_cupcake_with_json(policy_path: &std::path::Path, event: &str, hook_json: 
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to spawn cupcake");
-    
+
     // Write JSON to stdin
     let stdin = cmd.stdin.as_mut().expect("Failed to get stdin");
-    stdin.write_all(hook_json.to_string().as_bytes())
+    stdin
+        .write_all(hook_json.to_string().as_bytes())
         .expect("Failed to write to stdin");
     stdin.flush().expect("Failed to flush stdin");
-    
+
     // Get output
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     if !output.status.success() && output.status.code() != Some(0) {
         eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         panic!("Cupcake exited with non-zero status: {:?}", output.status);
     }
-    
+
     String::from_utf8(output.stdout).expect("Invalid UTF-8 output")
 }

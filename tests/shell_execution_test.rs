@@ -1,5 +1,5 @@
 //! Tests for shell command execution with security controls
-//! 
+//!
 //! This test suite validates the shell execution functionality including
 //! security controls and proper error handling.
 
@@ -16,14 +16,14 @@ mod shell_execution_tests {
         let mut vars = HashMap::new();
         vars.insert("user".to_string(), "testuser".to_string());
         vars.insert("file_path".to_string(), "/tmp/test.txt".to_string());
-        
+
         let settings = Settings {
             debug_mode: true, // Enable debug mode to skip UID dropping in tests
             allow_shell,
             timeout_ms: 30000,
             sandbox_uid: None,
         };
-        
+
         CommandExecutor::with_settings(vars, settings)
     }
 
@@ -63,7 +63,7 @@ mod shell_execution_tests {
 
         let graph = executor.build_graph(&spec).unwrap();
         assert_eq!(graph.nodes.len(), 1);
-        
+
         let node = &graph.nodes[0];
         assert_eq!(node.command.program, "/bin/sh");
         assert_eq!(node.command.args.len(), 2);
@@ -80,7 +80,10 @@ mod shell_execution_tests {
 
         let graph = executor.build_graph(&spec).unwrap();
         let node = &graph.nodes[0];
-        assert_eq!(node.command.args[1], "echo 'User: testuser' > /tmp/test.txt");
+        assert_eq!(
+            node.command.args[1],
+            "echo 'User: testuser' > /tmp/test.txt"
+        );
     }
 
     #[test]
@@ -93,7 +96,8 @@ for f in {a..z}*.tmp; do
     [ -e "$f" ] && rm "$f"
 done
 echo "Cleanup complete"
-"#.to_string(),
+"#
+            .to_string(),
         });
 
         let graph = executor.build_graph(&spec).unwrap();
@@ -169,14 +173,14 @@ echo "Cleanup complete"
     #[test]
     fn test_shell_mode_detection() {
         let executor = create_executor_with_settings(true);
-        
+
         // Test shell mode detection
         let shell_spec = CommandSpec::Shell(ShellCommandSpec {
             script: "echo test".to_string(),
         });
         let graph = executor.build_graph(&shell_spec).unwrap();
         assert!(graph.nodes[0].command.program == "/bin/sh");
-        
+
         // Compare with array mode
         let array_spec = CommandSpec::Array(Box::new(cupcake::config::actions::ArrayCommandSpec {
             command: vec!["echo".to_string()],
@@ -199,7 +203,7 @@ echo "Cleanup complete"
     fn test_settings_security_defaults() {
         let settings = Settings::default();
         assert!(!settings.allow_shell); // Critical: must default to false
-        
+
         // Ensure CommandExecutor respects defaults
         let executor = CommandExecutor::new(HashMap::new());
         let spec = CommandSpec::Shell(ShellCommandSpec {
@@ -225,12 +229,11 @@ echo "Cleanup complete"
         let executor = create_executor_with_settings(true);
         let script = format!(
             "echo 'test content' > /tmp/cupcake_test_{}.txt && cat /tmp/cupcake_test_{}.txt",
-            std::process::id(), std::process::id()
+            std::process::id(),
+            std::process::id()
         );
-        
-        let spec = CommandSpec::Shell(ShellCommandSpec {
-            script,
-        });
+
+        let spec = CommandSpec::Shell(ShellCommandSpec { script });
 
         let result = executor.execute_spec(&spec).await.unwrap();
         assert!(result.success);
@@ -246,7 +249,7 @@ echo "Cleanup complete"
 
         let graph = executor.build_graph(&spec).unwrap();
         assert_eq!(graph.nodes.len(), 1);
-        
+
         let node = &graph.nodes[0];
         assert_eq!(node.command.program, "/bin/sh");
         assert_eq!(node.command.args.len(), 2);

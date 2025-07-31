@@ -4,16 +4,16 @@
 //! Each file is processed in its own async task, with progress updates sent
 //! back to the main UI thread.
 
+use anyhow::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::sleep;
-use anyhow::Result;
 
 use crate::cli::tui::init::events::AppEvent;
-use crate::cli::tui::init::state::{ExtractedRule, Severity, PolicyDecision};
+use crate::cli::tui::init::state::{ExtractedRule, PolicyDecision, Severity};
 
 /// Extract rules from a single file
-/// 
+///
 /// This spawns an async task that:
 /// 1. Sends start event
 /// 2. Simulates extraction with progress updates
@@ -28,7 +28,7 @@ pub fn spawn_extraction_task(
         let _ = event_tx.send(AppEvent::ExtractionStarted {
             file: file_path.clone(),
         });
-        
+
         // Simulate extraction work
         match extract_rules_from_file(&file_path, &event_tx).await {
             Ok(rules) => {
@@ -55,22 +55,22 @@ async fn extract_rules_from_file(
     // Use file path hash to get pseudo-random but consistent extraction time
     let path_str = file_path.to_string_lossy();
     let hash_value: u64 = path_str.chars().map(|c| c as u64).sum();
-    
+
     // Extraction time between 5-15 seconds based on file
     let extraction_time = Duration::from_millis(5000 + (hash_value % 10000));
-    
+
     // Simple loading - just show we're working
     sleep(extraction_time).await;
-    
+
     // Send a single progress update to show we're still alive
     let _ = event_tx.send(AppEvent::ExtractionProgress {
         file: file_path.clone(),
         progress: 1.0,
     });
-    
+
     // Generate stub rules based on file
     let rules = generate_stub_rules(file_path);
-    
+
     Ok(rules)
 }
 
@@ -101,24 +101,28 @@ fn make_policy_decision(severity: Severity, category: &str) -> PolicyDecision {
 }
 
 /// Generate stub rules for a file
-/// 
+///
 /// In the real implementation, this would call an LLM to extract rules.
 /// For now, we generate plausible stub rules based on the file type.
+#[allow(clippy::ptr_arg)]
+// Rationale: This is stub code that will be replaced. The function needs PathBuf
+// for consistency with the async event system that requires owned PathBuf values.
 fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
-    let file_name = file_path.file_name()
+    let file_name = file_path
+        .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
-    
+
     // IDs will be reassigned in compile_rules() anyway
     let base_id = 0;
-    
+
     // Generate different rules based on file type
     if file_name.contains("CLAUDE") || file_name.contains("AGENT") {
         vec![
             ExtractedRule {
                 id: base_id,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Always run tests before committing code".to_string(),
                 hook_description: "Block git commit if tests fail".to_string(),
                 severity: Severity::High,
@@ -129,7 +133,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 1,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Use TypeScript strict mode in all files".to_string(),
                 hook_description: "Warn when editing non-strict TypeScript files".to_string(),
                 severity: Severity::Medium,
@@ -140,7 +144,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 2,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Document all public API functions".to_string(),
                 hook_description: "Remind to add docs when editing public APIs".to_string(),
                 severity: Severity::Low,
@@ -154,7 +158,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
         vec![
             ExtractedRule {
                 id: base_id,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "No console.log statements in production code".to_string(),
                 hook_description: "Block file save if console.log found".to_string(),
                 severity: Severity::High,
@@ -165,7 +169,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 1,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Prefer async/await over raw promises".to_string(),
                 hook_description: "Suggest async/await when using .then()".to_string(),
                 severity: Severity::Low,
@@ -179,7 +183,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
         vec![
             ExtractedRule {
                 id: base_id,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Require pull request approval before merging".to_string(),
                 hook_description: "Block direct commits to main branch".to_string(),
                 severity: Severity::High,
@@ -190,7 +194,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 1,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "All CI tests must pass before merge".to_string(),
                 hook_description: "Verify CI status before allowing merge".to_string(),
                 severity: Severity::High,
@@ -201,7 +205,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 2,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Format code with prettier on save".to_string(),
                 hook_description: "Auto-format files with prettier".to_string(),
                 severity: Severity::Low,
@@ -215,7 +219,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
         vec![
             ExtractedRule {
                 id: base_id,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Follow security best practices for authentication".to_string(),
                 hook_description: "Warn about insecure auth patterns".to_string(),
                 severity: Severity::High,
@@ -226,7 +230,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 1,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Use environment variables for sensitive config".to_string(),
                 hook_description: "Flag hardcoded secrets in code".to_string(),
                 severity: Severity::Medium,
@@ -240,7 +244,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
         vec![
             ExtractedRule {
                 id: base_id,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Optimize for mobile-first responsive design".to_string(),
                 hook_description: "Check for mobile breakpoints in CSS".to_string(),
                 severity: Severity::Medium,
@@ -251,7 +255,7 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
             },
             ExtractedRule {
                 id: base_id + 1,
-                source_file: file_path.clone(),
+                source_file: file_path.to_path_buf(),
                 description: "Ensure accessibility compliance (WCAG 2.1)".to_string(),
                 hook_description: "Check for alt text and ARIA labels".to_string(),
                 severity: Severity::High,
@@ -263,34 +267,32 @@ fn generate_stub_rules(file_path: &PathBuf) -> Vec<ExtractedRule> {
         ]
     } else {
         // Default rules for unknown file types
-        vec![
-            ExtractedRule {
-                id: base_id,
-                source_file: file_path.clone(),
-                description: "Follow project coding standards".to_string(),
-                hook_description: "Remind to check style guide".to_string(),
-                severity: Severity::Low,
-                category: "general".to_string(),
-                when: "file-change".to_string(),
-                block_on_violation: false,
-                policy_decision: make_policy_decision(Severity::Low, "general"),
-            },
-        ]
+        vec![ExtractedRule {
+            id: base_id,
+            source_file: file_path.to_path_buf(),
+            description: "Follow project coding standards".to_string(),
+            hook_description: "Remind to check style guide".to_string(),
+            severity: Severity::Low,
+            category: "general".to_string(),
+            when: "file-change".to_string(),
+            block_on_violation: false,
+            policy_decision: make_policy_decision(Severity::Low, "general"),
+        }]
     }
 }
 
 /// Compile and deduplicate rules from all extractions
-/// 
+///
 /// This takes all extracted rules and:
 /// 1. Removes exact duplicates
 /// 2. Prioritizes by severity
 /// 3. Groups by category
 pub fn compile_rules(all_rules: Vec<ExtractedRule>) -> Vec<ExtractedRule> {
     use std::collections::HashSet;
-    
+
     let mut seen_descriptions = HashSet::new();
     let mut unique_rules = Vec::new();
-    
+
     // First pass: collect unique rules
     for rule in all_rules {
         let key = (rule.description.clone(), rule.severity as u8);
@@ -298,10 +300,14 @@ pub fn compile_rules(all_rules: Vec<ExtractedRule>) -> Vec<ExtractedRule> {
             unique_rules.push(rule);
         }
     }
-    
+
     // Sort by policy recommendation first, then severity (High first), then by category
     unique_rules.sort_by(|a, b| {
-        match b.policy_decision.to_policy.cmp(&a.policy_decision.to_policy) {
+        match b
+            .policy_decision
+            .to_policy
+            .cmp(&a.policy_decision.to_policy)
+        {
             std::cmp::Ordering::Equal => {
                 // High=0, Medium=1, Low=2 for proper ordering
                 let a_priority = match a.severity {
@@ -322,11 +328,11 @@ pub fn compile_rules(all_rules: Vec<ExtractedRule>) -> Vec<ExtractedRule> {
             other => other,
         }
     });
-    
+
     // Re-assign IDs sequentially
     for (idx, rule) in unique_rules.iter_mut().enumerate() {
         rule.id = idx;
     }
-    
+
     unique_rules
 }

@@ -157,12 +157,15 @@ PreToolUse:
 
     // Should provide JSON response with block decision
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response_json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout was not valid JSON");
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout was not valid JSON");
 
     // Should be a block decision in JSON format
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
-    assert_eq!(decision, "deny", "JSON response should have permissionDecision: deny");
+    assert_eq!(
+        decision, "deny",
+        "JSON response should have permissionDecision: deny"
+    );
 
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(

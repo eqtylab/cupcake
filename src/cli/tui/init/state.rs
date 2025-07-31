@@ -76,7 +76,7 @@ pub struct ReviewState {
 
     // UI state
     pub selected_index: usize,
-    pub selected_line: usize,  // Line index in the rendered list
+    pub selected_line: usize, // Line index in the rendered list
     pub search_input: Input,
     pub search_active: bool,
     pub expanded_sections: HashSet<String>,
@@ -146,14 +146,12 @@ impl Agent {
 }
 
 /// Which pane is focused
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Pane {
     #[default]
     FileList,
     Preview,
 }
-
 
 /// Task for extracting rules from a file
 #[derive(Debug)]
@@ -181,7 +179,7 @@ pub struct ExtractedRule {
     pub id: usize,
     pub source_file: PathBuf,
     pub description: String,
-    pub hook_description: String,  // What the hook will do when triggered
+    pub hook_description: String, // What the hook will do when triggered
     pub severity: Severity,
     pub category: String,
     pub when: String,
@@ -190,8 +188,7 @@ pub struct ExtractedRule {
 }
 
 /// Rule severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Severity {
     High,
     #[default]
@@ -218,8 +215,7 @@ pub struct RuleEditForm {
 }
 
 /// Which field is focused in the edit form
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FormField {
     #[default]
     Description,
@@ -228,8 +224,6 @@ pub enum FormField {
     When,
     BlockOnViolation,
 }
-
-
 
 /// Compilation phase information
 #[derive(Debug)]
@@ -252,10 +246,10 @@ pub enum PhaseStatus {
 /// State transitions for the wizard
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateTransition {
-    Continue,      // Go to next screen
-    Back,          // Go to previous screen
-    Skip,          // Skip optional screen
-    Quit,          // Exit wizard
+    Continue, // Go to next screen
+    Back,     // Go to previous screen
+    Skip,     // Skip optional screen
+    Quit,     // Exit wizard
 }
 
 impl WizardState {

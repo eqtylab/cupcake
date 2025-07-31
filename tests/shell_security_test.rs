@@ -15,7 +15,6 @@ use cupcake::config::actions::{CommandSpec, ShellCommandSpec};
 use cupcake::config::types::Settings;
 use cupcake::engine::command_executor::CommandExecutor;
 use std::collections::HashMap;
-use tokio;
 
 /// Test that shell execution is disabled by default (governance control)
 #[test]

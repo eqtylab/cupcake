@@ -1,5 +1,4 @@
 use cupcake::engine::events::{CommonEventData, HookEvent};
-use serde_json;
 
 #[test]
 fn test_cwd_field_in_all_events() {

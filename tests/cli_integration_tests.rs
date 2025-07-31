@@ -35,7 +35,7 @@ fn test_cli_run_command() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["run", "--event", "PreToolUse", "--debug"])
+        .args(["run", "--event", "PreToolUse", "--debug"])
         .output()
         .expect("Failed to execute cupcake run");
 
@@ -52,7 +52,7 @@ fn test_cli_sync_command() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["sync", "--dry-run"])
+        .args(["sync", "--dry-run"])
         .output()
         .expect("Failed to execute cupcake sync");
 
@@ -68,7 +68,7 @@ fn test_cli_validate_command() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["validate", "--strict"])
+        .args(["validate", "--strict"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute cupcake validate");
@@ -91,7 +91,7 @@ fn test_cli_run_with_debug() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&[
+        .args([
             "run",
             "--event",
             "PostToolUse",
@@ -109,7 +109,7 @@ fn test_cli_sync_with_force() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["sync", "--force", "--dry-run"])
+        .args(["sync", "--force", "--dry-run"])
         .output()
         .expect("Failed to execute cupcake sync --force");
 
@@ -126,7 +126,7 @@ fn test_cli_validate_with_format() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["validate", "--format", "json"])
+        .args(["validate", "--format", "json"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute cupcake validate with format");
@@ -170,7 +170,7 @@ fn test_cli_missing_required_args() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["run"])
+        .args(["run"])
         .output()
         .expect("Failed to execute cupcake run without required args");
 
@@ -198,7 +198,7 @@ fn test_cli_default_values() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["run", "--event", "PreToolUse", "--debug"])
+        .args(["run", "--event", "PreToolUse", "--debug"])
         .output()
         .expect("Failed to execute cupcake run with defaults");
 
@@ -214,7 +214,7 @@ fn test_cli_validate_default_file() {
     let cupcake_binary = get_cupcake_binary();
     
     let output = Command::new(&cupcake_binary)
-        .args(&["validate"])
+        .args(["validate"])
         .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute cupcake validate with default file");

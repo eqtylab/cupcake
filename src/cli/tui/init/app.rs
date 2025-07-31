@@ -26,6 +26,12 @@ pub struct App {
     last_ctrl_c: Option<std::time::Instant>,
 }
 
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl App {
     /// Create a new app instance
     pub fn new() -> Self {
@@ -222,7 +228,7 @@ impl App {
                     WizardState::Discovery(discovery) => {
                         // Pass custom instructions if provided
                         let mut extraction = ExtractionState::default();
-                        if discovery.custom_prompt_input.value().trim().len() > 0 {
+                        if !discovery.custom_prompt_input.value().trim().is_empty() {
                             extraction.custom_instructions = Some(discovery.custom_prompt_input.value().to_string());
                         }
                         
@@ -337,21 +343,18 @@ impl App {
     }
 
     fn handle_landing_event(state: &mut LandingState, event: AppEvent) -> Result<Option<StateTransition>> {
-        match event {
-            AppEvent::Key(key) => {
-                match key.code {
-                    KeyCode::Enter => {
-                        // Start the wizard
-                        return Ok(Some(StateTransition::Continue));
-                    }
-                    KeyCode::Up | KeyCode::Down => {
-                        // Toggle between auto-discovery and manual mode using arrow keys
-                        state.auto_discovery = !state.auto_discovery;
-                    }
-                    _ => {}
+        if let AppEvent::Key(key) = event {
+            match key.code {
+                KeyCode::Enter => {
+                    // Start the wizard
+                    return Ok(Some(StateTransition::Continue));
                 }
+                KeyCode::Up | KeyCode::Down => {
+                    // Toggle between auto-discovery and manual mode using arrow keys
+                    state.auto_discovery = !state.auto_discovery;
+                }
+                _ => {}
             }
-            _ => {}
         }
         Ok(None)
     }
@@ -513,17 +516,14 @@ impl App {
     fn handle_extraction_event(state: &mut ExtractionState, event: AppEvent) -> Result<Option<StateTransition>> {
         match event {
             AppEvent::Key(key) => {
-                match key.code {
-                    KeyCode::Enter => {
-                        // Only allow continue when all tasks are complete
-                        let all_complete = state.tasks.iter()
-                            .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
-                        
-                        if all_complete {
-                            return Ok(Some(StateTransition::Continue));
-                        }
+                if key.code == KeyCode::Enter {
+                    // Only allow continue when all tasks are complete
+                    let all_complete = state.tasks.iter()
+                        .all(|t| matches!(t.status, TaskStatus::Complete | TaskStatus::Failed(_)));
+                    
+                    if all_complete {
+                        return Ok(Some(StateTransition::Continue));
                     }
-                    _ => {}
                 }
             }
             AppEvent::ExtractionStarted { file } => {
@@ -619,54 +619,51 @@ impl App {
     }
 
     fn handle_review_event(state: &mut ReviewState, event: AppEvent) -> Result<Option<StateTransition>> {
-        match event {
-            AppEvent::Key(key) => {
-                match key.code {
-                    KeyCode::Up => {
-                        // Since rules are sorted by severity, we need to find actual rule indices
-                        let _sorted_indices = Self::get_sorted_rule_indices(&state.rules);
-                        
-                        if state.selected_index > 0 {
-                            state.selected_index -= 1;
-                        }
+        if let AppEvent::Key(key) = event {
+            match key.code {
+                KeyCode::Up => {
+                    // Since rules are sorted by severity, we need to find actual rule indices
+                    let _sorted_indices = Self::get_sorted_rule_indices(&state.rules);
+                    
+                    if state.selected_index > 0 {
+                        state.selected_index -= 1;
                     }
-                    KeyCode::Down => {
-                        if state.selected_index < state.rules.len().saturating_sub(1) {
-                            state.selected_index += 1;
-                        }
-                    }
-                    KeyCode::Enter => {
-                        // Get the actual rule index from sorted display index
-                        let sorted_indices = Self::get_sorted_rule_indices(&state.rules);
-                        if let Some((actual_idx, _)) = sorted_indices.get(state.selected_index) {
-                            // Toggle selection for current rule
-                            if state.selected.contains(actual_idx) {
-                                state.selected.remove(actual_idx);
-                            } else {
-                                state.selected.insert(*actual_idx);
-                            }
-                        }
-                    }
-                    KeyCode::Char('a') => {
-                        // Select all rules
-                        for i in 0..state.rules.len() {
-                            state.selected.insert(i);
-                        }
-                    }
-                    KeyCode::Char('n') => {
-                        // Select none
-                        state.selected.clear();
-                    }
-                    KeyCode::Char(' ') => {
-                        // Continue to compilation only if we have selections
-                        if !state.selected.is_empty() {
-                            return Ok(Some(StateTransition::Continue));
-                        }
-                    }
-                    _ => {}
                 }
+                KeyCode::Down => {
+                    if state.selected_index < state.rules.len().saturating_sub(1) {
+                        state.selected_index += 1;
+                    }
+                }
+                KeyCode::Enter => {
+                    // Get the actual rule index from sorted display index
+                    let sorted_indices = Self::get_sorted_rule_indices(&state.rules);
+                    if let Some((actual_idx, _)) = sorted_indices.get(state.selected_index) {
+                        // Toggle selection for current rule
+                        if state.selected.contains(actual_idx) {
+                            state.selected.remove(actual_idx);
+                        } else {
+                            state.selected.insert(*actual_idx);
+                        }
+                    }
+                }
+                KeyCode::Char('a') => {
+                    // Select all rules
+                    for i in 0..state.rules.len() {
+                        state.selected.insert(i);
+                    }
+                }
+                KeyCode::Char('n') => {
+                    // Select none
+                    state.selected.clear();
+                }
+                KeyCode::Char(' ') => {
+                    // Continue to compilation only if we have selections
+                    if !state.selected.is_empty() {
+                        return Ok(Some(StateTransition::Continue));
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
         Ok(None)
     }
@@ -795,11 +792,8 @@ impl App {
 
     fn handle_success_event(&mut self, event: AppEvent) -> Result<Option<StateTransition>> {
         if let AppEvent::Key(key) = event {
-            match key.code {
-                KeyCode::Enter => {
-                    self.should_quit = true;
-                }
-                _ => {}
+            if key.code == KeyCode::Enter {
+                self.should_quit = true;
             }
         }
         Ok(None)

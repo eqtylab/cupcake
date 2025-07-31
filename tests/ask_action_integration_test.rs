@@ -40,7 +40,7 @@ PreToolUse:
 
     // Execute cupcake run command with the test policy and hook event
     let mut child = Command::new("target/debug/cupcake")
-        .args(&["run", "--event", "PreToolUse", "--config", policy_path])
+        .args(["run", "--event", "PreToolUse", "--config", policy_path])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -145,7 +145,7 @@ PreToolUse:
 
     // Execute cupcake run command
     let mut child = Command::new("target/debug/cupcake")
-        .args(&["run", "--event", "PreToolUse", "--config", policy_path])
+        .args(["run", "--event", "PreToolUse", "--config", policy_path])
         .stdin(std::process::Stdio::piped()) 
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

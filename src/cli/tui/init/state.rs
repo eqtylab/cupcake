@@ -147,16 +147,13 @@ impl Agent {
 
 /// Which pane is focused
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum Pane {
+    #[default]
     FileList,
     Preview,
 }
 
-impl Default for Pane {
-    fn default() -> Self {
-        Pane::FileList
-    }
-}
 
 /// Task for extracting rules from a file
 #[derive(Debug)]
@@ -194,8 +191,10 @@ pub struct ExtractedRule {
 
 /// Rule severity levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum Severity {
     High,
+    #[default]
     Medium,
     Low,
 }
@@ -220,7 +219,9 @@ pub struct RuleEditForm {
 
 /// Which field is focused in the edit form
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum FormField {
+    #[default]
     Description,
     Severity,
     Category,
@@ -228,17 +229,7 @@ pub enum FormField {
     BlockOnViolation,
 }
 
-impl Default for FormField {
-    fn default() -> Self {
-        FormField::Description
-    }
-}
 
-impl Default for Severity {
-    fn default() -> Self {
-        Severity::Medium
-    }
-}
 
 /// Compilation phase information
 #[derive(Debug)]

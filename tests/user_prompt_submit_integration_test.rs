@@ -53,7 +53,7 @@ UserPromptSubmit:
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(&["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -136,7 +136,7 @@ UserPromptSubmit:
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(&["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -211,7 +211,7 @@ UserPromptSubmit:
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(&["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "UserPromptSubmit", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

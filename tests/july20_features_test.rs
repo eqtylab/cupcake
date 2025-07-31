@@ -41,7 +41,7 @@ UserPromptSubmit:
     match &config.policies[0].action {
         Action::InjectContext { context, use_stdout } => {
             assert_eq!(context, "This is injected context");
-            assert_eq!(*use_stdout, true);
+            assert!(*use_stdout);
         }
         _ => panic!("Expected InjectContext action"),
     }

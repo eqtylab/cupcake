@@ -71,7 +71,7 @@ fn test_sync_generates_correct_json_structure() {
     for event in &expected_events {
         assert!(hooks.contains_key(*event), "Should have {} hook", event);
         
-        let event_hooks = hooks[*event].as_array().expect(&format!("{} should be an array", event));
+        let event_hooks = hooks[*event].as_array().unwrap_or_else(|| panic!("{} should be an array", event));
         assert!(!event_hooks.is_empty(), "{} should not be empty", event);
         
         // Verify each entry has correct structure

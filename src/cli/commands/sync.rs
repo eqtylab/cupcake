@@ -120,7 +120,7 @@ impl SyncCommand {
         let mut updated = false;
         
         // Ensure hooks object exists
-        if !settings.get("hooks").is_some() {
+        if settings.get("hooks").is_none() {
             settings["hooks"] = json!({});
             updated = true;
         }

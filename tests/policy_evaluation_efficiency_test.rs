@@ -45,7 +45,7 @@ PreToolUse:
     // Run cupcake with debug logging, piping hook event to stdin
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
-        .args(&["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
+        .args(["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
         .env("RUST_LOG", "debug")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -94,7 +94,7 @@ PreToolUse:
     // Run cupcake with debug logging
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
-        .args(&["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
+        .args(["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
         .env("RUST_LOG", "debug")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -179,7 +179,7 @@ PreToolUse:
     // Run cupcake with debug logging
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
-        .args(&["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
+        .args(["run", "--event", "PreToolUse", "--config", policy_file.path().to_str().unwrap(), "--debug"])
         .env("RUST_LOG", "debug")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

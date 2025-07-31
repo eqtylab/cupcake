@@ -315,7 +315,7 @@ PreToolUse:
 // Helper function to run cupcake with JSON input
 fn run_cupcake_with_json(policy_path: &std::path::Path, event: &str, hook_json: &Value) -> String {
     let mut cmd = Command::new("cargo")
-        .args(&["run", "--quiet", "--bin", "cupcake", "--", "run"])
+        .args(["run", "--quiet", "--bin", "cupcake", "--", "run"])
         .arg("--event")
         .arg(event)
         .arg("--config")

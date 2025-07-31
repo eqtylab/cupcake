@@ -220,7 +220,7 @@ fn render_preview_pane(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
     // Calculate scrolling information
     let content_lines: Vec<&str> = content.lines().collect();
     let total_lines = content_lines.len() as u16;
-    let visible_lines = area.height.saturating_sub(2) as u16; // Account for borders
+    let visible_lines = area.height.saturating_sub(2); // Account for borders
     
     // Clamp scroll offset to valid range
     let max_scroll = total_lines.saturating_sub(visible_lines);

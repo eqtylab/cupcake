@@ -3,7 +3,6 @@ use cupcake::config::{
     conditions::Condition,
     types::{ComposedPolicy, HookEventType, PolicyFragment, RootConfig, Settings, YamlPolicy},
 };
-use serde_json;
 use std::collections::HashMap;
 
 #[test]

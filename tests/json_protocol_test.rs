@@ -44,7 +44,7 @@ PreToolUse:
     // Run cupcake
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(&["run", "--event", "PreToolUse"])
+        .args(["run", "--event", "PreToolUse"])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -110,7 +110,7 @@ PreToolUse:
     // Run cupcake
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(&["run", "--event", "PreToolUse"])
+        .args(["run", "--event", "PreToolUse"])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -176,7 +176,7 @@ PreToolUse:
     // Run cupcake
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
     let mut cmd = Command::new(cupcake_binary)
-        .args(&["run", "--event", "PreToolUse"])
+        .args(["run", "--event", "PreToolUse"])
         .current_dir(&temp_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

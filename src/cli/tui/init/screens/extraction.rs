@@ -76,7 +76,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             TaskStatus::Queued => "⏳",
             TaskStatus::InProgress => {
                 // Use same animation frame as in status text
-                let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+                let spinner_frames = ["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
                 let frame_idx = (task.elapsed_ms / 200) as usize % spinner_frames.len();
                 spinner_frames[frame_idx]
             },
@@ -95,7 +95,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             TaskStatus::Queued => "Queued".to_string(),
             TaskStatus::InProgress => {
                 // Animate the spinner based on elapsed time
-                let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+                let spinner_frames = ["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
                 let frame_idx = (task.elapsed_ms / 200) as usize % spinner_frames.len();
                 format!("{} Extracting...", spinner_frames[frame_idx])
             },
@@ -184,7 +184,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             )
         } else if compile_elapsed > 0 {
             // Compiling
-            let spinner_frames = vec!["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
+            let spinner_frames = ["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
             let frame_idx = (compile_elapsed / 200) as usize % spinner_frames.len();
             let time_str = if compile_elapsed < 1000 {
                 format!("{}ms", compile_elapsed)

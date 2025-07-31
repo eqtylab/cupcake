@@ -1,7 +1,6 @@
 use cupcake::engine::events::{
     BashToolInput, CommonEventData, CompactTrigger, HookEvent, ReadToolInput,
 };
-use serde_json;
 
 #[test]
 fn test_hook_event_deserialization() {

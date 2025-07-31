@@ -7,7 +7,6 @@ use cupcake::config::actions::{
     Action, ArrayCommandSpec, CommandSpec, EnvVar, OnFailureBehavior, PipeCommand,
 };
 use cupcake::config::conditions::Condition;
-use serde_yaml_ng;
 
 #[cfg(test)]
 mod command_spec_tests {

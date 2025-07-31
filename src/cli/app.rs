@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_cli_parsing() {
-        let cli = Cli::parse_from(&["cupcake", "init", "--output", "test-guardrails", "--yes"]);
+        let cli = Cli::parse_from(["cupcake", "init", "--output", "test-guardrails", "--yes"]);
 
         match cli.command {
             Commands::Init {
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_run_command_defaults() {
-        let cli = Cli::parse_from(&["cupcake", "run", "--event", "PreToolUse"]);
+        let cli = Cli::parse_from(["cupcake", "run", "--event", "PreToolUse"]);
 
         match cli.command {
             Commands::Run {
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_validate_command() {
-        let cli = Cli::parse_from(&["cupcake", "validate", "my-guardrails", "--strict"]);
+        let cli = Cli::parse_from(["cupcake", "validate", "my-guardrails", "--strict"]);
 
         match cli.command {
             Commands::Validate {
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_sync_command() {
-        let cli = Cli::parse_from(&["cupcake", "sync", "--dry-run", "--force"]);
+        let cli = Cli::parse_from(["cupcake", "sync", "--dry-run", "--force"]);
 
         match cli.command {
             Commands::Sync {
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_inspect_command() {
-        let cli = Cli::parse_from(&["cupcake", "inspect", "--config", "my-config.yaml"]);
+        let cli = Cli::parse_from(["cupcake", "inspect", "--config", "my-config.yaml"]);
 
         match cli.command {
             Commands::Inspect { config } => {
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_inspect_command_defaults() {
-        let cli = Cli::parse_from(&["cupcake", "inspect"]);
+        let cli = Cli::parse_from(["cupcake", "inspect"]);
 
         match cli.command {
             Commands::Inspect { config } => {

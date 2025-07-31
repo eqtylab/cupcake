@@ -14,3 +14,7 @@ Finalize the MVP by implementing critical non-functional requirements, focusing 
 - The optional audit logging system is fully functional, allowing users to enable a structured audit trail of all policy decisions via `cupcake.toml`.
 - A comprehensive test suite exists, providing strong coverage for all components through unit, integration, and end-to-end tests that simulate real hook invocations.
 - All user-facing documentation, including the main README and detailed CLI help text for every command and argument, is complete and polished.
+
+## Documentation
+
+It's important to keep `docs` updated.

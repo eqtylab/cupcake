@@ -253,10 +253,9 @@ conditions:
     expect_success: true # true = exit 0 means match
 ```
 
-Check conditions support three command modes:
+Check conditions support two command modes:
 
 - `array` - Most secure, no shell interpretation
-- `string` - Shell-like syntax, parsed to array
 - `shell` - Real shell execution (requires `allow_shell: true`)
 
 See [Command Execution](command-execution.md) for details.

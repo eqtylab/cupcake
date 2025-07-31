@@ -121,9 +121,8 @@ conditions:
 
 ### Command Execution
 
-Check conditions support three command modes:
+Check conditions support two command modes:
 - `array`: Secure array-based execution (recommended)
-- `string`: Shell-like syntax parsed into secure commands
 - `shell`: Direct shell execution (requires `allow_shell: true`)
 
 ```yaml

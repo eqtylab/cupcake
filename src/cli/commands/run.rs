@@ -19,6 +19,7 @@ pub struct RunCommand {
 
 impl CommandHandler for RunCommand {
     fn execute(&self) -> Result<()> {
+        // TODO: Make debug logging configurable - currently always enabled in production
         // Log every invocation to a file
         if let Ok(mut file) = std::fs::OpenOptions::new()
             .create(true)

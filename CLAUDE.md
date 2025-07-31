@@ -1,3 +1,5 @@
-## Search and Replace Techniques
+## Debug Logging
 
-- Use ripgrep (rg) to find all instances of an identifier when you need to search for it (to understand where in the codebase an identifier might be used). Consider a `sed` approach for a find/replace-all if safe.
+Cupcake automatically logs all hook executions to
+`/tmp/cupcake-debug.log` for troubleshooting. Check this file when
+debugging hook integration issues.

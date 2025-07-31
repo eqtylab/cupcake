@@ -430,10 +430,11 @@ impl PolicyLoader {
                     self.check_action_depth(else_act, depth + 1)?;
                 }
             }
-            super::actions::Action::RunCommand { spec, .. } => {
-                if let super::actions::CommandSpec::Array(array_spec) = spec {
-                    self.check_array_command_depth(array_spec, depth + 1)?;
-                }
+            super::actions::Action::RunCommand {
+                spec: super::actions::CommandSpec::Array(array_spec),
+                ..
+            } => {
+                self.check_array_command_depth(array_spec, depth + 1)?;
             }
             _ => {} // Other action types don't have nesting
         }
@@ -442,6 +443,7 @@ impl PolicyLoader {
     }
 
     /// Check depth of array command specifications
+    #[allow(clippy::only_used_in_recursion)]
     fn check_array_command_depth(&self, spec: &super::actions::ArrayCommandSpec, depth: u8) -> Result<()> {
         if depth > MAX_POLICY_DEPTH {
             return Err(CupcakeError::Config(format!(

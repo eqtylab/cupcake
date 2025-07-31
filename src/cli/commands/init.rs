@@ -21,7 +21,7 @@ impl CommandHandler for InitCommand {
                 crate::CupcakeError::Config(format!("Failed to create async runtime: {}", e))
             })?;
 
-            return runtime.block_on(async { tui::run_init_wizard().await });
+            runtime.block_on(async { tui::run_init_wizard().await })
         }
 
         #[cfg(not(feature = "tui"))]

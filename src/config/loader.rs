@@ -3,6 +3,9 @@ use crate::{CupcakeError, Result};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+/// Maximum allowed nesting depth for policies to prevent stack overflow attacks
+const MAX_POLICY_DEPTH: u8 = 32;
+
 /// Result of loading configuration with both settings and policies
 #[derive(Debug)]
 pub struct LoadedConfiguration {
@@ -367,6 +370,9 @@ impl PolicyLoader {
                         )));
                     }
 
+                    // SECURITY: Validate policy depth to prevent stack overflow attacks
+                    self.validate_policy_depth(&policy)?;
+
                     // Create ComposedPolicy
                     let composed_policy = ComposedPolicy {
                         name: policy.name,
@@ -400,6 +406,65 @@ impl PolicyLoader {
                 hook_event_str
             )))
         }
+    }
+
+    /// Validate that a policy doesn't exceed maximum nesting depth
+    fn validate_policy_depth(&self, policy: &super::types::YamlPolicy) -> Result<()> {
+        self.check_action_depth(&policy.action, 0)?;
+        Ok(())
+    }
+
+    /// Recursively check action depth
+    fn check_action_depth(&self, action: &super::actions::Action, depth: u8) -> Result<()> {
+        if depth > MAX_POLICY_DEPTH {
+            return Err(CupcakeError::Config(format!(
+                "Policy nesting depth exceeds maximum allowed depth of {}. This may be a malicious policy attempting a stack overflow attack.",
+                MAX_POLICY_DEPTH
+            )));
+        }
+
+        match action {
+            super::actions::Action::Conditional { then_action, else_action, .. } => {
+                self.check_action_depth(then_action, depth + 1)?;
+                if let Some(else_act) = else_action {
+                    self.check_action_depth(else_act, depth + 1)?;
+                }
+            }
+            super::actions::Action::RunCommand { spec, .. } => {
+                if let super::actions::CommandSpec::Array(array_spec) = spec {
+                    self.check_array_command_depth(array_spec, depth + 1)?;
+                }
+            }
+            _ => {} // Other action types don't have nesting
+        }
+
+        Ok(())
+    }
+
+    /// Check depth of array command specifications
+    fn check_array_command_depth(&self, spec: &super::actions::ArrayCommandSpec, depth: u8) -> Result<()> {
+        if depth > MAX_POLICY_DEPTH {
+            return Err(CupcakeError::Config(format!(
+                "Command nesting depth exceeds maximum allowed depth of {}",
+                MAX_POLICY_DEPTH
+            )));
+        }
+
+        // Check onSuccess commands
+        if let Some(success_specs) = &spec.on_success {
+            for cmd_spec in success_specs {
+                self.check_array_command_depth(cmd_spec, depth + 1)?;
+            }
+        }
+
+        // Check onFailure commands
+        if let Some(failure_specs) = &spec.on_failure {
+            for cmd_spec in failure_specs {
+                self.check_array_command_depth(cmd_spec, depth + 1)?;
+            }
+        }
+
+        Ok(())
     }
 }
 

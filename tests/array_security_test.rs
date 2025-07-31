@@ -236,6 +236,42 @@ async fn test_piped_command_isolation() {
     }
 }
 
+/// Test that pipe command path template injection is blocked
+#[test]
+fn test_pipe_command_path_template_injection_is_blocked() {
+    let mut vars = HashMap::new();
+    vars.insert("malicious_cmd".to_string(), "sh".to_string());
+
+    let executor = CommandExecutor::new(vars);
+
+    // Attempt to inject a shell through pipe command template
+    let spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
+        command: vec!["echo".to_string()],
+        args: Some(vec!["hello".to_string()]),
+        working_dir: None,
+        env: None,
+        pipe: Some(vec![cupcake::config::actions::PipeCommand {
+            cmd: vec!["{{malicious_cmd}}".to_string(), "-c".to_string(), "rm -rf /".to_string()],
+        }]),
+        redirect_stdout: None,
+        append_stdout: None,
+        redirect_stderr: None,
+        merge_stderr: None,
+        on_success: None,
+        on_failure: None,
+    }));
+
+    // This MUST fail with security error
+    let result = executor.build_graph(&spec);
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        cupcake::engine::command_executor::ExecutionError::InvalidSpec(msg) => {
+            assert!(msg.contains("Template variables are not allowed in pipe command paths"));
+        }
+        _ => panic!("Expected InvalidSpec error for pipe command template injection"),
+    }
+}
+
 /// Test that complex malicious input combinations are all neutralized
 #[test]
 fn test_complex_malicious_input_neutralization() {

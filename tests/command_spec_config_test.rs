@@ -273,6 +273,58 @@ mod command_spec_tests {
         assert!(yaml.contains("{{session_id}}"));
     }
 
+    /// Test deeply nested commands are rejected
+    #[test]
+    fn test_deeply_nested_commands_rejected() {
+        use cupcake::engine::command_executor::CommandExecutor;
+        use std::collections::HashMap;
+
+        // Create a deeply nested command structure that exceeds MAX_RECURSION_DEPTH
+        let mut deepest = ArrayCommandSpec {
+            command: vec!["echo".to_string()],
+            args: Some(vec!["deepest".to_string()]),
+            working_dir: None,
+            env: None,
+            pipe: None,
+            redirect_stdout: None,
+            append_stdout: None,
+            redirect_stderr: None,
+            merge_stderr: None,
+            on_success: None,
+            on_failure: None,
+        };
+
+        // Build 40 levels of nesting (exceeds MAX_RECURSION_DEPTH of 32)
+        for i in 0..40 {
+            deepest = ArrayCommandSpec {
+                command: vec!["echo".to_string()],
+                args: Some(vec![format!("level-{}", i)]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: Some(vec![deepest]),
+                on_failure: None,
+            };
+        }
+
+        let spec = CommandSpec::Array(Box::new(deepest));
+        let executor = CommandExecutor::new(HashMap::new());
+        
+        // This MUST fail with depth error
+        let result = executor.build_graph(&spec);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            cupcake::engine::command_executor::ExecutionError::InvalidSpec(msg) => {
+                assert!(msg.contains("nesting depth exceeds maximum"));
+            }
+            _ => panic!("Expected InvalidSpec error for excessive nesting"),
+        }
+    }
+
     /// Test complex composition with multiple operators
     #[test]
     fn test_complex_command_composition() {

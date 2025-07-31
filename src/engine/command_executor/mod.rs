@@ -17,6 +17,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
+/// Maximum recursion depth for command execution to prevent stack overflow
+const MAX_RECURSION_DEPTH: u8 = 32;
+
 /// Internal representation of a command execution graph
 ///
 /// This represents the parsed and validated command structure that will be
@@ -150,7 +153,7 @@ impl CommandExecutor {
     /// specification into an internal execution graph.
     pub fn build_graph(&self, spec: &CommandSpec) -> Result<CommandGraph, ExecutionError> {
         match spec {
-            CommandSpec::Array(array_spec) => self.build_graph_from_array(array_spec),
+            CommandSpec::Array(array_spec) => self.build_graph_from_array(array_spec, 0),
             CommandSpec::Shell(shell_spec) => self.build_graph_from_shell(shell_spec),
         }
     }
@@ -159,7 +162,16 @@ impl CommandExecutor {
     fn build_graph_from_array(
         &self,
         spec: &ArrayCommandSpec,
+        depth: u8,
     ) -> Result<CommandGraph, ExecutionError> {
+        // SECURITY: Check recursion depth to prevent stack overflow
+        if depth > MAX_RECURSION_DEPTH {
+            return Err(ExecutionError::InvalidSpec(format!(
+                "Command nesting depth exceeds maximum allowed depth of {}. This may indicate a malicious policy.",
+                MAX_RECURSION_DEPTH
+            )));
+        }
+
         // Validate basic command structure
         if spec.command.is_empty() {
             return Err(ExecutionError::InvalidSpec(
@@ -174,7 +186,7 @@ impl CommandExecutor {
         let operations = self.build_operations(spec)?;
 
         // Build conditional execution
-        let conditional = self.build_conditional_execution(spec)?;
+        let conditional = self.build_conditional_execution(spec, depth)?;
 
         let node = ExecutionNode {
             command,
@@ -248,8 +260,24 @@ impl CommandExecutor {
         // Handle pipe operations
         if let Some(pipe_commands) = &spec.pipe {
             for pipe_cmd in pipe_commands {
+                // SECURITY: Validate pipe command structure
+                if pipe_cmd.cmd.is_empty() {
+                    return Err(ExecutionError::InvalidSpec(
+                        "Pipe command cannot be empty".to_string(),
+                    ));
+                }
+                
+                // SECURITY: Pipe command paths must not contain template variables
+                // This prevents injection attacks through malicious template substitution
+                let program = pipe_cmd.cmd[0].clone();
+                if program.contains("{{") || program.contains("}}") {
+                    return Err(ExecutionError::InvalidSpec(
+                        "Template variables are not allowed in pipe command paths for security reasons".to_string(),
+                    ));
+                }
+                
                 let command = Command {
-                    program: self.substitute_template(&pipe_cmd.cmd[0])?,
+                    program,
                     args: pipe_cmd.cmd[1..]
                         .iter()
                         .map(|arg| self.substitute_template(arg))
@@ -291,11 +319,12 @@ impl CommandExecutor {
     fn build_conditional_execution(
         &self,
         spec: &ArrayCommandSpec,
+        depth: u8,
     ) -> Result<Option<ConditionalExecution>, ExecutionError> {
         let on_success = if let Some(success_specs) = &spec.on_success {
             let mut nodes = Vec::new();
             for success_spec in success_specs {
-                let graph = self.build_graph_from_array(success_spec)?;
+                let graph = self.build_graph_from_array(success_spec, depth + 1)?;
                 nodes.extend(graph.nodes);
             }
             nodes
@@ -306,7 +335,7 @@ impl CommandExecutor {
         let on_failure = if let Some(failure_specs) = &spec.on_failure {
             let mut nodes = Vec::new();
             for failure_spec in failure_specs {
-                let graph = self.build_graph_from_array(failure_spec)?;
+                let graph = self.build_graph_from_array(failure_spec, depth + 1)?;
                 nodes.extend(graph.nodes);
             }
             nodes
@@ -495,9 +524,9 @@ impl CommandExecutor {
         cmd: &mut tokio::process::Command,
         command: &Command,
     ) -> Result<(), ExecutionError> {
-        // UID drop for shell commands (Unix platforms only, not in debug mode)
+        // UID drop for ALL commands (Unix platforms only, not in debug mode)
         #[cfg(unix)]
-        if command.program == "/bin/sh" && !self.settings.debug_mode {
+        if !self.settings.debug_mode {
             if let Some(sandbox_uid_str) = &self.settings.sandbox_uid {
                 // Resolve UID from string (either numeric or username)
                 let uid = self.resolve_uid(sandbox_uid_str)?;
@@ -843,7 +872,7 @@ mod tests {
             on_failure: None,
         };
 
-        let graph = executor.build_graph_from_array(&spec).unwrap();
+        let graph = executor.build_graph_from_array(&spec, 0).unwrap();
 
         assert_eq!(graph.nodes.len(), 1);
         let node = &graph.nodes[0];
@@ -887,7 +916,7 @@ mod tests {
             on_failure: None,
         };
 
-        let graph = executor.build_graph_from_array(&spec).unwrap();
+        let graph = executor.build_graph_from_array(&spec, 0).unwrap();
         let node = &graph.nodes[0];
 
         // Validate pipe operations
@@ -928,7 +957,7 @@ mod tests {
             on_failure: None,
         };
 
-        let graph = executor.build_graph_from_array(&spec).unwrap();
+        let graph = executor.build_graph_from_array(&spec, 0).unwrap();
         let node = &graph.nodes[0];
 
         // Validate redirect operations
@@ -981,7 +1010,7 @@ mod tests {
             }]),
         };
 
-        let graph = executor.build_graph_from_array(&spec).unwrap();
+        let graph = executor.build_graph_from_array(&spec, 0).unwrap();
         let node = &graph.nodes[0];
 
         // Validate main command
@@ -1026,7 +1055,7 @@ mod tests {
             on_failure: None,
         };
 
-        let graph = executor.build_graph_from_array(&spec).unwrap();
+        let graph = executor.build_graph_from_array(&spec, 0).unwrap();
         let node = &graph.nodes[0];
 
         // The malicious content becomes a literal argument, not executed
@@ -1057,7 +1086,7 @@ mod tests {
             on_failure: None,
         };
 
-        let result = executor.build_graph_from_array(&spec);
+        let result = executor.build_graph_from_array(&spec, 0);
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -1088,7 +1117,7 @@ mod tests {
             on_failure: None,
         };
 
-        let result = executor.build_graph_from_array(&spec);
+        let result = executor.build_graph_from_array(&spec, 0);
         assert!(result.is_err());
         match result.unwrap_err() {
             ExecutionError::InvalidSpec(msg) => {
@@ -1112,7 +1141,7 @@ mod tests {
             on_failure: None,
         };
 
-        let result2 = executor.build_graph_from_array(&spec2);
+        let result2 = executor.build_graph_from_array(&spec2, 0);
         assert!(result2.is_err());
         match result2.unwrap_err() {
             ExecutionError::InvalidSpec(msg) => {
@@ -1136,7 +1165,7 @@ mod tests {
             on_failure: None,
         };
 
-        let result3 = executor.build_graph_from_array(&spec3);
+        let result3 = executor.build_graph_from_array(&spec3, 0);
         assert!(result3.is_ok());
         let graph = result3.unwrap();
         assert_eq!(graph.nodes[0].command.program, "echo");

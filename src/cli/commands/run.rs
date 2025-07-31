@@ -19,6 +19,18 @@ pub struct RunCommand {
 
 impl CommandHandler for RunCommand {
     fn execute(&self) -> Result<()> {
+        // Log every invocation to a file
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/cupcake-debug.log")
+        {
+            use std::io::Write;
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            writeln!(file, "[{}] Cupcake invoked - Event: {}, Config: {}, Debug: {}", 
+                     timestamp, self.event, self.config, self.debug).ok();
+        }
+        
         if self.debug {
             eprintln!("Debug: Event: {}", self.event);
             eprintln!("Debug: Config file: {}", self.config);
@@ -33,6 +45,15 @@ impl CommandHandler for RunCommand {
                     eprintln!(
                         "Debug: Graceful degradation - allowing operation due to input error"
                     );
+                }
+                // Log the error
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/cupcake-debug.log")
+                {
+                    use std::io::Write;
+                    writeln!(file, "  ERROR reading hook event: {}", e).ok();
                 }
                 std::process::exit(0); // Graceful degradation - allow operation
             }
@@ -211,6 +232,16 @@ impl RunCommand {
     fn read_hook_event_from_stdin(&self) -> Result<HookEvent> {
         let mut input = String::new();
         io::stdin().read_to_string(&mut input)?;
+
+        // Always log stdin to debug file
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/cupcake-debug.log")
+        {
+            use std::io::Write;
+            writeln!(file, "  STDIN received: {}", if input.trim().is_empty() { "[EMPTY]" } else { input.trim() }).ok();
+        }
 
         if input.trim().is_empty() {
             return Err(crate::CupcakeError::HookEvent(

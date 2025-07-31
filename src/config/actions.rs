@@ -8,8 +8,6 @@ use super::conditions::Condition;
 pub enum CommandSpec {
     /// Kubernetes-style array command (secure, no shell)
     Array(Box<ArrayCommandSpec>),
-    /// Shell-like string syntax parsed into secure execution (no shell)
-    String(StringCommandSpec),
     /// Shell script executed via /bin/sh (requires allow_shell setting)
     Shell(ShellCommandSpec),
 }
@@ -76,13 +74,6 @@ pub struct PipeCommand {
     pub cmd: Vec<String>,
 }
 
-/// String-based command specification for shell-like syntax
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct StringCommandSpec {
-    /// Command string with shell-like syntax (e.g., "npm test | grep PASS")
-    /// Parsed securely without shell involvement
-    pub command: String,
-}
 
 /// Shell script specification for legacy/complex scripts
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

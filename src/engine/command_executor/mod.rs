@@ -10,11 +10,9 @@
 //! - Secure pipe and redirect handling
 //! - Template substitution only in safe contexts
 
-mod parser;
 
-use crate::config::actions::{ArrayCommandSpec, CommandSpec, ShellCommandSpec, StringCommandSpec};
+use crate::config::actions::{ArrayCommandSpec, CommandSpec, ShellCommandSpec};
 use crate::config::types::Settings;
-use parser::StringParser;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -153,7 +151,6 @@ impl CommandExecutor {
     pub fn build_graph(&self, spec: &CommandSpec) -> Result<CommandGraph, ExecutionError> {
         match spec {
             CommandSpec::Array(array_spec) => self.build_graph_from_array(array_spec),
-            CommandSpec::String(string_spec) => self.build_graph_from_string(string_spec),
             CommandSpec::Shell(shell_spec) => self.build_graph_from_shell(shell_spec),
         }
     }
@@ -325,15 +322,6 @@ impl CommandExecutor {
                 on_failure,
             }))
         }
-    }
-
-    /// Build CommandGraph from StringCommandSpec
-    fn build_graph_from_string(
-        &self,
-        spec: &StringCommandSpec,
-    ) -> Result<CommandGraph, ExecutionError> {
-        let parser = StringParser::new(self.template_vars.clone());
-        parser.parse(spec).map_err(|e| e.into())
     }
 
     /// Build CommandGraph from ShellCommandSpec

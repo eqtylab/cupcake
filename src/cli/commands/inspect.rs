@@ -180,9 +180,6 @@ impl InspectCommand {
                         }
                         parts.join(" ")
                     }
-                    crate::config::actions::CommandSpec::String(string_spec) => {
-                        string_spec.command.clone()
-                    }
                     crate::config::actions::CommandSpec::Shell(shell_spec) => {
                         format!(
                             "shell: {}",

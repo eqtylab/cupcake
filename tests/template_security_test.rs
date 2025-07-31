@@ -11,7 +11,7 @@
 //! not executable code, regardless of command mode.
 
 use cupcake::config::actions::{
-    ArrayCommandSpec, CommandSpec, EnvVar, ShellCommandSpec, StringCommandSpec,
+    ArrayCommandSpec, CommandSpec, EnvVar, ShellCommandSpec,
 };
 use cupcake::config::types::Settings;
 use cupcake::engine::command_executor::CommandExecutor;
@@ -202,31 +202,6 @@ fn test_cross_context_contamination_prevention() {
     );
 }
 
-/// Test template injection in string mode
-#[test]
-fn test_template_injection_string_mode() {
-    let mut vars = HashMap::new();
-    vars.insert(
-        "malicious_template".to_string(),
-        "'; rm -rf /; echo '".to_string(),
-    );
-
-    let executor = CommandExecutor::new(vars);
-
-    let spec = CommandSpec::String(StringCommandSpec {
-        command: "echo 'Processing {{malicious_template}} safely'".to_string(),
-    });
-
-    let graph = executor.build_graph(&spec).unwrap();
-    let node = &graph.nodes[0];
-
-    // Template substitution in string mode creates literal content
-    assert_eq!(node.command.program, "echo");
-    assert_eq!(
-        node.command.args,
-        vec!["Processing '; rm -rf /; echo ' safely"]
-    );
-}
 
 /// Test template injection in shell mode (requires governance)
 #[test]
@@ -260,47 +235,6 @@ fn test_template_injection_shell_mode() {
     );
 }
 
-/// Test template variable isolation between command modes
-#[test]
-fn test_template_variable_isolation() {
-    let mut vars = HashMap::new();
-    vars.insert("shared_var".to_string(), "| rm -rf /".to_string());
-
-    let executor = CommandExecutor::new(vars.clone());
-
-    // Test in array mode
-    let array_spec = CommandSpec::Array(Box::new(ArrayCommandSpec {
-        command: vec!["echo".to_string()],
-        args: Some(vec!["{{shared_var}}".to_string()]),
-        working_dir: None,
-        env: None,
-        pipe: None,
-        redirect_stdout: None,
-        append_stdout: None,
-        redirect_stderr: None,
-        merge_stderr: None,
-        on_success: None,
-        on_failure: None,
-    }));
-
-    let array_graph = executor.build_graph(&array_spec).unwrap();
-    let array_node = &array_graph.nodes[0];
-
-    // Test in string mode
-    let string_spec = CommandSpec::String(StringCommandSpec {
-        command: "echo {{shared_var}}".to_string(),
-    });
-
-    let string_graph = executor.build_graph(&string_spec).unwrap();
-    let string_node = &string_graph.nodes[0];
-
-    // Same variable should be handled safely in both modes
-    assert_eq!(array_node.command.program, "echo");
-    assert_eq!(array_node.command.args, vec!["| rm -rf /"]);
-
-    assert_eq!(string_node.command.program, "echo");
-    assert_eq!(string_node.command.args, vec!["| rm -rf /"]);
-}
 
 /// Test template injection with nested patterns
 /// Note: This test was removed due to inconsistent nested template behavior

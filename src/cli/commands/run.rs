@@ -27,7 +27,7 @@ impl CommandHandler for RunCommand {
             .open("/tmp/cupcake-debug.log")
         {
             use std::io::Write;
-            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
             writeln!(
                 file,
                 "[{}] Cupcake invoked - Event: {}, Config: {}, Debug: {}",

@@ -205,8 +205,9 @@ PreToolUse:
       conditions:
         - type: check
           spec:
-            mode: string
-            command: "git diff --quiet && git diff --cached --quiet"
+            mode: array
+            command: ["sh"]
+            args: ["-c", "git diff --quiet && git diff --cached --quiet"]
           expect_success: false
       action:
         type: block_with_feedback

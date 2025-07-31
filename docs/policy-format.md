@@ -289,8 +289,15 @@ PreToolUse:
           regex: "^git\\s+push"
         - type: "check"
           spec:
-            mode: string  # Shell-like syntax, parsed securely
-            command: "git diff --quiet && git diff --cached --quiet"
+            mode: array
+            command: ["git"]
+            args: ["diff", "--quiet"]
+          expect_success: false
+        - type: "check"
+          spec:
+            mode: array
+            command: ["git"]
+            args: ["diff", "--cached", "--quiet"]
           expect_success: false
       action:
         type: "block_with_feedback"

@@ -90,18 +90,11 @@ UserPromptSubmit:
         include_context: false
 ```
 
-### String Commands and Shell Execution
+### Shell Execution
 
-Beyond the exec array form for commands, Cupcake supports two other command execution modes:
+For complex scripts that require full shell capabilities, Cupcake supports shell mode with explicit governance:
 
 ```yaml
-# String mode: Shell-like syntax parsed into secure commands
-- type: "check"
-  spec:
-    mode: string
-    command: "git diff --quiet && git diff --cached --quiet"
-  expect_success: false
-
 # Shell mode: Direct shell execution (requires allow_shell: true in settings)
 - type: "run_command"
   spec:
@@ -111,6 +104,8 @@ Beyond the exec array form for commands, Cupcake supports two other command exec
       find . -name "*.rs" | xargs cargo fmt --check
   on_failure: "block"
 ```
+
+Note: Shell mode requires `allow_shell: true` in your settings and should be used with caution as it bypasses Cupcake's security protections.
 
 ## Action Types
 

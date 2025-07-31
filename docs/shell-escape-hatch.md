@@ -4,7 +4,7 @@
 
 ## Overview
 
-While Cupcake's secure `array:` and `string:` command formats eliminate shell injection vulnerabilities, some scenarios require actual shell execution:
+While Cupcake's secure `array:` command format eliminates shell injection vulnerabilities, some scenarios require actual shell execution:
 
 - Legacy scripts with complex shell-specific syntax
 - Build tools that generate shell commands dynamically
@@ -281,7 +281,7 @@ imports:
 4. **Resource Consumption**: No built-in CPU/memory limits
 5. **Signal Handling**: Shell scripts may ignore signals
 
-Always prefer `array:` or `string:` formats when possible. Use `shell:` only when absolutely necessary and with appropriate controls.
+Always prefer `array:` format when possible. Use `shell:` only when absolutely necessary and with appropriate controls.
 
 ## Future Enhancements
 
@@ -295,6 +295,6 @@ Planned security improvements:
 
 ## Related Documentation
 
-- [Secure Command Execution](secure-command-execution.md) - Array and string formats
+- [Secure Command Execution](secure-command-execution.md) - Array format for secure execution
 - [Policy Format](policy-format.md) - Writing security policies
 - [Claude Code Hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) - Integration guide

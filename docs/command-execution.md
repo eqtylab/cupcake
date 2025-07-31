@@ -4,7 +4,7 @@ Cupcake provides secure, shell-free command execution with familiar syntax. Comm
 
 ## Execution Modes
 
-### Array Mode (Recommended)
+### Array Mode (Secure Default)
 
 Kubernetes-style arrays with explicit operators for composition. No shell involved.
 
@@ -33,22 +33,25 @@ action:
 | `onSuccess` | `&&` | Run if exit code = 0 |
 | `onFailure` | `\|\|` | Run if exit code ≠ 0 |
 
-### String Mode
+### Shell Mode (Explicit Risk)
 
-Shell-like syntax parsed into secure operations. Supports: `| > >> && ||`
+For complex scripts requiring full shell capabilities. Requires `allow_shell: true` in settings.
 
 ```yaml
 action:
   type: run_command
   spec:
-    mode: string
-    command: "npm test | grep PASS > results.log"
+    mode: shell
+    script: |
+      # Full shell script with all features
+      for file in *.log; do
+        if grep -q "ERROR" "$file"; then
+          echo "Found errors in $file" >> error-summary.txt
+        fi
+      done
 ```
 
-Parser rejects dangerous syntax:
-- Command substitution: `$(...)`, `` `...` ``
-- Unsupported redirects: `2>&1`, `<`, `<<`
-- Glob patterns (passed literally in v1.0)
+⚠️ **Security Warning**: Shell mode bypasses all security protections. Use only when array mode cannot achieve your goals.
 
 ## Security Features
 
@@ -98,8 +101,15 @@ spec:
 ### Multi-stage Validation
 ```yaml
 spec:
-  mode: string
-  command: "cargo fmt --check && cargo clippy -- -D warnings && cargo test"
+  mode: array
+  command: ["cargo"]
+  args: ["fmt", "--check"]
+  onSuccess:
+    - command: ["cargo"]
+      args: ["clippy", "--", "-D", "warnings"]
+      onSuccess:
+        - command: ["cargo"]
+          args: ["test"]
 ```
 
 ## Template Variables
@@ -180,9 +190,3 @@ spec:
   redirectStdout: "output.txt"
 ```
 
-Or use string mode for convenience:
-```yaml
-spec:
-  mode: string
-  command: "cat {{file_path}} | grep -v warning > output.txt"
-```

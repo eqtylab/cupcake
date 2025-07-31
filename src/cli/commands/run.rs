@@ -27,13 +27,16 @@ impl CommandHandler for RunCommand {
             .open("/tmp/cupcake-debug.log")
         {
             use std::io::Write;
-            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
-            writeln!(
+            let timestamp = chrono::Local::now()
+                .format("%Y-%m-%d %H:%M:%S%.3f")
+                .to_string();
+            let _ = writeln!(
                 file,
                 "[{}] Cupcake invoked - Event: {}, Config: {}, Debug: {}",
                 timestamp, self.event, self.config, self.debug
-            )
-            .ok();
+            );
+            // Explicitly drop to ensure file is closed
+            drop(file);
         }
 
         if self.debug {
@@ -58,7 +61,9 @@ impl CommandHandler for RunCommand {
                     .open("/tmp/cupcake-debug.log")
                 {
                     use std::io::Write;
-                    writeln!(file, "  ERROR reading hook event: {}", e).ok();
+                    let _ = writeln!(file, "  ERROR reading hook event: {}", e);
+                    // Explicitly drop to ensure file is closed
+                    drop(file);
                 }
                 std::process::exit(0); // Graceful degradation - allow operation
             }
@@ -245,7 +250,7 @@ impl RunCommand {
             .open("/tmp/cupcake-debug.log")
         {
             use std::io::Write;
-            writeln!(
+            let _ = writeln!(
                 file,
                 "  STDIN received: {}",
                 if input.trim().is_empty() {
@@ -253,8 +258,9 @@ impl RunCommand {
                 } else {
                     input.trim()
                 }
-            )
-            .ok();
+            );
+            // Explicitly drop to ensure file is closed
+            drop(file);
         }
 
         if input.trim().is_empty() {

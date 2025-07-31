@@ -15,7 +15,24 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    #[cfg(feature = "tui")]
     /// Interactive policy generation from CLAUDE.md files
+    Init {
+        /// Output directory for generated policies
+        #[arg(short, long, default_value = "guardrails")]
+        output: String,
+
+        /// Skip interactive confirmation
+        #[arg(short, long)]
+        yes: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(not(feature = "tui"))]
+    /// Policy generation from CLAUDE.md files (hint: recompile with `--features tui` for the interactive wizard)
     Init {
         /// Output directory for generated policies
         #[arg(short, long, default_value = "guardrails")]

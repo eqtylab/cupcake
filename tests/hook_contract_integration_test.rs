@@ -4,6 +4,16 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use tempfile::tempdir;
 
+fn get_cupcake_binary() -> String {
+    std::env::current_dir()
+        .unwrap()
+        .join("target")
+        .join("debug")
+        .join("cupcake")
+        .to_string_lossy()
+        .to_string()
+}
+
 /// Integration tests that verify Cupcake correctly implements the Claude Code hook contract
 /// These tests run the actual cupcake binary and verify its JSON input/output
 
@@ -287,8 +297,9 @@ PreToolUse:
 
 // Helper function to run cupcake with JSON input
 fn run_cupcake_with_json(policy_path: &std::path::Path, event: &str, hook_json: &Value) -> String {
-    let mut cmd = Command::new("cargo")
-        .args(["run", "--quiet", "--bin", "cupcake", "--", "run"])
+    let cupcake_binary = get_cupcake_binary();
+    let mut cmd = Command::new(&cupcake_binary)
+        .args(["run"])
         .arg("--event")
         .arg(event)
         .arg("--config")

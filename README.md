@@ -178,16 +178,33 @@ Cupcake supports several action types for different policy enforcement strategie
 
 ## Installation
 
+### Basic Installation
+
 ```bash
 cargo install --path .
 ```
+
+### With TUI Support (Interactive Wizard)
+
+For the full interactive experience, compile with TUI support:
+
+```bash
+cargo install --path . --features tui
+```
+
+> **Note**: The TUI feature adds an interactive wizard for policy generation. Without this feature, `cupcake init` will show a helpful error message with instructions to recompile.
 
 ## Usage
 
 1. **Initialize policies from CLAUDE.md:**
 
    ```bash
+   # With TUI feature enabled (interactive wizard)
    cupcake init
+   
+   # Or build with TUI support first
+   cargo build --features tui
+   ./target/release/cupcake init
    ```
 
 2. **Sync with Claude Code hooks:**
@@ -313,11 +330,15 @@ See [MCP Tool Patterns Guide](docs/mcp-tool-patterns.md) for detailed examples a
 
 ## Commands
 
-- `cupcake init` - Generate policies from CLAUDE.md files
+- `cupcake init` - Generate policies from CLAUDE.md files (interactive wizard with `--features tui`)
 - `cupcake sync` - Update Claude Code hooks configuration
 - `cupcake run` - Runtime policy enforcement (called by hooks)
 - `cupcake validate` - Validate policy syntax
 - `cupcake inspect` - View loaded policies in compact table format
+
+### Feature Flags
+
+- **`tui`** - Enables interactive TUI wizard for `cupcake init`. Without this feature, the binary is ~900KB smaller and shows helpful error messages guiding users to recompile with TUI support when needed.
 
 ### Policy Inspection
 

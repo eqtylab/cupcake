@@ -194,6 +194,54 @@ impl ResponseHandler {
         }
     }
 
+    /// Send response for UserPromptSubmit with context injection
+    pub fn send_user_prompt_response(&self, decision: EngineDecision, context_to_inject: Vec<String>) -> ! {
+        match &decision {
+            EngineDecision::Allow { .. } => {
+                if !context_to_inject.is_empty() {
+                    let combined_context = context_to_inject.join("\n");
+                    if self.debug {
+                        eprintln!("Debug: Injecting context via stdout for UserPromptSubmit");
+                        eprintln!("Debug: Context length: {} chars", combined_context.len());
+                    }
+                    println!("{}", combined_context);
+                    std::process::exit(0);
+                } else {
+                    if self.debug {
+                        eprintln!("Debug: Allowing UserPromptSubmit without context injection");
+                    }
+                    std::process::exit(0);
+                }
+            }
+            EngineDecision::Block { feedback } => {
+                if self.debug {
+                    eprintln!("Debug: Blocking UserPromptSubmit with feedback");
+                }
+                let response = CupcakeResponse {
+                    hook_specific_output: None,
+                    continue_execution: Some(false),
+                    stop_reason: Some(feedback.clone()),
+                    suppress_output: None,
+                };
+                self.send_json_response(response);
+            }
+            EngineDecision::Ask { reason } => {
+                if self.debug {
+                    eprintln!("Debug: Sending Ask response for UserPromptSubmit");
+                }
+                let response = CupcakeResponse {
+                    hook_specific_output: Some(HookSpecificOutput::UserPromptSubmit {
+                        additional_context: Some(reason.clone()),
+                    }),
+                    continue_execution: Some(true),
+                    stop_reason: None,
+                    suppress_output: Some(false),
+                };
+                self.send_json_response(response);
+            }
+        }
+    }
+
     /// Send response based on hook event context - correctly formats JSON per Claude Code spec
     ///
     /// This method ensures each hook event type gets the appropriate JSON format:

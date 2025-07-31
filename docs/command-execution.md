@@ -157,8 +157,7 @@ action:
   type: run_command
   spec:
     mode: array
-    command: ["npm"]
-    args: ["test"]
+    command: ["npm", "test"]
   on_failure: block  # Non-zero exit blocks operation
   on_failure_feedback: "Tests must pass:\n{{stderr}}"
 ```

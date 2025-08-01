@@ -1,0 +1,116 @@
+# guardrails/policies/10-database-protection.yaml
+
+PreToolUse:
+  "Bash":
+    # Smart SQL drop detection - check actual risk
+    - name: "Smart SQL Drop Protection"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(psql|mysql|docker exec.*psql).*-c"
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(DROP|TRUNCATE)"
+        - type: "check"
+          spec:
+            mode: string
+            command: "/Users/ramos/cupcake/replit-replay/guardrails/scripts/check-db-risk.sh sql \"{{tool_input.command}}\" | grep -q 'HIGH_RISK'"
+          expect_success: true
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 BLOCKED: CASCADE operations can destroy data across multiple tables. If you really need to drop this table, use 'npm run reset' to safely reset the entire database."
+        include_context: true
+
+    # Detect production environment via connection strings
+    - name: "Block Production DB Operations"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(psql|mysql|mongosh|redis-cli).*(-h|--host)\\s*(prod|production|rds\\.amazonaws)"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 Direct production database access blocked. Use migrations or approved tools."
+        include_context: true
+
+    # Dynamic risk assessment for db:push operations
+    - name: "Smart DB Push Risk Assessment"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(npm run db:push|drizzle-kit push|prisma db push)"
+        - type: "check"
+          spec:
+            mode: string
+            command: "/Users/ramos/cupcake/replit-replay/guardrails/scripts/check-db-risk.sh data | grep -q 'HAS_DATA'"
+          expect_success: true
+      action:
+        type: "ask"
+        reason: "⚠️ Database contains data (49k+ rows). Schema changes could result in data loss. Are you sure you want to continue?"
+    
+    # Block force operations on databases with data
+    - name: "Block Destructive Force Push"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(npm run db:push.*--force|drizzle-kit push.*--force|prisma db push.*--force-reset)"
+        - type: "check"
+          spec:
+            mode: string
+            command: "/Users/ramos/cupcake/replit-replay/guardrails/scripts/check-db-risk.sh risk | grep -q 'HIGH_RISK'"
+          expect_success: true
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 BLOCKED: Force-pushing would cause data loss. Database has significant data that would be destroyed. Use migrations or run 'npm run reset' first if you really want to wipe the database."
+        include_context: true
+
+    # Dev environment - just provide guidance
+    - name: "DB Push Safety Check"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(npm run db:push|drizzle-kit push|prisma db push)"
+        - type: "not"
+          condition:
+            type: "pattern"
+            field: "env.NODE_ENV"
+            regex: "^production$"
+      action:
+        type: "inject_context"
+        context: |
+          📋 DB Push Checklist:
+          - ✓ Is your local schema complete and up-to-date?
+          - ✓ Have you pulled latest changes?
+          - ✓ Are you connected to the right database?
+          - ✓ Consider using migrations for production
+        use_stdout: true
+
+    # Migration safety - always good practice
+    - name: "Suggest Migrations for Schema Changes"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "db:(push|sync|reset)"
+        - type: "check"
+          spec:
+            mode: array
+            command: ["test", "-d", "migrations"]
+          expect_success: true
+      action:
+        type: "provide_feedback"
+        message: "💡 Migration directory found. Consider using 'npm run db:migrate' instead for safer, versioned changes."
+        include_context: false
+
+  "Write|Edit":
+    # Catch dangerous package.json edits
+    - name: "Warn About Force Flags in Scripts"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.file_path"
+          regex: "package\\.json$"
+        - type: "pattern"
+          field: "tool_input.content"
+          regex: "(--force|--force-reset|--accept-data-loss)"
+      action:
+        type: "provide_feedback"
+        message: "⚠️ Adding force flags to database scripts. These bypass safety checks and can cause data loss in production."
+        include_context: true

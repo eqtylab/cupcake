@@ -77,7 +77,7 @@ PreToolUse:
 
 # guardrails/policies/prompt-security.yaml - UserPromptSubmit policies
 UserPromptSubmit:
-  "":  # Empty string or "*" matcher required in YAML format
+  "": # Empty string or "*" matcher required in YAML format
     - name: "Block API keys in prompts"
       description: "Prevent accidental exposure of secrets"
       conditions:
@@ -114,6 +114,7 @@ Cupcake supports several action types for different policy enforcement strategie
 ### Hard Actions (Stop Policy Evaluation)
 
 - **`allow`**: Explicitly permit the operation with optional reason
+
   ```yaml
   action:
     type: "allow"
@@ -121,6 +122,7 @@ Cupcake supports several action types for different policy enforcement strategie
   ```
 
 - **`ask`**: Request user confirmation before proceeding
+
   ```yaml
   action:
     type: "ask"
@@ -138,6 +140,7 @@ Cupcake supports several action types for different policy enforcement strategie
 ### Soft Actions (Continue Policy Evaluation)
 
 - **`provide_feedback`**: Provide transcript-only feedback
+
   ```yaml
   action:
     type: "provide_feedback"
@@ -146,6 +149,7 @@ Cupcake supports several action types for different policy enforcement strategie
   ```
 
 - **`inject_context`**: Add context to Claude's awareness
+
   ```yaml
   action:
     type: "inject_context"
@@ -196,7 +200,7 @@ cargo install --path . --features tui
    ```bash
    # With TUI feature enabled (interactive wizard)
    cupcake init
-   
+
    # Or build with TUI support first
    cargo build --features tui
    ./target/release/cupcake init
@@ -223,6 +227,7 @@ cargo install --path . --features tui
 Cupcake can inject context directly into Claude's prompt processing, providing gentle guidance without blocking. This feature supports two modes to match your workflow:
 
 **Simple Mode (Default)** - Lightweight Unix-style injection:
+
 ```yaml
 UserPromptSubmit:
   "*":
@@ -239,12 +244,13 @@ UserPromptSubmit:
         type: inject_context
         context: |
           📋 Pre-commit checklist:
-          
+
           Remember to run tests before committing!
-        use_stdout: true  # Default - simple stdout injection
+        use_stdout: true # Default - simple stdout injection
 ```
 
 **Advanced Mode** - Structured JSON responses:
+
 ```yaml
 UserPromptSubmit:
   "*":
@@ -261,17 +267,17 @@ UserPromptSubmit:
           - Follow SOLID principles
           - Prefer composition over inheritance
           - Keep modules loosely coupled
-        use_stdout: false  # Use JSON with additionalContext field
+        use_stdout: false # Use JSON with additionalContext field
 ```
 
 Both modes are fully supported by Claude Code. Choose simple mode for quick context additions, or advanced mode when you need structured responses.
-
 
 ### Project-Specific Policies
 
 The `$CLAUDE_PROJECT_DIR` environment variable enables powerful project-aware features:
 
 **Policy Discovery**:
+
 ```bash
 export CLAUDE_PROJECT_DIR=/path/to/project
 ```
@@ -279,6 +285,7 @@ export CLAUDE_PROJECT_DIR=/path/to/project
 Cupcake will first check `$CLAUDE_PROJECT_DIR/guardrails/cupcake.yaml` before searching upward from the current directory.
 
 **Project-Relative Commands**:
+
 ```yaml
 # Use project-specific scripts in policies
 action:
@@ -310,12 +317,12 @@ PreToolUse:
   "mcp__.*":
     - name: validate-mcp
       ...
-  
+
   # Match specific MCP server
   "mcp__github__.*":
     - name: github-policies
       ...
-  
+
   # Match specific patterns
   "mcp__.*(create|delete).*":
     - name: dangerous-mcp-ops
@@ -367,6 +374,7 @@ Cupcake integrates with Claude Code through hooks:
 - **PreCompact**: Manage context compaction events
 
 Response handling via JSON protocol (Claude Code July 20):
+
 - **Soft feedback**: JSON with context injection for transcript visibility
 - **Hard decisions**: JSON with `permissionDecision` field ("allow", "deny", "ask")
 - **Context injection**: JSON with `additionalContext` for behavioral guidance
@@ -374,15 +382,18 @@ Response handling via JSON protocol (Claude Code July 20):
 ### Available Fields for Conditions
 
 Common fields available for all events:
+
 - `event_type` - The hook event name (e.g., "PreToolUse", "UserPromptSubmit")
 - `session_id` - Unique session identifier
 - `env.*` - Environment variables (e.g., `env.USER`, `env.PATH`)
 
 Tool-specific fields (PreToolUse/PostToolUse only):
+
 - `tool_name` - Name of the tool being invoked (e.g., "Bash", "Write")
 - `tool_input.*` - Tool input parameters (e.g., `tool_input.command`, `tool_input.file_path`)
 
 UserPromptSubmit-specific fields:
+
 - `prompt` - The user's input text
 
 Note: The `cwd` field from hook data is used internally as the authoritative working directory for all command executions.
@@ -421,3 +432,6 @@ Sub-100ms response times through:
 ## License
 
 TBD
+
+// give them the power to make their way work. The power of Cupcake is not in its opinions, but in its un-opinionated ability to enforce the user's opinions
+// ensuring any developer can enforce any convention without friction.

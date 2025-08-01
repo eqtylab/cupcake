@@ -1,0 +1,57 @@
+# guardrails/policies/20-code-freeze.yaml
+
+PreToolUse:
+  # Block ALL state-changing operations when CODE FREEZE is active
+  "Write|Edit|MultiEdit":
+    - name: "Enforce Code Freeze - File Changes"
+      conditions:
+        - type: "check"
+          spec:
+            mode: array
+            command: ["test", "-f", "README.md"]
+          expect_success: true
+        - type: "check"
+          spec:
+            mode: array
+            command: ["grep", "-qi", "CODE FREEZE", "README.md"]
+          expect_success: true
+        # Allow editing README.md to lift the freeze
+        - type: "not"
+          condition:
+            type: "pattern"
+            field: "tool_input.file_path"
+            regex: "^README\\.md$"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 CODE FREEZE is active. No file modifications allowed until freeze is lifted (edit README.md)."
+        include_context: true
+
+  "Bash":
+    - name: "Enforce Code Freeze - Commands"
+      conditions:
+        - type: "check"
+          spec:
+            mode: array
+            command: ["grep", "-qi", "CODE FREEZE", "README.md"]
+          expect_success: true
+        # Block ANY state-changing command (git, npm, database, filesystem, etc.)
+        - type: "pattern"
+          field: "tool_input.command"
+          regex: "(git\\s+(add|commit|push|merge|rebase|checkout|reset)|npm\\s+(install|update|run)|yarn|pnpm|pip\\s+install|cargo\\s+(build|run)|make|docker|kubectl|terraform|ansible|apt-get|brew|rm|mv|cp|mkdir|touch|chmod|chown|truncate|>|>>|tee|sed\\s+-i|awk.*>|psql|mysql|mongosh|redis-cli|drizzle|prisma|sequelize|knex|migrate)"
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 CODE FREEZE is active. No state-changing operations allowed."
+        include_context: true
+
+  "RunCommand":
+    - name: "Enforce Code Freeze - RunCommand"
+      conditions:
+        - type: "check"
+          spec:
+            mode: array
+            command: ["grep", "-qi", "CODE FREEZE", "README.md"]
+          expect_success: true
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 CODE FREEZE is active. No automated commands allowed."
+        include_context: false

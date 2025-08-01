@@ -1,0 +1,12 @@
+# Cupcake YAML Configuration
+# Database protection policies for preventing destructive operations
+
+settings:
+  # Disable debug mode for production use
+  debug_mode: false
+  # Keep shell disabled for security
+  allow_shell: false
+
+# Import patterns for policy fragment files
+imports:
+  - "policies/*.yaml"

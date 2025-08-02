@@ -17,6 +17,7 @@ fn test_prompt_field_extraction() {
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
         prompt: Some("Write a function to calculate factorial".to_string()),
+        source: None,
     };
 
     // Test matching on prompt field
@@ -43,6 +44,7 @@ fn test_prompt_field_pattern_matching() {
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
         prompt: Some("My API key is sk-1234567890abcdef".to_string()),
+        source: None,
     };
 
     // Test pattern matching for API keys
@@ -69,6 +71,7 @@ fn test_prompt_field_no_match() {
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
         prompt: None,
+        source: None,
     };
 
     // Test matching on prompt field when it's None
@@ -93,6 +96,7 @@ fn test_cwd_from_evaluation_context() {
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
         prompt: None,
+        source: None,
     };
 
     // Test that cwd is properly used in check conditions

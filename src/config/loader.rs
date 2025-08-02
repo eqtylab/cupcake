@@ -372,6 +372,9 @@ impl PolicyLoader {
 
                     // SECURITY: Validate policy depth to prevent stack overflow attacks
                     self.validate_policy_depth(&policy)?;
+                    
+                    // Validate inject_context is only used with appropriate events
+                    self.validate_inject_context_event(&policy.action, &hook_event)?;
 
                     // Create ComposedPolicy
                     let composed_policy = ComposedPolicy {
@@ -401,8 +404,9 @@ impl PolicyLoader {
             "SubagentStop" => Ok(HookEventType::SubagentStop),
             "PreCompact" => Ok(HookEventType::PreCompact),
             "UserPromptSubmit" => Ok(HookEventType::UserPromptSubmit),
+            "SessionStart" => Ok(HookEventType::SessionStart),
             _ => Err(CupcakeError::Config(format!(
-                "Unknown hook event type: {}. Valid types are: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, UserPromptSubmit",
+                "Unknown hook event type: {}. Valid types are: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, UserPromptSubmit, SessionStart",
                 hook_event_str
             )))
         }
@@ -412,6 +416,41 @@ impl PolicyLoader {
     fn validate_policy_depth(&self, policy: &super::types::YamlPolicy) -> Result<()> {
         self.check_action_depth(&policy.action, 0)?;
         Ok(())
+    }
+    
+    /// Validate that inject_context is only used with UserPromptSubmit or SessionStart
+    fn validate_inject_context_event(
+        &self,
+        action: &super::actions::Action,
+        hook_event: &super::types::HookEventType,
+    ) -> Result<()> {
+        match action {
+            super::actions::Action::InjectContext { .. } => {
+                match hook_event {
+                    super::types::HookEventType::UserPromptSubmit
+                    | super::types::HookEventType::SessionStart => Ok(()),
+                    _ => Err(CupcakeError::Config(format!(
+                        "inject_context action is only valid for UserPromptSubmit and SessionStart events, not {}. \
+                        Context injection allows adding information to Claude's awareness and is only \
+                        supported for these two hook events per Claude Code's specification.",
+                        hook_event
+                    ))),
+                }
+            }
+            super::actions::Action::Conditional {
+                then_action,
+                else_action,
+                ..
+            } => {
+                // Recursively check conditional branches
+                self.validate_inject_context_event(then_action, hook_event)?;
+                if let Some(else_act) = else_action {
+                    self.validate_inject_context_event(else_act, hook_event)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()), // Other actions are fine
+        }
     }
 
     /// Recursively check action depth
@@ -675,6 +714,7 @@ PostToolUse:
                 action: super::super::actions::Action::ProvideFeedback {
                     message: "Test 1".to_string(),
                     include_context: false,
+                    suppress_output: false,
                 },
             }],
         );
@@ -692,6 +732,7 @@ PostToolUse:
                 action: super::super::actions::Action::ProvideFeedback {
                     message: "Test 2".to_string(),
                     include_context: false,
+                    suppress_output: false,
                 },
             }],
         );
@@ -729,6 +770,7 @@ PostToolUse:
                 action: super::super::actions::Action::ProvideFeedback {
                     message: "Test message".to_string(),
                     include_context: false,
+                    suppress_output: false,
                 },
             }],
         );
@@ -743,6 +785,7 @@ PostToolUse:
                 action: super::super::actions::Action::ProvideFeedback {
                     message: "Test message 2".to_string(),
                     include_context: false,
+                    suppress_output: false,
                 },
             }],
         );
@@ -783,6 +826,7 @@ PostToolUse:
                     action: super::super::actions::Action::ProvideFeedback {
                         message: "Test 1".to_string(),
                         include_context: false,
+                        suppress_output: false,
                     },
                 },
                 super::super::types::YamlPolicy {
@@ -792,6 +836,7 @@ PostToolUse:
                     action: super::super::actions::Action::ProvideFeedback {
                         message: "Test 2".to_string(),
                         include_context: false,
+                        suppress_output: false,
                     },
                 },
             ],

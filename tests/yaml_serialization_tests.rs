@@ -45,6 +45,7 @@ fn test_yaml_policy_serialization() {
         action: Action::ProvideFeedback {
             message: "Consider running tests before committing".to_string(),
             include_context: false,
+            suppress_output: false,
         },
     };
 
@@ -77,6 +78,7 @@ fn test_policy_fragment_yaml_serialization() {
                 action: Action::BlockWithFeedback {
                     feedback_message: "Dangerous command blocked!".to_string(),
                     include_context: false,
+                    suppress_output: false,
                 },
             },
             YamlPolicy {
@@ -89,6 +91,7 @@ fn test_policy_fragment_yaml_serialization() {
                 action: Action::ProvideFeedback {
                     message: "Don't forget to run tests!".to_string(),
                     include_context: false,
+                    suppress_output: false,
                 },
             },
         ],
@@ -126,6 +129,7 @@ fn test_composed_policy_structure() {
         action: Action::ProvideFeedback {
             message: "Echo command detected".to_string(),
             include_context: false,
+            suppress_output: false,
         },
     };
 

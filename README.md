@@ -5,8 +5,14 @@
   </picture>
 </p>
 
+// give them the power to make their way work. The power of Cupcake is not in its opinions, but in its un-opinionated ability to enforce the user's opinions
+// ensuring any developer can enforce any convention without friction.
+// "Vibe with Confidence."
+
 # Cupcake - Agent Governance as Code
 
+**NOT JUST POLICY ENFORCEMENT, BUT BEHAVIORAL GUIDANCE**
+**STRIKE PINS, AVOID GUTTERBALLS**
 Policy enforcement engine that makes AI coding agents actually follow your rules, now with behavioral guidance capabilities.
 
 > **Note**: Currently in beta with Claude Code support. The policy format is designed to be agent-agnostic, with eventual support for any coding agent hook system.
@@ -435,3 +441,4 @@ TBD
 
 // give them the power to make their way work. The power of Cupcake is not in its opinions, but in its un-opinionated ability to enforce the user's opinions
 // ensuring any developer can enforce any convention without friction.
+// "Vibe with Confidence."

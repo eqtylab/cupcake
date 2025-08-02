@@ -83,6 +83,7 @@ impl ActionContext {
         template_vars.insert("tool_name".to_string(), tool_name.clone());
         template_vars.insert("session_id".to_string(), session_id.clone());
         template_vars.insert("now".to_string(), chrono::Utc::now().to_rfc3339());
+        template_vars.insert("cwd".to_string(), current_dir.display().to_string());
 
         // Add tool input variables
         for (key, value) in &tool_input {
@@ -425,6 +426,11 @@ impl ActionExecutor {
         let mut condition_evaluator = crate::engine::conditions::ConditionEvaluator::new();
 
         // Convert ActionContext to EvaluationContext for condition evaluation
+        // Extract prompt from template_vars if present
+        let prompt = context.template_vars.get("prompt").cloned();
+        // Extract source from template_vars if present
+        let source = context.template_vars.get("source").cloned();
+        
         let evaluation_context = crate::engine::conditions::EvaluationContext {
             event_type: "ActionEvaluation".to_string(),
             tool_name: context.tool_name.clone(),
@@ -433,7 +439,8 @@ impl ActionExecutor {
             current_dir: context.current_dir.clone(),
             env_vars: context.env_vars.clone(),
             timestamp: chrono::Utc::now(),
-            prompt: None,
+            prompt,
+            source,
         };
 
         // Evaluate the condition

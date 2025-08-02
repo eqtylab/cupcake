@@ -1,5 +1,7 @@
 # guardrails/policies/10-database-protection.yaml
 
+## BAD EXAMPLE - ONLY TO SUPPORT A THEORY
+
 PreToolUse:
   "Bash":
     # Smart SQL drop detection - check actual risk
@@ -114,3 +116,5 @@ PreToolUse:
         type: "provide_feedback"
         message: "⚠️ Adding force flags to database scripts. These bypass safety checks and can cause data loss in production."
         include_context: true
+        
+## END BAD EXAMPLE - ONLY TO SUPPORT A THEORY

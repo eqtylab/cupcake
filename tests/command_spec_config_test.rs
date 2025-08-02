@@ -199,6 +199,7 @@ mod command_spec_tests {
             on_failure_feedback: Some("Docker build failed".to_string()),
             background: false,
             timeout_seconds: Some(300),
+            suppress_output: false,
         };
 
         // Validate action properties

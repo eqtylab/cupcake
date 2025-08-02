@@ -60,3 +60,19 @@ Remember the motto, "everything Cupcake does is directly intended to enhance a v
 We keep documentation of cloud code within this repository, specifically within the `context` folder.
 
 You can see Claude Code's own documentation for hooks at `context/claude-code-docs/hooks.md`.
+
+## Other Important Notes
+
+Use the new Action builder methods (e.g.,
+Action::provide_feedback("msg").with_suppress_output()) for all new tests and code -
+this eliminates brittleness when adding fields and keeps tests focused on what
+matters.
+
+## Test and Debugging Principles
+
+- Investigate test failures before making poor assumptions. Do not be naive without verifying what actually exists in code.
+- Do never let a failing test result in bizarre, hacky behavior. We need elegance in our solution and in the tests.
+- Never perform a drastic behavioral change in the actual codebase based on test failures.
+- If we have bad tests or tests that are hard to implement, that needs to be known to the user.
+- Do not give up easily. You need to truly understand implementations and tests.
+- Always maintain industry standards, elegance expected of a Roscoe base, and ensure you keep the core goals of Cupcake in mind before getting too focused on individual tasks.

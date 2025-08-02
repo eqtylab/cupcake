@@ -46,6 +46,7 @@ fn test_yaml_policy_serialization() {
         action: Action::ProvideFeedback {
             message: "Test feedback".to_string(),
             include_context: false,
+            suppress_output: false,
         },
     };
 
@@ -77,6 +78,7 @@ fn test_policy_fragment_yaml_serialization() {
             action: Action::ProvideFeedback {
                 message: "Remember to run tests!".to_string(),
                 include_context: false,
+            suppress_output: false,
             },
         }],
     );
@@ -95,6 +97,7 @@ fn test_policy_fragment_yaml_serialization() {
             action: Action::ProvideFeedback {
                 message: "File created successfully".to_string(),
                 include_context: false,
+            suppress_output: false,
             },
         }],
     );
@@ -139,6 +142,7 @@ fn test_composed_policy_serialization() {
         action: Action::BlockWithFeedback {
             feedback_message: "Dangerous command blocked!".to_string(),
             include_context: true,
+            suppress_output: false,
         },
     };
 
@@ -289,13 +293,16 @@ fn test_action_variants_yaml_serialization() {
         Action::ProvideFeedback {
             message: "Test feedback".to_string(),
             include_context: true,
+            suppress_output: false,
         },
         Action::BlockWithFeedback {
             feedback_message: "Blocked".to_string(),
             include_context: false,
+            suppress_output: false,
         },
         Action::Allow {
             reason: Some("Auto-approved".to_string()),
+            suppress_output: false,
         },
         Action::RunCommand {
             spec: cupcake::config::actions::CommandSpec::Array(Box::new(
@@ -317,16 +324,19 @@ fn test_action_variants_yaml_serialization() {
             on_failure_feedback: Some("Command failed".to_string()),
             background: false,
             timeout_seconds: Some(30),
+            suppress_output: false,
         },
         Action::Conditional {
             if_condition: Condition::Match {
                 field: "event_type".to_string(),
                 value: "TestEvent".to_string(),
             },
-            then_action: Box::new(Action::Allow { reason: None }),
+            then_action: Box::new(Action::Allow { reason: None,
+            suppress_output: false, }),
             else_action: Some(Box::new(Action::ProvideFeedback {
                 message: "Condition not met".to_string(),
                 include_context: false,
+            suppress_output: false,
             })),
         },
     ];
@@ -351,7 +361,8 @@ fn test_hook_event_types_yaml_serialization() {
             field: "tool_name".to_string(),
             value: "Bash".to_string(),
         }],
-        action: Action::Allow { reason: None },
+        action: Action::Allow { reason: None,
+            suppress_output: false, },
     };
 
     let yaml_str =
@@ -473,10 +484,12 @@ fn test_complex_yaml_policy_serialization() {
                 feedback_message: "Unsafe code requires safety review during business hours"
                     .to_string(),
                 include_context: true,
+            suppress_output: false,
             }),
             else_action: Some(Box::new(Action::ProvideFeedback {
                 message: "Consider adding safety comments for unsafe code".to_string(),
                 include_context: false,
+            suppress_output: false,
             })),
         },
     };
@@ -509,6 +522,7 @@ fn test_round_trip_yaml_serialization() {
             action: Action::BlockWithFeedback {
                 feedback_message: "Push blocked".to_string(),
                 include_context: false,
+            suppress_output: false,
             },
         }],
     );
@@ -543,6 +557,7 @@ fn test_round_trip_yaml_serialization() {
                 on_failure_feedback: None,
                 background: true,
                 timeout_seconds: None,
+                suppress_output: false,
             },
         }],
     );

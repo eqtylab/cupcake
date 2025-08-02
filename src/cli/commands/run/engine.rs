@@ -18,6 +18,7 @@ pub struct EngineResult {
     pub final_decision: EngineDecision,
     pub feedback_messages: Vec<String>,
     pub context_to_inject: Vec<String>,
+    pub suppress_output: bool,
 }
 
 impl EngineRunner {
@@ -62,9 +63,11 @@ impl EngineRunner {
         // Process action results
         let mut final_decision = evaluation_result.decision.clone();
         let mut context_to_inject = Vec::new();
-        let is_user_prompt_submit = hook_event.event_name() == "UserPromptSubmit";
+        let mut suppress_output = false;
+        let is_context_injection_event = hook_event.event_name() == "UserPromptSubmit" 
+            || hook_event.event_name() == "SessionStart";
 
-        for (_policy_name, result) in &action_results {
+        for (_idx, (_policy_name, result)) in action_results.iter().enumerate() {
             match result {
                 ActionResult::Block { feedback } => {
                     final_decision = EngineDecision::Block {
@@ -78,13 +81,39 @@ impl EngineRunner {
                     };
                     break;
                 }
+                ActionResult::Allow { reason } => {
+                    final_decision = EngineDecision::Allow {
+                        reason: reason.clone(),
+                    };
+                    break;
+                }
                 ActionResult::Success {
                     feedback: Some(ctx),
                     ..
-                } if is_user_prompt_submit => {
+                } if is_context_injection_event => {
                     context_to_inject.push(ctx.clone());
                 }
                 _ => {}
+            }
+        }
+
+        // Check suppress_output from ALL matched policies, not just the winning one
+        // This ensures soft actions (provide_feedback, inject_context) can also suppress output
+        for matched_policy in &evaluation_result.matched_policies {
+            let policy_suppress = match &matched_policy.action {
+                crate::config::actions::Action::Allow { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::Ask { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::BlockWithFeedback { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::ProvideFeedback { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::RunCommand { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::InjectContext { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::Conditional { .. } => false, // Conditional doesn't have suppress_output
+            };
+            
+            // If any matched policy wants to suppress output, honor that
+            if policy_suppress {
+                suppress_output = true;
+                break;
             }
         }
 
@@ -92,6 +121,7 @@ impl EngineRunner {
             final_decision,
             feedback_messages: evaluation_result.feedback_messages,
             context_to_inject,
+            suppress_output,
         })
     }
 

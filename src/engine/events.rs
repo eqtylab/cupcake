@@ -92,6 +92,15 @@ pub enum HookEvent {
         /// The prompt submitted by the user
         prompt: String,
     },
+
+    /// Session start event
+    SessionStart {
+        #[serde(flatten)]
+        common: CommonEventData,
+
+        /// Source of the session start
+        source: SessionSource,
+    },
 }
 
 /// Type of compaction trigger
@@ -102,6 +111,18 @@ pub enum CompactTrigger {
     Manual,
     /// Automatic due to full context
     Auto,
+}
+
+/// Source of session start event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionSource {
+    /// Normal startup
+    Startup,
+    /// Resumed via --resume, --continue, or /resume
+    Resume,
+    /// After /clear command
+    Clear,
 }
 
 /// Specific tool input structures for common tools
@@ -155,6 +176,7 @@ impl HookEvent {
             HookEvent::SubagentStop { common, .. } => common,
             HookEvent::PreCompact { common, .. } => common,
             HookEvent::UserPromptSubmit { common, .. } => common,
+            HookEvent::SessionStart { common, .. } => common,
         }
     }
 
@@ -186,6 +208,7 @@ impl HookEvent {
             HookEvent::SubagentStop { .. } => "SubagentStop",
             HookEvent::PreCompact { .. } => "PreCompact",
             HookEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
+            HookEvent::SessionStart { .. } => "SessionStart",
         }
     }
 
@@ -347,6 +370,48 @@ mod tests {
                 assert_eq!(event.event_name(), "UserPromptSubmit");
             }
             _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn test_session_start_event() {
+        // Test all three source types according to Claude Code hooks.md
+        let test_cases = vec![
+            ("startup", SessionSource::Startup),
+            ("resume", SessionSource::Resume),
+            ("clear", SessionSource::Clear),
+        ];
+
+        for (source_str, expected_source) in test_cases {
+            let json = format!(
+                r#"
+                {{
+                    "hook_event_name": "SessionStart",
+                    "session_id": "test-session",
+                    "transcript_path": "~/.claude/projects/.../transcript.jsonl",
+                    "cwd": "/home/user/project",
+                    "source": "{}"
+                }}
+                "#,
+                source_str
+            );
+
+            let event: HookEvent = serde_json::from_str(&json).unwrap();
+
+            match &event {
+                HookEvent::SessionStart { common, source } => {
+                    assert_eq!(common.session_id, "test-session");
+                    assert_eq!(common.cwd, "/home/user/project");
+                    assert_eq!(event.event_name(), "SessionStart");
+                    match (source, &expected_source) {
+                        (SessionSource::Startup, SessionSource::Startup) => (),
+                        (SessionSource::Resume, SessionSource::Resume) => (),
+                        (SessionSource::Clear, SessionSource::Clear) => (),
+                        _ => panic!("Source mismatch"),
+                    }
+                }
+                _ => panic!("Wrong event type"),
+            }
         }
     }
 }

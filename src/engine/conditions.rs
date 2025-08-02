@@ -22,6 +22,8 @@ pub struct EvaluationContext {
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Prompt text for UserPromptSubmit events
     pub prompt: Option<String>,
+    /// Source field for SessionStart events (startup, resume, clear)
+    pub source: Option<String>,
 }
 
 /// Result of condition evaluation
@@ -195,6 +197,7 @@ impl ConditionEvaluator {
             "tool_name" => Some(context.tool_name.clone()),
             "session_id" => Some(context.session_id.clone()),
             "prompt" => context.prompt.clone(),
+            "source" => context.source.clone(),
 
             // Tool input fields (dot notation)
             field_name if field_name.starts_with("tool_input.") => {
@@ -340,6 +343,7 @@ mod tests {
             env_vars,
             timestamp: Utc::now(),
             prompt: None,
+            source: None,
         }
     }
 

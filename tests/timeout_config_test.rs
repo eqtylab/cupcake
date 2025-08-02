@@ -77,7 +77,7 @@ async fn test_custom_timeout_long() {
 async fn test_default_timeout() {
     // Test that default timeout is applied when not specified
     let settings = Settings::default();
-    assert_eq!(settings.timeout_ms, 30000); // 30 seconds
+    assert_eq!(settings.timeout_ms, 60000); // 60 seconds (Claude Code default)
 
     let executor = CommandExecutor::with_settings(HashMap::new(), settings);
 
@@ -118,5 +118,5 @@ debug_mode: false
 "#;
 
     let settings2: Settings = serde_yaml_ng::from_str(yaml_no_timeout).unwrap();
-    assert_eq!(settings2.timeout_ms, 30000); // Default
+    assert_eq!(settings2.timeout_ms, 60000); // Default (60s to match Claude Code)
 }

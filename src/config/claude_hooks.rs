@@ -92,6 +92,17 @@ pub fn build_cupcake_hooks() -> Value {
                     }
                 ]
             }
+        ],
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cupcake run --event SessionStart",
+                        "timeout": 1  // timeout in seconds per Claude Code spec
+                    }
+                ]
+            }
         ]
     })
 }

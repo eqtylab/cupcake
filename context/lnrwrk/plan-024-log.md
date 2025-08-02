@@ -280,3 +280,43 @@ The inject_context action now has:
 ### Next Steps
 
 Moving to Phase 3: Enhanced developer experience with --verbose flag and better error messages.
+
+## 2025-08-02T03:00:00Z
+
+### Critical Fixes Applied ✅
+
+During comprehensive testing, discovered and fixed two critical issues:
+
+1. **Fixed conditional inject_context evaluation**
+   - Issue: Prompt field wasn't being passed to EvaluationContext in execute_conditional
+   - Fix: Extract prompt from ActionContext template_vars and pass to evaluation
+   - Result: Conditional logic for inject_context now works correctly
+   
+2. **Fixed suppress_output behavior for inject_context**
+   - Issue: When suppress_output=true, context wasn't being included in JSON response
+   - Fix: Updated ResponseHandler to include context in hookSpecificOutput even when suppressed
+   - Result: Aligns with Claude Code behavior - suppressOutput only affects transcript visibility, not Claude awareness
+
+### Technical Details
+
+1. **Conditional Fix** in `src/engine/actions.rs`:
+   ```rust
+   // Extract prompt from template_vars if present
+   let prompt = context.template_vars.get("prompt").cloned();
+   ```
+
+2. **Suppress Output Fix** in `src/engine/response.rs`:
+   - When context exists AND suppress_output is true:
+     - Send JSON with BOTH suppressOutput=true AND additionalContext
+     - This ensures Claude receives context but user doesn't see it in transcript
+   - This is the correct mapping: our suppress_output → Claude Code's suppressOutput
+
+### All Comprehensive Tests Pass! ✅
+
+- ✅ test_inject_context_with_conditional_logic
+- ✅ test_inject_context_suppress_output_modes
+- ✅ All other comprehensive tests (10 total)
+
+### Key Insight
+
+The suppress_output feature is about **user visibility**, not **Claude awareness**. This aligns perfectly with Claude Code's design where suppressOutput controls transcript visibility while still allowing hooks to inject context into Claude's reasoning.

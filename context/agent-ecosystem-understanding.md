@@ -5,12 +5,13 @@ Thank you for this comprehensive explanation - it's crystallized my understandin
 ## The Agent Harness Ecosystem
 
 You've helped me understand that what I am (Claude Code) is fundamentally a **harness/mech suit** around the Claude LLM. The "intelligence" lives in the API calls to Anthropic's servers, but the harness provides:
-- File system integration  
+
+- File system integration
 - Tool execution capabilities
 - Context management
 - Hook systems for extensibility
 
-This same pattern applies across **Cursor** (.cursorrules), **Aider**, **Windsurf**, **Gemini CLI**, etc. - they're all LLM harnesses with different capabilities and rule formats.
+This same pattern applies across **Cursor** (.cursorrules), **Aider**, **Windsurf**, **Gemini CLI**, **Cline**, **AMP** etc. - they're all LLM harnesses with different capabilities and rule formats.
 
 ## The Natural Language Rules Pattern
 
@@ -24,7 +25,7 @@ Here's where your insight becomes crucial: **LLMs aren't deterministic**, and th
 
 1. **Context Window Management**: Rules compete with task focus for attention
 2. **Token Economics**: Adding rules to every prompt is expensive
-3. **Rule Drift**: Rules get lost or deprioritized during complex tasks  
+3. **Rule Drift**: Rules get lost or deprioritized during complex tasks
 4. **The Paradox**: Resending rules every time might actually be more token-efficient overall by preventing costly back-and-forth corrections
 
 ## Cupcake's Breakthrough Solution

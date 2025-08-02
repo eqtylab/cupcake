@@ -25,6 +25,7 @@ fn test_empty_matcher_for_user_prompt_submit() {
         action: Action::BlockWithFeedback {
             feedback_message: "Detected API key in prompt!".to_string(),
             include_context: false,
+            suppress_output: false,
         },
     };
 
@@ -48,6 +49,7 @@ fn test_empty_matcher_for_user_prompt_submit() {
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
         prompt: Some("My API key is sk-1234567890abcdef123456".to_string()),
+        source: None,
     };
 
     // Evaluate the policy
@@ -80,6 +82,7 @@ fn test_empty_matcher_only_matches_non_tool_events() {
         action: Action::ProvideFeedback {
             message: "Should not match".to_string(),
             include_context: false,
+            suppress_output: false,
         },
     };
 
@@ -104,6 +107,7 @@ fn test_empty_matcher_only_matches_non_tool_events() {
         env_vars: HashMap::new(),
         timestamp: Utc::now(),
         prompt: None,
+        source: None,
     };
 
     // Evaluate the policy

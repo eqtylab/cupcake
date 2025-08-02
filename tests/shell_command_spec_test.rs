@@ -79,6 +79,7 @@ script: |
             on_failure_feedback: Some("Legacy cleanup failed".to_string()),
             background: false,
             timeout_seconds: Some(300),
+            suppress_output: false,
         };
 
         match action {

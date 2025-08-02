@@ -73,6 +73,12 @@ impl CupcakeResponse {
         }
     }
 
+    /// Set the suppress_output flag on this response
+    pub fn with_suppress_output(mut self, suppress: bool) -> Self {
+        self.suppress_output = Some(suppress);
+        self
+    }
+
     /// Create a response from an EngineDecision for PreToolUse events
     pub fn from_pre_tool_use_decision(decision: &EngineDecision) -> Self {
         let mut response = Self::empty();
@@ -200,21 +206,61 @@ impl ResponseHandler {
         decision: EngineDecision,
         context_to_inject: Vec<String>,
     ) -> ! {
+        self.send_user_prompt_response_with_suppress(decision, context_to_inject, false)
+    }
+
+    /// Send response for UserPromptSubmit with context injection and suppress_output control
+    pub fn send_user_prompt_response_with_suppress(
+        &self,
+        decision: EngineDecision,
+        context_to_inject: Vec<String>,
+        suppress_output: bool,
+    ) -> ! {
         match &decision {
             EngineDecision::Allow { .. } => {
                 if !context_to_inject.is_empty() {
                     let combined_context = context_to_inject.join("\n");
-                    if self.debug {
-                        eprintln!("Debug: Injecting context via stdout for UserPromptSubmit");
-                        eprintln!("Debug: Context length: {} chars", combined_context.len());
+                    
+                    if suppress_output {
+                        // Send JSON with context but marked as suppressed
+                        if self.debug {
+                            eprintln!("Debug: Injecting context via JSON with suppressOutput for UserPromptSubmit");
+                            eprintln!("Debug: Context length: {} chars", combined_context.len());
+                        }
+                        let response = CupcakeResponse {
+                            hook_specific_output: Some(HookSpecificOutput::UserPromptSubmit {
+                                additional_context: Some(combined_context),
+                            }),
+                            continue_execution: Some(true),
+                            stop_reason: None,
+                            suppress_output: Some(true),
+                        };
+                        self.send_json_response(response);
+                    } else {
+                        // Normal stdout output
+                        if self.debug {
+                            eprintln!("Debug: Injecting context via stdout for UserPromptSubmit");
+                            eprintln!("Debug: Context length: {} chars", combined_context.len());
+                        }
+                        println!("{}", combined_context);
+                        std::process::exit(0);
                     }
-                    println!("{}", combined_context);
-                    std::process::exit(0);
                 } else {
+                    // No context to inject
                     if self.debug {
                         eprintln!("Debug: Allowing UserPromptSubmit without context injection");
                     }
-                    std::process::exit(0);
+                    if suppress_output {
+                        let response = CupcakeResponse {
+                            hook_specific_output: None,
+                            continue_execution: Some(true),
+                            stop_reason: None,
+                            suppress_output: Some(true),
+                        };
+                        self.send_json_response(response);
+                    } else {
+                        std::process::exit(0);
+                    }
                 }
             }
             EngineDecision::Block { feedback } => {
@@ -272,8 +318,8 @@ impl ResponseHandler {
                 CupcakeResponse::from_decision_block(&decision)
             }
             "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision),
-            "UserPromptSubmit" => {
-                // UserPromptSubmit should use send_response_with_context in run.rs
+            "UserPromptSubmit" | "SessionStart" => {
+                // UserPromptSubmit and SessionStart should use send_response_with_context in run.rs
                 // This is a fallback for direct calls
                 CupcakeResponse::from_user_prompt_decision(&decision, None)
             }
@@ -288,6 +334,52 @@ impl ResponseHandler {
                 CupcakeResponse::from_generic_decision(&decision)
             }
         };
+
+        self.send_json_response(response);
+    }
+
+    /// Send response for a specific hook event with suppress_output control
+    pub fn send_response_for_hook_with_suppress(&self, decision: EngineDecision, hook_event: &str, suppress_output: bool) -> ! {
+        if self.debug {
+            eprintln!(
+                "Debug: Sending {} response for {} event (suppress_output: {})",
+                match &decision {
+                    EngineDecision::Allow { .. } => "Allow",
+                    EngineDecision::Block { .. } => "Block",
+                    EngineDecision::Ask { .. } => "Ask",
+                },
+                hook_event,
+                suppress_output
+            );
+        }
+
+        let mut response = match hook_event {
+            "PreToolUse" => CupcakeResponse::from_pre_tool_use_decision(&decision),
+            "PostToolUse" | "Stop" | "SubagentStop" => {
+                CupcakeResponse::from_decision_block(&decision)
+            }
+            "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision),
+            "UserPromptSubmit" | "SessionStart" => {
+                // UserPromptSubmit and SessionStart should use send_response_with_context in run.rs
+                // This is a fallback for direct calls
+                CupcakeResponse::from_user_prompt_decision(&decision, None)
+            }
+            _ => {
+                // Unknown hook types get generic handling
+                if self.debug {
+                    eprintln!(
+                        "Debug: Unknown hook event type '{}', using generic response",
+                        hook_event
+                    );
+                }
+                CupcakeResponse::from_generic_decision(&decision)
+            }
+        };
+
+        // Apply suppress_output if requested
+        if suppress_output {
+            response = response.with_suppress_output(true);
+        }
 
         self.send_json_response(response);
     }

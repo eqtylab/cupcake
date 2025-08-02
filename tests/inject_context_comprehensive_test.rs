@@ -9,8 +9,7 @@ use tempfile::TempDir;
 #[test]
 fn test_inject_context_edge_case_empty_context() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Test empty context injection (should be allowed)
     let policy_content = r#"
@@ -61,8 +60,7 @@ UserPromptSubmit:
 #[test]
 fn test_inject_context_very_long_output() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Create a script that outputs a very long context
     let script_path = temp_dir.path().join("long-output.sh");
@@ -135,8 +133,7 @@ SessionStart:
 #[test]
 fn test_inject_context_with_special_characters() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Test context with special characters that need escaping
     let policy_content = r#"
@@ -199,8 +196,7 @@ UserPromptSubmit:
 #[test]
 fn test_inject_context_from_command_timeout() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Create a script that sleeps for a long time
     let script_path = temp_dir.path().join("slow-script.sh");
@@ -271,8 +267,7 @@ UserPromptSubmit:
 #[test]
 fn test_inject_context_combined_with_other_actions() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Complex policy with multiple action types
     let policy_content = r#"
@@ -349,8 +344,7 @@ UserPromptSubmit:
 #[test]
 fn test_inject_context_with_conditional_logic() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Test conditional context injection
     let policy_content = r#"
@@ -443,8 +437,7 @@ UserPromptSubmit:
 #[test]
 fn test_inject_context_with_env_substitution() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Create a script that uses environment variables
     let script_path = temp_dir.path().join("env-test.sh");
@@ -475,7 +468,8 @@ SessionStart:
             command: ["{}"]
             args: ["{{{{session_id}}}}"]
             env:
-              CUPCAKE_TEST: "test-value-123"
+              - name: CUPCAKE_TEST
+                value: "test-value-123"
           on_failure: continue
         use_stdout: true
 "#, script_path.to_str().unwrap());
@@ -509,6 +503,10 @@ SessionStart:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    
+    println!("STDOUT: {}", stdout);
+    println!("STDERR: {}", stderr);
     
     assert!(stdout.contains("Running as user:"));
     assert!(stdout.contains("Session: env-test-session"));
@@ -518,8 +516,7 @@ SessionStart:
 #[test]
 fn test_inject_context_from_command_with_working_dir() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
     
     let work_dir = temp_dir.path().join("workdir");
     fs::create_dir(&work_dir).unwrap();
@@ -527,7 +524,7 @@ fn test_inject_context_from_command_with_working_dir() {
     // Create a file in the work directory
     fs::write(work_dir.join("context.txt"), "Special project context").unwrap();
 
-    let policy_content = r#"
+    let policy_content = format!(r#"
 UserPromptSubmit:
   "*":
     - name: workdir-context
@@ -539,10 +536,10 @@ UserPromptSubmit:
           spec:
             mode: array
             command: ["cat", "context.txt"]
-            working_dir: "./workdir"
+            workingDir: "{}"
           on_failure: block
         use_stdout: true
-"#;
+"#, work_dir.to_str().unwrap());
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -571,16 +568,21 @@ UserPromptSubmit:
         .wait_with_output()
         .unwrap();
 
-    assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    
+    println!("Exit code: {:?}", output.status.code());
+    println!("STDOUT: {}", stdout);
+    println!("STDERR: {}", stderr);
+    
+    assert_eq!(output.status.code(), Some(0));
     assert!(stdout.contains("Special project context"));
 }
 
 #[test]
 fn test_inject_context_suppress_output_modes() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Test both use_stdout and suppress_output combinations
     let policy_content = r#"
@@ -690,8 +692,7 @@ UserPromptSubmit:
 #[test]
 fn test_inject_context_error_propagation() {
     let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path().join("guardrails");
-    fs::create_dir(&config_dir).unwrap();
+    let config_dir = temp_dir.path();
 
     // Test command that exits with error and on_failure: block
     let policy_content = r#"

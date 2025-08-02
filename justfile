@@ -79,6 +79,14 @@ demo-help: build
 dev: clean check-all
     @echo "✅ All checks passed! Ready to commit."
 
+# Run security audit on dependencies
+audit:
+    cargo audit
+
+# Analyze unsafe code usage
+geiger:
+    cargo geiger
+
 
 pkgbloat:
     cargo bloat --release --bin cupcake --crates

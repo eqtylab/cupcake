@@ -187,3 +187,96 @@ Phase 2.1 is now fully complete with comprehensive test coverage:
 ### Next Steps
 
 Moving to Phase 2.2: Add strict validation for inject_context events (UserPromptSubmit and SessionStart only).
+
+## 2025-08-02T02:00:00Z
+
+### Phase 2.2: Strict Validation Completed ✅
+
+Successfully implemented validation for inject_context usage:
+
+1. **Added validate_inject_context_event** in `src/config/loader.rs`
+   - Validates inject_context only used with UserPromptSubmit and SessionStart
+   - Provides clear error messages aligned with Claude Code specification
+   - Recursively validates through conditional actions
+   
+2. **Comprehensive validation tests** in `tests/inject_context_validation_test.rs`
+   - Tests for valid events (UserPromptSubmit, SessionStart)
+   - Tests for invalid events (PreToolUse, PostToolUse, Notification, Stop, etc.)
+   - Tests for conditional action validation
+   - Tests for mixed valid/invalid policies
+   - Tests for clear error messaging
+
+### Test Results
+- ✅ All 10 validation tests passing
+- ✅ Recursive validation through conditionals working
+- ✅ Clear error messages with event context
+
+### Phase 2.3: Comprehensive Tests Completed ✅
+
+Created extensive test coverage for inject_context functionality:
+
+1. **Created comprehensive test suite** in `tests/inject_context_comprehensive_test.rs`
+   - Edge cases: empty context, very long output, special characters
+   - Command execution: timeouts, failures, binary output
+   - Complex scenarios: combined actions, conditionals, suppress modes
+   - Environment and template variable substitution
+   - Working directory support
+
+2. **Created advanced test suite** in `tests/inject_context_advanced_test.rs`
+   - Pipeline commands and shell scripts
+   - Multiple template variables
+   - Nested conditionals
+   - Multiple policy files
+   - Concurrent execution
+   - SessionStart source matching
+
+3. **All existing tests passing**
+   - ✅ inject_context_from_command_test.rs (6 tests)
+   - ✅ inject_context_validation_test.rs (10 tests)
+   - ✅ context_injection_tests.rs (7 tests)
+   - ✅ inject_context_yaml_parsing_test.rs (6 tests)
+
+### Key Coverage Areas
+
+1. **Dynamic Context Generation**
+   - from_command with array and shell modes
+   - Template variable substitution
+   - Environment variable handling
+   - Working directory support
+   - Timeout and failure handling
+
+2. **Output Modes**
+   - use_stdout: true (direct output)
+   - use_stdout: false (JSON response)
+   - suppress_output combinations
+   
+3. **Complex Scenarios**
+   - Multiple context injections
+   - Conditional logic (including nested)
+   - Integration with other actions
+   - Multiple policy file imports
+
+4. **Edge Cases**
+   - Empty context
+   - Very long output (1000+ lines)
+   - Special characters and Unicode
+   - Binary data handling
+   - Command timeouts
+
+### Phase 2 Complete! 🎉
+
+All three sub-phases of Phase 2 are now complete:
+- ✅ Phase 2.1: from_command support
+- ✅ Phase 2.2: Strict validation
+- ✅ Phase 2.3: Comprehensive tests
+
+The inject_context action now has:
+- Full feature parity with Claude Code hooks
+- Dynamic context generation via commands
+- Proper validation for appropriate events only
+- Extensive test coverage for all scenarios
+- Secure command execution with template support
+
+### Next Steps
+
+Moving to Phase 3: Enhanced developer experience with --verbose flag and better error messages.

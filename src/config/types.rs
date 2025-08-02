@@ -16,7 +16,7 @@ pub struct Settings {
     pub allow_shell: bool,
 
     /// Command execution timeout in milliseconds
-    /// Defaults to 30000 (30 seconds)
+    /// Defaults to 60000 (60 seconds) - aligned with Claude Code
     #[serde(default = "default_timeout_ms")]
     pub timeout_ms: u64,
 
@@ -28,7 +28,7 @@ pub struct Settings {
 }
 
 pub fn default_timeout_ms() -> u64 {
-    30000 // 30 seconds
+    60000 // 60 seconds - aligned with Claude Code default
 }
 
 impl Default for Settings {
@@ -63,6 +63,7 @@ pub enum HookEventType {
     SubagentStop,
     PreCompact,
     UserPromptSubmit,
+    SessionStart,
 }
 
 impl std::fmt::Display for HookEventType {
@@ -75,6 +76,7 @@ impl std::fmt::Display for HookEventType {
             HookEventType::SubagentStop => write!(f, "SubagentStop"),
             HookEventType::PreCompact => write!(f, "PreCompact"),
             HookEventType::UserPromptSubmit => write!(f, "UserPromptSubmit"),
+            HookEventType::SessionStart => write!(f, "SessionStart"),
         }
     }
 }
@@ -165,7 +167,7 @@ mod tests {
         let settings = Settings::default();
         assert!(!settings.debug_mode);
         assert!(!settings.allow_shell); // Security: default to false
-        assert_eq!(settings.timeout_ms, 30000); // 30 seconds default
+        assert_eq!(settings.timeout_ms, 60000); // 60 seconds default - aligned with Claude Code
         assert!(settings.sandbox_uid.is_none()); // No UID drop by default
     }
 }

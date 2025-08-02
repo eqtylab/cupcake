@@ -82,6 +82,16 @@ pub struct ShellCommandSpec {
     pub script: String,
 }
 
+/// Dynamic context specification for from_command
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DynamicContextSpec {
+    /// Command specification for generating context
+    pub spec: CommandSpec,
+    /// Behavior when command fails
+    #[serde(default)]
+    pub on_failure: OnFailureBehavior,
+}
+
 /// Action types for policy responses
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -91,6 +101,8 @@ pub enum Action {
         message: String,
         #[serde(default)]
         include_context: bool,
+        #[serde(default, skip_serializing_if = "is_false")]
+        suppress_output: bool,
     },
 
     /// Block operation with feedback to Claude (hard action)
@@ -98,16 +110,24 @@ pub enum Action {
         feedback_message: String,
         #[serde(default)]
         include_context: bool,
+        #[serde(default, skip_serializing_if = "is_false")]
+        suppress_output: bool,
     },
 
     /// Auto-allow operation bypassing permission system (hard action)
     Allow {
         #[serde(skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        suppress_output: bool,
     },
 
     /// Request user confirmation for operation (hard action)
-    Ask { reason: String },
+    Ask {
+        reason: String,
+        #[serde(default, skip_serializing_if = "is_false")]
+        suppress_output: bool,
+    },
 
     /// Run a command (can be soft or hard based on on_failure)
     RunCommand {
@@ -121,6 +141,8 @@ pub enum Action {
         background: bool,
         #[serde(default)]
         timeout_seconds: Option<u32>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        suppress_output: bool,
     },
 
     /// Conditional action based on runtime condition
@@ -133,14 +155,25 @@ pub enum Action {
         else_action: Option<Box<Action>>,
     },
 
-    /// Inject context into Claude's awareness (UserPromptSubmit only)
+    /// Inject context into Claude's awareness (UserPromptSubmit and SessionStart only)
     InjectContext {
-        /// Context to inject into Claude's prompt processing
-        context: String,
+        /// Static context to inject (mutually exclusive with from_command)
+        #[serde(skip_serializing_if = "Option::is_none")]
+        context: Option<String>,
+        /// Dynamic context from command execution (mutually exclusive with context)
+        #[serde(skip_serializing_if = "Option::is_none")]
+        from_command: Option<Box<DynamicContextSpec>>,
         /// Whether to use stdout method (true) or JSON method (false)
         #[serde(default = "default_use_stdout")]
         use_stdout: bool,
+        #[serde(default, skip_serializing_if = "is_false")]
+        suppress_output: bool,
     },
+}
+
+/// Helper function for serde skip_serializing_if
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// Returns the default method for context injection.
@@ -184,6 +217,146 @@ pub enum ActionType {
 }
 
 impl Action {
+    /// Create a ProvideFeedback action with sensible defaults
+    pub fn provide_feedback(message: impl Into<String>) -> Self {
+        Action::ProvideFeedback {
+            message: message.into(),
+            include_context: false,
+            suppress_output: false,
+        }
+    }
+
+    /// Create a BlockWithFeedback action with sensible defaults
+    pub fn block_with_feedback(feedback_message: impl Into<String>) -> Self {
+        Action::BlockWithFeedback {
+            feedback_message: feedback_message.into(),
+            include_context: false,
+            suppress_output: false,
+        }
+    }
+
+    /// Create an Allow action with sensible defaults
+    pub fn allow() -> Self {
+        Action::Allow {
+            reason: None,
+            suppress_output: false,
+        }
+    }
+
+    /// Create an Allow action with a reason
+    pub fn allow_with_reason(reason: impl Into<String>) -> Self {
+        Action::Allow {
+            reason: Some(reason.into()),
+            suppress_output: false,
+        }
+    }
+
+    /// Create an Ask action
+    pub fn ask(reason: impl Into<String>) -> Self {
+        Action::Ask {
+            reason: reason.into(),
+            suppress_output: false,
+        }
+    }
+
+    /// Create an InjectContext action with static content
+    pub fn inject_context(context: impl Into<String>) -> Self {
+        Action::InjectContext {
+            context: Some(context.into()),
+            from_command: None,
+            use_stdout: true,
+            suppress_output: false,
+        }
+    }
+
+    /// Create an InjectContext action with dynamic content from command
+    pub fn inject_context_from_command(spec: CommandSpec, on_failure: OnFailureBehavior) -> Self {
+        Action::InjectContext {
+            context: None,
+            from_command: Some(Box::new(DynamicContextSpec { spec, on_failure })),
+            use_stdout: true,
+            suppress_output: false,
+        }
+    }
+
+    /// Create a RunCommand action with basic array command
+    pub fn run_command(command: Vec<String>) -> Self {
+        Action::RunCommand {
+            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
+                command,
+                args: None,
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            })),
+            on_failure: OnFailureBehavior::Continue,
+            on_failure_feedback: None,
+            background: false,
+            timeout_seconds: None,
+            suppress_output: false,
+        }
+    }
+
+    /// Create a RunCommand action with shell script
+    pub fn run_shell(script: impl Into<String>) -> Self {
+        Action::RunCommand {
+            spec: CommandSpec::Shell(ShellCommandSpec {
+                script: script.into(),
+            }),
+            on_failure: OnFailureBehavior::Continue,
+            on_failure_feedback: None,
+            background: false,
+            timeout_seconds: None,
+            suppress_output: false,
+        }
+    }
+
+    /// Set suppress_output to true for any action
+    pub fn with_suppress_output(mut self) -> Self {
+        match &mut self {
+            Action::ProvideFeedback { suppress_output, .. } => *suppress_output = true,
+            Action::BlockWithFeedback { suppress_output, .. } => *suppress_output = true,
+            Action::Allow { suppress_output, .. } => *suppress_output = true,
+            Action::Ask { suppress_output, .. } => *suppress_output = true,
+            Action::RunCommand { suppress_output, .. } => *suppress_output = true,
+            Action::InjectContext { suppress_output, .. } => *suppress_output = true,
+            Action::Conditional { .. } => {} // Conditional doesn't have suppress_output
+        }
+        self
+    }
+
+    /// Set include_context to true for feedback actions
+    pub fn with_context(mut self) -> Self {
+        match &mut self {
+            Action::ProvideFeedback { include_context, .. } => *include_context = true,
+            Action::BlockWithFeedback { include_context, .. } => *include_context = true,
+            _ => {} // Other actions don't have include_context
+        }
+        self
+    }
+
+    /// Set on_failure to Block for RunCommand actions (makes them hard)
+    pub fn with_blocking_failure(mut self) -> Self {
+        if let Action::RunCommand { on_failure, .. } = &mut self {
+            *on_failure = OnFailureBehavior::Block;
+        }
+        self
+    }
+
+    /// Set failure feedback message for RunCommand actions
+    pub fn with_failure_feedback(mut self, feedback: impl Into<String>) -> Self {
+        if let Action::RunCommand { on_failure_feedback, .. } = &mut self {
+            *on_failure_feedback = Some(feedback.into());
+        }
+        self
+    }
+
     /// Determine if this action is soft (feedback) or hard (decision)
     pub fn action_type(&self) -> ActionType {
         match self {
@@ -240,65 +413,77 @@ mod tests {
 
     #[test]
     fn test_action_type_classification() {
-        let soft_action = Action::ProvideFeedback {
-            message: "Test feedback".to_string(),
-            include_context: false,
-        };
+        let soft_action = Action::provide_feedback("Test feedback");
         assert_eq!(soft_action.action_type(), ActionType::Soft);
 
-        let hard_action = Action::BlockWithFeedback {
-            feedback_message: "Blocked".to_string(),
-            include_context: false,
-        };
+        let hard_action = Action::block_with_feedback("Blocked");
         assert_eq!(hard_action.action_type(), ActionType::Hard);
 
-        let soft_command = Action::RunCommand {
-            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
-                command: vec!["echo".to_string()],
-                args: Some(vec!["test".to_string()]),
-                working_dir: None,
-                env: None,
-                pipe: None,
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            })),
-            on_failure: OnFailureBehavior::Continue,
-            on_failure_feedback: None,
-            background: false,
-            timeout_seconds: None,
-        };
+        let soft_command = Action::run_command(vec!["echo".to_string()]);
         assert_eq!(soft_command.action_type(), ActionType::Soft);
 
-        let hard_command = Action::RunCommand {
-            spec: CommandSpec::Array(Box::new(ArrayCommandSpec {
-                command: vec!["cargo".to_string()],
-                args: Some(vec!["test".to_string()]),
-                working_dir: None,
-                env: None,
-                pipe: None,
-                redirect_stdout: None,
-                append_stdout: None,
-                redirect_stderr: None,
-                merge_stderr: None,
-                on_success: None,
-                on_failure: None,
-            })),
-            on_failure: OnFailureBehavior::Block,
-            on_failure_feedback: Some("Tests failed".to_string()),
-            background: false,
-            timeout_seconds: None,
-        };
+        let hard_command = Action::run_command(vec!["cargo".to_string()])
+            .with_blocking_failure()
+            .with_failure_feedback("Tests failed");
         assert_eq!(hard_command.action_type(), ActionType::Hard);
 
-        let ask_action = Action::Ask {
-            reason: "Please confirm this operation".to_string(),
-        };
+        let ask_action = Action::ask("Please confirm this operation");
         assert_eq!(ask_action.action_type(), ActionType::Hard);
         assert!(ask_action.is_hard_action());
+    }
+
+    #[test]
+    fn test_builder_pattern() {
+        // Test the new builder pattern that eliminates brittle field initialization
+        let silent_feedback = Action::provide_feedback("Test message")
+            .with_suppress_output()
+            .with_context();
+        
+        match silent_feedback {
+            Action::ProvideFeedback { message, include_context, suppress_output } => {
+                assert_eq!(message, "Test message");
+                assert!(include_context);
+                assert!(suppress_output);
+            }
+            _ => panic!("Expected ProvideFeedback action"),
+        }
+
+        let silent_approval = Action::allow_with_reason("Auto-approved")
+            .with_suppress_output();
+        
+        match silent_approval {
+            Action::Allow { reason, suppress_output } => {
+                assert_eq!(reason, Some("Auto-approved".to_string()));
+                assert!(suppress_output);
+            }
+            _ => panic!("Expected Allow action"),
+        }
+
+        let hard_command = Action::run_command(vec!["test".to_string()])
+            .with_blocking_failure()
+            .with_failure_feedback("Command failed")
+            .with_suppress_output();
+        
+        match hard_command {
+            Action::RunCommand { on_failure, on_failure_feedback, suppress_output, .. } => {
+                assert_eq!(on_failure, OnFailureBehavior::Block);
+                assert_eq!(on_failure_feedback, Some("Command failed".to_string()));
+                assert!(suppress_output);
+            }
+            _ => panic!("Expected RunCommand action"),
+        }
+
+        let context_injection = Action::inject_context("Security reminder")
+            .with_suppress_output();
+        
+        match context_injection {
+            Action::InjectContext { context, use_stdout, suppress_output, .. } => {
+                assert_eq!(context, Some("Security reminder".to_string()));
+                assert!(use_stdout); // Default
+                assert!(suppress_output);
+            }
+            _ => panic!("Expected InjectContext action"),
+        }
     }
 
     #[test]
@@ -306,6 +491,7 @@ mod tests {
         let action = Action::ProvideFeedback {
             message: "Use <Button> instead of <button>".to_string(),
             include_context: true,
+            suppress_output: false,
         };
 
         let yaml = serde_yaml_ng::to_string(&action).unwrap();
@@ -315,6 +501,7 @@ mod tests {
             Action::ProvideFeedback {
                 message,
                 include_context,
+                ..
             } => {
                 assert_eq!(message, "Use <Button> instead of <button>");
                 assert!(include_context);
@@ -351,8 +538,9 @@ mod tests {
             then_action: Box::new(Action::BlockWithFeedback {
                 feedback_message: "Blocked".to_string(),
                 include_context: false,
+                suppress_output: false,
             }),
-            else_action: Some(Box::new(Action::Allow { reason: None })),
+            else_action: Some(Box::new(Action::Allow { reason: None, suppress_output: false })),
         };
 
         assert_eq!(conditional.action_type(), ActionType::Hard);
@@ -378,6 +566,7 @@ mod tests {
             on_failure_feedback: None,
             background: false,
             timeout_seconds: None,
+            suppress_output: false,
         };
         assert!(run_command.requires_execution());
     }
@@ -386,8 +575,10 @@ mod tests {
     fn test_inject_context_action() {
         // Test creation and classification
         let inject_context = Action::InjectContext {
-            context: "Remember to validate user input".to_string(),
+            context: Some("Remember to validate user input".to_string()),
+            from_command: None,
             use_stdout: true,
+            suppress_output: false,
         };
 
         assert!(inject_context.is_soft_action());
@@ -406,8 +597,10 @@ mod tests {
 
         // Test with use_stdout = false
         let inject_json = Action::InjectContext {
-            context: "Use JSON method".to_string(),
+            context: Some("Use JSON method".to_string()),
+            from_command: None,
             use_stdout: false,
+            suppress_output: false,
         };
 
         let yaml2 = serde_yaml_ng::to_string(&inject_json).unwrap();
@@ -415,9 +608,53 @@ mod tests {
     }
 
     #[test]
+    fn test_inject_context_from_command() {
+        // Test creation using builder
+        let inject_from_cmd = Action::inject_context_from_command(
+            CommandSpec::Array(Box::new(ArrayCommandSpec {
+                command: vec!["./scripts/get-context.sh".to_string()],
+                args: Some(vec!["{{prompt}}".to_string()]),
+                working_dir: None,
+                env: None,
+                pipe: None,
+                redirect_stdout: None,
+                append_stdout: None,
+                redirect_stderr: None,
+                merge_stderr: None,
+                on_success: None,
+                on_failure: None,
+            })),
+            OnFailureBehavior::Continue,
+        );
+
+        assert!(inject_from_cmd.is_soft_action());
+        assert_eq!(inject_from_cmd.action_type(), ActionType::Soft);
+
+        // Test serialization
+        let yaml = serde_yaml_ng::to_string(&inject_from_cmd).unwrap();
+        assert!(yaml.contains("from_command"));
+        assert!(yaml.contains("./scripts/get-context.sh"));
+        assert!(yaml.contains("on_failure: continue"));
+
+        // Test deserialization
+        let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(inject_from_cmd, deserialized);
+
+        // Test that either context or from_command is required (not both)
+        match inject_from_cmd {
+            Action::InjectContext { context, from_command, .. } => {
+                assert!(context.is_none());
+                assert!(from_command.is_some());
+            }
+            _ => panic!("Expected InjectContext action"),
+        }
+    }
+
+    #[test]
     fn test_ask_action_serialization() {
         let ask_action = Action::Ask {
             reason: "Please confirm this operation".to_string(),
+            suppress_output: false,
         };
 
         // Test classification
@@ -436,7 +673,7 @@ mod tests {
 
         // Verify the deserialized action maintains correct properties
         match deserialized {
-            Action::Ask { reason } => {
+            Action::Ask { reason, .. } => {
                 assert_eq!(reason, "Please confirm this operation");
             }
             _ => panic!("Expected Ask action after deserialization"),

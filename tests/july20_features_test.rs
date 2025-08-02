@@ -45,8 +45,9 @@ UserPromptSubmit:
         Action::InjectContext {
             context,
             use_stdout,
+            ..
         } => {
-            assert_eq!(context, "This is injected context");
+            assert_eq!(context.as_deref(), Some("This is injected context"));
             assert!(*use_stdout);
         }
         _ => panic!("Expected InjectContext action"),
@@ -263,7 +264,7 @@ PreToolUse:
 
     // Verify the action is Ask
     match &config.policies[0].action {
-        Action::Ask { reason } => {
+        Action::Ask { reason, .. } => {
             assert_eq!(
                 reason,
                 "This command could be destructive. Are you sure you want to run it?"

@@ -157,14 +157,15 @@ impl ActionExecutor {
             Action::BlockWithFeedback {
                 feedback_message, ..
             } => self.execute_block_with_feedback(feedback_message, context),
-            Action::Allow { reason } => self.execute_allow(reason.as_deref(), context),
-            Action::Ask { reason } => self.execute_ask(reason, context),
+            Action::Allow { reason, .. } => self.execute_allow(reason.as_deref(), context),
+            Action::Ask { reason, .. } => self.execute_ask(reason, context),
             Action::RunCommand {
                 spec,
                 on_failure,
                 on_failure_feedback,
                 background,
                 timeout_seconds,
+                ..
             } => self.execute_run_command(
                 spec,
                 on_failure,
@@ -181,7 +182,11 @@ impl ActionExecutor {
             } => {
                 self.execute_conditional(if_condition, then_action, else_action.as_deref(), context)
             }
-            Action::InjectContext { context: ctx, .. } => self.execute_inject_context(ctx, context),
+            Action::InjectContext { 
+                context: static_context, 
+                from_command,
+                .. 
+            } => self.execute_inject_context(static_context.as_deref(), from_command.as_deref(), context),
         }
     }
 
@@ -222,12 +227,92 @@ impl ActionExecutor {
     /// Execute inject_context action
     fn execute_inject_context(
         &self,
-        context_template: &str,
+        static_context: Option<&str>,
+        from_command: Option<&crate::config::actions::DynamicContextSpec>,
         context: &ActionContext,
     ) -> ActionResult {
-        let injected_context = context.substitute_template(context_template);
-        ActionResult::Success {
-            feedback: Some(injected_context),
+        if let Some(static_ctx) = static_context {
+            // Static context injection
+            let injected_context = context.substitute_template(static_ctx);
+            ActionResult::Success {
+                feedback: Some(injected_context),
+            }
+        } else if let Some(dynamic_spec) = from_command {
+            // Dynamic context injection from command
+            self.execute_dynamic_context_injection(dynamic_spec, context)
+        } else {
+            ActionResult::Error {
+                message: "InjectContext action must have either 'context' or 'from_command' specified".to_string(),
+            }
+        }
+    }
+
+    /// Execute dynamic context injection from command
+    fn execute_dynamic_context_injection(
+        &self,
+        dynamic_spec: &crate::config::actions::DynamicContextSpec,
+        context: &ActionContext,
+    ) -> ActionResult {
+        // Create secure CommandExecutor with template variables
+        let command_executor = crate::engine::command_executor::CommandExecutor::with_settings(
+            context.template_vars.clone(),
+            self.settings.clone(),
+        );
+
+        // Build secure CommandGraph
+        let graph = match command_executor.build_graph(&dynamic_spec.spec) {
+            Ok(graph) => graph,
+            Err(e) => {
+                return ActionResult::Error {
+                    message: format!("Dynamic context command construction failed: {}", e),
+                }
+            }
+        };
+
+        // Execute with secure, shell-free process spawning
+        let rt = match tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(rt) => rt,
+            Err(e) => {
+                return ActionResult::Error {
+                    message: format!("Failed to create async runtime: {}", e),
+                }
+            }
+        };
+
+        let execution_result = rt.block_on(async { command_executor.execute_graph(&graph).await });
+
+        match execution_result {
+            Ok(result) => {
+                if result.success {
+                    // Command succeeded - use stdout as context
+                    let context_to_inject = result.stdout.unwrap_or_default();
+                    ActionResult::Success {
+                        feedback: Some(context_to_inject),
+                    }
+                } else {
+                    // Command failed - handle based on on_failure behavior
+                    match dynamic_spec.on_failure {
+                        crate::config::actions::OnFailureBehavior::Continue => {
+                            // Continue with empty context
+                            ActionResult::Success {
+                                feedback: Some(String::new()),
+                            }
+                        }
+                        crate::config::actions::OnFailureBehavior::Block => {
+                            let error_output = result.stderr.as_deref().unwrap_or("Command failed").trim();
+                            ActionResult::Block {
+                                feedback: format!("Dynamic context generation failed: {}", error_output),
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => ActionResult::Error {
+                message: format!("Dynamic context command execution failed: {}", e),
+            },
         }
     }
 
@@ -422,6 +507,7 @@ mod tests {
         let soft_action = Action::ProvideFeedback {
             message: "Test message".to_string(),
             include_context: false,
+            suppress_output: false,
         };
         assert!(soft_action.is_soft_action());
         assert!(!soft_action.is_hard_action());
@@ -429,12 +515,14 @@ mod tests {
         let hard_action = Action::BlockWithFeedback {
             feedback_message: "Block message".to_string(),
             include_context: false,
+            suppress_output: false,
         };
         assert!(!hard_action.is_soft_action());
         assert!(hard_action.is_hard_action());
 
         let allow_action = Action::Allow {
             reason: Some("Auto-approved".to_string()),
+            suppress_output: false,
         };
         assert!(!allow_action.is_soft_action());
         assert!(allow_action.is_hard_action());
@@ -459,6 +547,7 @@ mod tests {
             on_failure_feedback: None,
             background: false,
             timeout_seconds: Some(30),
+            suppress_output: false,
         };
         assert!(soft_command.is_soft_action());
         assert!(!soft_command.is_hard_action());
@@ -483,6 +572,7 @@ mod tests {
             on_failure_feedback: Some("Tests failed".to_string()),
             background: false,
             timeout_seconds: Some(60),
+            suppress_output: false,
         };
         assert!(!hard_command.is_soft_action());
         assert!(hard_command.is_hard_action());
@@ -549,6 +639,7 @@ mod tests {
         let action = Action::ProvideFeedback {
             message: "File: {{tool_input.file_path}}".to_string(),
             include_context: false,
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -568,6 +659,7 @@ mod tests {
         let action = Action::BlockWithFeedback {
             feedback_message: "Blocked: {{tool_input.file_path}}".to_string(),
             include_context: false,
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -586,6 +678,7 @@ mod tests {
 
         let action = Action::Allow {
             reason: Some("Auto-approved for {{env.USER}}".to_string()),
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -602,6 +695,7 @@ mod tests {
         let action = Action::ProvideFeedback {
             message: "Test message".to_string(),
             include_context: false,
+            suppress_output: false,
         };
 
         let json = serde_json::to_string(&action).unwrap();
@@ -636,6 +730,7 @@ mod tests {
             on_failure_feedback: None,
             background: false,
             timeout_seconds: Some(5),
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -682,6 +777,7 @@ mod tests {
             on_failure_feedback: Some("Custom failure message".to_string()),
             background: false,
             timeout_seconds: Some(5),
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -727,6 +823,7 @@ mod tests {
             on_failure_feedback: None,
             background: false,
             timeout_seconds: Some(5),
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -774,6 +871,7 @@ mod tests {
             on_failure_feedback: None,
             background: false,
             timeout_seconds: Some(5),
+            suppress_output: false,
         };
 
         let result = executor.execute(&action, &context);
@@ -805,10 +903,12 @@ mod tests {
             then_action: Box::new(Action::ProvideFeedback {
                 message: "Matched".to_string(),
                 include_context: false,
+                suppress_output: false,
             }),
             else_action: Some(Box::new(Action::ProvideFeedback {
                 message: "No match".to_string(),
                 include_context: false,
+                suppress_output: false,
             })),
         };
 

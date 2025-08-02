@@ -8,8 +8,10 @@ use tempfile::TempDir;
 #[test]
 fn test_inject_context_action_serialization() {
     let action = Action::InjectContext {
-        context: "Remember to follow security best practices".to_string(),
+        context: Some("Remember to follow security best practices".to_string()),
+        from_command: None,
         use_stdout: true,
+        suppress_output: false,
     };
 
     let yaml = serde_yaml_ng::to_string(&action).unwrap();
@@ -23,8 +25,10 @@ fn test_inject_context_action_serialization() {
 #[test]
 fn test_inject_context_soft_action() {
     let action = Action::InjectContext {
-        context: "Test context".to_string(),
+        context: Some("Test context".to_string()),
+        from_command: None,
         use_stdout: false,
+        suppress_output: false,
     };
 
     assert!(action.is_soft_action());

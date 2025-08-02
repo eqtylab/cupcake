@@ -38,16 +38,23 @@ impl ExecutionContextBuilder {
 
     /// Build action context from hook event
     pub fn build_action_context(&self, hook_event: &HookEvent) -> ActionContext {
-        let (session_id, tool_name, tool_input, _) = self.extract_event_data(hook_event);
+        let (session_id, tool_name, tool_input, prompt) = self.extract_event_data(hook_event);
         let current_dir = PathBuf::from(&hook_event.common().cwd);
 
-        ActionContext::new(
+        let mut context = ActionContext::new(
             tool_name,
             tool_input,
             current_dir,
             std::env::vars().collect(),
             session_id,
-        )
+        );
+        
+        // Add prompt to template variables if present
+        if let Some(prompt_text) = prompt {
+            context.template_vars.insert("prompt".to_string(), prompt_text);
+        }
+        
+        context
     }
 
     fn extract_event_data(
@@ -85,7 +92,8 @@ impl ExecutionContextBuilder {
             HookEvent::Notification { common, .. }
             | HookEvent::Stop { common, .. }
             | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => (
+            | HookEvent::PreCompact { common, .. }
+            | HookEvent::SessionStart { common, .. } => (
                 common.session_id.clone(),
                 String::new(),
                 HashMap::new(),
@@ -149,6 +157,44 @@ mod tests {
 
         let context = builder.build_action_context(&event);
         assert_eq!(context.session_id, "test-456");
+        assert_eq!(context.tool_name, "");
+        assert!(context.tool_input.is_empty());
+    }
+
+    #[test]
+    fn test_evaluation_context_from_session_start() {
+        let builder = ExecutionContextBuilder::new();
+        let event = HookEvent::SessionStart {
+            common: CommonEventData {
+                session_id: "test-789".to_string(),
+                transcript_path: "/tmp/transcript".to_string(),
+                cwd: "/home/user/project".to_string(),
+            },
+            source: crate::engine::events::SessionSource::Startup,
+        };
+
+        let context = builder.build_evaluation_context(&event);
+        assert_eq!(context.event_type, "SessionStart");
+        assert_eq!(context.tool_name, "");
+        assert_eq!(context.session_id, "test-789");
+        assert!(context.tool_input.is_empty());
+        assert_eq!(context.prompt, None);
+    }
+
+    #[test]
+    fn test_action_context_from_session_start() {
+        let builder = ExecutionContextBuilder::new();
+        let event = HookEvent::SessionStart {
+            common: CommonEventData {
+                session_id: "test-789".to_string(),
+                transcript_path: "/tmp/transcript".to_string(),
+                cwd: "/home/user/project".to_string(),
+            },
+            source: crate::engine::events::SessionSource::Resume,
+        };
+
+        let context = builder.build_action_context(&event);
+        assert_eq!(context.session_id, "test-789");
         assert_eq!(context.tool_name, "");
         assert!(context.tool_input.is_empty());
     }

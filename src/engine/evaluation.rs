@@ -216,7 +216,7 @@ impl PolicyEvaluator {
                                 self.substitute_templates(feedback_message, evaluation_context);
                             Ok(HardDecision::Block { feedback })
                         }
-                        crate::config::actions::Action::Allow { reason } => {
+                        crate::config::actions::Action::Allow { reason, .. } => {
                             let substituted_reason = reason
                                 .as_ref()
                                 .map(|r| self.substitute_templates(r, evaluation_context));
@@ -224,7 +224,7 @@ impl PolicyEvaluator {
                                 reason: substituted_reason,
                             })
                         }
-                        crate::config::actions::Action::Ask { reason } => {
+                        crate::config::actions::Action::Ask { reason, .. } => {
                             let substituted_reason =
                                 self.substitute_templates(reason, evaluation_context);
                             Ok(HardDecision::Ask {
@@ -301,7 +301,7 @@ impl PolicyEvaluator {
                 Some(self.substitute_templates(message, context))
             }
             crate::config::actions::Action::InjectContext { context: ctx, .. } => {
-                Some(self.substitute_templates(ctx, context))
+                ctx.as_ref().map(|c| self.substitute_templates(c, context))
             }
             _ => None, // Other actions handled elsewhere
         }

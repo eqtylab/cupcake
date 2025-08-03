@@ -60,6 +60,14 @@ pub struct CupcakeResponse {
     /// Hook-specific output for advanced control
     #[serde(rename = "hookSpecificOutput", skip_serializing_if = "Option::is_none")]
     pub hook_specific_output: Option<HookSpecificOutput>,
+
+    /// Decision for feedback loop (PostToolUse, Stop, SubagentStop)
+    #[serde(rename = "decision", skip_serializing_if = "Option::is_none")]
+    pub decision: Option<String>,
+
+    /// Reason for the decision - fed back to Claude for self-correction
+    #[serde(rename = "reason", skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 impl CupcakeResponse {
@@ -70,6 +78,8 @@ impl CupcakeResponse {
             stop_reason: None,
             suppress_output: None,
             hook_specific_output: None,
+            decision: None,
+            reason: None,
         }
     }
 
@@ -116,6 +126,8 @@ impl CupcakeResponse {
             hook_specific_output: Some(HookSpecificOutput::UserPromptSubmit {
                 additional_context: Some(context),
             }),
+            decision: None,
+            reason: None,
         }
     }
 
@@ -126,19 +138,30 @@ impl CupcakeResponse {
             stop_reason: Some(reason),
             suppress_output: None,
             hook_specific_output: None,
+            decision: None,
+            reason: None,
         }
     }
 
     /// Create a response for PostToolUse, Stop, SubagentStop events
-    /// These use the decision/reason format per Claude Code July 20 spec
-    pub fn from_decision_block(decision: &EngineDecision) -> Self {
+    /// These use the decision/reason format per Claude Code spec for feedback loops
+    pub fn from_decision_block(decision: &EngineDecision, hook_event: &str) -> Self {
         let mut response = Self::empty();
+
+        // PostToolUse, Stop, and SubagentStop use decision/reason for feedback loops
+        let uses_feedback_loop = matches!(hook_event, "PostToolUse" | "Stop" | "SubagentStop");
 
         match decision {
             EngineDecision::Block { feedback } => {
-                // For these events, blocking uses continue: false with stopReason
-                response.continue_execution = Some(false);
-                response.stop_reason = Some(feedback.clone());
+                if uses_feedback_loop {
+                    // Use the feedback loop format: decision/reason
+                    response.decision = Some("block".to_string());
+                    response.reason = Some(feedback.clone());
+                } else {
+                    // Other events use continue: false with stopReason
+                    response.continue_execution = Some(false);
+                    response.stop_reason = Some(feedback.clone());
+                }
             }
             EngineDecision::Allow { .. } | EngineDecision::Ask { .. } => {
                 // Allow and Ask don't set any special fields for these events
@@ -150,9 +173,9 @@ impl CupcakeResponse {
     }
 
     /// Create a response for UserPromptSubmit events with optional context
-    /// Combines decision/reason format with optional additionalContext
+    /// UserPromptSubmit uses continue/stopReason for blocking, not decision/reason
     pub fn from_user_prompt_decision(decision: &EngineDecision, context: Option<String>) -> Self {
-        let mut response = Self::from_decision_block(decision);
+        let mut response = Self::from_decision_block(decision, "UserPromptSubmit");
 
         // Add context injection if provided
         if let Some(ctx) = context {
@@ -166,9 +189,9 @@ impl CupcakeResponse {
 
     /// Create a response for generic events (Notification, PreCompact)
     /// These events use minimal response format without hook-specific output
-    pub fn from_generic_decision(decision: &EngineDecision) -> Self {
+    pub fn from_generic_decision(decision: &EngineDecision, hook_event: &str) -> Self {
         // These events only use the common fields, no hook-specific output
-        Self::from_decision_block(decision)
+        Self::from_decision_block(decision, hook_event)
     }
 }
 
@@ -234,6 +257,8 @@ impl ResponseHandler {
                             continue_execution: Some(true),
                             stop_reason: None,
                             suppress_output: Some(true),
+                            decision: None,
+                            reason: None,
                         };
                         self.send_json_response(response);
                     } else {
@@ -256,6 +281,8 @@ impl ResponseHandler {
                             continue_execution: Some(true),
                             stop_reason: None,
                             suppress_output: Some(true),
+                            decision: None,
+                            reason: None,
                         };
                         self.send_json_response(response);
                     } else {
@@ -272,6 +299,8 @@ impl ResponseHandler {
                     continue_execution: Some(false),
                     stop_reason: Some(feedback.clone()),
                     suppress_output: None,
+                    decision: None,
+                    reason: None,
                 };
                 self.send_json_response(response);
             }
@@ -286,6 +315,8 @@ impl ResponseHandler {
                     continue_execution: Some(true),
                     stop_reason: None,
                     suppress_output: Some(false),
+                    decision: None,
+                    reason: None,
                 };
                 self.send_json_response(response);
             }
@@ -315,9 +346,9 @@ impl ResponseHandler {
         let response = match hook_event {
             "PreToolUse" => CupcakeResponse::from_pre_tool_use_decision(&decision),
             "PostToolUse" | "Stop" | "SubagentStop" => {
-                CupcakeResponse::from_decision_block(&decision)
+                CupcakeResponse::from_decision_block(&decision, hook_event)
             }
-            "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision),
+            "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision, hook_event),
             "UserPromptSubmit" | "SessionStart" => {
                 // UserPromptSubmit and SessionStart should use send_response_with_context in run.rs
                 // This is a fallback for direct calls
@@ -330,7 +361,7 @@ impl ResponseHandler {
                         "Debug: Unknown hook event type '{hook_event}', using generic response"
                     );
                 }
-                CupcakeResponse::from_generic_decision(&decision)
+                CupcakeResponse::from_generic_decision(&decision, hook_event)
             }
         };
 
@@ -360,9 +391,9 @@ impl ResponseHandler {
         let mut response = match hook_event {
             "PreToolUse" => CupcakeResponse::from_pre_tool_use_decision(&decision),
             "PostToolUse" | "Stop" | "SubagentStop" => {
-                CupcakeResponse::from_decision_block(&decision)
+                CupcakeResponse::from_decision_block(&decision, hook_event)
             }
-            "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision),
+            "Notification" | "PreCompact" => CupcakeResponse::from_generic_decision(&decision, hook_event),
             "UserPromptSubmit" | "SessionStart" => {
                 // UserPromptSubmit and SessionStart should use send_response_with_context in run.rs
                 // This is a fallback for direct calls
@@ -375,7 +406,7 @@ impl ResponseHandler {
                         "Debug: Unknown hook event type '{hook_event}', using generic response"
                     );
                 }
-                CupcakeResponse::from_generic_decision(&decision)
+                CupcakeResponse::from_generic_decision(&decision, hook_event)
             }
         };
 
@@ -547,5 +578,101 @@ mod tests {
 
         let ask: PermissionDecision = serde_json::from_str("\"ask\"").unwrap();
         assert_eq!(ask, PermissionDecision::Ask);
+    }
+
+    #[test]
+    fn test_feedback_loop_format_post_tool_use() {
+        // Test that PostToolUse block uses decision/reason format
+        let decision = EngineDecision::Block {
+            feedback: "Tool output needs correction: please format as JSON".to_string(),
+        };
+        let response = CupcakeResponse::from_decision_block(&decision, "PostToolUse");
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Should use decision/reason format for feedback loop
+        assert!(json.contains("\"decision\":\"block\""));
+        assert!(json.contains("\"reason\":\"Tool output needs correction: please format as JSON\""));
+        assert!(!json.contains("\"continue\"")); // Should not use continue/stopReason
+        assert!(!json.contains("\"stopReason\""));
+    }
+
+    #[test]
+    fn test_feedback_loop_format_stop() {
+        // Test that Stop block uses decision/reason format
+        let decision = EngineDecision::Block {
+            feedback: "Task incomplete: please implement error handling".to_string(),
+        };
+        let response = CupcakeResponse::from_decision_block(&decision, "Stop");
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Should use decision/reason format for feedback loop
+        assert!(json.contains("\"decision\":\"block\""));
+        assert!(json.contains("\"reason\":\"Task incomplete: please implement error handling\""));
+        assert!(!json.contains("\"continue\""));
+        assert!(!json.contains("\"stopReason\""));
+    }
+
+    #[test]
+    fn test_feedback_loop_format_subagent_stop() {
+        // Test that SubagentStop block uses decision/reason format
+        let decision = EngineDecision::Block {
+            feedback: "Subagent task requires additional validation".to_string(),
+        };
+        let response = CupcakeResponse::from_decision_block(&decision, "SubagentStop");
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Should use decision/reason format for feedback loop
+        assert!(json.contains("\"decision\":\"block\""));
+        assert!(json.contains("\"reason\":\"Subagent task requires additional validation\""));
+        assert!(!json.contains("\"continue\""));
+        assert!(!json.contains("\"stopReason\""));
+    }
+
+    #[test]
+    fn test_non_feedback_loop_events_use_continue_format() {
+        // Test that non-feedback events (Notification, PreCompact) use continue/stopReason
+        let decision = EngineDecision::Block {
+            feedback: "Cannot proceed with notification".to_string(),
+        };
+        let response = CupcakeResponse::from_decision_block(&decision, "Notification");
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Should use continue/stopReason format
+        assert!(json.contains("\"continue\":false"));
+        assert!(json.contains("\"stopReason\":\"Cannot proceed with notification\""));
+        assert!(!json.contains("\"decision\""));
+        assert!(!json.contains("\"reason\""));
+    }
+
+    #[test]
+    fn test_user_prompt_submit_uses_continue_format() {
+        // Test that UserPromptSubmit uses continue/stopReason for blocking
+        let decision = EngineDecision::Block {
+            feedback: "Prompt contains sensitive information".to_string(),
+        };
+        let response = CupcakeResponse::from_user_prompt_decision(&decision, None);
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Should use continue/stopReason format
+        assert!(json.contains("\"continue\":false"));
+        assert!(json.contains("\"stopReason\":\"Prompt contains sensitive information\""));
+        assert!(!json.contains("\"decision\""));
+        assert!(!json.contains("\"reason\""));
+    }
+
+    #[test]
+    fn test_allow_decision_produces_empty_response() {
+        // Test that Allow decisions produce minimal responses
+        let decision = EngineDecision::Allow { reason: None };
+        
+        // For PostToolUse
+        let response = CupcakeResponse::from_decision_block(&decision, "PostToolUse");
+        let json = serde_json::to_string(&response).unwrap();
+        assert_eq!(json, "{}"); // Empty JSON object
+        
+        // For Stop
+        let response = CupcakeResponse::from_decision_block(&decision, "Stop");
+        let json = serde_json::to_string(&response).unwrap();
+        assert_eq!(json, "{}"); // Empty JSON object
     }
 }

@@ -449,6 +449,10 @@ impl ActionExecutor {
             timestamp: chrono::Utc::now(),
             prompt,
             source,
+            tool_response: None,
+            stop_hook_active: None,
+            trigger: None,
+            custom_instructions: None,
         };
 
         // Evaluate the condition

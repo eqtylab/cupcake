@@ -21,7 +21,7 @@ impl ExecutionContextBuilder {
 
     /// Build evaluation context from hook event
     pub fn build_evaluation_context(&self, hook_event: &HookEvent) -> EvaluationContext {
-        let (session_id, tool_name, tool_input, prompt, source) =
+        let (session_id, tool_name, tool_input, prompt, source, tool_response, stop_hook_active, trigger, custom_instructions) =
             self.extract_event_data(hook_event);
         let current_dir = PathBuf::from(&hook_event.common().cwd);
 
@@ -35,12 +35,16 @@ impl ExecutionContextBuilder {
             timestamp: Utc::now(),
             prompt,
             source,
+            tool_response,
+            stop_hook_active,
+            trigger,
+            custom_instructions,
         }
     }
 
     /// Build action context from hook event
     pub fn build_action_context(&self, hook_event: &HookEvent) -> ActionContext {
-        let (session_id, tool_name, tool_input, prompt, source) =
+        let (session_id, tool_name, tool_input, prompt, source, _tool_response, _stop_hook_active, _trigger, _custom_instructions) =
             self.extract_event_data(hook_event);
         let current_dir = PathBuf::from(&hook_event.common().cwd);
 
@@ -78,22 +82,40 @@ impl ExecutionContextBuilder {
         HashMap<String, serde_json::Value>,
         Option<String>,
         Option<String>,
+        Option<serde_json::Value>,
+        Option<bool>,
+        Option<String>,
+        Option<String>,
     ) {
         match hook_event {
             HookEvent::PreToolUse {
                 common,
                 tool_name,
                 tool_input,
-            }
-            | HookEvent::PostToolUse {
-                common,
-                tool_name,
-                tool_input,
-                ..
             } => (
                 common.session_id.clone(),
                 tool_name.clone(),
                 self.extract_tool_input(tool_input),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            HookEvent::PostToolUse {
+                common,
+                tool_name,
+                tool_input,
+                tool_response,
+            } => (
+                common.session_id.clone(),
+                tool_name.clone(),
+                self.extract_tool_input(tool_input),
+                None,
+                None,
+                Some(tool_response.clone()),
+                None,
                 None,
                 None,
             ),
@@ -102,6 +124,10 @@ impl ExecutionContextBuilder {
                 String::new(),
                 HashMap::new(),
                 Some(prompt.clone()),
+                None,
+                None,
+                None,
+                None,
                 None,
             ),
             HookEvent::SessionStart { common, source } => (
@@ -114,16 +140,57 @@ impl ExecutionContextBuilder {
                     crate::engine::events::SessionSource::Resume => "resume".to_string(),
                     crate::engine::events::SessionSource::Clear => "clear".to_string(),
                 }),
+                None,
+                None,
+                None,
+                None,
             ),
-            HookEvent::Notification { common, .. }
-            | HookEvent::Stop { common, .. }
-            | HookEvent::SubagentStop { common, .. }
-            | HookEvent::PreCompact { common, .. } => (
+            HookEvent::Notification { common, .. } => (
                 common.session_id.clone(),
                 String::new(),
                 HashMap::new(),
                 None,
                 None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            HookEvent::Stop { common, stop_hook_active } => (
+                common.session_id.clone(),
+                String::new(),
+                HashMap::new(),
+                None,
+                None,
+                None,
+                Some(*stop_hook_active),
+                None,
+                None,
+            ),
+            HookEvent::SubagentStop { common, stop_hook_active } => (
+                common.session_id.clone(),
+                String::new(),
+                HashMap::new(),
+                None,
+                None,
+                None,
+                Some(*stop_hook_active),
+                None,
+                None,
+            ),
+            HookEvent::PreCompact { common, trigger, custom_instructions } => (
+                common.session_id.clone(),
+                String::new(),
+                HashMap::new(),
+                None,
+                None,
+                None,
+                None,
+                Some(match trigger {
+                    crate::engine::events::CompactTrigger::Manual => "manual".to_string(),
+                    crate::engine::events::CompactTrigger::Auto => "auto".to_string(),
+                }),
+                custom_instructions.clone(),
             ),
         }
     }

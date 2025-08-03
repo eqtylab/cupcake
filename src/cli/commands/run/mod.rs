@@ -126,45 +126,32 @@ impl CommandHandler for RunCommand {
             }
         };
 
-        // Handle special cases for UserPromptSubmit and SessionStart (both support context injection)
-        if hook_event.event_name() == "UserPromptSubmit"
-            || hook_event.event_name() == "SessionStart"
-        {
-            ResponseHandler::new(self.debug).send_user_prompt_response_with_suppress(
-                result.final_decision,
-                result.context_to_inject,
-                result.suppress_output,
-            );
-        }
-
-        // Handle soft feedback for events that don't support context injection
-        if hook_event.event_name() != "UserPromptSubmit"
-            && hook_event.event_name() != "SessionStart"
-            && matches!(result.final_decision, EngineDecision::Allow { .. })
-            && !result.feedback_messages.is_empty()
-            && !result.suppress_output
-        {
-            let feedback_output = result.feedback_messages.join("\n");
-            println!("{feedback_output}");
-        }
-
-        // Send final response
-        let response_decision = if hook_event.event_name() == "PostToolUse"
-            && matches!(result.final_decision, EngineDecision::Allow { .. })
-            && !result.feedback_messages.is_empty()
-        {
-            EngineDecision::Block {
-                feedback: result.feedback_messages.join("\n"),
+        // Handle different hook types appropriately
+        match hook_event.event_name() {
+            "UserPromptSubmit" | "SessionStart" => {
+                // These hooks support context injection via stdout
+                ResponseHandler::new(self.debug).send_user_prompt_response_with_suppress(
+                    result.final_decision,
+                    result.context_to_inject,
+                    result.suppress_output,
+                );
             }
-        } else {
-            result.final_decision
-        };
-
-        ResponseHandler::new(self.debug).send_response_for_hook_with_suppress(
-            response_decision,
-            hook_event.event_name(),
-            result.suppress_output,
-        );
+            "PreCompact" if !result.context_to_inject.is_empty() => {
+                // PreCompact outputs compaction instructions to stdout
+                // This matches Claude Code's behavior where stdout becomes instructions
+                let combined_instructions = result.context_to_inject.join("\n\n");
+                println!("{combined_instructions}");
+                std::process::exit(0);
+            }
+            _ => {
+                // All other hooks use the standard response format
+                ResponseHandler::new(self.debug).send_response_for_hook_with_suppress(
+                    result.final_decision,
+                    hook_event.event_name(),
+                    result.suppress_output,
+                );
+            }
+        }
     }
 
     fn name(&self) -> &'static str {

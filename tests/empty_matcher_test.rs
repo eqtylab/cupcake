@@ -50,6 +50,10 @@ fn test_empty_matcher_for_user_prompt_submit() {
         timestamp: Utc::now(),
         prompt: Some("My API key is sk-1234567890abcdef123456".to_string()),
         source: None,
+        tool_response: None,
+        stop_hook_active: None,
+        trigger: None,
+        custom_instructions: None,
     };
 
     // Evaluate the policy
@@ -108,6 +112,10 @@ fn test_empty_matcher_only_matches_non_tool_events() {
         timestamp: Utc::now(),
         prompt: None,
         source: None,
+        tool_response: None,
+        stop_hook_active: None,
+        trigger: None,
+        custom_instructions: None,
     };
 
     // Evaluate the policy

@@ -145,14 +145,14 @@ PostToolUse:
 
     let response: Value = serde_json::from_str(&stdout).expect("Should output valid JSON");
 
-    // PostToolUse MUST NOT use hookSpecificOutput, should use continue/stopReason
+    // PostToolUse MUST NOT use hookSpecificOutput, should use decision/reason for feedback loop
     assert!(
         response.get("hookSpecificOutput").is_none(),
         "PostToolUse must NOT have hookSpecificOutput"
     );
-    assert_eq!(response["continue"].as_bool(), Some(false));
+    assert_eq!(response["decision"].as_str(), Some("block"));
     assert_eq!(
-        response["stopReason"].as_str(),
+        response["reason"].as_str(),
         Some("Writing to .env files is not allowed")
     );
 }

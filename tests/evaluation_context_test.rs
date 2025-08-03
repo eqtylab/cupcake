@@ -18,6 +18,10 @@ fn test_prompt_field_extraction() {
         timestamp: Utc::now(),
         prompt: Some("Write a function to calculate factorial".to_string()),
         source: None,
+        tool_response: None,
+        stop_hook_active: None,
+        trigger: None,
+        custom_instructions: None,
     };
 
     // Test matching on prompt field
@@ -45,6 +49,10 @@ fn test_prompt_field_pattern_matching() {
         timestamp: Utc::now(),
         prompt: Some("My API key is sk-1234567890abcdef".to_string()),
         source: None,
+        tool_response: None,
+        stop_hook_active: None,
+        trigger: None,
+        custom_instructions: None,
     };
 
     // Test pattern matching for API keys
@@ -72,6 +80,10 @@ fn test_prompt_field_no_match() {
         timestamp: Utc::now(),
         prompt: None,
         source: None,
+        tool_response: None,
+        stop_hook_active: None,
+        trigger: None,
+        custom_instructions: None,
     };
 
     // Test matching on prompt field when it's None
@@ -97,6 +109,10 @@ fn test_cwd_from_evaluation_context() {
         timestamp: Utc::now(),
         prompt: None,
         source: None,
+        tool_response: None,
+        stop_hook_active: None,
+        trigger: None,
+        custom_instructions: None,
     };
 
     // Test that cwd is properly used in check conditions

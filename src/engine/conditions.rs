@@ -24,6 +24,14 @@ pub struct EvaluationContext {
     pub prompt: Option<String>,
     /// Source field for SessionStart events (startup, resume, clear)
     pub source: Option<String>,
+    /// Tool response for PostToolUse events
+    pub tool_response: Option<serde_json::Value>,
+    /// Whether stop hook is active for Stop/SubagentStop events (prevents infinite loops)
+    pub stop_hook_active: Option<bool>,
+    /// Compaction trigger for PreCompact events (manual/auto)
+    pub trigger: Option<String>,
+    /// Custom instructions for PreCompact events
+    pub custom_instructions: Option<String>,
 }
 
 /// Result of condition evaluation
@@ -198,6 +206,9 @@ impl ConditionEvaluator {
             "session_id" => Some(context.session_id.clone()),
             "prompt" => context.prompt.clone(),
             "source" => context.source.clone(),
+            "stop_hook_active" => context.stop_hook_active.map(|b| b.to_string()),
+            "trigger" => context.trigger.clone(),
+            "custom_instructions" => context.custom_instructions.clone(),
 
             // Tool input fields (dot notation)
             field_name if field_name.starts_with("tool_input.") => {
@@ -207,6 +218,23 @@ impl ConditionEvaluator {
                     serde_json::Value::Number(n) => Some(n.to_string()),
                     serde_json::Value::Bool(b) => Some(b.to_string()),
                     _ => None,
+                })
+            }
+
+            // Tool response fields (dot notation)
+            field_name if field_name.starts_with("tool_response.") => {
+                let key = &field_name[14..]; // Remove "tool_response." prefix
+                context.tool_response.as_ref().and_then(|resp| {
+                    if let serde_json::Value::Object(map) = resp {
+                        map.get(key).and_then(|v| match v {
+                            serde_json::Value::String(s) => Some(s.clone()),
+                            serde_json::Value::Number(n) => Some(n.to_string()),
+                            serde_json::Value::Bool(b) => Some(b.to_string()),
+                            _ => None,
+                        })
+                    } else {
+                        None
+                    }
                 })
             }
 
@@ -344,6 +372,10 @@ mod tests {
             timestamp: Utc::now(),
             prompt: None,
             source: None,
+            tool_response: None,
+            stop_hook_active: None,
+            trigger: None,
+            custom_instructions: None,
         }
     }
 

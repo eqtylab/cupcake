@@ -65,7 +65,8 @@ impl EngineRunner {
         let mut context_to_inject = Vec::new();
         let mut suppress_output = false;
         let is_context_injection_event = hook_event.event_name() == "UserPromptSubmit"
-            || hook_event.event_name() == "SessionStart";
+            || hook_event.event_name() == "SessionStart"
+            || hook_event.event_name() == "PreCompact";
 
         for (_policy_name, result) in action_results.iter() {
             match result {

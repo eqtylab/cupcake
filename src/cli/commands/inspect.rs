@@ -22,7 +22,7 @@ impl CommandHandler for InspectCommand {
         } else {
             // No config specified - use auto-discovery
             let current_dir = std::env::current_dir().map_err(|e| {
-                crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
+                crate::CupcakeError::Config(format!("Failed to get current directory: {e}"))
             })?;
             loader.load_and_compose_policies(&current_dir)?
         };
@@ -162,10 +162,10 @@ impl InspectCommand {
     fn format_single_condition(&self, condition: &Condition) -> String {
         match condition {
             Condition::Pattern { field, regex } => {
-                format!("{} ~ \"{}\"", field, regex)
+                format!("{field} ~ \"{regex}\"")
             }
             Condition::Match { field, value } => {
-                format!("{} = \"{}\"", field, value)
+                format!("{field} = \"{value}\"")
             }
             Condition::Check {
                 spec,
@@ -188,9 +188,9 @@ impl InspectCommand {
                     }
                 };
                 if *expect_success {
-                    format!("check \"{}\"", command_display)
+                    format!("check \"{command_display}\"")
                 } else {
-                    format!("check !\"{}\"", command_display)
+                    format!("check !\"{command_display}\"")
                 }
             }
             Condition::And { conditions } => {

@@ -23,7 +23,7 @@ impl CommandHandler for ValidateCommand {
         let start_dir = if self.policy_file.is_empty() {
             // Auto-discovery mode - start from current directory
             std::env::current_dir().map_err(|e| {
-                crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
+                crate::CupcakeError::Config(format!("Failed to get current directory: {e}"))
             })?
         } else {
             // Specific path provided
@@ -53,7 +53,7 @@ impl CommandHandler for ValidateCommand {
                 } else {
                     // Text output format
                     println!("✅ Policy validation successful!");
-                    println!("📄 Found {} composed policies", policy_count);
+                    println!("📄 Found {policy_count} composed policies");
 
                     if policy_count > 0 {
                         println!("\nPolicy summary:");
@@ -86,7 +86,7 @@ impl CommandHandler for ValidateCommand {
                 } else {
                     // Text error output
                     println!("❌ Policy validation failed!");
-                    println!("Error: {}", e);
+                    println!("Error: {e}");
                 }
 
                 // Return the original error for proper exit codes

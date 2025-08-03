@@ -30,7 +30,7 @@ impl HookEventParser {
         }
 
         serde_json::from_str(&input)
-            .map_err(|e| CupcakeError::HookEvent(format!("Invalid JSON from stdin: {}", e)))
+            .map_err(|e| CupcakeError::HookEvent(format!("Invalid JSON from stdin: {e}")))
     }
 
     fn log_stdin_content(&self, content: &str) {

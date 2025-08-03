@@ -185,16 +185,16 @@ impl ResponseHandler {
     /// Send JSON response to Claude Code (for advanced control)
     pub fn send_json_response(&self, response: CupcakeResponse) -> ! {
         if self.debug {
-            eprintln!("Debug: Sending JSON response: {:?}", response);
+            eprintln!("Debug: Sending JSON response: {response:?}");
         }
 
         match serde_json::to_string(&response) {
             Ok(json) => {
-                println!("{}", json);
+                println!("{json}");
                 process::exit(0);
             }
             Err(e) => {
-                eprintln!("Error serializing response: {}", e);
+                eprintln!("Error serializing response: {e}");
                 process::exit(1);
             }
         }
@@ -242,7 +242,7 @@ impl ResponseHandler {
                             eprintln!("Debug: Injecting context via stdout for UserPromptSubmit");
                             eprintln!("Debug: Context length: {} chars", combined_context.len());
                         }
-                        println!("{}", combined_context);
+                        println!("{combined_context}");
                         std::process::exit(0);
                     }
                 } else {
@@ -327,8 +327,7 @@ impl ResponseHandler {
                 // Unknown hook types get generic handling
                 if self.debug {
                     eprintln!(
-                        "Debug: Unknown hook event type '{}', using generic response",
-                        hook_event
+                        "Debug: Unknown hook event type '{hook_event}', using generic response"
                     );
                 }
                 CupcakeResponse::from_generic_decision(&decision)
@@ -368,8 +367,7 @@ impl ResponseHandler {
                 // Unknown hook types get generic handling
                 if self.debug {
                     eprintln!(
-                        "Debug: Unknown hook event type '{}', using generic response",
-                        hook_event
+                        "Debug: Unknown hook event type '{hook_event}', using generic response"
                     );
                 }
                 CupcakeResponse::from_generic_decision(&decision)

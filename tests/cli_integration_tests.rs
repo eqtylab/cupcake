@@ -149,12 +149,10 @@ fn test_cli_invalid_command() {
     let stdout = String::from_utf8(output.stdout).unwrap();
 
     // More robust check - error message might be in stdout or stderr
-    let combined = format!("{}{}", stderr, stdout);
+    let combined = format!("{stderr}{stdout}");
     assert!(
         combined.contains("error") || combined.contains("unrecognized"),
-        "Expected 'error' or 'unrecognized' in output.\nStderr: {}\nStdout: {}",
-        stderr,
-        stdout
+        "Expected 'error' or 'unrecognized' in output.\nStderr: {stderr}\nStdout: {stdout}"
     );
 }
 
@@ -236,8 +234,7 @@ fn test_cli_all_subcommands_exist() {
     for cmd in expected_commands {
         assert!(
             stdout.contains(cmd),
-            "Command '{}' not found in help output",
-            cmd
+            "Command '{cmd}' not found in help output"
         );
     }
 }

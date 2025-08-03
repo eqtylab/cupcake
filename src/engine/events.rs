@@ -390,10 +390,9 @@ mod tests {
                     "session_id": "test-session",
                     "transcript_path": "~/.claude/projects/.../transcript.jsonl",
                     "cwd": "/home/user/project",
-                    "source": "{}"
+                    "source": "{source_str}"
                 }}
-                "#,
-                source_str
+                "#
             );
 
             let event: HookEvent = serde_json::from_str(&json).unwrap();

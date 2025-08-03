@@ -81,19 +81,19 @@ PostToolUse:
 
     // Create multiple policy files with unique names to simulate real usage
     for i in 0..5 {
-        let filename = format!("{:02}-policies.yaml", i);
+        let filename = format!("{i:02}-policies.yaml");
         // Modify policy names to be unique per file
         let unique_content = policy_content
             .replace(
                 "Block dangerous commands",
-                &format!("Block dangerous commands {}", i),
+                &format!("Block dangerous commands {i}"),
             )
-            .replace("Git commit checks", &format!("Git commit checks {}", i))
-            .replace("NPM install warning", &format!("NPM install warning {}", i))
-            .replace("Python formatting", &format!("Python formatting {}", i))
+            .replace("Git commit checks", &format!("Git commit checks {i}"))
+            .replace("NPM install warning", &format!("NPM install warning {i}"))
+            .replace("Python formatting", &format!("Python formatting {i}"))
             .replace(
                 "File creation logging",
-                &format!("File creation logging {}", i),
+                &format!("File creation logging {i}"),
             );
         fs::write(policies_dir.join(&filename), &unique_content).unwrap();
     }
@@ -126,18 +126,17 @@ PostToolUse:
     let avg_duration = total_duration / ITERATIONS;
 
     println!("=== YAML Loading Performance ===");
-    println!("Iterations: {}", ITERATIONS);
+    println!("Iterations: {ITERATIONS}");
     println!("Total policies loaded: 25 (5 files × 5 policies)");
-    println!("Average time: {:?}", avg_duration);
-    println!("Min time: {:?}", min_duration);
-    println!("Max time: {:?}", max_duration);
+    println!("Average time: {avg_duration:?}");
+    println!("Min time: {min_duration:?}");
+    println!("Max time: {max_duration:?}");
     println!("================================");
 
     // Assert sub-100ms requirement (with some margin for CI environments)
     assert!(
         avg_duration.as_millis() < 100,
-        "Average loading time {:?} exceeds 100ms target",
-        avg_duration
+        "Average loading time {avg_duration:?} exceeds 100ms target"
     );
 }
 
@@ -199,10 +198,10 @@ PreToolUse:
     let avg_load = load_total / LOAD_ITERATIONS;
 
     println!("=== YAML Parsing vs Full Load ===");
-    println!("Parse iterations: {}", ITERATIONS);
-    println!("Load iterations: {}", LOAD_ITERATIONS);
-    println!("Pure YAML parsing: {:?}", avg_parse);
-    println!("Full load cycle: {:?}", avg_load);
+    println!("Parse iterations: {ITERATIONS}");
+    println!("Load iterations: {LOAD_ITERATIONS}");
+    println!("Pure YAML parsing: {avg_parse:?}");
+    println!("Full load cycle: {avg_load:?}");
     println!("=================================");
 
     // Both should be well under 100ms

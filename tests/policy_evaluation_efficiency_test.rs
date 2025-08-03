@@ -83,8 +83,7 @@ PreToolUse:
     // Verify efficient policy evaluation: exactly 1 evaluation per policy
     assert_eq!(
         evaluation_count, 2,
-        "Expected 2 policy evaluations (1 per policy), but found {}. Debug output:\n{}",
-        evaluation_count, debug_output
+        "Expected 2 policy evaluations (1 per policy), but found {evaluation_count}. Debug output:\n{debug_output}"
     );
 }
 
@@ -149,8 +148,7 @@ PreToolUse:
     // With 1 policy, we expect exactly 1 evaluation
     assert_eq!(
         evaluation_count, 1,
-        "Expected 1 policy evaluation for single policy, but found {}. Debug output:\n{}",
-        evaluation_count, debug_output
+        "Expected 1 policy evaluation for single policy, but found {evaluation_count}. Debug output:\n{debug_output}"
     );
 }
 
@@ -253,6 +251,5 @@ PreToolUse:
     // For Bash tool: Complex Policy 1, 2, 3 = 3 evaluations
     // Edit|Write policies don't apply to Bash tool, so not evaluated
     assert_eq!(evaluation_count, 3,
-        "Expected 3 policy evaluations (matching Bash policies only), but found {}. Debug output:\n{}", 
-        evaluation_count, debug_output);
+        "Expected 3 policy evaluations (matching Bash policies only), but found {evaluation_count}. Debug output:\n{debug_output}");
 }

@@ -49,13 +49,13 @@ SessionStart:
 
     // Build the cupcake binary
     Command::new("cargo")
-        .args(&["build", "--bin", "cupcake"])
+        .args(["build", "--bin", "cupcake"])
         .output()
         .expect("Failed to build cupcake");
 
     // Run cupcake with the test configuration
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(&["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -119,13 +119,13 @@ SessionStart:
     "session_id": "test-session",
     "transcript_path": "/tmp/transcript.jsonl",
     "cwd": "/home/test",
-    "source": "{}"
+    "source": "{source}"
 }}
-"#, source);
+"#);
 
         // Run cupcake
         let mut cmd = Command::new("./target/debug/cupcake")
-            .args(&["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+            .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -196,7 +196,7 @@ SessionStart:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(&["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

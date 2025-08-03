@@ -54,13 +54,13 @@ PreToolUse:
 
     // Build the cupcake binary
     Command::new("cargo")
-        .args(&["build", "--bin", "cupcake"])
+        .args(["build", "--bin", "cupcake"])
         .output()
         .expect("Failed to build cupcake");
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(&["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -137,7 +137,7 @@ PreToolUse:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(&["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -205,7 +205,7 @@ UserPromptSubmit:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(&["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -224,8 +224,8 @@ UserPromptSubmit:
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     
-    println!("STDOUT: {}", stdout);
-    println!("STDERR: {}", stderr);
+    println!("STDOUT: {stdout}");
+    println!("STDERR: {stderr}");
     
     // Should get JSON response instead of plain text
     let response: serde_json::Value = serde_json::from_str(&stdout).unwrap();

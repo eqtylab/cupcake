@@ -135,7 +135,7 @@ imports:
             );
             assert_eq!(config.policies[0].name, "claude-policy");
         }
-        Err(e) => panic!("Failed to load config: {}", e),
+        Err(e) => panic!("Failed to load config: {e}"),
     }
 }
 

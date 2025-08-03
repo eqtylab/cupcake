@@ -1,5 +1,3 @@
-use cupcake::config::actions::{Action, CommandSpec, ShellCommandSpec};
-use cupcake::config::loader::PolicyLoader;
 use serde_json::json;
 use std::fs;
 use std::io::Write;
@@ -523,8 +521,8 @@ UserPromptSubmit:
     let stderr = String::from_utf8_lossy(&output.stderr);
     
     println!("Exit code: {:?}", output.status.code());
-    println!("STDOUT: {}", stdout);
-    println!("STDERR: {}", stderr);
+    println!("STDOUT: {stdout}");
+    println!("STDERR: {stderr}");
     
     assert_eq!(output.status.code(), Some(0));
     
@@ -534,7 +532,7 @@ UserPromptSubmit:
     assert!(stdout.contains("Static context 3"));
     
     // Should complete reasonably quickly despite delay
-    assert!(duration.as_secs() < 2, "Execution took too long: {:?}", duration);
+    assert!(duration.as_secs() < 2, "Execution took too long: {duration:?}");
 }
 
 #[test]
@@ -612,8 +610,8 @@ SessionStart:
     let stderr_startup = String::from_utf8_lossy(&output_startup.stderr);
     
     println!("Startup test - Exit code: {:?}", output_startup.status.code());
-    println!("STDOUT: {}", stdout_startup);
-    println!("STDERR: {}", stderr_startup);
+    println!("STDOUT: {stdout_startup}");
+    println!("STDERR: {stderr_startup}");
     
     assert_eq!(output_startup.status.code(), Some(0));
     assert!(stdout_startup.contains("🚀 Fresh session started"));
@@ -649,8 +647,8 @@ SessionStart:
     let stderr_resume = String::from_utf8_lossy(&output_resume.stderr);
     
     println!("Resume test - Exit code: {:?}", output_resume.status.code());
-    println!("STDOUT: {}", stdout_resume);
-    println!("STDERR: {}", stderr_resume);
+    println!("STDOUT: {stdout_resume}");
+    println!("STDERR: {stderr_resume}");
     
     assert_eq!(output_resume.status.code(), Some(0));
     assert!(stdout_resume.contains("📂 Resuming previous session"));

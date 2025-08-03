@@ -29,7 +29,7 @@ impl RunCommand {
 
     fn log_debug(&self, message: &str) {
         if self.debug {
-            eprintln!("Debug: {}", message);
+            eprintln!("Debug: {message}");
         }
     }
 
@@ -43,7 +43,7 @@ impl RunCommand {
             let timestamp = chrono::Local::now()
                 .format("%Y-%m-%d %H:%M:%S%.3f")
                 .to_string();
-            let _ = writeln!(file, "[{}] {}", timestamp, message);
+            let _ = writeln!(file, "[{timestamp}] {message}");
         }
     }
 
@@ -76,20 +76,20 @@ impl CommandHandler for RunCommand {
         let hook_event = match parser.parse_from_stdin() {
             Ok(event) => event,
             Err(e) => {
-                eprintln!("Error reading hook event: {}", e);
+                eprintln!("Error reading hook event: {e}");
                 self.log_debug("Graceful degradation - allowing operation due to input error");
-                self.append_debug_log(&format!("ERROR reading hook event: {}", e));
+                self.append_debug_log(&format!("ERROR reading hook event: {e}"));
                 std::process::exit(0);
             }
         };
 
-        self.log_debug(&format!("Parsed hook event: {:?}", hook_event));
+        self.log_debug(&format!("Parsed hook event: {hook_event:?}"));
 
         // Load configuration
         let configuration = match self.load_configuration() {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("Error loading configuration: {}", e);
+                eprintln!("Error loading configuration: {e}");
                 self.log_debug(
                     "Graceful degradation - allowing operation due to configuration loading error",
                 );
@@ -117,7 +117,7 @@ impl CommandHandler for RunCommand {
         ) {
             Ok(result) => result,
             Err(e) => {
-                eprintln!("Error during policy evaluation: {}", e);
+                eprintln!("Error during policy evaluation: {e}");
                 self.log_debug("Graceful degradation - allowing operation due to evaluation error");
                 ResponseHandler::new(self.debug).send_response_for_hook(
                     EngineDecision::Allow { reason: None },
@@ -140,7 +140,7 @@ impl CommandHandler for RunCommand {
             && !result.suppress_output
         {
             let feedback_output = result.feedback_messages.join("\n");
-            println!("{}", feedback_output);
+            println!("{feedback_output}");
         }
 
         // Send final response

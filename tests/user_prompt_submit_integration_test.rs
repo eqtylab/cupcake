@@ -263,7 +263,7 @@ UserPromptSubmit:
 
     // Debug what we got
     if !stderr.trim().is_empty() {
-        eprintln!("Unexpected stderr: {}", stderr);
+        eprintln!("Unexpected stderr: {stderr}");
     }
 
     assert!(stdout.is_empty() || stdout.trim().is_empty());

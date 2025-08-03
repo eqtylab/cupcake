@@ -166,8 +166,7 @@ impl CommandExecutor {
         // SECURITY: Check recursion depth to prevent stack overflow
         if depth > MAX_RECURSION_DEPTH {
             return Err(ExecutionError::InvalidSpec(format!(
-                "Command nesting depth exceeds maximum allowed depth of {}. This may indicate a malicious policy.",
-                MAX_RECURSION_DEPTH
+                "Command nesting depth exceeds maximum allowed depth of {MAX_RECURSION_DEPTH}. This may indicate a malicious policy."
             )));
         }
 
@@ -394,7 +393,7 @@ impl CommandExecutor {
         let mut result = template.to_string();
 
         for (key, value) in &self.template_vars {
-            let placeholder = format!("{{{{{}}}}}", key);
+            let placeholder = format!("{{{{{key}}}}}");
             result = result.replace(&placeholder, value);
         }
 
@@ -578,7 +577,7 @@ impl CommandExecutor {
         {
             // For non-Linux Unix systems, require numeric UID
             Err(ExecutionError::InvalidSpec(
-                format!("Username resolution not supported on this platform. Please use numeric UID instead of '{}'", uid_str)
+                format!("Username resolution not supported on this platform. Please use numeric UID instead of '{uid_str}'")
             ))
         }
     }
@@ -601,8 +600,7 @@ impl CommandExecutor {
         match timeout(timeout_duration, output_future).await {
             Ok(Ok(output)) => Ok(output),
             Ok(Err(e)) => Err(ExecutionError::ProcessSpawn(format!(
-                "Failed to execute command: {}",
-                e
+                "Failed to execute command: {e}"
             ))),
             Err(_) => Err(ExecutionError::Timeout),
         }
@@ -731,7 +729,7 @@ impl CommandExecutor {
         self.apply_sandboxing_controls(&mut cmd, pipe_cmd)?;
 
         let mut child = cmd.spawn().map_err(|e| {
-            ExecutionError::ProcessSpawn(format!("Failed to spawn pipe command: {}", e))
+            ExecutionError::ProcessSpawn(format!("Failed to spawn pipe command: {e}"))
         })?;
 
         // Write input to stdin - elegant async I/O
@@ -739,10 +737,10 @@ impl CommandExecutor {
             use tokio::io::AsyncWriteExt;
             let mut stdin = stdin;
             stdin.write_all(input.as_bytes()).await.map_err(|e| {
-                ExecutionError::IoOperation(format!("Failed to write to pipe stdin: {}", e))
+                ExecutionError::IoOperation(format!("Failed to write to pipe stdin: {e}"))
             })?;
             stdin.shutdown().await.map_err(|e| {
-                ExecutionError::IoOperation(format!("Failed to close pipe stdin: {}", e))
+                ExecutionError::IoOperation(format!("Failed to close pipe stdin: {e}"))
             })?;
         }
 
@@ -754,8 +752,7 @@ impl CommandExecutor {
             Ok(Ok(output)) => output,
             Ok(Err(e)) => {
                 return Err(ExecutionError::ProcessSpawn(format!(
-                    "Failed to read pipe output: {}",
-                    e
+                    "Failed to read pipe output: {e}"
                 )))
             }
             Err(_) => return Err(ExecutionError::Timeout),
@@ -789,15 +786,15 @@ impl CommandExecutor {
             .open(path)
             .await
             .map_err(|e| {
-                ExecutionError::IoOperation(format!("Failed to open file {:?}: {}", path, e))
+                ExecutionError::IoOperation(format!("Failed to open file {path:?}: {e}"))
             })?;
 
         file.write_all(content.as_bytes()).await.map_err(|e| {
-            ExecutionError::IoOperation(format!("Failed to write to file {:?}: {}", path, e))
+            ExecutionError::IoOperation(format!("Failed to write to file {path:?}: {e}"))
         })?;
 
         file.flush().await.map_err(|e| {
-            ExecutionError::IoOperation(format!("Failed to flush file {:?}: {}", path, e))
+            ExecutionError::IoOperation(format!("Failed to flush file {path:?}: {e}"))
         })?;
 
         Ok(())

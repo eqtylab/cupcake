@@ -38,7 +38,7 @@ async fn test_custom_timeout_short() {
     assert!(result.is_err());
     match result.unwrap_err() {
         ExecutionError::Timeout => (),
-        other => panic!("Expected Timeout error, got: {:?}", other),
+        other => panic!("Expected Timeout error, got: {other:?}"),
     }
 }
 

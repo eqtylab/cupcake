@@ -1,5 +1,3 @@
-use cupcake::config::actions::{Action, CommandSpec, ArrayCommandSpec, OnFailureBehavior};
-use cupcake::config::loader::PolicyLoader;
 use serde_json::json;
 use std::fs;
 use std::io::Write;
@@ -125,7 +123,7 @@ SessionStart:
     
     // Should contain multiple lines
     let line_count = stdout.lines().count();
-    assert!(line_count >= 1000, "Expected at least 1000 lines, got {}", line_count);
+    assert!(line_count >= 1000, "Expected at least 1000 lines, got {line_count}");
     assert!(stdout.contains("Line 1:"));
     assert!(stdout.contains("Line 1000:"));
 }
@@ -505,8 +503,8 @@ SessionStart:
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     
-    println!("STDOUT: {}", stdout);
-    println!("STDERR: {}", stderr);
+    println!("STDOUT: {stdout}");
+    println!("STDERR: {stderr}");
     
     assert!(stdout.contains("Running as user:"));
     assert!(stdout.contains("Session: env-test-session"));
@@ -572,8 +570,8 @@ UserPromptSubmit:
     let stderr = String::from_utf8_lossy(&output.stderr);
     
     println!("Exit code: {:?}", output.status.code());
-    println!("STDOUT: {}", stdout);
-    println!("STDERR: {}", stderr);
+    println!("STDOUT: {stdout}");
+    println!("STDERR: {stderr}");
     
     assert_eq!(output.status.code(), Some(0));
     assert!(stdout.contains("Special project context"));

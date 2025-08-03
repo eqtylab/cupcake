@@ -57,8 +57,8 @@ SessionStart:
     let stderr = String::from_utf8_lossy(&output.stderr);
     
     println!("Exit code: {:?}", output.status.code());
-    println!("STDOUT: {}", stdout);
-    println!("STDERR: {}", stderr);
+    println!("STDOUT: {stdout}");
+    println!("STDERR: {stderr}");
     
     assert_eq!(output.status.code(), Some(0));
     assert!(stdout.contains("Hello from command"));

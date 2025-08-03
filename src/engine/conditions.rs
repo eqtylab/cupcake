@@ -121,7 +121,7 @@ impl ConditionEvaluator {
                     ConditionResult::NoMatch
                 }
             }
-            Err(e) => ConditionResult::Error(format!("Invalid regex '{}': {}", regex, e)),
+            Err(e) => ConditionResult::Error(format!("Invalid regex '{regex}': {e}")),
         }
     }
 
@@ -143,13 +143,13 @@ impl ConditionEvaluator {
         // Add tool input variables
         for (key, value) in &context.tool_input {
             if let Some(str_value) = value.as_str() {
-                template_vars.insert(format!("tool_input.{}", key), str_value.to_string());
+                template_vars.insert(format!("tool_input.{key}"), str_value.to_string());
             }
         }
 
         // Add environment variables
         for (key, value) in &context.env_vars {
-            template_vars.insert(format!("env.{}", key), value.clone());
+            template_vars.insert(format!("env.{key}"), value.clone());
         }
 
         // Create secure CommandExecutor
@@ -159,7 +159,7 @@ impl ConditionEvaluator {
         let graph = match command_executor.build_graph(spec) {
             Ok(graph) => graph,
             Err(e) => {
-                return ConditionResult::Error(format!("Command graph construction failed: {}", e))
+                return ConditionResult::Error(format!("Command graph construction failed: {e}"))
             }
         };
 
@@ -170,7 +170,7 @@ impl ConditionEvaluator {
         {
             Ok(rt) => rt,
             Err(e) => {
-                return ConditionResult::Error(format!("Failed to create async runtime: {}", e))
+                return ConditionResult::Error(format!("Failed to create async runtime: {e}"))
             }
         };
 
@@ -185,7 +185,7 @@ impl ConditionEvaluator {
                     ConditionResult::NoMatch
                 }
             }
-            Err(e) => ConditionResult::Error(format!("Secure command execution failed: {}", e)),
+            Err(e) => ConditionResult::Error(format!("Secure command execution failed: {e}")),
         }
     }
 
@@ -288,7 +288,7 @@ impl ConditionEvaluator {
     fn get_or_compile_regex(&mut self, pattern: &str) -> Result<&Regex> {
         if !self.regex_cache.contains_key(pattern) {
             let regex = Regex::new(pattern)
-                .map_err(|e| crate::CupcakeError::Condition(format!("Invalid regex: {}", e)))?;
+                .map_err(|e| crate::CupcakeError::Condition(format!("Invalid regex: {e}")))?;
 
             self.regex_cache.insert(pattern.to_string(), regex);
         }

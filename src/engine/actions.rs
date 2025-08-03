@@ -88,13 +88,13 @@ impl ActionContext {
         // Add tool input variables
         for (key, value) in &tool_input {
             if let Some(str_value) = value.as_str() {
-                template_vars.insert(format!("tool_input.{}", key), str_value.to_string());
+                template_vars.insert(format!("tool_input.{key}"), str_value.to_string());
             }
         }
 
         // Add environment variables
         for (key, value) in &env_vars {
-            template_vars.insert(format!("env.{}", key), value.clone());
+            template_vars.insert(format!("env.{key}"), value.clone());
         }
 
         Self {
@@ -112,7 +112,7 @@ impl ActionContext {
         let mut result = template.to_string();
 
         for (key, value) in &self.template_vars {
-            let placeholder = format!("{{{{{}}}}}", key);
+            let placeholder = format!("{{{{{key}}}}}");
             result = result.replace(&placeholder, value);
         }
 
@@ -173,7 +173,7 @@ impl ActionExecutor {
                 on_failure_feedback.as_deref(),
                 *background,
                 timeout_seconds
-                    .unwrap_or(std::cmp::max(1, (self.settings.timeout_ms + 999) / 1000) as u32),
+                    .unwrap_or(std::cmp::max(1, self.settings.timeout_ms.div_ceil(1000)) as u32),
                 context,
             ),
             Action::Conditional {
@@ -265,7 +265,7 @@ impl ActionExecutor {
             Ok(graph) => graph,
             Err(e) => {
                 return ActionResult::Error {
-                    message: format!("Dynamic context command construction failed: {}", e),
+                    message: format!("Dynamic context command construction failed: {e}"),
                 }
             }
         };
@@ -278,7 +278,7 @@ impl ActionExecutor {
             Ok(rt) => rt,
             Err(e) => {
                 return ActionResult::Error {
-                    message: format!("Failed to create async runtime: {}", e),
+                    message: format!("Failed to create async runtime: {e}"),
                 }
             }
         };
@@ -305,14 +305,14 @@ impl ActionExecutor {
                         crate::config::actions::OnFailureBehavior::Block => {
                             let error_output = result.stderr.as_deref().unwrap_or("Command failed").trim();
                             ActionResult::Block {
-                                feedback: format!("Dynamic context generation failed: {}", error_output),
+                                feedback: format!("Dynamic context generation failed: {error_output}"),
                             }
                         }
                     }
                 }
             }
             Err(e) => ActionResult::Error {
-                message: format!("Dynamic context command execution failed: {}", e),
+                message: format!("Dynamic context command execution failed: {e}"),
             },
         }
     }
@@ -341,7 +341,7 @@ impl ActionExecutor {
             Ok(graph) => graph,
             Err(e) => {
                 return ActionResult::Error {
-                    message: format!("Command graph construction failed: {}", e),
+                    message: format!("Command graph construction failed: {e}"),
                 }
             }
         };
@@ -361,7 +361,7 @@ impl ActionExecutor {
             Ok(rt) => rt,
             Err(e) => {
                 return ActionResult::Error {
-                    message: format!("Failed to create async runtime: {}", e),
+                    message: format!("Failed to create async runtime: {e}"),
                 }
             }
         };
@@ -392,15 +392,14 @@ impl ActionExecutor {
                     match on_failure {
                         OnFailureBehavior::Continue => ActionResult::Success {
                             feedback: Some(format!(
-                                "Command failed but continuing: {}",
-                                error_output
+                                "Command failed but continuing: {error_output}"
                             )),
                         },
                         OnFailureBehavior::Block => {
                             let feedback = if let Some(custom_feedback) = on_failure_feedback {
                                 context.substitute_template(custom_feedback)
                             } else {
-                                format!("Command failed: {}", error_output)
+                                format!("Command failed: {error_output}")
                             };
                             ActionResult::Block { feedback }
                         }
@@ -408,7 +407,7 @@ impl ActionExecutor {
                 }
             }
             Err(e) => ActionResult::Error {
-                message: format!("Secure command execution failed: {}", e),
+                message: format!("Secure command execution failed: {e}"),
             },
         }
     }
@@ -463,7 +462,7 @@ impl ActionExecutor {
             crate::engine::conditions::ConditionResult::Error(err) => {
                 // Condition evaluation failed, treat as no match
                 ActionResult::Success {
-                    feedback: Some(format!("Condition evaluation failed: {}", err)),
+                    feedback: Some(format!("Condition evaluation failed: {err}")),
                 }
             }
         }
@@ -745,16 +744,16 @@ mod tests {
             ActionResult::Success { feedback, .. } => {
                 assert!(feedback.is_some());
                 let feedback_msg = feedback.unwrap();
-                println!("Feedback: {}", feedback_msg);
+                println!("Feedback: {feedback_msg}");
                 // Update test for new secure feedback format
                 assert!(feedback_msg.contains("Command completed successfully"));
             }
             ActionResult::Error { message } => {
                 // For now, accept errors in tests since tokio might not be available
-                println!("Command execution failed: {}", message);
+                println!("Command execution failed: {message}");
                 assert!(message.contains("execution failed"));
             }
-            other => panic!("Expected Success result for true command, got: {:?}", other),
+            other => panic!("Expected Success result for true command, got: {other:?}"),
         }
     }
 
@@ -794,12 +793,11 @@ mod tests {
             }
             ActionResult::Error { message } => {
                 // Accept errors in tests - command execution might not be available
-                println!("Command execution failed: {}", message);
+                println!("Command execution failed: {message}");
                 assert!(message.contains("Command execution error"));
             }
             other => panic!(
-                "Expected Block result for failing command, got: {:?}",
-                other
+                "Expected Block result for failing command, got: {other:?}"
             ),
         }
     }
@@ -842,12 +840,11 @@ mod tests {
             }
             ActionResult::Error { message } => {
                 // Accept errors in tests - command execution might not be available
-                println!("Command execution failed: {}", message);
+                println!("Command execution failed: {message}");
                 assert!(message.contains("Command execution error"));
             }
             other => panic!(
-                "Expected Success result with Continue on failure, got: {:?}",
-                other
+                "Expected Success result with Continue on failure, got: {other:?}"
             ),
         }
     }
@@ -890,12 +887,11 @@ mod tests {
             }
             ActionResult::Error { message } => {
                 // Accept errors in tests - command execution might not be available
-                println!("Command execution failed: {}", message);
+                println!("Command execution failed: {message}");
                 assert!(message.contains("Command execution error"));
             }
             other => panic!(
-                "Expected Success result for template substitution, got: {:?}",
-                other
+                "Expected Success result for template substitution, got: {other:?}"
             ),
         }
     }

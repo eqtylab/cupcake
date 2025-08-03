@@ -41,8 +41,8 @@ fn run_cupcake_with_hook_event(
     // Debug output if test is failing
     if stdout.is_empty() {
         eprintln!("Debug: No stdout from cupcake");
-        eprintln!("Stderr: {}", stderr);
-        eprintln!("Exit code: {}", exit_code);
+        eprintln!("Stderr: {stderr}");
+        eprintln!("Exit code: {exit_code}");
     }
 
     (stdout, exit_code)

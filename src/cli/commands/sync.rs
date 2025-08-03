@@ -55,9 +55,9 @@ impl CommandHandler for SyncCommand {
                                     .unwrap_or(0)
                             })
                             .sum::<usize>();
-                        println!("   - {} ({} hook commands)", event, hook_count);
+                        println!("   - {event} ({hook_count} hook commands)");
                     } else {
-                        println!("   - {} (legacy format)", event);
+                        println!("   - {event} (legacy format)");
                     }
                 }
             }
@@ -95,7 +95,7 @@ impl SyncCommand {
         } else {
             // Auto-discover in standard location
             let cwd = std::env::current_dir().map_err(|e| {
-                crate::CupcakeError::Config(format!("Failed to get current directory: {}", e))
+                crate::CupcakeError::Config(format!("Failed to get current directory: {e}"))
             })?;
             Ok(cwd.join(".claude").join("settings.local.json"))
         }
@@ -105,10 +105,10 @@ impl SyncCommand {
     fn read_or_create_settings(&self, path: &Path) -> Result<Value> {
         if path.exists() {
             let content = fs::read_to_string(path).map_err(|e| {
-                crate::CupcakeError::Config(format!("Failed to read settings: {}", e))
+                crate::CupcakeError::Config(format!("Failed to read settings: {e}"))
             })?;
             serde_json::from_str(&content).map_err(|e| {
-                crate::CupcakeError::Config(format!("Invalid JSON in settings: {}", e))
+                crate::CupcakeError::Config(format!("Invalid JSON in settings: {e}"))
             })
         } else {
             // Create default structure
@@ -154,7 +154,7 @@ impl SyncCommand {
                         };
 
                         if needs_update {
-                            eprintln!("⚠️  Hook '{}' already exists. Use --force to add/update Cupcake hooks.", event_name);
+                            eprintln!("⚠️  Hook '{event_name}' already exists. Use --force to add/update Cupcake hooks.");
                             continue;
                         } else {
                             // Cupcake hook already exists and is up to date
@@ -240,17 +240,17 @@ impl SyncCommand {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                crate::CupcakeError::Config(format!("Failed to create .claude directory: {}", e))
+                crate::CupcakeError::Config(format!("Failed to create .claude directory: {e}"))
             })?;
         }
 
         // Write with pretty formatting
         let content = serde_json::to_string_pretty(settings)?;
         let mut file = fs::File::create(path).map_err(|e| {
-            crate::CupcakeError::Config(format!("Failed to create settings file: {}", e))
+            crate::CupcakeError::Config(format!("Failed to create settings file: {e}"))
         })?;
         file.write_all(content.as_bytes())
-            .map_err(|e| crate::CupcakeError::Config(format!("Failed to write settings: {}", e)))?;
+            .map_err(|e| crate::CupcakeError::Config(format!("Failed to write settings: {e}")))?;
 
         Ok(())
     }

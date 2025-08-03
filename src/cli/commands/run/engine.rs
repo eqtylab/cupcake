@@ -67,7 +67,7 @@ impl EngineRunner {
         let is_context_injection_event = hook_event.event_name() == "UserPromptSubmit" 
             || hook_event.event_name() == "SessionStart";
 
-        for (_idx, (_policy_name, result)) in action_results.iter().enumerate() {
+        for (_policy_name, result) in action_results.iter() {
             match result {
                 ActionResult::Block { feedback } => {
                     final_decision = EngineDecision::Block {
@@ -155,13 +155,13 @@ impl EngineRunner {
                 ActionResult::Success { feedback, .. } => {
                     if let Some(msg) = feedback {
                         if self.debug {
-                            eprintln!("Debug: Action feedback: {}", msg);
+                            eprintln!("Debug: Action feedback: {msg}");
                         }
                     }
                 }
                 ActionResult::Block { feedback } => {
                     if self.debug {
-                        eprintln!("Debug: Action execution resulted in block: {}", feedback);
+                        eprintln!("Debug: Action execution resulted in block: {feedback}");
                     }
                 }
                 ActionResult::Allow { .. } => {
@@ -171,7 +171,7 @@ impl EngineRunner {
                 }
                 ActionResult::Ask { reason } => {
                     if self.debug {
-                        eprintln!("Debug: Action execution resulted in ask: {}", reason);
+                        eprintln!("Debug: Action execution resulted in ask: {reason}");
                     }
                 }
                 ActionResult::Error { message } => {

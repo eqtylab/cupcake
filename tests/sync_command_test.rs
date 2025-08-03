@@ -113,12 +113,12 @@ fn test_sync_generates_correct_json_structure() {
         "PreCompact",
     ];
     for event in &expected_events {
-        assert!(hooks.contains_key(*event), "Should have {} hook", event);
+        assert!(hooks.contains_key(*event), "Should have {event} hook");
 
         let event_hooks = hooks[*event]
             .as_array()
-            .unwrap_or_else(|| panic!("{} should be an array", event));
-        assert!(!event_hooks.is_empty(), "{} should not be empty", event);
+            .unwrap_or_else(|| panic!("{event} should be an array"));
+        assert!(!event_hooks.is_empty(), "{event} should not be empty");
 
         // Verify each entry has correct structure
         for entry in event_hooks {

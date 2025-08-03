@@ -283,14 +283,13 @@ impl PolicyLoader {
 
             // Use glob to expand the pattern
             let paths = glob::glob(&pattern_str).map_err(|e| {
-                CupcakeError::Config(format!("Invalid glob pattern '{}': {}", import_pattern, e))
+                CupcakeError::Config(format!("Invalid glob pattern '{import_pattern}': {e}"))
             })?;
 
             for path_result in paths {
                 let path = path_result.map_err(|e| {
                     CupcakeError::Config(format!(
-                        "Failed to resolve glob path in pattern '{}': {}",
-                        import_pattern, e
+                        "Failed to resolve glob path in pattern '{import_pattern}': {e}"
                     ))
                 })?;
 
@@ -406,8 +405,7 @@ impl PolicyLoader {
             "UserPromptSubmit" => Ok(HookEventType::UserPromptSubmit),
             "SessionStart" => Ok(HookEventType::SessionStart),
             _ => Err(CupcakeError::Config(format!(
-                "Unknown hook event type: {}. Valid types are: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, UserPromptSubmit, SessionStart",
-                hook_event_str
+                "Unknown hook event type: {hook_event_str}. Valid types are: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, UserPromptSubmit, SessionStart"
             )))
         }
     }
@@ -430,10 +428,9 @@ impl PolicyLoader {
                     super::types::HookEventType::UserPromptSubmit
                     | super::types::HookEventType::SessionStart => Ok(()),
                     _ => Err(CupcakeError::Config(format!(
-                        "inject_context action is only valid for UserPromptSubmit and SessionStart events, not {}. \
+                        "inject_context action is only valid for UserPromptSubmit and SessionStart events, not {hook_event}. \
                         Context injection allows adding information to Claude's awareness and is only \
-                        supported for these two hook events per Claude Code's specification.",
-                        hook_event
+                        supported for these two hook events per Claude Code's specification."
                     ))),
                 }
             }
@@ -457,8 +454,7 @@ impl PolicyLoader {
     fn check_action_depth(&self, action: &super::actions::Action, depth: u8) -> Result<()> {
         if depth > MAX_POLICY_DEPTH {
             return Err(CupcakeError::Config(format!(
-                "Policy nesting depth exceeds maximum allowed depth of {}. This may be a malicious policy attempting a stack overflow attack.",
-                MAX_POLICY_DEPTH
+                "Policy nesting depth exceeds maximum allowed depth of {MAX_POLICY_DEPTH}. This may be a malicious policy attempting a stack overflow attack."
             )));
         }
 
@@ -494,8 +490,7 @@ impl PolicyLoader {
     ) -> Result<()> {
         if depth > MAX_POLICY_DEPTH {
             return Err(CupcakeError::Config(format!(
-                "Command nesting depth exceeds maximum allowed depth of {}",
-                MAX_POLICY_DEPTH
+                "Command nesting depth exceeds maximum allowed depth of {MAX_POLICY_DEPTH}"
             )));
         }
 

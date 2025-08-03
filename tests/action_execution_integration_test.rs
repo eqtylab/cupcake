@@ -36,11 +36,10 @@ PreToolUse:
         type: "run_command"
         spec:
           mode: "array"
-          command: ["{}"]
+          command: ["{command}"]
         on_failure: "block"
         on_failure_feedback: "Test command failed"
-"#,
-            command
+"#
         );
         fs::write(policies_dir.join("run-command.yaml"), policy).unwrap();
 

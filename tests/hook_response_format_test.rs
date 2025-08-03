@@ -1,7 +1,9 @@
 //! Integration tests verifying correct JSON response format for all Claude Code hook types
 //! Per July 20 specification, each hook type has specific JSON output requirements
 
-use serde_json::{json, Value};
+mod common;
+use common::event_factory::EventFactory;
+use serde_json::Value;
 use std::fs;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -11,7 +13,7 @@ use tempfile::tempdir;
 fn run_cupcake_with_hook_event(
     policy_path: &std::path::Path,
     hook_event: &str,
-    hook_json: &Value,
+    hook_json: &str,
 ) -> (String, i32) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -28,7 +30,7 @@ fn run_cupcake_with_hook_event(
     // Send JSON input
     let stdin = cmd.stdin.as_mut().expect("Failed to get stdin");
     stdin
-        .write_all(hook_json.to_string().as_bytes())
+        .write_all(hook_json.as_bytes())
         .expect("Failed to write to stdin");
     stdin.flush().expect("Failed to flush stdin");
     let _ = stdin;
@@ -69,16 +71,13 @@ PreToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-123",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "rm -rf /"
-        }
-    });
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-123")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("rm -rf /")
+        .build_json();
 
     let (stdout, exit_code) = run_cupcake_with_hook_event(&policy_path, "PreToolUse", &hook_event);
     assert_eq!(exit_code, 0, "Should exit with 0");
@@ -125,20 +124,17 @@ PostToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "PostToolUse",
-        "session_id": "test-456",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Write",
-        "tool_input": {
+    let hook_event = EventFactory::post_tool_use()
+        .session_id("test-456")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Write")
+        .tool_input(serde_json::json!({
             "file_path": "/app/.env",
             "content": "SECRET=xyz"
-        },
-        "tool_response": {
-            "success": true
-        }
-    });
+        }))
+        .tool_response_success(true, "")
+        .build_json();
 
     let (stdout, exit_code) = run_cupcake_with_hook_event(&policy_path, "PostToolUse", &hook_event);
     assert_eq!(exit_code, 0, "Should exit with 0");
@@ -167,13 +163,12 @@ fn test_stop_response_format() {
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "Stop",
-        "session_id": "test-789",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "stop_hook_active": false
-    });
+    let hook_event = EventFactory::stop()
+        .session_id("test-789")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .stop_hook_active(false)
+        .build_json();
 
     let (stdout, exit_code) = run_cupcake_with_hook_event(&policy_path, "Stop", &hook_event);
     assert_eq!(exit_code, 0, "Should exit with 0");
@@ -205,13 +200,12 @@ fn test_notification_response_format() {
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "Notification",
-        "session_id": "test-notif",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "message": "Claude needs permission to use Bash"
-    });
+    let hook_event = EventFactory::notification()
+        .session_id("test-notif")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .message("Claude needs permission to use Bash")
+        .build_json();
 
     let (stdout, exit_code) =
         run_cupcake_with_hook_event(&policy_path, "Notification", &hook_event);
@@ -238,14 +232,13 @@ fn test_precompact_response_format() {
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "PreCompact",
-        "session_id": "test-compact",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "trigger": "manual",
-        "custom_instructions": ""
-    });
+    let hook_event = EventFactory::pre_compact()
+        .session_id("test-compact")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .trigger_manual()
+        .custom_instructions("")
+        .build_json();
 
     let (stdout, exit_code) = run_cupcake_with_hook_event(&policy_path, "PreCompact", &hook_event);
     assert_eq!(exit_code, 0, "Should exit with 0");
@@ -271,13 +264,12 @@ fn test_subagent_stop_response_format() {
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "SubagentStop",
-        "session_id": "test-subagent",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "stop_hook_active": false
-    });
+    let hook_event = EventFactory::subagent_stop()
+        .session_id("test-subagent")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .stop_hook_active(false)
+        .build_json();
 
     let (stdout, exit_code) =
         run_cupcake_with_hook_event(&policy_path, "SubagentStop", &hook_event);
@@ -316,13 +308,12 @@ UserPromptSubmit:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-prompt",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "prompt": "What's the weather like?"
-    });
+    let hook_event = EventFactory::user_prompt_submit()
+        .session_id("test-prompt")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .prompt("What's the weather like?")
+        .build_json();
 
     let (stdout, exit_code) =
         run_cupcake_with_hook_event(&policy_path, "UserPromptSubmit", &hook_event);
@@ -356,16 +347,13 @@ PreToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    let hook_event = json!({
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-ask",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "sudo apt update"
-        }
-    });
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-ask")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("sudo apt update")
+        .build_json();
 
     let (stdout, exit_code) = run_cupcake_with_hook_event(&policy_path, "PreToolUse", &hook_event);
     assert_eq!(exit_code, 0, "Should exit with 0");

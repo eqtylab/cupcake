@@ -159,6 +159,11 @@ impl PreToolUseBuilder {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
+    
+    pub fn build(self) -> cupcake::engine::events::HookEvent {
+        let json = self.build_json();
+        serde_json::from_str(&json).expect("EventFactory should produce valid events")
+    }
 }
 
 /// Builder for PostToolUse events
@@ -436,11 +441,6 @@ impl PreCompactBuilder {
 
     pub fn custom_instructions(mut self, instructions: impl Into<String>) -> Self {
         self.custom_instructions = Some(instructions.into());
-        self
-    }
-
-    pub fn trigger(mut self, trigger: impl Into<String>) -> Self {
-        self.trigger = trigger.into();
         self
     }
 

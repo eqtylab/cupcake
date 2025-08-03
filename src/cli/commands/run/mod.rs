@@ -8,6 +8,7 @@ pub use self::parser::HookEventParser;
 
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
+use crate::engine::events::AgentEvent;
 use crate::engine::response::{EngineDecision, ResponseHandler};
 use crate::Result;
 
@@ -109,9 +110,13 @@ impl CommandHandler for RunCommand {
 
         // Run engine
         let mut engine = EngineRunner::new(configuration.settings, self.debug);
+        
+        // Extract ClaudeCodeEvent for engine (temporary during refactor)
+        let AgentEvent::ClaudeCode(claude_event) = &hook_event;
+        
         let result = match engine.run(
             &configuration.policies,
-            &hook_event,
+            claude_event,
             &evaluation_context,
             &action_context,
         ) {

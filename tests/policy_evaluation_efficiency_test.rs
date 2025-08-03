@@ -2,6 +2,9 @@ use std::io::Write;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
+mod common;
+use common::event_factory::EventFactory;
+
 fn get_cupcake_binary() -> String {
     std::env::current_dir()
         .unwrap()
@@ -44,7 +47,13 @@ PreToolUse:
     policy_file.flush().unwrap();
 
     // Create test hook event
-    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "cwd": "/tmp", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test")
+        .transcript_path("/tmp/test")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo hello")
+        .build_json();
 
     // Run cupcake with debug logging, piping hook event to stdin
     let cupcake_binary = get_cupcake_binary();
@@ -110,7 +119,13 @@ PreToolUse:
     policy_file.flush().unwrap();
 
     // Create test hook event
-    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "cwd": "/tmp", "tool_name": "Bash", "tool_input": {"command": "echo hello"}}"#;
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test")
+        .transcript_path("/tmp/test")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo hello")
+        .build_json();
 
     // Run cupcake with debug logging
     let cupcake_binary = get_cupcake_binary();
@@ -212,7 +227,13 @@ PreToolUse:
     policy_file.flush().unwrap();
 
     // Create test hook event that matches some policies
-    let hook_event = r#"{"hook_event_name": "PreToolUse", "session_id": "test", "transcript_path": "/tmp/test", "cwd": "/tmp", "tool_name": "Bash", "tool_input": {"command": "echo hello world"}}"#;
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test")
+        .transcript_path("/tmp/test")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo hello world")
+        .build_json();
 
     // Run cupcake with debug logging
     let cupcake_binary = get_cupcake_binary();

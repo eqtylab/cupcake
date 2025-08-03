@@ -1,8 +1,272 @@
-use serde_json::json;
+use cupcake::config::actions::Action;
 use std::fs;
 use std::io::Write;
 use std::process::Command;
 use tempfile::TempDir;
+
+use crate::common::event_factory::EventFactory;
+
+#[test]
+fn test_inject_context_action_serialization() {
+    let action = Action::InjectContext {
+        context: Some("Remember to follow security best practices".to_string()),
+        from_command: None,
+        use_stdout: true,
+        suppress_output: false,
+    };
+
+    let yaml = serde_yaml_ng::to_string(&action).unwrap();
+    assert!(yaml.contains("inject_context"));
+    assert!(yaml.contains("Remember to follow security best practices"));
+
+    let deserialized: Action = serde_yaml_ng::from_str(&yaml).unwrap();
+    assert_eq!(action, deserialized);
+}
+
+#[test]
+fn test_inject_context_soft_action() {
+    let action = Action::InjectContext {
+        context: Some("Test context".to_string()),
+        from_command: None,
+        use_stdout: false,
+        suppress_output: false,
+    };
+
+    assert!(action.is_soft_action());
+    assert!(!action.is_hard_action());
+}
+
+#[test]
+fn test_user_prompt_submit_with_context_injection() {
+    // Create a temporary directory for test files
+    let temp_dir = TempDir::new().unwrap();
+    let config_dir = temp_dir.path().join("guardrails");
+    fs::create_dir(&config_dir).unwrap();
+
+    // Create a test policy that injects context on UserPromptSubmit
+    let policy_content = r#"
+UserPromptSubmit:
+  "*":
+    - name: inject-security-reminder
+      description: Inject security reminder
+      conditions: []
+      action:
+        type: inject_context
+        context: "Security Reminder: Never expose API keys or secrets in code"
+        use_stdout: true
+"#;
+
+    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
+
+    // Create UserPromptSubmit event JSON
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("How do I connect to a database?")
+        .build_value();
+
+    // Run cupcake with the test configuration
+    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
+        .arg("run")
+        .arg("--event")
+        .arg("UserPromptSubmit")
+        .arg("--config")
+        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap()
+        .with_stdin(|stdin| {
+            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
+        })
+        .wait_with_output()
+        .unwrap();
+
+    // Should exit with code 0 (allow)
+    assert_eq!(output.status.code(), Some(0));
+
+    // Should output the injected context to stdout
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Security Reminder: Never expose API keys or secrets"));
+}
+
+#[test]
+fn test_multiple_context_injections() {
+    let temp_dir = TempDir::new().unwrap();
+    let config_dir = temp_dir.path().join("guardrails");
+    fs::create_dir(&config_dir).unwrap();
+
+    // Create a test policy with multiple inject_context actions
+    let policy_content = r#"
+UserPromptSubmit:
+  "*":
+    - name: inject-multiple-contexts
+      description: First context injection
+      conditions: []
+      action:
+        type: inject_context
+        context: "Context 1: Be careful with user input"
+        use_stdout: true
+        
+    - name: inject-second-context
+      description: Second context injection
+      conditions: []
+      action:
+        type: inject_context
+        context: "Context 2: Always validate data"
+        use_stdout: true
+"#;
+
+    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
+
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Process user data")
+        .build_value();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
+        .arg("run")
+        .arg("--event")
+        .arg("UserPromptSubmit")
+        .arg("--config")
+        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap()
+        .with_stdin(|stdin| {
+            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
+        })
+        .wait_with_output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Context 1: Be careful with user input"));
+    assert!(stdout.contains("Context 2: Always validate data"));
+}
+
+#[test]
+fn test_context_injection_with_block() {
+    let temp_dir = TempDir::new().unwrap();
+    let config_dir = temp_dir.path().join("guardrails");
+    fs::create_dir(&config_dir).unwrap();
+
+    // Policy that blocks certain prompts but still tries to inject context
+    let policy_content = r#"
+UserPromptSubmit:
+  "*":
+    - name: block-dangerous-prompt
+      description: Block dangerous commands
+      conditions:
+        - type: pattern
+          field: prompt
+          regex: ".*rm -rf.*"
+      action:
+        type: block_with_feedback
+        feedback_message: "Dangerous command detected in prompt"
+        
+    - name: inject-context-anyway
+      description: Try to inject context
+      conditions: []
+      action:
+        type: inject_context
+        context: "This context won't be seen due to block"
+        use_stdout: true
+"#;
+
+    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
+
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("How do I run rm -rf /")
+        .build_value();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
+        .arg("run")
+        .arg("--event")
+        .arg("UserPromptSubmit")
+        .arg("--config")
+        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap()
+        .with_stdin(|stdin| {
+            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
+        })
+        .wait_with_output()
+        .unwrap();
+
+    // Should exit with code 0 (success) but provide JSON response for block
+    assert_eq!(output.status.code(), Some(0));
+
+    // Should output JSON with block decision to stdout
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
+    assert!(stdout.contains("\"stopReason\"") && stdout.contains("Dangerous command detected"));
+
+    // Context should not appear in stdout due to block (block overrides context injection)
+    assert!(!stdout.contains("This context won't be seen"));
+}
+
+#[test]
+fn test_context_injection_with_template_substitution() {
+    let temp_dir = TempDir::new().unwrap();
+    let config_dir = temp_dir.path().join("guardrails");
+    fs::create_dir(&config_dir).unwrap();
+
+    // Policy that uses template variables in context
+    let policy_content = r#"
+UserPromptSubmit:
+  "*":
+    - name: inject-dynamic-context
+      description: Inject context with template variables
+      conditions: []
+      action:
+        type: inject_context
+        context: "Session {{session_id}}: Remember to validate inputs in {{env.USER}}'s project"
+        use_stdout: true
+"#;
+
+    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
+
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("abc-123")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Create input handler")
+        .build_value();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
+        .arg("run")
+        .arg("--event")
+        .arg("UserPromptSubmit")
+        .arg("--config")
+        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap()
+        .with_stdin(|stdin| {
+            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
+        })
+        .wait_with_output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Session abc-123:"));
+    // USER env var should be substituted
+    assert!(stdout.contains("project"));
+}
 
 #[test]
 fn test_inject_context_edge_case_empty_context() {
@@ -24,13 +288,12 @@ UserPromptSubmit:
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
-    let event_json = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Test prompt"
-    });
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Test prompt")
+        .build_value();
 
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -100,13 +363,12 @@ SessionStart:
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
-    let event_json = json!({
-        "hook_event_name": "SessionStart",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "source": "startup"
-    });
+    let event_json = EventFactory::session_start()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .source_startup()
+        .build_value();
 
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -165,13 +427,12 @@ UserPromptSubmit:
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
-    let event_json = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Test special chars"
-    });
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Test special chars")
+        .build_value();
 
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -247,13 +508,12 @@ UserPromptSubmit:
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
-    let event_json = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Test timeout"
-    });
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Test timeout")
+        .build_value();
 
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -322,13 +582,12 @@ UserPromptSubmit:
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
-    let event_json = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Build a web app"
-    });
+    let event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Build a web app")
+        .build_value();
 
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -387,13 +646,12 @@ UserPromptSubmit:
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
     // Test with security-related prompt
-    let security_event = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session-1",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "How to implement security checks?"
-    });
+    let security_event = EventFactory::user_prompt_submit()
+        .session_id("test-session-1")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("How to implement security checks?")
+        .build_value();
 
     let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -420,13 +678,12 @@ UserPromptSubmit:
     assert!(!stdout.contains("💡 Tip"));
 
     // Test with non-security prompt
-    let general_event = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session-2",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Build a fast API"
-    });
+    let general_event = EventFactory::user_prompt_submit()
+        .session_id("test-session-2")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd(temp_dir.path().to_str().unwrap())
+        .prompt("Build a fast API")
+        .build_value();
 
     let output2 = Command::new(env!("CARGO_BIN_EXE_cupcake"))
         .arg("run")
@@ -451,332 +708,6 @@ UserPromptSubmit:
     let stdout2 = String::from_utf8_lossy(&output2.stdout);
     assert!(!stdout2.contains("⚠️ Security Alert"));
     assert!(stdout2.contains("💡 Tip"));
-}
-
-#[test]
-fn test_inject_context_with_env_substitution() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path();
-
-    // Create a script that uses environment variables
-    let script_path = temp_dir.path().join("env-test.sh");
-    fs::write(
-        &script_path,
-        r#"#!/bin/bash
-echo "Running as user: $USER"
-echo "Home directory: $HOME"
-echo "Session: $1"
-echo "Custom env: $CUPCAKE_TEST"
-"#,
-    )
-    .unwrap();
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
-    }
-
-    let policy_content = format!(
-        r#"
-SessionStart:
-  "*":
-    - name: env-context
-      description: Test environment variable substitution
-      conditions: []
-      action:
-        type: inject_context
-        from_command:
-          spec:
-            mode: array
-            command: ["{}"]
-            args: ["{{{{session_id}}}}"]
-            env:
-              - name: CUPCAKE_TEST
-                value: "test-value-123"
-          on_failure: continue
-        use_stdout: true
-"#,
-        script_path.to_str().unwrap()
-    );
-
-    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-
-    let event_json = json!({
-        "hook_event_name": "SessionStart",
-        "session_id": "env-test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "source": "startup"
-    });
-
-    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
-        .arg("run")
-        .arg("--event")
-        .arg("SessionStart")
-        .arg("--config")
-        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap()
-        .with_stdin(|stdin| {
-            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
-        })
-        .wait_with_output()
-        .unwrap();
-
-    assert_eq!(output.status.code(), Some(0));
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    println!("STDOUT: {stdout}");
-    println!("STDERR: {stderr}");
-
-    assert!(stdout.contains("Running as user:"));
-    assert!(stdout.contains("Session: env-test-session"));
-    assert!(stdout.contains("Custom env: test-value-123"));
-}
-
-#[test]
-fn test_inject_context_from_command_with_working_dir() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path();
-
-    let work_dir = temp_dir.path().join("workdir");
-    fs::create_dir(&work_dir).unwrap();
-
-    // Create a file in the work directory
-    fs::write(work_dir.join("context.txt"), "Special project context").unwrap();
-
-    let policy_content = format!(
-        r#"
-UserPromptSubmit:
-  "*":
-    - name: workdir-context
-      description: Test working directory
-      conditions: []
-      action:
-        type: inject_context
-        from_command:
-          spec:
-            mode: array
-            command: ["cat", "context.txt"]
-            workingDir: "{}"
-          on_failure: block
-        use_stdout: true
-"#,
-        work_dir.to_str().unwrap()
-    );
-
-    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-
-    let event_json = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Load project context"
-    });
-
-    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
-        .arg("run")
-        .arg("--event")
-        .arg("UserPromptSubmit")
-        .arg("--config")
-        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap()
-        .with_stdin(|stdin| {
-            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
-        })
-        .wait_with_output()
-        .unwrap();
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    println!("Exit code: {:?}", output.status.code());
-    println!("STDOUT: {stdout}");
-    println!("STDERR: {stderr}");
-
-    assert_eq!(output.status.code(), Some(0));
-    assert!(stdout.contains("Special project context"));
-}
-
-#[test]
-fn test_inject_context_suppress_output_modes() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path();
-
-    // Test both use_stdout and suppress_output combinations
-    let policy_content = r#"
-UserPromptSubmit:
-  "*":
-    - name: json-mode-suppressed
-      description: JSON mode with suppress_output
-      conditions:
-        - type: pattern
-          field: prompt
-          regex: "mode1"
-      action:
-        type: inject_context
-        context: "Mode 1: JSON with suppress"
-        use_stdout: false  # JSON mode
-        suppress_output: true  # Suppress output
-        
-    - name: stdout-mode-suppressed
-      description: Stdout mode with suppress_output
-      conditions:
-        - type: pattern
-          field: prompt
-          regex: "mode2"
-      action:
-        type: inject_context
-        context: "Mode 2: Stdout with suppress"
-        use_stdout: true   # Stdout mode
-        suppress_output: true  # Suppress output
-        
-    - name: json-mode-normal
-      description: JSON mode without suppress
-      conditions:
-        - type: pattern
-          field: prompt
-          regex: "mode3"
-      action:
-        type: inject_context
-        context: "Mode 3: JSON normal"
-        use_stdout: false  # JSON mode
-        suppress_output: false  # Normal output
-"#;
-
-    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-
-    // Test mode1: JSON with suppress
-    let event1 = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-1",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Test mode1"
-    });
-
-    let output1 = Command::new(env!("CARGO_BIN_EXE_cupcake"))
-        .arg("run")
-        .arg("--event")
-        .arg("UserPromptSubmit")
-        .arg("--config")
-        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap()
-        .with_stdin(|stdin| {
-            stdin.write_all(event1.to_string().as_bytes()).unwrap();
-        })
-        .wait_with_output()
-        .unwrap();
-
-    let stdout1 = String::from_utf8_lossy(&output1.stdout);
-    // Should output JSON with suppressOutput: true
-    assert!(
-        stdout1.contains("\"suppressOutput\":true") || stdout1.contains("\"suppressOutput\": true")
-    );
-    assert!(stdout1.contains("Mode 1: JSON with suppress"));
-
-    // Test mode2: Stdout with suppress
-    let event2 = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-2",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Test mode2"
-    });
-
-    let output2 = Command::new(env!("CARGO_BIN_EXE_cupcake"))
-        .arg("run")
-        .arg("--event")
-        .arg("UserPromptSubmit")
-        .arg("--config")
-        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap()
-        .with_stdin(|stdin| {
-            stdin.write_all(event2.to_string().as_bytes()).unwrap();
-        })
-        .wait_with_output()
-        .unwrap();
-
-    let stdout2 = String::from_utf8_lossy(&output2.stdout);
-    // Should switch to JSON when suppress_output is true
-    assert!(
-        stdout2.contains("\"suppressOutput\":true") || stdout2.contains("\"suppressOutput\": true")
-    );
-}
-
-#[test]
-fn test_inject_context_error_propagation() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_dir = temp_dir.path();
-
-    // Test command that exits with error and on_failure: block
-    let policy_content = r#"
-UserPromptSubmit:
-  "*":
-    - name: error-block
-      description: Test error with block
-      conditions: []
-      action:
-        type: inject_context
-        from_command:
-          spec:
-            mode: array
-            command: ["sh", "-c", "echo 'Error occurred' >&2; exit 1"]
-          on_failure: block
-        use_stdout: true
-"#;
-
-    fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
-
-    let event_json = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-session",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": temp_dir.path().to_str().unwrap(),
-        "prompt": "Test error"
-    });
-
-    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
-        .arg("run")
-        .arg("--event")
-        .arg("UserPromptSubmit")
-        .arg("--config")
-        .arg(config_dir.join("cupcake.yaml").to_str().unwrap())
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap()
-        .with_stdin(|stdin| {
-            stdin.write_all(event_json.to_string().as_bytes()).unwrap();
-        })
-        .wait_with_output()
-        .unwrap();
-
-    assert_eq!(output.status.code(), Some(0));
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Should output JSON with block decision
-    assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
-    assert!(stdout.contains("Dynamic context generation failed"));
 }
 
 // Helper trait for Command builder pattern

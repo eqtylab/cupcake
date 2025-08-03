@@ -1,7 +1,9 @@
+mod common;
+use common::event_factory::EventFactory;
 use cupcake::config::conditions::Condition;
 use cupcake::config::actions::Action;
 use cupcake::config::types::{ComposedPolicy, HookEventType};
-use cupcake::engine::events::{CommonEventData, HookEvent, CompactTrigger};
+use cupcake::engine::events::AgentEvent;
 use cupcake::cli::commands::run::{ExecutionContextBuilder, EngineRunner};
 use cupcake::engine::response::EngineDecision;
 
@@ -10,18 +12,17 @@ fn test_precompact_manual_trigger_injects_instructions() {
     let builder = ExecutionContextBuilder::new();
     
     // Create PreCompact event with manual trigger
-    let event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Manual,
-        custom_instructions: Some("Keep all technical details".to_string()),
-    };
+    let hook_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger_manual()
+        .custom_instructions("Keep all technical details")
+        .build();
     
-    let eval_context = builder.build_evaluation_context(&event);
-    let action_context = builder.build_action_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let eval_context = builder.build_evaluation_context(&agent_event);
+    let action_context = builder.build_action_context(&agent_event);
     
     // Create a policy that injects instructions for manual compaction
     let policy = ComposedPolicy {
@@ -39,20 +40,14 @@ fn test_precompact_manual_trigger_injects_instructions() {
                 value: "manual".to_string(),
             },
         ],
-        action:
-            Action::InjectContext {
-                context: Some("Preserve all TODO comments and FIXME markers.".to_string()),
-                from_command: None,
-                suppress_output: false,
-                use_stdout: false,
-            },
+        action: Action::inject_context("Preserve all TODO comments and FIXME markers."),
     };
     
     // Run the engine
     let mut engine = EngineRunner::new(Default::default(), false);
     let result = engine.run(
         &[policy],
-        &event,
+        &hook_event,
         &eval_context,
         &action_context,
     ).unwrap();
@@ -68,18 +63,16 @@ fn test_precompact_auto_trigger_different_instructions() {
     let builder = ExecutionContextBuilder::new();
     
     // Create PreCompact event with auto trigger
-    let event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Auto,
-        custom_instructions: None,
-    };
+    let hook_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger_auto()
+        .build();
     
-    let eval_context = builder.build_evaluation_context(&event);
-    let action_context = builder.build_action_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let eval_context = builder.build_evaluation_context(&agent_event);
+    let action_context = builder.build_action_context(&agent_event);
     
     // Create a policy that injects different instructions for auto compaction
     let policy = ComposedPolicy {
@@ -97,20 +90,14 @@ fn test_precompact_auto_trigger_different_instructions() {
                 value: "auto".to_string(),
             },
         ],
-        action:
-            Action::InjectContext {
-                context: Some("CRITICAL: Preserve ALL ticket numbers, TODO comments, and implementation details!".to_string()),
-                from_command: None,
-                suppress_output: false,
-                use_stdout: false,
-            },
+        action: Action::inject_context("CRITICAL: Preserve ALL ticket numbers, TODO comments, and implementation details!"),
     };
     
     // Run the engine
     let mut engine = EngineRunner::new(Default::default(), false);
     let result = engine.run(
         &[policy],
-        &event,
+        &hook_event,
         &eval_context,
         &action_context,
     ).unwrap();
@@ -126,18 +113,17 @@ fn test_precompact_multiple_policies_combine_instructions() {
     let builder = ExecutionContextBuilder::new();
     
     // Create PreCompact event
-    let event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Manual,
-        custom_instructions: Some("User instructions".to_string()),
-    };
+    let hook_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger_manual()
+        .custom_instructions("User instructions")
+        .build();
     
-    let eval_context = builder.build_evaluation_context(&event);
-    let action_context = builder.build_action_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let eval_context = builder.build_evaluation_context(&agent_event);
+    let action_context = builder.build_action_context(&agent_event);
     
     // Create multiple policies that all inject instructions
     let policy1 = ComposedPolicy {
@@ -151,13 +137,7 @@ fn test_precompact_multiple_policies_combine_instructions() {
                 value: "PreCompact".to_string(),
             },
         ],
-        action:
-            Action::InjectContext {
-                context: Some("Instructions from Policy 1".to_string()),
-                from_command: None,
-                suppress_output: false,
-                use_stdout: false,
-            },
+        action: Action::inject_context("Instructions from Policy 1"),
     };
     
     let policy2 = ComposedPolicy {
@@ -171,20 +151,14 @@ fn test_precompact_multiple_policies_combine_instructions() {
                 value: "PreCompact".to_string(),
             },
         ],
-        action:
-            Action::InjectContext {
-                context: Some("Instructions from Policy 2".to_string()),
-                from_command: None,
-                suppress_output: false,
-                use_stdout: false,
-            },
+        action: Action::inject_context("Instructions from Policy 2"),
     };
     
     // Run the engine with both policies
     let mut engine = EngineRunner::new(Default::default(), false);
     let result = engine.run(
         &[policy1, policy2],
-        &event,
+        &hook_event,
         &eval_context,
         &action_context,
     ).unwrap();
@@ -201,18 +175,16 @@ fn test_precompact_block_compaction() {
     let builder = ExecutionContextBuilder::new();
     
     // Create PreCompact event
-    let event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Auto,
-        custom_instructions: None,
-    };
+    let hook_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger_auto()
+        .build();
     
-    let eval_context = builder.build_evaluation_context(&event);
-    let action_context = builder.build_action_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let eval_context = builder.build_evaluation_context(&agent_event);
+    let action_context = builder.build_action_context(&agent_event);
     
     // Create a policy that blocks auto compaction
     let policy = ComposedPolicy {
@@ -230,19 +202,14 @@ fn test_precompact_block_compaction() {
                 value: "auto".to_string(),
             },
         ],
-        action:
-            Action::BlockWithFeedback {
-                feedback_message: "Auto compaction is disabled by policy".to_string(),
-                include_context: false,
-                suppress_output: false,
-            },
+        action: Action::block_with_feedback("Auto compaction is disabled by policy"),
     };
     
     // Run the engine
     let mut engine = EngineRunner::new(Default::default(), false);
     let result = engine.run(
         &[policy],
-        &event,
+        &hook_event,
         &eval_context,
         &action_context,
     ).unwrap();
@@ -257,18 +224,17 @@ fn test_precompact_with_custom_instructions_condition() {
     let builder = ExecutionContextBuilder::new();
     
     // Create PreCompact event with custom instructions
-    let event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Manual,
-        custom_instructions: Some("Keep all security-related discussions".to_string()),
-    };
+    let hook_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger_manual()
+        .custom_instructions("Keep all security-related discussions")
+        .build();
     
-    let eval_context = builder.build_evaluation_context(&event);
-    let action_context = builder.build_action_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let eval_context = builder.build_evaluation_context(&agent_event);
+    let action_context = builder.build_action_context(&agent_event);
     
     // Create a policy that matches on custom instructions content
     let policy = ComposedPolicy {
@@ -286,20 +252,14 @@ fn test_precompact_with_custom_instructions_condition() {
                 regex: r"security".to_string(),
             },
         ],
-        action:
-            Action::InjectContext {
-                context: Some("IMPORTANT: Preserve all security discussions, vulnerability reports, and threat models in detail.".to_string()),
-                from_command: None,
-                suppress_output: false,
-                use_stdout: false,
-            },
+        action: Action::inject_context("IMPORTANT: Preserve all security discussions, vulnerability reports, and threat models in detail."),
     };
     
     // Run the engine
     let mut engine = EngineRunner::new(Default::default(), false);
     let result = engine.run(
         &[policy],
-        &event,
+        &hook_event,
         &eval_context,
         &action_context,
     ).unwrap();

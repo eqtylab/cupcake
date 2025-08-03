@@ -287,8 +287,6 @@ fn test_shell_working_directory() {
     assert_eq!(node.command.args, vec!["-c", "pwd"]);
 }
 
-// Note: Timeout test is now above as test_timeout_enforcement
-
 /// Test actual shell execution success case
 #[tokio::test]
 async fn test_shell_execution_success() {

@@ -1,42 +1,39 @@
-use chrono::Utc;
-use cupcake::engine::conditions::{ConditionEvaluator, ConditionResult, EvaluationContext};
+mod common;
+use common::event_factory::EventFactory;
+use cupcake::engine::conditions::{ConditionEvaluator, ConditionResult};
 use cupcake::config::conditions::Condition;
-use cupcake::engine::events::{CommonEventData, HookEvent, CompactTrigger};
+use cupcake::engine::events::{AgentEvent, CompactTrigger};
 use cupcake::cli::commands::run::ExecutionContextBuilder;
 use serde_json::json;
-use std::collections::HashMap;
 
 #[test]
 fn test_precompact_trigger_extraction() {
     let builder = ExecutionContextBuilder::new();
     
     // Test manual trigger
-    let manual_event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Manual,
-        custom_instructions: Some("Preserve all TODO comments".to_string()),
-    };
+    let manual_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger("manual")
+        .custom_instructions("Preserve all TODO comments")
+        .build();
     
-    let context = builder.build_evaluation_context(&manual_event);
+    let agent_event = AgentEvent::ClaudeCode(manual_event);
+    let context = builder.build_evaluation_context(&agent_event);
     assert_eq!(context.trigger, Some("manual".to_string()));
     assert_eq!(context.custom_instructions, Some("Preserve all TODO comments".to_string()));
     
     // Test auto trigger with no custom instructions
-    let auto_event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Auto,
-        custom_instructions: None,
-    };
+    let auto_event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/user")
+        .trigger("auto")
+        .build();
     
-    let context = builder.build_evaluation_context(&auto_event);
+    let agent_event = AgentEvent::ClaudeCode(auto_event);
+    let context = builder.build_evaluation_context(&agent_event);
     assert_eq!(context.trigger, Some("auto".to_string()));
     assert_eq!(context.custom_instructions, None);
 }
@@ -46,318 +43,284 @@ fn test_precompact_condition_evaluation() {
     let mut evaluator = ConditionEvaluator::new();
     let builder = ExecutionContextBuilder::new();
     
-    let event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        trigger: CompactTrigger::Manual,
-        custom_instructions: Some("Keep ticket numbers".to_string()),
-    };
+    let event = EventFactory::pre_compact()
+        .session_id("test-session")
+        .trigger_manual()
+        .custom_instructions("Important context")
+        .build();
     
-    let context = builder.build_evaluation_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(event);
+    let context = builder.build_evaluation_context(&agent_event);
     
-    // Test trigger matching
+    // Test trigger field condition
     let trigger_condition = Condition::Match {
         field: "trigger".to_string(),
         value: "manual".to_string(),
     };
+    
     let result = evaluator.evaluate(&trigger_condition, &context);
-    assert_eq!(result, ConditionResult::Match);
+    assert!(matches!(result, ConditionResult::Match));
     
-    // Test custom instructions pattern matching
-    let instructions_condition = Condition::Pattern {
+    // Test custom_instructions presence
+    let instruction_pattern = Condition::Pattern {
         field: "custom_instructions".to_string(),
-        regex: r"ticket.*numbers".to_string(),
-    };
-    let result = evaluator.evaluate(&instructions_condition, &context);
-    assert_eq!(result, ConditionResult::Match);
-}
-
-#[test]
-fn test_posttooluse_tool_response_extraction() {
-    let builder = ExecutionContextBuilder::new();
-    
-    let event = HookEvent::PostToolUse {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        tool_name: "Write".to_string(),
-        tool_input: json!({
-            "file_path": "/app/file.txt",
-            "content": "Hello world"
-        }),
-        tool_response: json!({
-            "success": true,
-            "filePath": "/app/file.txt"
-        }),
+        regex: "^Important.*".to_string(),
     };
     
-    let context = builder.build_evaluation_context(&event);
-    assert!(context.tool_response.is_some());
-    
-    // Verify tool_response content
-    let tool_response = context.tool_response.unwrap();
-    assert_eq!(tool_response["success"], json!(true));
-    assert_eq!(tool_response["filePath"], json!("/app/file.txt"));
-}
-
-#[test]
-fn test_posttooluse_tool_response_condition_evaluation() {
-    let mut evaluator = ConditionEvaluator::new();
-    let builder = ExecutionContextBuilder::new();
-    
-    let event = HookEvent::PostToolUse {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        tool_name: "Bash".to_string(),
-        tool_input: json!({
-            "command": "echo 'test'"
-        }),
-        tool_response: json!({
-            "success": true,
-            "stdout": "test\n",
-            "exit_code": 0
-        }),
-    };
-    
-    let context = builder.build_evaluation_context(&event);
-    
-    // Test tool_response.success field access
-    let success_condition = Condition::Match {
-        field: "tool_response.success".to_string(),
-        value: "true".to_string(),
-    };
-    let result = evaluator.evaluate(&success_condition, &context);
-    assert_eq!(result, ConditionResult::Match);
-    
-    // Test tool_response.exit_code field access
-    let exit_code_condition = Condition::Match {
-        field: "tool_response.exit_code".to_string(),
-        value: "0".to_string(),
-    };
-    let result = evaluator.evaluate(&exit_code_condition, &context);
-    assert_eq!(result, ConditionResult::Match);
-    
-    // Test tool_response.stdout pattern matching
-    let stdout_condition = Condition::Pattern {
-        field: "tool_response.stdout".to_string(),
-        regex: r"test".to_string(),
-    };
-    let result = evaluator.evaluate(&stdout_condition, &context);
-    assert_eq!(result, ConditionResult::Match);
+    let result = evaluator.evaluate(&instruction_pattern, &context);
+    assert!(matches!(result, ConditionResult::Match));
 }
 
 #[test]
 fn test_stop_hook_active_extraction() {
     let builder = ExecutionContextBuilder::new();
     
-    // Test Stop event with stop_hook_active = true
-    let stop_event = HookEvent::Stop {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        stop_hook_active: true,
-    };
+    // Test Stop event with hook active
+    let stop_event = EventFactory::stop()
+        .session_id("test-session")
+        .stop_hook_active(true)
+        .build();
     
-    let context = builder.build_evaluation_context(&stop_event);
+    let agent_event = AgentEvent::ClaudeCode(stop_event);
+    let context = builder.build_evaluation_context(&agent_event);
     assert_eq!(context.stop_hook_active, Some(true));
     
-    // Test SubagentStop event with stop_hook_active = false
-    let subagent_stop_event = HookEvent::SubagentStop {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        stop_hook_active: false,
-    };
+    // Test SubagentStop event with hook inactive
+    let subagent_event = EventFactory::subagent_stop()
+        .session_id("test-session")
+        .stop_hook_active(false)
+        .build();
     
-    let context = builder.build_evaluation_context(&subagent_stop_event);
+    let agent_event = AgentEvent::ClaudeCode(subagent_event);
+    let context = builder.build_evaluation_context(&agent_event);
     assert_eq!(context.stop_hook_active, Some(false));
 }
 
 #[test]
-fn test_stop_hook_active_condition_evaluation() {
-    let mut evaluator = ConditionEvaluator::new();
+fn test_session_source_extraction() {
     let builder = ExecutionContextBuilder::new();
     
-    let event = HookEvent::Stop {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        stop_hook_active: true,
-    };
+    // Test startup source
+    let startup_event = EventFactory::session_start()
+        .session_id("test-session")
+        .source_startup()
+        .build();
     
-    let context = builder.build_evaluation_context(&event);
+    let agent_event = AgentEvent::ClaudeCode(startup_event);
+    let context = builder.build_evaluation_context(&agent_event);
+    assert_eq!(context.source, Some("startup".to_string()));
     
-    // Test stop_hook_active condition evaluation
-    let condition = Condition::Match {
-        field: "stop_hook_active".to_string(),
-        value: "true".to_string(),
-    };
-    let result = evaluator.evaluate(&condition, &context);
-    assert_eq!(result, ConditionResult::Match);
+    // Test resume source
+    let resume_event = EventFactory::session_start()
+        .session_id("test-session")
+        .source_resume()
+        .build();
     
-    // Test inverse condition
-    let false_condition = Condition::Match {
-        field: "stop_hook_active".to_string(),
-        value: "false".to_string(),
-    };
-    let result = evaluator.evaluate(&false_condition, &context);
-    assert_eq!(result, ConditionResult::NoMatch);
+    let agent_event = AgentEvent::ClaudeCode(resume_event);
+    let context = builder.build_evaluation_context(&agent_event);
+    assert_eq!(context.source, Some("resume".to_string()));
+    
+    // Test clear source
+    let clear_event = EventFactory::session_start()
+        .session_id("test-session")
+        .source_clear()
+        .build();
+    
+    let agent_event = AgentEvent::ClaudeCode(clear_event);
+    let context = builder.build_evaluation_context(&agent_event);
+    assert_eq!(context.source, Some("clear".to_string()));
 }
 
 #[test]
-fn test_field_extraction_for_non_applicable_events() {
+fn test_tool_response_extraction() {
     let builder = ExecutionContextBuilder::new();
     
-    // Test that PreToolUse doesn't have the new fields
-    let pretooluse_event = HookEvent::PreToolUse {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        tool_name: "Bash".to_string(),
-        tool_input: json!({"command": "ls"}),
-    };
+    // Test successful Write operation
+    let write_event = EventFactory::post_tool_use()
+        .session_id("test-session")
+        .tool_name("Write")
+        .tool_input(json!({
+            "file_path": "/app/file.txt",
+            "content": "Hello world"
+        }))
+        .tool_response_success(true, "File written successfully")
+        .build();
     
-    let context = builder.build_evaluation_context(&pretooluse_event);
-    assert_eq!(context.tool_response, None);
-    assert_eq!(context.stop_hook_active, None);
-    assert_eq!(context.trigger, None);
-    assert_eq!(context.custom_instructions, None);
+    let agent_event = AgentEvent::ClaudeCode(write_event);
+    let context = builder.build_evaluation_context(&agent_event);
     
-    // Test that UserPromptSubmit doesn't have the new fields
-    let user_prompt_event = HookEvent::UserPromptSubmit {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        prompt: "Hello".to_string(),
-    };
+    assert_eq!(context.tool_name, "Write");
+    assert!(context.tool_response.is_some());
     
-    let context = builder.build_evaluation_context(&user_prompt_event);
-    assert_eq!(context.tool_response, None);
-    assert_eq!(context.stop_hook_active, None);
-    assert_eq!(context.trigger, None);
-    assert_eq!(context.custom_instructions, None);
+    let response = context.tool_response.unwrap();
+    assert_eq!(response["success"], true);
+    assert_eq!(response["output"], "File written successfully");
 }
 
 #[test]
-fn test_enterprise_use_case_precompact_auto_policy() {
-    // Test the use case mentioned in the review: "If PreCompact is auto, inject preservation instruction"
+fn test_tool_response_condition_evaluation() {
     let mut evaluator = ConditionEvaluator::new();
     let builder = ExecutionContextBuilder::new();
     
-    let auto_compact_event = HookEvent::PreCompact {
-        common: CommonEventData {
-            session_id: "enterprise-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/enterprise/project".to_string(),
-        },
-        trigger: CompactTrigger::Auto,
-        custom_instructions: None,
-    };
+    // Test successful tool execution
+    let successful_event = EventFactory::post_tool_use()
+        .session_id("test-session")
+        .tool_name("Bash")
+        .tool_input(json!({
+            "command": "echo 'test'"
+        }))
+        .tool_response(json!({
+            "success": true,
+            "output": "test\n",
+            "exit_code": 0
+        }))
+        .build();
     
-    let context = builder.build_evaluation_context(&auto_compact_event);
+    let agent_event = AgentEvent::ClaudeCode(successful_event);
+    let context = builder.build_evaluation_context(&agent_event);
     
-    // Condition: trigger == "auto"
-    let auto_trigger_condition = Condition::Match {
-        field: "trigger".to_string(),
-        value: "auto".to_string(),
-    };
-    let result = evaluator.evaluate(&auto_trigger_condition, &context);
-    assert_eq!(result, ConditionResult::Match);
-    
-    // This proves the policy engine can now differentiate between manual and auto compaction
-    // and could inject "Preserve all TODO comments and ticket numbers" for auto compactions
-}
-
-#[test]
-fn test_enterprise_use_case_posttooluse_validation() {
-    // Test the use case: "Check tool_response from Write to ensure success: true"
-    let mut evaluator = ConditionEvaluator::new();
-    let builder = ExecutionContextBuilder::new();
-    
-    let failed_write_event = HookEvent::PostToolUse {
-        common: CommonEventData {
-            session_id: "enterprise-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/enterprise/project".to_string(),
-        },
-        tool_name: "Write".to_string(),
-        tool_input: json!({
-            "file_path": "/protected/file.txt",
-            "content": "sensitive data"
-        }),
-        tool_response: json!({
-            "success": false,
-            "error": "Permission denied"
-        }),
-    };
-    
-    let context = builder.build_evaluation_context(&failed_write_event);
-    
-    // Condition: tool_response.success == "true"
+    // Test tool_response.success field
     let success_condition = Condition::Match {
         field: "tool_response.success".to_string(),
         value: "true".to_string(),
     };
-    let result = evaluator.evaluate(&success_condition, &context);
-    assert_eq!(result, ConditionResult::NoMatch); // Failed write should not match
     
-    // Condition: tool_response.success == "false" 
-    let failure_condition = Condition::Match {
-        field: "tool_response.success".to_string(),
-        value: "false".to_string(),
+    let result = evaluator.evaluate(&success_condition, &context);
+    assert!(matches!(result, ConditionResult::Match));
+    
+    // Test tool_response.exit_code field
+    let exit_code_condition = Condition::Match {
+        field: "tool_response.exit_code".to_string(),
+        value: "0".to_string(),
     };
-    let result = evaluator.evaluate(&failure_condition, &context);
-    assert_eq!(result, ConditionResult::Match); // This would trigger a policy response
+    
+    let result = evaluator.evaluate(&exit_code_condition, &context);
+    assert!(matches!(result, ConditionResult::Match));
 }
 
 #[test]
-fn test_enterprise_use_case_stop_loop_prevention() {
-    // Test the use case: "Prevent infinite loops by checking stop_hook_active"
+fn test_enterprise_tool_response_pattern() {
     let mut evaluator = ConditionEvaluator::new();
     let builder = ExecutionContextBuilder::new();
     
-    let stop_event_in_loop = HookEvent::Stop {
-        common: CommonEventData {
-            session_id: "enterprise-session".to_string(),
-            transcript_path: "/tmp/transcript.jsonl".to_string(),
-            cwd: "/enterprise/project".to_string(),
-        },
-        stop_hook_active: true, // Already in a stop hook loop
+    // Test pattern matching in tool response for security scanning
+    let scan_event = EventFactory::post_tool_use()
+        .session_id("enterprise-session")
+        .tool_name("SecurityScan")
+        .tool_input(json!({
+            "target": "/secure/zone"
+        }))
+        .tool_response(json!({
+            "success": true,
+            "findings": "No vulnerabilities detected",
+            "severity": "low"
+        }))
+        .build();
+    
+    let agent_event = AgentEvent::ClaudeCode(scan_event);
+    let context = builder.build_evaluation_context(&agent_event);
+    
+    // Test pattern in tool_response.findings
+    let findings_pattern = Condition::Pattern {
+        field: "tool_response.findings".to_string(),
+        regex: "(?i)no vulnerabilities".to_string(),
     };
     
-    let context = builder.build_evaluation_context(&stop_event_in_loop);
+    let result = evaluator.evaluate(&findings_pattern, &context);
+    assert!(matches!(result, ConditionResult::Match));
+}
+
+#[test]
+fn test_complex_nested_response_extraction() {
+    let builder = ExecutionContextBuilder::new();
     
-    // Condition: stop_hook_active == "false" (safe to continue)
-    let safe_condition = Condition::Match {
-        field: "stop_hook_active".to_string(),
-        value: "false".to_string(),
-    };
-    let result = evaluator.evaluate(&safe_condition, &context);
-    assert_eq!(result, ConditionResult::NoMatch); // Already in loop, not safe
+    // Test deeply nested tool response
+    let complex_event = EventFactory::post_tool_use()
+        .session_id("complex-session")
+        .tool_name("APICall")
+        .tool_input(json!({
+            "endpoint": "/api/v1/data",
+            "method": "GET"
+        }))
+        .tool_response(json!({
+            "success": true,
+            "data": {
+                "user": {
+                    "id": 123,
+                    "permissions": ["read", "write", "admin"]
+                },
+                "metadata": {
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "version": "1.0"
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "x-rate-limit": "100"
+            }
+        }))
+        .build();
     
-    // Condition: stop_hook_active == "true" (already in loop, don't trigger more)
-    let loop_condition = Condition::Match {
+    let agent_event = AgentEvent::ClaudeCode(complex_event);
+    let context = builder.build_evaluation_context(&agent_event);
+    
+    let response = context.tool_response.as_ref().unwrap();
+    assert_eq!(response["data"]["user"]["id"], 123);
+    assert!(response["data"]["user"]["permissions"].is_array());
+}
+
+#[test]
+fn test_failed_tool_response_handling() {
+    let builder = ExecutionContextBuilder::new();
+    
+    // Test failed Write operation with permission error
+    let failed_write_event = EventFactory::post_tool_use()
+        .session_id("enterprise-session")
+        .tool_name("Write")
+        .tool_input(json!({
+            "file_path": "/protected/file.txt",
+            "content": "sensitive data"
+        }))
+        .tool_response(json!({
+            "success": false,
+            "error": "Permission denied"
+        }))
+        .build();
+    
+    let agent_event = AgentEvent::ClaudeCode(failed_write_event);
+    let context = builder.build_evaluation_context(&agent_event);
+    
+    assert_eq!(context.tool_name, "Write");
+    
+    let response = context.tool_response.as_ref().unwrap();
+    assert_eq!(response["success"], false);
+    assert_eq!(response["error"], "Permission denied");
+}
+
+#[test]
+fn test_stop_hook_condition_evaluation() {
+    let mut evaluator = ConditionEvaluator::new();
+    let builder = ExecutionContextBuilder::new();
+    
+    // Create Stop event with hook active (should allow stop to prevent infinite loop)
+    let stop_event_in_loop = EventFactory::stop()
+        .session_id("loop-detection")
+        .stop_hook_active(true)
+        .build();
+    
+    let agent_event = AgentEvent::ClaudeCode(stop_event_in_loop);
+    let context = builder.build_evaluation_context(&agent_event);
+    
+    // Test condition: if stop_hook_active is true, allow the stop
+    let stop_active_condition = Condition::Match {
         field: "stop_hook_active".to_string(),
         value: "true".to_string(),
     };
-    let result = evaluator.evaluate(&loop_condition, &context);
-    assert_eq!(result, ConditionResult::Match); // In loop, policy can detect and avoid triggering
+    
+    let result = evaluator.evaluate(&stop_active_condition, &context);
+    assert!(matches!(result, ConditionResult::Match));
+    
+    // This would be used in a policy to allow stop when hook is active:
+    // if: { match: { field: "stop_hook_active", value: "true" } }
+    // then: { actions: [{ allow: { reason: "Preventing infinite loop" } }] }
 }

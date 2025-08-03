@@ -1,3 +1,5 @@
+mod common;
+use common::event_factory::EventFactory;
 use std::fs;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -38,19 +40,16 @@ PreToolUse:
     fs::write(policies_dir.join("silent-allow-policy.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "tool_name": "Write",
-    "tool_input": {
-        "file_path": "test/example.rs",
-        "content": "fn test() {}"
-    }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .tool_name("Write")
+        .tool_input(serde_json::json!({
+            "file_path": "test/example.rs",
+            "content": "fn test() {}"
+        }))
+        .build_json();
 
     // Build the cupcake binary
     Command::new("cargo")
@@ -134,18 +133,13 @@ PreToolUse:
     fs::write(policies_dir.join("silent-feedback.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "tool_name": "Bash",
-    "tool_input": {
-        "command": "cargo test"
-    }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .tool_name("Bash")
+        .tool_input_command("cargo test")
+        .build_json();
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
@@ -211,15 +205,12 @@ UserPromptSubmit:
     fs::write(policies_dir.join("silent-inject.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON
-    let hook_event_json = r#"
-{
-    "hook_event_name": "UserPromptSubmit",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "prompt": "How do I store secret keys?"
-}
-"#;
+    let hook_event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .prompt("How do I store secret keys?")
+        .build_json();
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")

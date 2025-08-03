@@ -1,5 +1,9 @@
+mod common;
+use common::event_factory::EventFactory;
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
@@ -51,17 +55,14 @@ PreToolUse:
         let temp_dir = TempDir::new().unwrap();
         create_run_command_policy(&temp_dir, true); // true command always succeeds
 
-        // Create test hook event
-        let hook_event = r#"{
-            "hook_event_name": "PreToolUse",
-            "session_id": "test-session-run-success",
-            "transcript_path": "/tmp/transcript.jsonl",
-            "cwd": "/tmp",
-            "tool_name": "Bash",
-            "tool_input": {
-                "command": "echo test"
-            }
-        }"#;
+        // Create test hook event using EventFactory
+        let hook_event = EventFactory::pre_tool_use()
+            .session_id("test-session-run-success")
+            .transcript_path("/tmp/transcript.jsonl")
+            .cwd("/tmp")
+            .tool_name("Bash")
+            .tool_input_command("echo test")
+            .build_json();
 
         // Get the path to the cupcake binary
         let cupcake_bin = std::env::current_exe()
@@ -115,17 +116,14 @@ PreToolUse:
         let temp_dir = TempDir::new().unwrap();
         create_run_command_policy(&temp_dir, false); // false command always fails
 
-        // Create test hook event
-        let hook_event = r#"{
-            "hook_event_name": "PreToolUse",
-            "session_id": "test-session-run-failure",
-            "transcript_path": "/tmp/transcript.jsonl",
-            "cwd": "/tmp",
-            "tool_name": "Bash",
-            "tool_input": {
-                "command": "echo test"
-            }
-        }"#;
+        // Create test hook event using EventFactory
+        let hook_event = EventFactory::pre_tool_use()
+            .session_id("test-session-run-failure")
+            .transcript_path("/tmp/transcript.jsonl")
+            .cwd("/tmp")
+            .tool_name("Bash")
+            .tool_input_command("echo test")
+            .build_json();
 
         // Get the path to the cupcake binary
         let cupcake_bin = std::env::current_exe()

@@ -1,4 +1,4 @@
-use crate::engine::events::HookEvent;
+use crate::engine::events::{AgentEvent, HookEvent};
 use crate::{CupcakeError, Result};
 use std::io::Read;
 
@@ -13,7 +13,7 @@ impl HookEventParser {
     }
 
     /// Parse hook event JSON from stdin
-    pub fn parse_from_stdin(&self) -> Result<HookEvent> {
+    pub fn parse_from_stdin(&self) -> Result<AgentEvent> {
         let mut input = String::new();
         std::io::stdin().read_to_string(&mut input)?;
 
@@ -29,8 +29,12 @@ impl HookEventParser {
             eprintln!("Debug: Raw stdin input: {}", input.trim());
         }
 
-        serde_json::from_str(&input)
-            .map_err(|e| CupcakeError::HookEvent(format!("Invalid JSON from stdin: {e}")))
+        // First try to parse as ClaudeCodeEvent (currently our only agent type)
+        let claude_event: HookEvent = serde_json::from_str(&input)
+            .map_err(|e| CupcakeError::HookEvent(format!("Invalid JSON from stdin: {e}")))?;
+        
+        // Wrap in AgentEvent
+        Ok(AgentEvent::ClaudeCode(claude_event))
     }
 
     fn log_stdin_content(&self, content: &str) {

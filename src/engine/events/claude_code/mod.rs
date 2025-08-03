@@ -1,5 +1,31 @@
 use serde::{Deserialize, Serialize};
 
+mod pre_tool_use;
+mod post_tool_use;
+mod notification;
+mod stop;
+mod subagent_stop;
+mod pre_compact;
+mod user_prompt_submit;
+mod session_start;
+
+pub use pre_tool_use::PreToolUsePayload;
+pub use post_tool_use::PostToolUsePayload;
+pub use notification::NotificationPayload;
+pub use stop::StopPayload;
+pub use subagent_stop::SubagentStopPayload;
+pub use pre_compact::PreCompactPayload;
+pub use user_prompt_submit::UserPromptSubmitPayload;
+pub use session_start::SessionStartPayload;
+
+/// Trait for all event payloads - ensures access to common data
+pub trait EventPayload {
+    fn common(&self) -> &CommonEventData;
+}
+
+/// Marker trait for events that can inject context via stdout
+pub trait InjectsContext {}
+
 /// Common fields present in all Claude Code hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommonEventData {
@@ -16,91 +42,30 @@ pub struct CommonEventData {
 /// All possible Claude Code hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "hook_event_name", rename_all = "PascalCase")]
-pub enum HookEvent {
+pub enum ClaudeCodeEvent {
     /// Before tool execution
-    PreToolUse {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// Name of the tool being called
-        tool_name: String,
-
-        /// Input parameters for the tool
-        tool_input: serde_json::Value,
-    },
+    PreToolUse(PreToolUsePayload),
 
     /// After tool execution (success only)
-    PostToolUse {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// Name of the tool that was called
-        tool_name: String,
-
-        /// Input parameters that were used
-        tool_input: serde_json::Value,
-
-        /// Response from the tool
-        tool_response: serde_json::Value,
-    },
+    PostToolUse(PostToolUsePayload),
 
     /// Claude Code notifications
-    Notification {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// The notification message
-        message: String,
-    },
+    Notification(NotificationPayload),
 
     /// Main agent stopping
-    Stop {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// Whether stop hook is currently active (prevents infinite loops)
-        stop_hook_active: bool,
-    },
+    Stop(StopPayload),
 
     /// Subagent (Task tool) stopping
-    SubagentStop {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// Whether stop hook is currently active (prevents infinite loops)
-        stop_hook_active: bool,
-    },
+    SubagentStop(SubagentStopPayload),
 
     /// Before memory compaction
-    PreCompact {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// Whether compaction was triggered manually or automatically
-        trigger: CompactTrigger,
-
-        /// Custom instructions for manual compaction
-        #[serde(skip_serializing_if = "Option::is_none")]
-        custom_instructions: Option<String>,
-    },
+    PreCompact(PreCompactPayload),
 
     /// User prompt submission
-    UserPromptSubmit {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// The prompt submitted by the user
-        prompt: String,
-    },
+    UserPromptSubmit(UserPromptSubmitPayload),
 
     /// Session start event
-    SessionStart {
-        #[serde(flatten)]
-        common: CommonEventData,
-
-        /// Source of the session start
-        source: SessionSource,
-    },
+    SessionStart(SessionStartPayload),
 }
 
 /// Type of compaction trigger
@@ -165,26 +130,26 @@ pub struct TaskToolInput {
     pub prompt: String,
 }
 
-impl HookEvent {
+impl ClaudeCodeEvent {
     /// Get the common event data
     pub fn common(&self) -> &CommonEventData {
         match self {
-            HookEvent::PreToolUse { common, .. } => common,
-            HookEvent::PostToolUse { common, .. } => common,
-            HookEvent::Notification { common, .. } => common,
-            HookEvent::Stop { common, .. } => common,
-            HookEvent::SubagentStop { common, .. } => common,
-            HookEvent::PreCompact { common, .. } => common,
-            HookEvent::UserPromptSubmit { common, .. } => common,
-            HookEvent::SessionStart { common, .. } => common,
+            ClaudeCodeEvent::PreToolUse(payload) => &payload.common,
+            ClaudeCodeEvent::PostToolUse(payload) => &payload.common,
+            ClaudeCodeEvent::Notification(payload) => &payload.common,
+            ClaudeCodeEvent::Stop(payload) => &payload.common,
+            ClaudeCodeEvent::SubagentStop(payload) => &payload.common,
+            ClaudeCodeEvent::PreCompact(payload) => &payload.common,
+            ClaudeCodeEvent::UserPromptSubmit(payload) => &payload.common,
+            ClaudeCodeEvent::SessionStart(payload) => &payload.common,
         }
     }
 
     /// Get the tool name for tool-related events
     pub fn tool_name(&self) -> Option<&str> {
         match self {
-            HookEvent::PreToolUse { tool_name, .. } => Some(tool_name),
-            HookEvent::PostToolUse { tool_name, .. } => Some(tool_name),
+            ClaudeCodeEvent::PreToolUse(payload) => Some(&payload.tool_name),
+            ClaudeCodeEvent::PostToolUse(payload) => Some(&payload.tool_name),
             _ => None,
         }
     }
@@ -192,8 +157,8 @@ impl HookEvent {
     /// Get the tool input for tool-related events
     pub fn tool_input(&self) -> Option<&serde_json::Value> {
         match self {
-            HookEvent::PreToolUse { tool_input, .. } => Some(tool_input),
-            HookEvent::PostToolUse { tool_input, .. } => Some(tool_input),
+            ClaudeCodeEvent::PreToolUse(payload) => Some(&payload.tool_input),
+            ClaudeCodeEvent::PostToolUse(payload) => Some(&payload.tool_input),
             _ => None,
         }
     }
@@ -201,14 +166,14 @@ impl HookEvent {
     /// Get the event name as a string
     pub fn event_name(&self) -> &'static str {
         match self {
-            HookEvent::PreToolUse { .. } => "PreToolUse",
-            HookEvent::PostToolUse { .. } => "PostToolUse",
-            HookEvent::Notification { .. } => "Notification",
-            HookEvent::Stop { .. } => "Stop",
-            HookEvent::SubagentStop { .. } => "SubagentStop",
-            HookEvent::PreCompact { .. } => "PreCompact",
-            HookEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
-            HookEvent::SessionStart { .. } => "SessionStart",
+            ClaudeCodeEvent::PreToolUse { .. } => "PreToolUse",
+            ClaudeCodeEvent::PostToolUse(_) => "PostToolUse",
+            ClaudeCodeEvent::Notification { .. } => "Notification",
+            ClaudeCodeEvent::Stop { .. } => "Stop",
+            ClaudeCodeEvent::SubagentStop { .. } => "SubagentStop",
+            ClaudeCodeEvent::PreCompact { .. } => "PreCompact",
+            ClaudeCodeEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
+            ClaudeCodeEvent::SessionStart { .. } => "SessionStart",
         }
     }
 
@@ -216,7 +181,7 @@ impl HookEvent {
     pub fn is_tool_event(&self) -> bool {
         matches!(
             self,
-            HookEvent::PreToolUse { .. } | HookEvent::PostToolUse { .. }
+            ClaudeCodeEvent::PreToolUse(_) | ClaudeCodeEvent::PostToolUse(_)
         )
     }
 
@@ -224,7 +189,7 @@ impl HookEvent {
     pub fn is_stop_event(&self) -> bool {
         matches!(
             self,
-            HookEvent::Stop { .. } | HookEvent::SubagentStop { .. }
+            ClaudeCodeEvent::Stop { .. } | ClaudeCodeEvent::SubagentStop { .. }
         )
     }
 
@@ -250,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_hook_event_common_data() {
-        let event = HookEvent::PreToolUse {
+        let event = ClaudeCodeEvent::PreToolUse(PreToolUsePayload {
             common: CommonEventData {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
@@ -258,7 +223,7 @@ mod tests {
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
-        };
+        });
 
         assert_eq!(event.common().session_id, "test-session");
         assert_eq!(event.common().cwd, "/home/user/project");
@@ -280,18 +245,14 @@ mod tests {
         }
         "#;
 
-        let event: HookEvent = serde_json::from_str(json).unwrap();
+        let event: ClaudeCodeEvent = serde_json::from_str(json).unwrap();
 
         match event {
-            HookEvent::PreToolUse {
-                common,
-                tool_name,
-                tool_input,
-            } => {
-                assert_eq!(common.session_id, "test-session");
-                assert_eq!(common.cwd, "/home/user/project");
-                assert_eq!(tool_name, "Bash");
-                assert_eq!(tool_input["command"], "echo hello");
+            ClaudeCodeEvent::PreToolUse(payload) => {
+                assert_eq!(payload.common.session_id, "test-session");
+                assert_eq!(payload.common.cwd, "/home/user/project");
+                assert_eq!(payload.tool_name, "Bash");
+                assert_eq!(payload.tool_input["command"], "echo hello");
             }
             _ => panic!("Wrong event type"),
         }
@@ -299,7 +260,7 @@ mod tests {
 
     #[test]
     fn test_bash_tool_input_parsing() {
-        let event = HookEvent::PreToolUse {
+        let event = ClaudeCodeEvent::PreToolUse(PreToolUsePayload {
             common: CommonEventData {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
@@ -311,7 +272,7 @@ mod tests {
                 "description": "Build the project",
                 "timeout": 60
             }),
-        };
+        });
 
         let bash_input: BashToolInput = event.parse_tool_input().unwrap();
         assert_eq!(bash_input.command, "cargo build");
@@ -335,14 +296,14 @@ mod tests {
 
     #[test]
     fn test_notification_event() {
-        let event = HookEvent::Notification {
+        let event = ClaudeCodeEvent::Notification(NotificationPayload {
             common: CommonEventData {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home/user/project".to_string(),
             },
             message: "Test notification".to_string(),
-        };
+        });
 
         assert!(!event.is_tool_event());
         assert_eq!(event.tool_name(), None);
@@ -360,13 +321,13 @@ mod tests {
         }
         "#;
 
-        let event: HookEvent = serde_json::from_str(json).unwrap();
+        let event: ClaudeCodeEvent = serde_json::from_str(json).unwrap();
 
         match &event {
-            HookEvent::UserPromptSubmit { common, prompt } => {
-                assert_eq!(common.session_id, "test-session");
-                assert_eq!(common.cwd, "/home/user/project");
-                assert_eq!(prompt, "Write a function to calculate factorial");
+            ClaudeCodeEvent::UserPromptSubmit(payload) => {
+                assert_eq!(payload.common.session_id, "test-session");
+                assert_eq!(payload.common.cwd, "/home/user/project");
+                assert_eq!(payload.prompt, "Write a function to calculate factorial");
                 assert_eq!(event.event_name(), "UserPromptSubmit");
             }
             _ => panic!("Wrong event type"),
@@ -395,14 +356,14 @@ mod tests {
                 "#
             );
 
-            let event: HookEvent = serde_json::from_str(&json).unwrap();
+            let event: ClaudeCodeEvent = serde_json::from_str(&json).unwrap();
 
             match &event {
-                HookEvent::SessionStart { common, source } => {
-                    assert_eq!(common.session_id, "test-session");
-                    assert_eq!(common.cwd, "/home/user/project");
+                ClaudeCodeEvent::SessionStart(payload) => {
+                    assert_eq!(payload.common.session_id, "test-session");
+                    assert_eq!(payload.common.cwd, "/home/user/project");
                     assert_eq!(event.event_name(), "SessionStart");
-                    match (source, &expected_source) {
+                    match (&payload.source, &expected_source) {
                         (SessionSource::Startup, SessionSource::Startup) => (),
                         (SessionSource::Resume, SessionSource::Resume) => (),
                         (SessionSource::Clear, SessionSource::Clear) => (),

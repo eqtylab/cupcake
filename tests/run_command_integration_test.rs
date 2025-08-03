@@ -1,6 +1,9 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+mod common;
+use common::event_factory::EventFactory;
+
 fn get_cupcake_binary() -> String {
     std::env::current_dir()
         .unwrap()
@@ -14,19 +17,14 @@ fn get_cupcake_binary() -> String {
 #[test]
 fn test_run_command_stdin_parsing() {
     // Test that the run command can parse hook events from stdin
-    let hook_event_json = r#"
-    {
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-session-integration",
-        "transcript_path": "/tmp/test-transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "echo 'Integration test'",
-            "description": "Test command for integration"
-        }
-    }
-    "#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session-integration")
+        .transcript_path("/tmp/test-transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo 'Integration test'")
+        .tool_input_description("Test command for integration")
+        .build_json();
 
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
@@ -105,19 +103,14 @@ PreToolUse:
     std::fs::write(&policy_path, test_policy).expect("Failed to write test policy");
 
     // Test 1: Command that should be blocked
-    let hook_event_json = r#"
-    {
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-eval-session",
-        "transcript_path": "/tmp/test-transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "rm -rf /",
-            "description": "Dangerous command"
-        }
-    }
-    "#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-eval-session")
+        .transcript_path("/tmp/test-transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("rm -rf /")
+        .tool_input_description("Dangerous command")
+        .build_json();
 
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
@@ -178,19 +171,14 @@ PreToolUse:
     );
 
     // Test 2: Command that should be allowed
-    let safe_command_json = r#"
-    {
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-eval-session-2",
-        "transcript_path": "/tmp/test-transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "echo 'safe command'",
-            "description": "Safe command"
-        }
-    }
-    "#;
+    let safe_command_json = EventFactory::pre_tool_use()
+        .session_id("test-eval-session-2")
+        .transcript_path("/tmp/test-transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo 'safe command'")
+        .tool_input_description("Safe command")
+        .build_json();
 
     let mut child2 = Command::new(&cupcake_binary)
         .args([

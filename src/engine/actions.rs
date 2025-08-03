@@ -106,6 +106,53 @@ impl ActionContext {
             template_vars,
         }
     }
+    
+    /// Create ActionContext from EvaluationContext (single source of truth)
+    pub fn from_evaluation_context(eval_ctx: &crate::engine::conditions::EvaluationContext) -> Self {
+        let mut template_vars = HashMap::new();
+
+        // Add basic template variables
+        template_vars.insert("tool_name".to_string(), eval_ctx.tool_name.clone());
+        template_vars.insert("session_id".to_string(), eval_ctx.session_id.clone());
+        template_vars.insert("now".to_string(), eval_ctx.timestamp.to_rfc3339());
+        template_vars.insert("cwd".to_string(), eval_ctx.current_dir.display().to_string());
+        template_vars.insert("event_type".to_string(), eval_ctx.event_type.clone());
+
+        // Add tool input variables
+        for (key, value) in &eval_ctx.tool_input {
+            if let Some(str_value) = value.as_str() {
+                template_vars.insert(format!("tool_input.{key}"), str_value.to_string());
+            }
+        }
+
+        // Add environment variables
+        for (key, value) in &eval_ctx.env_vars {
+            template_vars.insert(format!("env.{key}"), value.clone());
+        }
+        
+        // Add optional fields if present
+        if let Some(prompt) = &eval_ctx.prompt {
+            template_vars.insert("prompt".to_string(), prompt.clone());
+        }
+        if let Some(source) = &eval_ctx.source {
+            template_vars.insert("source".to_string(), source.clone());
+        }
+        if let Some(trigger) = &eval_ctx.trigger {
+            template_vars.insert("trigger".to_string(), trigger.clone());
+        }
+        if let Some(custom_instructions) = &eval_ctx.custom_instructions {
+            template_vars.insert("custom_instructions".to_string(), custom_instructions.clone());
+        }
+
+        Self {
+            tool_name: eval_ctx.tool_name.clone(),
+            tool_input: eval_ctx.tool_input.clone(),
+            current_dir: eval_ctx.current_dir.clone(),
+            env_vars: eval_ctx.env_vars.clone(),
+            session_id: eval_ctx.session_id.clone(),
+            template_vars,
+        }
+    }
 
     /// Substitute template variables in a string
     pub fn substitute_template(&self, template: &str) -> String {

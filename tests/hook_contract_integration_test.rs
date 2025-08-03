@@ -1,8 +1,11 @@
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::fs;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use tempfile::tempdir;
+
+mod common;
+use common::event_factory::EventFactory;
 
 fn get_cupcake_binary() -> String {
     std::env::current_dir()
@@ -39,17 +42,14 @@ PreToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    // Create hook event JSON
-    let hook_event = json!({
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-123",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "ls -la"
-        }
-    });
+    // Create hook event using EventFactory
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-123")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("ls -la")
+        .build_value();
 
     // Run cupcake and capture output
     let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
@@ -90,17 +90,14 @@ PreToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    // Create hook event JSON
-    let hook_event = json!({
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-456",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "rm -rf /"
-        }
-    });
+    // Create hook event using EventFactory
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-456")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("rm -rf /")
+        .build_value();
 
     // Run cupcake and capture output
     let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
@@ -138,17 +135,14 @@ PreToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    // Create hook event JSON
-    let hook_event = json!({
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-789",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "sudo apt update"
-        }
-    });
+    // Create hook event using EventFactory
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-789")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("sudo apt update")
+        .build_value();
 
     // Run cupcake and capture output
     let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);
@@ -187,14 +181,13 @@ UserPromptSubmit:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    // Create hook event JSON
-    let hook_event = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-999",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "prompt": "Run a test please"
-    });
+    // Create hook event using EventFactory
+    let hook_event = EventFactory::user_prompt_submit()
+        .session_id("test-999")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .prompt("Run a test please")
+        .build_value();
 
     // Run cupcake and capture output
     let output = run_cupcake_with_json(&policy_path, "UserPromptSubmit", &hook_event);
@@ -225,14 +218,13 @@ UserPromptSubmit:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    // Create hook event JSON
-    let hook_event = json!({
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": "test-888",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "prompt": "Set password = supersecret123"
-    });
+    // Create hook event using EventFactory
+    let hook_event = EventFactory::user_prompt_submit()
+        .session_id("test-888")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .prompt("Set password = supersecret123")
+        .build_value();
 
     // Run cupcake and capture output
     let output = run_cupcake_with_json(&policy_path, "UserPromptSubmit", &hook_event);
@@ -268,17 +260,14 @@ PreToolUse:
     let policy_path = temp_dir.path().join("policy.yaml");
     fs::write(&policy_path, policy).unwrap();
 
-    // Create hook event JSON for a different tool
-    let hook_event = json!({
-        "hook_event_name": "PreToolUse",
-        "session_id": "test-777",
-        "transcript_path": "/tmp/transcript.jsonl",
-        "cwd": "/tmp",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "echo hello"
-        }
-    });
+    // Create hook event using EventFactory for a different tool
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-777")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo hello")
+        .build_value();
 
     // Run cupcake and capture output
     let output = run_cupcake_with_json(&policy_path, "PreToolUse", &hook_event);

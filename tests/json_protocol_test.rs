@@ -5,6 +5,9 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use tempfile::tempdir;
 
+mod common;
+use common::event_factory::EventFactory;
+
 #[test]
 fn test_pre_tool_use_block_produces_correct_json() {
     let temp_dir = tempdir().unwrap();
@@ -29,16 +32,13 @@ PreToolUse:
     fs::write(policies_dir.join("block_policy.yaml"), policy_yaml).unwrap();
 
     // Create a PreToolUse hook event
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session-json-block",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/tmp",
-    "tool_name": "Bash",
-    "tool_input": { "command": "ls" }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session-json-block")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("ls")
+        .build_json();
 
     // Run cupcake
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
@@ -109,16 +109,13 @@ PreToolUse:
     fs::write(policies_dir.join("allow_policy.yaml"), policy_yaml).unwrap();
 
     // Create a PreToolUse hook event
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session-json-allow",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/tmp",
-    "tool_name": "Bash",
-    "tool_input": { "command": "echo hello" }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session-json-allow")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo hello")
+        .build_json();
 
     // Run cupcake
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
@@ -189,16 +186,13 @@ PreToolUse:
     fs::write(policies_dir.join("nomatch_policy.yaml"), policy_yaml).unwrap();
 
     // Create a PreToolUse hook event for Bash (won't match Git policy)
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session-json-default",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/tmp",
-    "tool_name": "Bash",
-    "tool_input": { "command": "echo hello" }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session-json-default")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp")
+        .tool_name("Bash")
+        .tool_input_command("echo hello")
+        .build_json();
 
     // Run cupcake
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");

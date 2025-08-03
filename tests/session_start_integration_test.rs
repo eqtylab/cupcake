@@ -3,6 +3,9 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use tempfile::tempdir;
 
+mod common;
+use common::event_factory::EventFactory;
+
 #[test]
 fn test_session_start_hook_support() {
     // Create a temporary directory for the test
@@ -37,15 +40,12 @@ SessionStart:
     fs::write(policies_dir.join("session-start-policy.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON
-    let hook_event_json = r#"
-{
-    "hook_event_name": "SessionStart",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "source": "startup"
-}
-"#;
+    let hook_event_json = EventFactory::session_start()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .source_startup()
+        .build_json();
 
     // Build the cupcake binary
     Command::new("cargo")
@@ -119,17 +119,12 @@ SessionStart:
         fs::write(policies_dir.join("session-policy.yaml"), policy_yaml).unwrap();
 
         // Create hook event JSON
-        let hook_event_json = format!(
-            r#"
-{{
-    "hook_event_name": "SessionStart",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "source": "{source}"
-}}
-"#
-        );
+        let hook_event_json = EventFactory::session_start()
+            .session_id("test-session")
+            .transcript_path("/tmp/transcript.jsonl")
+            .cwd("/home/test")
+            .source(source)
+            .build_json();
 
         // Run cupcake
         let mut cmd = Command::new("./target/debug/cupcake")
@@ -198,15 +193,12 @@ SessionStart:
     fs::write("/tmp/clear-blocked", "marker").unwrap();
 
     // Create hook event JSON
-    let hook_event_json = r#"
-{
-    "hook_event_name": "SessionStart",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "source": "clear"
-}
-"#;
+    let hook_event_json = EventFactory::session_start()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .source_clear()
+        .build_json();
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")

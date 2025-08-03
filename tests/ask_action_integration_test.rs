@@ -1,3 +1,5 @@
+mod common;
+use common::event_factory::EventFactory;
 use serde_json::Value;
 use std::io::Write;
 use std::process::Command;
@@ -26,19 +28,14 @@ PreToolUse:
     let policy_path = policy_file.path().to_str().unwrap();
 
     // Create test hook event JSON for PreToolUse with Bash tool
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session-ask",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/tmp/test",
-    "tool_name": "Bash",
-    "tool_input": {
-        "command": "echo 'test command'",
-        "description": "Test bash command"
-    }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session-ask")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp/test")
+        .tool_name("Bash")
+        .tool_input_command("echo 'test command'")
+        .tool_input_description("Test bash command")
+        .build_json();
 
     // Execute cupcake run command with the test policy and hook event
     let mut child = Command::new("target/debug/cupcake")
@@ -141,19 +138,16 @@ PreToolUse:
     let policy_path = policy_file.path().to_str().unwrap();
 
     // Create test hook event JSON
-    let hook_event_json = r#"
-{
-    "hook_event_name": "PreToolUse",
-    "session_id": "test-session-template",
-    "transcript_path": "/tmp/transcript.jsonl", 
-    "cwd": "/tmp/test",
-    "tool_name": "Edit",
-    "tool_input": {
-        "file_path": "src/main.rs",
-        "command": "Add logging functionality"
-    }
-}
-"#;
+    let hook_event_json = EventFactory::pre_tool_use()
+        .session_id("test-session-template")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/tmp/test")
+        .tool_name("Edit")
+        .tool_input(serde_json::json!({
+            "file_path": "src/main.rs",
+            "command": "Add logging functionality"
+        }))
+        .build_json();
 
     // Execute cupcake run command
     let mut child = Command::new("target/debug/cupcake")

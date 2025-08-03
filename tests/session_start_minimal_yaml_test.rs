@@ -3,6 +3,9 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use tempfile::tempdir;
 
+mod common;
+use common::event_factory::EventFactory;
+
 #[test]
 fn test_minimal_session_start_yaml() {
     // Create a temporary directory for the test
@@ -38,15 +41,12 @@ SessionStart:
     .unwrap();
 
     // Create hook event JSON for startup
-    let hook_event_json = r#"
-{
-    "hook_event_name": "SessionStart",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "source": "startup"
-}
-"#;
+    let hook_event_json = EventFactory::session_start()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .source_startup()
+        .build_json();
 
     // Build the cupcake binary
     Command::new("cargo")
@@ -114,15 +114,12 @@ SessionStart:
 "#;
     fs::write(policies_dir.join("always-match.yaml"), always_match_yaml).unwrap();
 
-    let session_event = r#"
-{
-    "hook_event_name": "SessionStart",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl",
-    "cwd": "/home/test",
-    "source": "startup"
-}
-"#;
+    let session_event = EventFactory::session_start()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .source_startup()
+        .build_json();
 
     let mut cmd = Command::new("./target/debug/cupcake")
         .args([
@@ -183,15 +180,12 @@ SessionStart:
 "#;
     fs::write(policies_dir.join("ultra-minimal.yaml"), ultra_minimal_yaml).unwrap();
 
-    let hook_event_json = r#"
-{
-    "hook_event_name": "SessionStart",
-    "session_id": "test-session",
-    "transcript_path": "/tmp/transcript.jsonl", 
-    "cwd": "/home/test",
-    "source": "startup"
-}
-"#;
+    let hook_event_json = EventFactory::session_start()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.jsonl")
+        .cwd("/home/test")
+        .source_startup()
+        .build_json();
 
     let mut cmd = Command::new("./target/debug/cupcake")
         .args([

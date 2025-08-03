@@ -86,6 +86,8 @@ For non-tool events (UserPromptSubmit, Notification, etc.):
 Common fields (all events):
 - `event_type` - Hook event name (e.g., "PreToolUse", "UserPromptSubmit")
 - `session_id` - Unique session identifier
+- `transcript_path` - Path to conversation transcript
+- `cwd` - Current working directory
 - `env.*` - Environment variables (e.g., `env.USER`, `env.HOME`)
 
 Tool event fields (PreToolUse/PostToolUse):
@@ -95,9 +97,23 @@ Tool event fields (PreToolUse/PostToolUse):
   - `tool_input.file_path` - For Write/Edit tools
   - `tool_input.content` - For Write tool
   - And other tool-specific fields
+- `tool_response.*` - (PostToolUse only) Tool execution results:
+  - `tool_response.success` - Boolean indicating success/failure
+  - `tool_response.output` - Tool output text
+  - `tool_response.error` - Error message if failed
 
 UserPromptSubmit fields:
 - `prompt` - The user's input text
+
+SessionStart fields:
+- `source` - Session start type: "startup", "resume", or "clear"
+
+PreCompact fields:
+- `trigger` - Compaction trigger: "manual" or "auto"
+- `custom_instructions` - Optional custom summarization instructions
+
+Stop/SubagentStop fields:
+- `stop_hook_active` - Boolean indicating if stop hook is active (prevents infinite loops)
 
 Note: The current working directory from hook data is automatically used for all command executions.
 

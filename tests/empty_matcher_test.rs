@@ -1,12 +1,12 @@
-use chrono::Utc;
+mod common;
+use common::event_factory::EventFactory;
 use cupcake::config::actions::Action;
 use cupcake::config::conditions::Condition;
 use cupcake::config::loader::PolicyLoader;
 use cupcake::config::types::{ComposedPolicy, HookEventType};
-use cupcake::engine::conditions::EvaluationContext;
 use cupcake::engine::evaluation::PolicyEvaluator;
-use cupcake::engine::events::{CommonEventData, HookEvent};
-use std::collections::HashMap;
+use cupcake::engine::events::AgentEvent;
+use cupcake::cli::commands::run::ExecutionContextBuilder;
 use std::fs;
 use tempfile::tempdir;
 
@@ -30,150 +30,211 @@ fn test_empty_matcher_for_user_prompt_submit() {
     };
 
     // Create UserPromptSubmit event
-    let hook_event = HookEvent::UserPromptSubmit {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.md".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        prompt: "My API key is sk-1234567890abcdef123456".to_string(),
-    };
+    let hook_event = EventFactory::user_prompt_submit()
+        .session_id("test-session")
+        .transcript_path("/tmp/transcript.md")
+        .cwd("/home/user")
+        .prompt("My API key is sk-1234567890abcdef123456")
+        .build();
 
     // Create evaluation context
-    let context = EvaluationContext {
-        event_type: "UserPromptSubmit".to_string(),
-        tool_name: String::new(),
-        tool_input: HashMap::new(),
-        session_id: "test-session".to_string(),
-        current_dir: std::path::PathBuf::from("/home/user"),
-        env_vars: HashMap::new(),
-        timestamp: Utc::now(),
-        prompt: Some("My API key is sk-1234567890abcdef123456".to_string()),
-        source: None,
-        tool_response: None,
-        stop_hook_active: None,
-        trigger: None,
-        custom_instructions: None,
-    };
+    let context_builder = ExecutionContextBuilder::new();
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let context = context_builder.build_evaluation_context(&agent_event);
 
-    // Evaluate the policy
+    // Evaluate policy
     let mut evaluator = PolicyEvaluator::new();
-    let result = evaluator
-        .evaluate(&[policy], &hook_event, &context)
-        .unwrap();
+    let result = evaluator.evaluate(&[policy], &hook_event, &context);
 
-    // Should block due to API key detection
-    match result.decision {
-        cupcake::engine::response::EngineDecision::Block { feedback } => {
-            assert!(feedback.contains("Detected API key"));
-        }
-        _ => panic!("Expected block decision"),
-    }
+    // Should match and trigger block action
+    assert!(result.is_ok());
+    let eval_result = result.unwrap();
+    assert_eq!(eval_result.matched_policies.len(), 1);
+    assert_eq!(eval_result.decision, cupcake::engine::response::EngineDecision::Block {
+        feedback: "Detected API key in prompt!".to_string()
+    });
 }
 
 #[test]
-fn test_empty_matcher_only_matches_non_tool_events() {
-    // Create a policy with empty matcher
+fn test_empty_matcher_with_pre_tool_use() {
+    // Create policy with empty matcher for PreToolUse
     let policy = ComposedPolicy {
-        name: "Test empty matcher".to_string(),
-        description: None,
+        name: "Block rm -rf".to_string(),
+        description: Some("Prevent dangerous rm commands".to_string()),
         hook_event: HookEventType::PreToolUse,
-        matcher: "".to_string(), // Empty string matcher
-        conditions: vec![Condition::Match {
-            field: "event_type".to_string(),
-            value: "PreToolUse".to_string(),
-        }],
-        action: Action::ProvideFeedback {
-            message: "Should not match".to_string(),
+        matcher: "".to_string(), // Empty matcher
+        conditions: vec![
+            Condition::Match {
+                field: "tool_name".to_string(),
+                value: "Bash".to_string(),
+            },
+            Condition::Pattern {
+                field: "tool_input.command".to_string(),
+                regex: r"rm\s+-rf\s+/".to_string(),
+            },
+        ],
+        action: Action::BlockWithFeedback {
+            feedback_message: "Dangerous command blocked!".to_string(),
             include_context: false,
             suppress_output: false,
         },
     };
 
-    // Create PreToolUse event (has tool name)
-    let hook_event = HookEvent::PreToolUse {
-        common: CommonEventData {
-            session_id: "test-session".to_string(),
-            transcript_path: "/tmp/transcript.md".to_string(),
-            cwd: "/home/user".to_string(),
-        },
-        tool_name: "Bash".to_string(),
-        tool_input: serde_json::json!({"command": "ls"}),
-    };
+    // Create PreToolUse event with dangerous command
+    let hook_event = EventFactory::pre_tool_use()
+        .session_id("test-session")
+        .tool_name("Bash")
+        .tool_input_command("rm -rf /")
+        .build();
 
-    // Create evaluation context
-    let context = EvaluationContext {
-        event_type: "PreToolUse".to_string(),
-        tool_name: "Bash".to_string(),
-        tool_input: HashMap::new(),
-        session_id: "test-session".to_string(),
-        current_dir: std::path::PathBuf::from("/home/user"),
-        env_vars: HashMap::new(),
-        timestamp: Utc::now(),
-        prompt: None,
-        source: None,
-        tool_response: None,
-        stop_hook_active: None,
-        trigger: None,
-        custom_instructions: None,
-    };
+    let context_builder = ExecutionContextBuilder::new();
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let context = context_builder.build_evaluation_context(&agent_event);
 
-    // Evaluate the policy
     let mut evaluator = PolicyEvaluator::new();
-    let result = evaluator
-        .evaluate(&[policy], &hook_event, &context)
-        .unwrap();
+    let result = evaluator.evaluate(&[policy], &hook_event, &context);
 
-    // Should not match because PreToolUse has a tool name but policy has empty matcher
-    assert_eq!(result.matched_policies.len(), 0);
-    assert_eq!(result.feedback_messages.len(), 0);
+    assert!(result.is_ok());
+    let eval_result = result.unwrap();
+    assert_eq!(eval_result.matched_policies.len(), 1);
+    assert_eq!(eval_result.decision, cupcake::engine::response::EngineDecision::Block {
+        feedback: "Dangerous command blocked!".to_string()
+    });
 }
 
 #[test]
-fn test_yaml_loading_with_empty_matcher() {
-    let temp_dir = tempdir().unwrap();
-    let guardrails_dir = temp_dir.path().join("guardrails");
-    let policies_dir = guardrails_dir.join("policies");
-    fs::create_dir_all(&policies_dir).unwrap();
+fn test_empty_matcher_session_start() {
+    // Create policy for SessionStart with empty matcher
+    let policy = ComposedPolicy {
+        name: "Log all sessions".to_string(),
+        description: Some("Log when sessions start".to_string()),
+        hook_event: HookEventType::SessionStart,
+        matcher: "".to_string(),
+        conditions: vec![], // No conditions, matches all SessionStart events
+        action: Action::ProvideFeedback {
+            message: "Session started: {{session_id}}".to_string(),
+            include_context: false,
+            suppress_output: false,
+        },
+    };
 
-    // Create root config
-    let root_config = r#"
-settings:
-  timeout_ms: 5000
-  debug: false
+    let hook_event = EventFactory::session_start()
+        .session_id("test-123")
+        .source_startup()
+        .build();
 
-imports:
-  - policies/*.yaml
+    let context_builder = ExecutionContextBuilder::new();
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let context = context_builder.build_evaluation_context(&agent_event);
+
+    let mut evaluator = PolicyEvaluator::new();
+    let result = evaluator.evaluate(&[policy], &hook_event, &context);
+
+    assert!(result.is_ok());
+    let eval_result = result.unwrap();
+    assert_eq!(eval_result.matched_policies.len(), 1);
+}
+
+#[test]
+fn test_empty_matcher_from_yaml() {
+    let dir = tempdir().unwrap();
+    let policy_path = dir.path().join("policy.yaml");
+    
+    // YAML with empty matcher string
+    let yaml_content = r#"
+rules:
+  - name: "Block sensitive files"
+    description: "Prevent access to sensitive files"
+    hook_event: PreToolUse
+    matcher: ""  # Empty matcher
+    if:
+      match:
+        field: tool_name
+        value: Read
+    pattern:
+      field: tool_input.file_path
+      regex: "(passwords|secrets|keys)\\.txt"
+    then:
+      actions:
+        - block_with_feedback:
+            feedback_message: "Access to sensitive files is not allowed"
 "#;
-    fs::write(guardrails_dir.join("cupcake.yaml"), root_config).unwrap();
 
-    // Create policy file with empty string matcher
-    let policy_yaml = r#"
-UserPromptSubmit:
-  "":  # Empty string matcher for non-tool events
-    - name: "Check for secrets"
-      description: "Block prompts containing secrets"
-      conditions:
-        - type: pattern
-          field: prompt
-          regex: "(password|secret|key)\\s*[:=]\\s*\\S+"
-      action:
-        type: block_with_feedback
-        feedback_message: "Detected potential secret in prompt"
-        include_context: false
-"#;
-    fs::write(policies_dir.join("prompt-policies.yaml"), policy_yaml).unwrap();
+    fs::write(&policy_path, yaml_content).unwrap();
 
-    // Load the configuration
     let mut loader = PolicyLoader::new();
-    let loaded = loader
-        .load_configuration_from_directory(temp_dir.path())
-        .unwrap();
+    let config = loader.load_configuration(&policy_path).unwrap();
+    
+    assert_eq!(config.policies.len(), 1);
+    assert_eq!(config.policies[0].matcher, "");
+    
+    // Test with actual event
+    let hook_event = EventFactory::pre_tool_use()
+        .tool_name("Read")
+        .tool_input_file_path("/etc/passwords.txt")
+        .build();
 
-    // Verify the policy was loaded correctly
-    assert_eq!(loaded.policies.len(), 1);
-    let policy = &loaded.policies[0];
-    assert_eq!(policy.name, "Check for secrets");
-    assert_eq!(policy.hook_event, HookEventType::UserPromptSubmit);
-    assert_eq!(policy.matcher, "");
+    let context_builder = ExecutionContextBuilder::new();
+    let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+    let context = context_builder.build_evaluation_context(&agent_event);
+
+    let mut evaluator = PolicyEvaluator::new();
+    let result = evaluator.evaluate(&config.policies, &hook_event, &context);
+
+    assert!(result.is_ok());
+    let eval_result = result.unwrap();
+    assert_eq!(eval_result.matched_policies.len(), 1);
+}
+
+#[test]
+fn test_empty_matcher_all_hook_types() {
+    // Test that empty matcher works for all hook event types
+    let hook_types = vec![
+        HookEventType::PreToolUse,
+        HookEventType::PostToolUse,
+        HookEventType::UserPromptSubmit,
+        HookEventType::SessionStart,
+        HookEventType::Stop,
+        HookEventType::SubagentStop,
+        HookEventType::PreCompact,
+        HookEventType::Notification,
+    ];
+
+    for hook_type in hook_types {
+        let policy = ComposedPolicy {
+            name: format!("Test policy for {:?}", hook_type),
+            description: None,
+            hook_event: hook_type.clone(),
+            matcher: "".to_string(),
+            conditions: vec![],
+            action: Action::ProvideFeedback {
+                message: "Matched".to_string(),
+                include_context: false,
+                suppress_output: false,
+            },
+        };
+
+        // Create appropriate event for each type
+        let hook_event = match hook_type {
+            HookEventType::PreToolUse => EventFactory::pre_tool_use().tool_name("Test").build(),
+            HookEventType::PostToolUse => EventFactory::post_tool_use().tool_name("Test").build(),
+            HookEventType::UserPromptSubmit => EventFactory::user_prompt_submit().prompt("Test").build(),
+            HookEventType::SessionStart => EventFactory::session_start().build(),
+            HookEventType::Stop => EventFactory::stop().build(),
+            HookEventType::SubagentStop => EventFactory::subagent_stop().build(),
+            HookEventType::PreCompact => EventFactory::pre_compact().build(),
+            HookEventType::Notification => EventFactory::notification().message("Test").build(),
+        };
+
+        let context_builder = ExecutionContextBuilder::new();
+        let agent_event = AgentEvent::ClaudeCode(hook_event.clone());
+        let context = context_builder.build_evaluation_context(&agent_event);
+
+        let mut evaluator = PolicyEvaluator::new();
+        let result = evaluator.evaluate(&[policy], &hook_event, &context);
+
+        assert!(result.is_ok(), "Failed for hook type: {:?}", hook_type);
+        let eval_result = result.unwrap();
+        assert_eq!(eval_result.matched_policies.len(), 1, "No match for hook type: {:?}", hook_type);
+    }
 }

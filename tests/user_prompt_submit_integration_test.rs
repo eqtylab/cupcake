@@ -3,6 +3,9 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use tempfile::tempdir;
 
+mod common;
+use common::event_factory::EventFactory;
+
 #[test]
 fn test_user_prompt_submit_blocking() {
     // Create a temporary directory for the test
@@ -40,15 +43,12 @@ UserPromptSubmit:
     fs::write(policies_dir.join("api-key-policy.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON with API key in prompt
-    let hook_event_json = r#"
-{
-    "hook_event_name": "UserPromptSubmit",
-    "session_id": "test-session-123",
-    "transcript_path": "/tmp/test-transcript.md",
-    "cwd": "/home/test/project",
-    "prompt": "Here's my API key: sk-1234567890abcdef1234567890abcdef"
-}
-"#;
+    let hook_event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session-123")
+        .transcript_path("/tmp/test-transcript.md")
+        .cwd("/home/test/project")
+        .prompt("Here's my API key: sk-1234567890abcdef1234567890abcdef")
+        .build_json();
 
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
@@ -136,15 +136,12 @@ UserPromptSubmit:
     fs::write(policies_dir.join("todo-policy.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON with TODO but no sensitive data
-    let hook_event_json = r#"
-{
-    "hook_event_name": "UserPromptSubmit",
-    "session_id": "test-session-456",
-    "transcript_path": "/tmp/test-transcript.md",
-    "cwd": "/home/test/project",
-    "prompt": "TODO: Implement the new feature"
-}
-"#;
+    let hook_event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session-456")
+        .transcript_path("/tmp/test-transcript.md")
+        .cwd("/home/test/project")
+        .prompt("TODO: Implement the new feature")
+        .build_json();
 
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");
@@ -217,15 +214,12 @@ UserPromptSubmit:
     fs::write(policies_dir.join("no-match-policy.yaml"), policy_yaml).unwrap();
 
     // Create hook event JSON with normal prompt
-    let hook_event_json = r#"
-{
-    "hook_event_name": "UserPromptSubmit",
-    "session_id": "test-session-789",
-    "transcript_path": "/tmp/test-transcript.md",
-    "cwd": "/home/test/project",
-    "prompt": "Write a function to calculate factorial"
-}
-"#;
+    let hook_event_json = EventFactory::user_prompt_submit()
+        .session_id("test-session-789")
+        .transcript_path("/tmp/test-transcript.md")
+        .cwd("/home/test/project")
+        .prompt("Write a function to calculate factorial")
+        .build_json();
 
     // Run cupcake with the hook event
     let cupcake_binary = env!("CARGO_BIN_EXE_cupcake");

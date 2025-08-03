@@ -343,7 +343,7 @@ impl App {
                 }
                 Err(e) => {
                     // Log error but continue with empty list
-                    eprintln!("File discovery error: {}", e);
+                    eprintln!("File discovery error: {e}");
                     let _ = event_tx.send(AppEvent::ScanProgress(1.0));
                     let _ = event_tx.send(AppEvent::ScanComplete);
                 }
@@ -967,8 +967,7 @@ impl App {
                     }
                     Err(e) => {
                         let _ = event_tx.send(AppEvent::CompilationLog(format!(
-                            "⚠️  Failed to create files: {}",
-                            e
+                            "⚠️  Failed to create files: {e}"
                         )));
                     }
                 }
@@ -1022,8 +1021,7 @@ impl App {
                     }
                     Err(e) => {
                         let _ = event_tx.send(AppEvent::CompilationLog(format!(
-                            "⚠️  Failed to update settings: {}",
-                            e
+                            "⚠️  Failed to update settings: {e}"
                         )));
                     }
                 }
@@ -1119,9 +1117,9 @@ fn load_file_preview(path: &PathBuf) -> Option<String> {
                 }
                 let name = entry.file_name().to_string_lossy().to_string();
                 if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                    contents.push(format!("  📁 {}/", name));
+                    contents.push(format!("  📁 {name}/"));
                 } else {
-                    contents.push(format!("  📄 {}", name));
+                    contents.push(format!("  📄 {name}"));
                 }
             }
             Some(contents.join("\n"))

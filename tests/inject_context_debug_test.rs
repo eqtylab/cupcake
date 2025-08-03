@@ -7,7 +7,7 @@ use tempfile::TempDir;
 #[test]
 fn test_inject_context_basic_from_command() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create a simple policy file directly in temp_dir
     let policy_content = r#"
 SessionStart:
@@ -55,11 +55,11 @@ SessionStart:
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     println!("Exit code: {:?}", output.status.code());
     println!("STDOUT: {stdout}");
     println!("STDERR: {stderr}");
-    
+
     assert_eq!(output.status.code(), Some(0));
     assert!(stdout.contains("Hello from command"));
 }

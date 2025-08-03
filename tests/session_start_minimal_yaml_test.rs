@@ -31,7 +31,11 @@ SessionStart:
         type: inject_context  
         context: "Welcome! Remember to run tests before committing."
 "#;
-    fs::write(policies_dir.join("minimal-session-start.yaml"), minimal_policy_yaml).unwrap();
+    fs::write(
+        policies_dir.join("minimal-session-start.yaml"),
+        minimal_policy_yaml,
+    )
+    .unwrap();
 
     // Create hook event JSON for startup
     let hook_event_json = r#"
@@ -52,7 +56,13 @@ SessionStart:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "-",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -66,11 +76,11 @@ SessionStart:
         .unwrap();
 
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     // Verify the output
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Should inject the context via stdout
     assert!(stdout.contains("Welcome! Remember to run tests before committing."));
 }
@@ -115,19 +125,29 @@ SessionStart:
 "#;
 
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "-",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to start cupcake");
 
-    cmd.stdin.as_mut().unwrap().write_all(session_event.as_bytes()).unwrap();
+    cmd.stdin
+        .as_mut()
+        .unwrap()
+        .write_all(session_event.as_bytes())
+        .unwrap();
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Should contain the guidance message
     assert!(stdout.contains("SessionStart guidance works!"));
 }
@@ -174,16 +194,26 @@ SessionStart:
 "#;
 
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "-",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to start cupcake");
 
-    cmd.stdin.as_mut().unwrap().write_all(hook_event_json.as_bytes()).unwrap();
+    cmd.stdin
+        .as_mut()
+        .unwrap()
+        .write_all(hook_event_json.as_bytes())
+        .unwrap();
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("💡 Tip: Use 'just test' for fast testing"));

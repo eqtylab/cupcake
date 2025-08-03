@@ -60,7 +60,13 @@ PreToolUse:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "-",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -74,17 +80,23 @@ PreToolUse:
         .unwrap();
 
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     // Verify the output
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Parse JSON response
     let response: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    
+
     // Verify it's an allow decision with suppressOutput
-    assert_eq!(response["hookSpecificOutput"]["permissionDecision"], "allow");
-    assert_eq!(response["hookSpecificOutput"]["permissionDecisionReason"], "Test file auto-approved");
+    assert_eq!(
+        response["hookSpecificOutput"]["permissionDecision"],
+        "allow"
+    );
+    assert_eq!(
+        response["hookSpecificOutput"]["permissionDecisionReason"],
+        "Test file auto-approved"
+    );
     assert_eq!(response["suppressOutput"], true);
 }
 
@@ -137,7 +149,13 @@ PreToolUse:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "-",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -151,10 +169,10 @@ PreToolUse:
         .unwrap();
 
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // With suppress_output, feedback should not appear in stdout
     assert!(!stdout.contains("Running tests - good practice!"));
 }
@@ -205,7 +223,13 @@ UserPromptSubmit:
 
     // Run cupcake
     let mut cmd = Command::new("./target/debug/cupcake")
-        .args(["run", "--event", "-", "--config", guardrails_dir.join("cupcake.yaml").to_str().unwrap()])
+        .args([
+            "run",
+            "--event",
+            "-",
+            "--config",
+            guardrails_dir.join("cupcake.yaml").to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -219,21 +243,21 @@ UserPromptSubmit:
         .unwrap();
 
     let output = cmd.wait_with_output().expect("Failed to wait for cupcake");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     println!("STDOUT: {stdout}");
     println!("STDERR: {stderr}");
-    
+
     // Should get JSON response instead of plain text
     let response: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(response["suppressOutput"], true);
-    
+
     // Context should be in additionalContext field
     assert_eq!(
-        response["hookSpecificOutput"]["additionalContext"], 
+        response["hookSpecificOutput"]["additionalContext"],
         "Remember: handle secrets carefully"
     );
 }

@@ -64,7 +64,7 @@ impl EngineRunner {
         let mut final_decision = evaluation_result.decision.clone();
         let mut context_to_inject = Vec::new();
         let mut suppress_output = false;
-        let is_context_injection_event = hook_event.event_name() == "UserPromptSubmit" 
+        let is_context_injection_event = hook_event.event_name() == "UserPromptSubmit"
             || hook_event.event_name() == "SessionStart";
 
         for (_policy_name, result) in action_results.iter() {
@@ -101,15 +101,27 @@ impl EngineRunner {
         // This ensures soft actions (provide_feedback, inject_context) can also suppress output
         for matched_policy in &evaluation_result.matched_policies {
             let policy_suppress = match &matched_policy.action {
-                crate::config::actions::Action::Allow { suppress_output, .. } => *suppress_output,
-                crate::config::actions::Action::Ask { suppress_output, .. } => *suppress_output,
-                crate::config::actions::Action::BlockWithFeedback { suppress_output, .. } => *suppress_output,
-                crate::config::actions::Action::ProvideFeedback { suppress_output, .. } => *suppress_output,
-                crate::config::actions::Action::RunCommand { suppress_output, .. } => *suppress_output,
-                crate::config::actions::Action::InjectContext { suppress_output, .. } => *suppress_output,
+                crate::config::actions::Action::Allow {
+                    suppress_output, ..
+                } => *suppress_output,
+                crate::config::actions::Action::Ask {
+                    suppress_output, ..
+                } => *suppress_output,
+                crate::config::actions::Action::BlockWithFeedback {
+                    suppress_output, ..
+                } => *suppress_output,
+                crate::config::actions::Action::ProvideFeedback {
+                    suppress_output, ..
+                } => *suppress_output,
+                crate::config::actions::Action::RunCommand {
+                    suppress_output, ..
+                } => *suppress_output,
+                crate::config::actions::Action::InjectContext {
+                    suppress_output, ..
+                } => *suppress_output,
                 crate::config::actions::Action::Conditional { .. } => false, // Conditional doesn't have suppress_output
             };
-            
+
             // If any matched policy wants to suppress output, honor that
             if policy_suppress {
                 suppress_output = true;

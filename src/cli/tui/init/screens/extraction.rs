@@ -48,7 +48,7 @@ fn render_header(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         Line::from(""),
         Line::from(vec![
             Span::raw("  "), // Left padding to align with table
-            Span::raw(format!("Processing {} files in parallel...", file_count)),
+            Span::raw(format!("Processing {file_count} files in parallel...")),
             Span::raw("           "),
             Span::styled("Sonnet 4", Style::default().fg(Color::Cyan)),
         ]),
@@ -101,7 +101,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
                     format!("{} Extracting...", spinner_frames[frame_idx])
                 }
                 TaskStatus::Complete => "Complete".to_string(),
-                TaskStatus::Failed(err) => format!("Failed: {}", err),
+                TaskStatus::Failed(err) => format!("Failed: {err}"),
             };
 
             let time_text = if task.elapsed_ms > 0 {
@@ -180,7 +180,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
         } else if state.compilation_complete {
             // Complete
             let time_str = if compile_elapsed < 1000 {
-                format!("{}ms", compile_elapsed)
+                format!("{compile_elapsed}ms")
             } else {
                 format!("{:.1}s", compile_elapsed as f64 / 1000.0)
             };
@@ -190,7 +190,7 @@ fn render_task_table(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             let spinner_frames = ["⟳", "⟲", "⟴", "⟵", "⟶", "⟷"];
             let frame_idx = (compile_elapsed / 200) as usize % spinner_frames.len();
             let time_str = if compile_elapsed < 1000 {
-                format!("{}ms", compile_elapsed)
+                format!("{compile_elapsed}ms")
             } else {
                 format!("{:.1}s", compile_elapsed as f64 / 1000.0)
             };
@@ -258,7 +258,7 @@ fn render_tip(frame: &mut Frame, area: Rect, state: &ExtractionState) {
             Line::from(""), // Empty line for padding
             Line::from(vec![
                 Span::styled(
-                    format!("✓ {} rules compiled! ", final_rule_count),
+                    format!("✓ {final_rule_count} rules compiled! "),
                     Style::default().fg(Color::Green),
                 ),
                 Span::raw("Press "),

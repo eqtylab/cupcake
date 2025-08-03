@@ -183,11 +183,15 @@ impl ActionExecutor {
             } => {
                 self.execute_conditional(if_condition, then_action, else_action.as_deref(), context)
             }
-            Action::InjectContext { 
-                context: static_context, 
+            Action::InjectContext {
+                context: static_context,
                 from_command,
-                .. 
-            } => self.execute_inject_context(static_context.as_deref(), from_command.as_deref(), context),
+                ..
+            } => self.execute_inject_context(
+                static_context.as_deref(),
+                from_command.as_deref(),
+                context,
+            ),
         }
     }
 
@@ -243,7 +247,9 @@ impl ActionExecutor {
             self.execute_dynamic_context_injection(dynamic_spec, context)
         } else {
             ActionResult::Error {
-                message: "InjectContext action must have either 'context' or 'from_command' specified".to_string(),
+                message:
+                    "InjectContext action must have either 'context' or 'from_command' specified"
+                        .to_string(),
             }
         }
     }
@@ -303,9 +309,12 @@ impl ActionExecutor {
                             }
                         }
                         crate::config::actions::OnFailureBehavior::Block => {
-                            let error_output = result.stderr.as_deref().unwrap_or("Command failed").trim();
+                            let error_output =
+                                result.stderr.as_deref().unwrap_or("Command failed").trim();
                             ActionResult::Block {
-                                feedback: format!("Dynamic context generation failed: {error_output}"),
+                                feedback: format!(
+                                    "Dynamic context generation failed: {error_output}"
+                                ),
                             }
                         }
                     }
@@ -429,7 +438,7 @@ impl ActionExecutor {
         let prompt = context.template_vars.get("prompt").cloned();
         // Extract source from template_vars if present
         let source = context.template_vars.get("source").cloned();
-        
+
         let evaluation_context = crate::engine::conditions::EvaluationContext {
             event_type: "ActionEvaluation".to_string(),
             tool_name: context.tool_name.clone(),
@@ -796,9 +805,7 @@ mod tests {
                 println!("Command execution failed: {message}");
                 assert!(message.contains("Command execution error"));
             }
-            other => panic!(
-                "Expected Block result for failing command, got: {other:?}"
-            ),
+            other => panic!("Expected Block result for failing command, got: {other:?}"),
         }
     }
 
@@ -843,9 +850,7 @@ mod tests {
                 println!("Command execution failed: {message}");
                 assert!(message.contains("Command execution error"));
             }
-            other => panic!(
-                "Expected Success result with Continue on failure, got: {other:?}"
-            ),
+            other => panic!("Expected Success result with Continue on failure, got: {other:?}"),
         }
     }
 
@@ -890,9 +895,7 @@ mod tests {
                 println!("Command execution failed: {message}");
                 assert!(message.contains("Command execution error"));
             }
-            other => panic!(
-                "Expected Success result for template substitution, got: {other:?}"
-            ),
+            other => panic!("Expected Success result for template substitution, got: {other:?}"),
         }
     }
 

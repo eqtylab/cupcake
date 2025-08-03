@@ -127,9 +127,14 @@ impl CommandHandler for RunCommand {
         };
 
         // Handle special cases for UserPromptSubmit and SessionStart (both support context injection)
-        if hook_event.event_name() == "UserPromptSubmit" || hook_event.event_name() == "SessionStart" {
-            ResponseHandler::new(self.debug)
-                .send_user_prompt_response_with_suppress(result.final_decision, result.context_to_inject, result.suppress_output);
+        if hook_event.event_name() == "UserPromptSubmit"
+            || hook_event.event_name() == "SessionStart"
+        {
+            ResponseHandler::new(self.debug).send_user_prompt_response_with_suppress(
+                result.final_decision,
+                result.context_to_inject,
+                result.suppress_output,
+            );
         }
 
         // Handle soft feedback for events that don't support context injection
@@ -155,8 +160,11 @@ impl CommandHandler for RunCommand {
             result.final_decision
         };
 
-        ResponseHandler::new(self.debug)
-            .send_response_for_hook_with_suppress(response_decision, hook_event.event_name(), result.suppress_output);
+        ResponseHandler::new(self.debug).send_response_for_hook_with_suppress(
+            response_decision,
+            hook_event.event_name(),
+            result.suppress_output,
+        );
     }
 
     fn name(&self) -> &'static str {

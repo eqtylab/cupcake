@@ -43,7 +43,7 @@ fn load_preview_sync(path: &Path) -> Result<String> {
         }
         Err(e) => {
             // File might be binary or unreadable
-            Ok(format!("Cannot preview file: {}", e))
+            Ok(format!("Cannot preview file: {e}"))
         }
     }
 }
@@ -63,10 +63,10 @@ fn load_directory_preview(path: &Path) -> Result<String> {
                 let name = entry.file_name().to_string_lossy().to_string();
 
                 if file_type.is_dir() {
-                    entries.push(format!("  📁 {}/", name));
+                    entries.push(format!("  📁 {name}/"));
                     dir_count += 1;
                 } else {
-                    entries.push(format!("  📄 {}", name));
+                    entries.push(format!("  📄 {name}"));
                     file_count += 1;
                 }
 
@@ -80,8 +80,7 @@ fn load_directory_preview(path: &Path) -> Result<String> {
     }
 
     preview.push_str(&format!(
-        "Contents ({} directories, {} files):\n\n",
-        dir_count, file_count
+        "Contents ({dir_count} directories, {file_count} files):\n\n"
     ));
     preview.push_str(&entries.join("\n"));
 

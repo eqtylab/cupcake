@@ -320,12 +320,24 @@ impl Action {
     /// Set suppress_output to true for any action
     pub fn with_suppress_output(mut self) -> Self {
         match &mut self {
-            Action::ProvideFeedback { suppress_output, .. } => *suppress_output = true,
-            Action::BlockWithFeedback { suppress_output, .. } => *suppress_output = true,
-            Action::Allow { suppress_output, .. } => *suppress_output = true,
-            Action::Ask { suppress_output, .. } => *suppress_output = true,
-            Action::RunCommand { suppress_output, .. } => *suppress_output = true,
-            Action::InjectContext { suppress_output, .. } => *suppress_output = true,
+            Action::ProvideFeedback {
+                suppress_output, ..
+            } => *suppress_output = true,
+            Action::BlockWithFeedback {
+                suppress_output, ..
+            } => *suppress_output = true,
+            Action::Allow {
+                suppress_output, ..
+            } => *suppress_output = true,
+            Action::Ask {
+                suppress_output, ..
+            } => *suppress_output = true,
+            Action::RunCommand {
+                suppress_output, ..
+            } => *suppress_output = true,
+            Action::InjectContext {
+                suppress_output, ..
+            } => *suppress_output = true,
             Action::Conditional { .. } => {} // Conditional doesn't have suppress_output
         }
         self
@@ -334,8 +346,12 @@ impl Action {
     /// Set include_context to true for feedback actions
     pub fn with_context(mut self) -> Self {
         match &mut self {
-            Action::ProvideFeedback { include_context, .. } => *include_context = true,
-            Action::BlockWithFeedback { include_context, .. } => *include_context = true,
+            Action::ProvideFeedback {
+                include_context, ..
+            } => *include_context = true,
+            Action::BlockWithFeedback {
+                include_context, ..
+            } => *include_context = true,
             _ => {} // Other actions don't have include_context
         }
         self
@@ -351,7 +367,11 @@ impl Action {
 
     /// Set failure feedback message for RunCommand actions
     pub fn with_failure_feedback(mut self, feedback: impl Into<String>) -> Self {
-        if let Action::RunCommand { on_failure_feedback, .. } = &mut self {
+        if let Action::RunCommand {
+            on_failure_feedback,
+            ..
+        } = &mut self
+        {
             *on_failure_feedback = Some(feedback.into());
         }
         self
@@ -438,9 +458,13 @@ mod tests {
         let silent_feedback = Action::provide_feedback("Test message")
             .with_suppress_output()
             .with_context();
-        
+
         match silent_feedback {
-            Action::ProvideFeedback { message, include_context, suppress_output } => {
+            Action::ProvideFeedback {
+                message,
+                include_context,
+                suppress_output,
+            } => {
                 assert_eq!(message, "Test message");
                 assert!(include_context);
                 assert!(suppress_output);
@@ -448,11 +472,13 @@ mod tests {
             _ => panic!("Expected ProvideFeedback action"),
         }
 
-        let silent_approval = Action::allow_with_reason("Auto-approved")
-            .with_suppress_output();
-        
+        let silent_approval = Action::allow_with_reason("Auto-approved").with_suppress_output();
+
         match silent_approval {
-            Action::Allow { reason, suppress_output } => {
+            Action::Allow {
+                reason,
+                suppress_output,
+            } => {
                 assert_eq!(reason, Some("Auto-approved".to_string()));
                 assert!(suppress_output);
             }
@@ -463,9 +489,14 @@ mod tests {
             .with_blocking_failure()
             .with_failure_feedback("Command failed")
             .with_suppress_output();
-        
+
         match hard_command {
-            Action::RunCommand { on_failure, on_failure_feedback, suppress_output, .. } => {
+            Action::RunCommand {
+                on_failure,
+                on_failure_feedback,
+                suppress_output,
+                ..
+            } => {
                 assert_eq!(on_failure, OnFailureBehavior::Block);
                 assert_eq!(on_failure_feedback, Some("Command failed".to_string()));
                 assert!(suppress_output);
@@ -473,11 +504,15 @@ mod tests {
             _ => panic!("Expected RunCommand action"),
         }
 
-        let context_injection = Action::inject_context("Security reminder")
-            .with_suppress_output();
-        
+        let context_injection = Action::inject_context("Security reminder").with_suppress_output();
+
         match context_injection {
-            Action::InjectContext { context, use_stdout, suppress_output, .. } => {
+            Action::InjectContext {
+                context,
+                use_stdout,
+                suppress_output,
+                ..
+            } => {
                 assert_eq!(context, Some("Security reminder".to_string()));
                 assert!(use_stdout); // Default
                 assert!(suppress_output);
@@ -540,7 +575,10 @@ mod tests {
                 include_context: false,
                 suppress_output: false,
             }),
-            else_action: Some(Box::new(Action::Allow { reason: None, suppress_output: false })),
+            else_action: Some(Box::new(Action::Allow {
+                reason: None,
+                suppress_output: false,
+            })),
         };
 
         assert_eq!(conditional.action_type(), ActionType::Hard);
@@ -642,7 +680,11 @@ mod tests {
 
         // Test that either context or from_command is required (not both)
         match inject_from_cmd {
-            Action::InjectContext { context, from_command, .. } => {
+            Action::InjectContext {
+                context,
+                from_command,
+                ..
+            } => {
                 assert!(context.is_none());
                 assert!(from_command.is_some());
             }

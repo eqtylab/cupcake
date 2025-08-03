@@ -1,4 +1,4 @@
-use cupcake::config::actions::{Action, CommandSpec, ArrayCommandSpec, OnFailureBehavior};
+use cupcake::config::actions::{Action, ArrayCommandSpec, CommandSpec, OnFailureBehavior};
 use serde_json::json;
 use std::fs;
 use std::io::Write;
@@ -13,10 +13,14 @@ fn test_inject_context_from_command_yaml_parsing() {
 
     // Create a test script that outputs context
     let script_path = temp_dir.path().join("get-context.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 echo "Dynamic context: User asked about '$1'"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -24,7 +28,8 @@ echo "Dynamic context: User asked about '$1'"
     }
 
     // Create a test policy with from_command
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 UserPromptSubmit:
   "*":
     - name: inject-dynamic-context
@@ -39,7 +44,9 @@ UserPromptSubmit:
             args: ["{{{{prompt}}}}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -204,12 +211,16 @@ fn test_inject_context_from_command_with_template_substitution() {
 
     // Create a test script that uses multiple template variables
     let script_path = temp_dir.path().join("get-context.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 echo "Session: $1"
 echo "User: $2"
 echo "Prompt: $3"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -217,7 +228,8 @@ echo "Prompt: $3"
     }
 
     // Create a policy with template substitution in args
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 UserPromptSubmit:
   "*":
     - name: inject-with-templates
@@ -232,7 +244,9 @@ UserPromptSubmit:
             args: ["{{{{session_id}}}}", "{{{{env.USER}}}}", "{{{{prompt}}}}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -272,7 +286,12 @@ fn test_inject_context_action_builder() {
     // Test static context builder
     let static_action = Action::inject_context("Static context");
     match static_action {
-        Action::InjectContext { context, from_command, use_stdout, suppress_output } => {
+        Action::InjectContext {
+            context,
+            from_command,
+            use_stdout,
+            suppress_output,
+        } => {
             assert_eq!(context, Some("Static context".to_string()));
             assert!(from_command.is_none());
             assert!(use_stdout);
@@ -300,7 +319,11 @@ fn test_inject_context_action_builder() {
     );
 
     match command_action {
-        Action::InjectContext { context, from_command, .. } => {
+        Action::InjectContext {
+            context,
+            from_command,
+            ..
+        } => {
             assert!(context.is_none());
             assert!(from_command.is_some());
         }
@@ -316,11 +339,15 @@ fn test_inject_context_from_command_with_session_start() {
 
     // Create a test script that outputs session-specific context
     let script_path = temp_dir.path().join("get-session-context.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 echo "Welcome to session $1!"
 echo "Current directory: $PWD"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -328,7 +355,8 @@ echo "Current directory: $PWD"
     }
 
     // Create a test policy for SessionStart with from_command
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 SessionStart:
   "*":
     - name: inject-session-context
@@ -343,7 +371,9 @@ SessionStart:
             args: ["{{{{session_id}}}}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 

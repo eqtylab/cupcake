@@ -66,22 +66,27 @@ fn test_inject_context_with_multiple_template_vars() {
 
     // Create a script that uses multiple template variables
     let script_path = temp_dir.path().join("multi-template.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 echo "=== Context Report ==="
 echo "Prompt: $1"
 echo "Session: $2"
 echo "Directory: $3"
 echo "User: $4"
 echo "===================="
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 UserPromptSubmit:
   "*":
     - name: multi-template
@@ -96,7 +101,9 @@ UserPromptSubmit:
             args: ["{{{{prompt}}}}", "{{{{session_id}}}}", "{{{{cwd}}}}", "{{{{env.USER}}}}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -127,7 +134,7 @@ UserPromptSubmit:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     assert!(stdout.contains("Prompt: Complex template test"));
     assert!(stdout.contains("Session: multi-var-session"));
     assert!(stdout.contains(&format!("Directory: {}", temp_dir.path().display())));
@@ -253,7 +260,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(general_event.to_string().as_bytes()).unwrap();
+            stdin
+                .write_all(general_event.to_string().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -363,7 +372,7 @@ UserPromptSubmit:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Should contain all three contexts
     assert!(stdout.contains("🔐 Security Context"));
     assert!(stdout.contains("⚡ Performance Context"));
@@ -377,21 +386,26 @@ fn test_inject_context_with_binary_output() {
 
     // Create a script that outputs binary data
     let script_path = temp_dir.path().join("binary-output.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 # Output some text followed by binary data
 echo "Text context"
 # Output null bytes and other binary data
 printf '\x00\x01\x02\x03\xff\xfe'
 echo "More text"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 UserPromptSubmit:
   "*":
     - name: binary-test
@@ -405,7 +419,9 @@ UserPromptSubmit:
             command: ["{}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -447,11 +463,15 @@ fn test_inject_context_concurrent_execution() {
 
     // Create a slow script to test timeout/concurrency
     let script_path = temp_dir.path().join("slow-context.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 sleep 0.5
 echo "Context loaded after delay"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -459,7 +479,8 @@ echo "Context loaded after delay"
     }
 
     // Multiple policies with inject_context
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 UserPromptSubmit:
   "*":
     - name: context-1
@@ -486,7 +507,9 @@ UserPromptSubmit:
         type: inject_context
         context: "Static context 3"
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -519,20 +542,23 @@ UserPromptSubmit:
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     println!("Exit code: {:?}", output.status.code());
     println!("STDOUT: {stdout}");
     println!("STDERR: {stderr}");
-    
+
     assert_eq!(output.status.code(), Some(0));
-    
+
     // All contexts should appear
     assert!(stdout.contains("Static context 1"));
     assert!(stdout.contains("Context loaded after delay"));
     assert!(stdout.contains("Static context 3"));
-    
+
     // Should complete reasonably quickly despite delay
-    assert!(duration.as_secs() < 2, "Execution took too long: {duration:?}");
+    assert!(
+        duration.as_secs() < 2,
+        "Execution took too long: {duration:?}"
+    );
 }
 
 #[test]
@@ -601,18 +627,23 @@ SessionStart:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(startup_event.to_string().as_bytes()).unwrap();
+            stdin
+                .write_all(startup_event.to_string().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
 
     let stdout_startup = String::from_utf8_lossy(&output_startup.stdout);
     let stderr_startup = String::from_utf8_lossy(&output_startup.stderr);
-    
-    println!("Startup test - Exit code: {:?}", output_startup.status.code());
+
+    println!(
+        "Startup test - Exit code: {:?}",
+        output_startup.status.code()
+    );
     println!("STDOUT: {stdout_startup}");
     println!("STDERR: {stderr_startup}");
-    
+
     assert_eq!(output_startup.status.code(), Some(0));
     assert!(stdout_startup.contains("🚀 Fresh session started"));
     assert!(!stdout_startup.contains("📂 Resuming"));
@@ -638,18 +669,20 @@ SessionStart:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(resume_event.to_string().as_bytes()).unwrap();
+            stdin
+                .write_all(resume_event.to_string().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
 
     let stdout_resume = String::from_utf8_lossy(&output_resume.stdout);
     let stderr_resume = String::from_utf8_lossy(&output_resume.stderr);
-    
+
     println!("Resume test - Exit code: {:?}", output_resume.status.code());
     println!("STDOUT: {stdout_resume}");
     println!("STDERR: {stderr_resume}");
-    
+
     assert_eq!(output_resume.status.code(), Some(0));
     assert!(stdout_resume.contains("📂 Resuming previous session"));
     assert!(!stdout_resume.contains("🚀 Fresh session"));

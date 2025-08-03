@@ -21,7 +21,8 @@ impl ExecutionContextBuilder {
 
     /// Build evaluation context from hook event
     pub fn build_evaluation_context(&self, hook_event: &HookEvent) -> EvaluationContext {
-        let (session_id, tool_name, tool_input, prompt, source) = self.extract_event_data(hook_event);
+        let (session_id, tool_name, tool_input, prompt, source) =
+            self.extract_event_data(hook_event);
         let current_dir = PathBuf::from(&hook_event.common().cwd);
 
         EvaluationContext {
@@ -39,7 +40,8 @@ impl ExecutionContextBuilder {
 
     /// Build action context from hook event
     pub fn build_action_context(&self, hook_event: &HookEvent) -> ActionContext {
-        let (session_id, tool_name, tool_input, prompt, source) = self.extract_event_data(hook_event);
+        let (session_id, tool_name, tool_input, prompt, source) =
+            self.extract_event_data(hook_event);
         let current_dir = PathBuf::from(&hook_event.common().cwd);
 
         let mut context = ActionContext::new(
@@ -49,17 +51,21 @@ impl ExecutionContextBuilder {
             std::env::vars().collect(),
             session_id,
         );
-        
+
         // Add prompt to template variables if present
         if let Some(prompt_text) = prompt {
-            context.template_vars.insert("prompt".to_string(), prompt_text);
+            context
+                .template_vars
+                .insert("prompt".to_string(), prompt_text);
         }
-        
+
         // Add source to template variables if present
         if let Some(source_text) = source {
-            context.template_vars.insert("source".to_string(), source_text);
+            context
+                .template_vars
+                .insert("source".to_string(), source_text);
         }
-        
+
         context
     }
 

@@ -161,10 +161,7 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         let selected_count = state.selected.len();
         if selected_count > 0 {
             let total_files = count_total_files(&state.files, &state.selected);
-            let status = format!(
-                "  Selected: {} sources ({} files)",
-                selected_count, total_files
-            );
+            let status = format!("  Selected: {selected_count} sources ({total_files} files)");
             items.push(ListItem::new(Line::from(vec![Span::styled(
                 status,
                 Style::default().fg(Color::Magenta),
@@ -190,7 +187,7 @@ fn render_file_list(frame: &mut Frame, area: Rect, state: &DiscoveryState) {
         " Rule Files ".to_string()
     } else {
         let count = state.selected.len();
-        format!(" {} selected ", count)
+        format!(" {count} selected ")
     };
 
     let list = List::new(items).block(

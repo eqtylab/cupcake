@@ -62,20 +62,25 @@ fn test_inject_context_very_long_output() {
 
     // Create a script that outputs a very long context
     let script_path = temp_dir.path().join("long-output.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 # Generate 1000 lines of output
 for i in {1..1000}; do
     echo "Line $i: This is a test of very long context injection output"
 done
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 SessionStart:
   "*":
     - name: long-context
@@ -89,7 +94,9 @@ SessionStart:
             command: ["{}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -120,10 +127,13 @@ SessionStart:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Should contain multiple lines
     let line_count = stdout.lines().count();
-    assert!(line_count >= 1000, "Expected at least 1000 lines, got {line_count}");
+    assert!(
+        line_count >= 1000,
+        "Expected at least 1000 lines, got {line_count}"
+    );
     assert!(stdout.contains("Line 1:"));
     assert!(stdout.contains("Line 1000:"));
 }
@@ -182,7 +192,7 @@ UserPromptSubmit:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Check that special characters are preserved
     assert!(stdout.contains("\"double\""));
     assert!(stdout.contains("'single'"));
@@ -198,18 +208,23 @@ fn test_inject_context_from_command_timeout() {
 
     // Create a script that sleeps for a long time
     let script_path = temp_dir.path().join("slow-script.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 sleep 30
 echo "This should timeout"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 settings:
   timeout_ms: 1000  # 1 second timeout
 
@@ -226,7 +241,9 @@ UserPromptSubmit:
             command: ["{}"]
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -332,7 +349,7 @@ UserPromptSubmit:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Should see feedback first, then both contexts
     assert!(stdout.contains("Processing your request..."));
     assert!(stdout.contains("Context 1: Security guidelines loaded"));
@@ -390,7 +407,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(security_event.to_string().as_bytes()).unwrap();
+            stdin
+                .write_all(security_event.to_string().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -421,7 +440,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(general_event.to_string().as_bytes()).unwrap();
+            stdin
+                .write_all(general_event.to_string().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -439,20 +460,25 @@ fn test_inject_context_with_env_substitution() {
 
     // Create a script that uses environment variables
     let script_path = temp_dir.path().join("env-test.sh");
-    fs::write(&script_path, r#"#!/bin/bash
+    fs::write(
+        &script_path,
+        r#"#!/bin/bash
 echo "Running as user: $USER"
 echo "Home directory: $HOME"
 echo "Session: $1"
 echo "Custom env: $CUPCAKE_TEST"
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 SessionStart:
   "*":
     - name: env-context
@@ -470,7 +496,9 @@ SessionStart:
                 value: "test-value-123"
           on_failure: continue
         use_stdout: true
-"#, script_path.to_str().unwrap());
+"#,
+        script_path.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -502,10 +530,10 @@ SessionStart:
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     println!("STDOUT: {stdout}");
     println!("STDERR: {stderr}");
-    
+
     assert!(stdout.contains("Running as user:"));
     assert!(stdout.contains("Session: env-test-session"));
     assert!(stdout.contains("Custom env: test-value-123"));
@@ -515,14 +543,15 @@ SessionStart:
 fn test_inject_context_from_command_with_working_dir() {
     let temp_dir = TempDir::new().unwrap();
     let config_dir = temp_dir.path();
-    
+
     let work_dir = temp_dir.path().join("workdir");
     fs::create_dir(&work_dir).unwrap();
-    
+
     // Create a file in the work directory
     fs::write(work_dir.join("context.txt"), "Special project context").unwrap();
 
-    let policy_content = format!(r#"
+    let policy_content = format!(
+        r#"
 UserPromptSubmit:
   "*":
     - name: workdir-context
@@ -537,7 +566,9 @@ UserPromptSubmit:
             workingDir: "{}"
           on_failure: block
         use_stdout: true
-"#, work_dir.to_str().unwrap());
+"#,
+        work_dir.to_str().unwrap()
+    );
 
     fs::write(config_dir.join("cupcake.yaml"), policy_content).unwrap();
 
@@ -568,11 +599,11 @@ UserPromptSubmit:
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     println!("Exit code: {:?}", output.status.code());
     println!("STDOUT: {stdout}");
     println!("STDERR: {stderr}");
-    
+
     assert_eq!(output.status.code(), Some(0));
     assert!(stdout.contains("Special project context"));
 }
@@ -653,7 +684,9 @@ UserPromptSubmit:
 
     let stdout1 = String::from_utf8_lossy(&output1.stdout);
     // Should output JSON with suppressOutput: true
-    assert!(stdout1.contains("\"suppressOutput\":true") || stdout1.contains("\"suppressOutput\": true"));
+    assert!(
+        stdout1.contains("\"suppressOutput\":true") || stdout1.contains("\"suppressOutput\": true")
+    );
     assert!(stdout1.contains("Mode 1: JSON with suppress"));
 
     // Test mode2: Stdout with suppress
@@ -684,7 +717,9 @@ UserPromptSubmit:
 
     let stdout2 = String::from_utf8_lossy(&output2.stdout);
     // Should switch to JSON when suppress_output is true
-    assert!(stdout2.contains("\"suppressOutput\":true") || stdout2.contains("\"suppressOutput\": true"));
+    assert!(
+        stdout2.contains("\"suppressOutput\":true") || stdout2.contains("\"suppressOutput\": true")
+    );
 }
 
 #[test]
@@ -738,7 +773,7 @@ UserPromptSubmit:
 
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Should output JSON with block decision
     assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
     assert!(stdout.contains("Dynamic context generation failed"));

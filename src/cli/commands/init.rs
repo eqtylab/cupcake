@@ -18,7 +18,7 @@ impl CommandHandler for InitCommand {
             // Launch the TUI wizard
             // Note: We need to use tokio runtime since our TUI is async
             let runtime = tokio::runtime::Runtime::new().map_err(|e| {
-                crate::CupcakeError::Config(format!("Failed to create async runtime: {}", e))
+                crate::CupcakeError::Config(format!("Failed to create async runtime: {e}"))
             })?;
 
             runtime.block_on(async { tui::run_init_wizard().await })

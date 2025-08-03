@@ -220,7 +220,7 @@ impl ResponseHandler {
             EngineDecision::Allow { .. } => {
                 if !context_to_inject.is_empty() {
                     let combined_context = context_to_inject.join("\n");
-                    
+
                     if suppress_output {
                         // Send JSON with context but marked as suppressed
                         if self.debug {
@@ -338,7 +338,12 @@ impl ResponseHandler {
     }
 
     /// Send response for a specific hook event with suppress_output control
-    pub fn send_response_for_hook_with_suppress(&self, decision: EngineDecision, hook_event: &str, suppress_output: bool) -> ! {
+    pub fn send_response_for_hook_with_suppress(
+        &self,
+        decision: EngineDecision,
+        hook_event: &str,
+        suppress_output: bool,
+    ) -> ! {
         if self.debug {
             eprintln!(
                 "Debug: Sending {} response for {} event (suppress_output: {})",

@@ -371,9 +371,9 @@ impl PolicyLoader {
 
                     // SECURITY: Validate policy depth to prevent stack overflow attacks
                     self.validate_policy_depth(&policy)?;
-                    
+
                     // Validate inject_context is only used with appropriate events
-                    self.validate_inject_context_event(&policy.action, &hook_event)?;
+                    Self::validate_inject_context_event(&policy.action, &hook_event)?;
 
                     // Create ComposedPolicy
                     let composed_policy = ComposedPolicy {
@@ -415,10 +415,9 @@ impl PolicyLoader {
         self.check_action_depth(&policy.action, 0)?;
         Ok(())
     }
-    
+
     /// Validate that inject_context is only used with UserPromptSubmit or SessionStart
     fn validate_inject_context_event(
-        &self,
         action: &super::actions::Action,
         hook_event: &super::types::HookEventType,
     ) -> Result<()> {
@@ -440,9 +439,9 @@ impl PolicyLoader {
                 ..
             } => {
                 // Recursively check conditional branches
-                self.validate_inject_context_event(then_action, hook_event)?;
+                Self::validate_inject_context_event(then_action, hook_event)?;
                 if let Some(else_act) = else_action {
-                    self.validate_inject_context_event(else_act, hook_event)?;
+                    Self::validate_inject_context_event(else_act, hook_event)?;
                 }
                 Ok(())
             }

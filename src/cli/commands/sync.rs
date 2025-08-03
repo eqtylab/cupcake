@@ -107,9 +107,8 @@ impl SyncCommand {
             let content = fs::read_to_string(path).map_err(|e| {
                 crate::CupcakeError::Config(format!("Failed to read settings: {e}"))
             })?;
-            serde_json::from_str(&content).map_err(|e| {
-                crate::CupcakeError::Config(format!("Invalid JSON in settings: {e}"))
-            })
+            serde_json::from_str(&content)
+                .map_err(|e| crate::CupcakeError::Config(format!("Invalid JSON in settings: {e}")))
         } else {
             // Create default structure
             Ok(json!({

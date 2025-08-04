@@ -1,26 +1,36 @@
 # Claude Code Hook Events
 
+<!-- Last Verified: 2025-08-04 -->
+
 Cupcake provides comprehensive support for all Claude Code hook events, enabling fine-grained governance over AI agent behavior. This document provides an overview of supported events and their available condition fields.
 
 ## Supported Hook Events
 
 ### SessionStart
 
-Loads initial context and configuration at session start.
+Loads initial context and configuration at session start. Supports inject_context action for behavioral guidance.
 
 **Available Fields:**
 
 - `session_id`, `transcript_path`, `cwd` - Common event data
 - `source` - Session start type: "startup", "resume", or "clear"
 
+**Matcher Behavior:**
+- Matches against source field for filtering (e.g., "startup" to match only new sessions)
+- Empty string ("") or wildcard ("*") matches all session types
+
 ### UserPromptSubmit
 
-Validates user prompts and injects dynamic context before agent processing.
+Validates user prompts and injects dynamic context before agent processing. Supports inject_context action for behavioral guidance.
 
 **Available Fields:**
 
 - `session_id`, `transcript_path`, `cwd` - Common event data
 - `prompt` - The user's submitted prompt text
+
+**Matcher Behavior:**
+- Empty string ("") or wildcard ("*") required to match events
+- Both are equivalent and match all UserPromptSubmit events
 
 ### PreToolUse
 
@@ -47,13 +57,17 @@ Reacts to completed tool executions, enabling validation, logging, and feedback 
 
 ### PreCompact
 
-Influences conversation summarization with custom instructions.
+Influences conversation summarization with custom instructions. Supports inject_context action to add summarization guidance.
 
 **Available Fields:**
 
 - `session_id`, `transcript_path`, `cwd` - Common event data
 - `trigger` - Compaction trigger: "manual" or "auto"
 - `custom_instructions` - Optional custom summarization instructions
+
+**Matcher Behavior:**
+- Matches against trigger field (e.g., "manual" to match only manual compactions)
+- Empty string ("") or wildcard ("*") matches all compaction types
 
 ### Stop & SubagentStop
 

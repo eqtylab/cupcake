@@ -1,22 +1,22 @@
 use serde::{Deserialize, Serialize};
 
-mod pre_tool_use;
-mod post_tool_use;
 mod notification;
+mod post_tool_use;
+mod pre_compact;
+mod pre_tool_use;
+mod session_start;
 mod stop;
 mod subagent_stop;
-mod pre_compact;
 mod user_prompt_submit;
-mod session_start;
 
-pub use pre_tool_use::PreToolUsePayload;
-pub use post_tool_use::PostToolUsePayload;
 pub use notification::NotificationPayload;
+pub use post_tool_use::PostToolUsePayload;
+pub use pre_compact::PreCompactPayload;
+pub use pre_tool_use::PreToolUsePayload;
+pub use session_start::SessionStartPayload;
 pub use stop::StopPayload;
 pub use subagent_stop::SubagentStopPayload;
-pub use pre_compact::PreCompactPayload;
 pub use user_prompt_submit::UserPromptSubmitPayload;
-pub use session_start::SessionStartPayload;
 
 /// Trait for all event payloads - ensures access to common data
 pub trait EventPayload {
@@ -78,6 +78,15 @@ pub enum CompactTrigger {
     Auto,
 }
 
+impl std::fmt::Display for CompactTrigger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompactTrigger::Manual => write!(f, "manual"),
+            CompactTrigger::Auto => write!(f, "auto"),
+        }
+    }
+}
+
 /// Source of session start event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -88,6 +97,16 @@ pub enum SessionSource {
     Resume,
     /// After /clear command
     Clear,
+}
+
+impl std::fmt::Display for SessionSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SessionSource::Startup => write!(f, "startup"),
+            SessionSource::Resume => write!(f, "resume"),
+            SessionSource::Clear => write!(f, "clear"),
+        }
+    }
 }
 
 /// Specific tool input structures for common tools

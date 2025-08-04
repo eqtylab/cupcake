@@ -1,5 +1,7 @@
 # Debug Logging
 
+<!-- Last Verified: 2025-08-04 -->
+
 Cupcake includes comprehensive debug logging to help diagnose hook execution issues, particularly when integrating with Claude Code or other AI tools.
 
 ## Overview

@@ -310,6 +310,35 @@ SessionStart:
 }
 
 #[test]
+fn test_inject_context_valid_with_pre_compact() {
+    let temp_dir = tempdir().unwrap();
+
+    let policy_yaml = r#"
+PreCompact:
+  "manual":
+    - name: compact-context
+      description: Valid context injection for PreCompact
+      conditions: []
+      action:
+        type: inject_context
+        context: "Important context to preserve during compaction"
+"#;
+
+    let policy_path = temp_dir.path().join("precompact.yaml");
+    fs::write(&policy_path, policy_yaml).unwrap();
+
+    let mut loader = PolicyLoader::new();
+    let result = loader.load_configuration(&policy_path);
+
+    assert!(
+        result.is_ok(),
+        "Should accept inject_context with PreCompact"
+    );
+    let config = result.unwrap();
+    assert_eq!(config.policies.len(), 1);
+}
+
+#[test]
 fn test_inject_context_invalid_with_pre_tool_use() {
     let temp_dir = tempdir().unwrap();
 
@@ -336,8 +365,9 @@ PreToolUse:
     );
     let error = result.unwrap_err();
     let error_msg = error.to_string();
-    assert!(error_msg
-        .contains("inject_context action is only valid for UserPromptSubmit and SessionStart"));
+    assert!(error_msg.contains(
+        "inject_context action is only valid for UserPromptSubmit, SessionStart, and PreCompact"
+    ));
     assert!(error_msg.contains("not PreToolUse"));
 }
 
@@ -523,15 +553,15 @@ UserPromptSubmit:
 "#;
     fs::write(policies_dir.join("01-valid.yaml"), valid_yaml).unwrap();
 
-    // Invalid policy
+    // Invalid policy - using Stop which is not allowed for inject_context
     let invalid_yaml = r#"
-PreCompact:
+Stop:
   "*":
     - name: invalid-policy
       conditions: []
       action:
         type: inject_context
-        context: "Invalid for PreCompact"
+        context: "Invalid for Stop event"
 "#;
     fs::write(policies_dir.join("02-invalid.yaml"), invalid_yaml).unwrap();
 
@@ -543,7 +573,7 @@ PreCompact:
         "Should fail when any policy has invalid inject_context"
     );
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("not PreCompact"));
+    assert!(error.to_string().contains("not Stop"));
 }
 
 #[test]
@@ -571,8 +601,8 @@ SubagentStop:
     let error_msg = error.to_string();
 
     // Check that error message is helpful
-    assert!(error_msg
-        .contains("inject_context action is only valid for UserPromptSubmit and SessionStart"));
+    assert!(error_msg.contains(
+        "inject_context action is only valid for UserPromptSubmit, SessionStart, and PreCompact"
+    ));
     assert!(error_msg.contains("not SubagentStop"));
-    assert!(error_msg.contains("Claude Code's specification"));
 }

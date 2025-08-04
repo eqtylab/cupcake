@@ -262,8 +262,8 @@ fn test_template_variable_preservation() {
     };
 
     // Serialize and verify template variables are preserved exactly
-    let yaml = serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(spec)))
-        .expect("Failed to serialize");
+    let yaml =
+        serde_yaml_ng::to_string(&CommandSpec::Array(Box::new(spec))).expect("Failed to serialize");
 
     assert!(yaml.contains("{{tool_input.file_path}}"));
     assert!(yaml.contains("{{env.USER}}"));

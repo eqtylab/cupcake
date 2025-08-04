@@ -72,7 +72,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(serde_json::to_string(&event_json).unwrap().as_bytes()).unwrap();
+            stdin
+                .write_all(serde_json::to_string(&event_json).unwrap().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -129,7 +131,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(serde_json::to_string(&event_json).unwrap().as_bytes()).unwrap();
+            stdin
+                .write_all(serde_json::to_string(&event_json).unwrap().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -187,7 +191,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(serde_json::to_string(&event_json).unwrap().as_bytes()).unwrap();
+            stdin
+                .write_all(serde_json::to_string(&event_json).unwrap().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -267,7 +273,9 @@ UserPromptSubmit:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(serde_json::to_string(&event_json).unwrap().as_bytes()).unwrap();
+            stdin
+                .write_all(serde_json::to_string(&event_json).unwrap().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();
@@ -395,7 +403,9 @@ SessionStart:
         .spawn()
         .unwrap()
         .with_stdin(|stdin| {
-            stdin.write_all(serde_json::to_string(&event_json).unwrap().as_bytes()).unwrap();
+            stdin
+                .write_all(serde_json::to_string(&event_json).unwrap().as_bytes())
+                .unwrap();
         })
         .wait_with_output()
         .unwrap();

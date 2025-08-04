@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct UserPromptSubmitPayload {
     #[serde(flatten)]
     pub common: CommonEventData,
-    
+
     /// The prompt submitted by the user
     pub prompt: String,
 }
@@ -25,22 +25,22 @@ impl UserPromptSubmitPayload {
     pub fn prompt(&self) -> &str {
         &self.prompt
     }
-    
+
     /// Check if prompt contains a specific substring
     pub fn contains(&self, substring: &str) -> bool {
         self.prompt.contains(substring)
     }
-    
+
     /// Get prompt length
     pub fn len(&self) -> usize {
         self.prompt.len()
     }
-    
+
     /// Check if prompt is empty
     pub fn is_empty(&self) -> bool {
         self.prompt.is_empty()
     }
-    
+
     /// Get first N characters of prompt
     pub fn preview(&self, n: usize) -> &str {
         let end = self.prompt.len().min(n);
@@ -62,7 +62,7 @@ mod tests {
             },
             prompt: "Write a function to calculate factorial".to_string(),
         };
-        
+
         assert_eq!(payload.common().session_id, "test-123");
         assert_eq!(payload.prompt(), "Write a function to calculate factorial");
         assert!(payload.contains("factorial"));

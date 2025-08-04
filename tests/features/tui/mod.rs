@@ -1,0 +1,12 @@
+#[cfg(feature = "tui")]
+pub mod compilation;
+#[cfg(feature = "tui")]
+pub mod discovery;
+#[cfg(feature = "tui")]
+pub mod discovery_unit;
+#[cfg(feature = "tui")]
+pub mod modal_extraction;
+#[cfg(feature = "tui")]
+pub mod review;
+#[cfg(feature = "tui")]
+pub mod state_transitions;

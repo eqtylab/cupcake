@@ -1,5 +1,7 @@
 # Command Execution
 
+<!-- Last Verified: 2025-08-04 -->
+
 Cupcake provides secure, shell-free command execution with familiar syntax. Commands are executed directly via process spawning, eliminating shell injection vulnerabilities.
 
 ## Execution Modes
@@ -52,6 +54,8 @@ action:
 ```
 
 ⚠️ **Security Warning**: Shell mode bypasses all security protections. Use only when array mode cannot achieve your goals.
+
+**Note**: Shell mode requires explicit enablement via `allow_shell: true` in your cupcake.yaml settings. This is a security feature to prevent accidental shell execution.
 
 ## Security Features
 

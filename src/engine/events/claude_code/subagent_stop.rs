@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct SubagentStopPayload {
     #[serde(flatten)]
     pub common: CommonEventData,
-    
+
     /// Whether stop hook is currently active (prevents infinite loops)
     pub stop_hook_active: bool,
 }
@@ -23,7 +23,7 @@ impl SubagentStopPayload {
     pub fn should_allow_stop(&self) -> bool {
         self.stop_hook_active
     }
-    
+
     /// Check if this is the first stop attempt
     pub fn is_first_attempt(&self) -> bool {
         !self.stop_hook_active
@@ -44,17 +44,17 @@ mod tests {
             },
             stop_hook_active: false,
         };
-        
+
         assert_eq!(payload.common().session_id, "test-123");
         assert!(!payload.stop_hook_active);
         assert!(!payload.should_allow_stop());
         assert!(payload.is_first_attempt());
-        
+
         let active_payload = SubagentStopPayload {
             common: payload.common.clone(),
             stop_hook_active: true,
         };
-        
+
         assert!(active_payload.should_allow_stop());
         assert!(!active_payload.is_first_attempt());
     }

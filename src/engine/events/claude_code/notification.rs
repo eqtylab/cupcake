@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct NotificationPayload {
     #[serde(flatten)]
     pub common: CommonEventData,
-    
+
     /// The notification message
     pub message: String,
 }
@@ -22,17 +22,17 @@ impl NotificationPayload {
     pub fn message(&self) -> &str {
         &self.message
     }
-    
+
     /// Check if the message contains a specific substring
     pub fn contains(&self, substring: &str) -> bool {
         self.message.contains(substring)
     }
-    
+
     /// Get message length
     pub fn len(&self) -> usize {
         self.message.len()
     }
-    
+
     /// Check if message is empty
     pub fn is_empty(&self) -> bool {
         self.message.is_empty()
@@ -53,7 +53,7 @@ mod tests {
             },
             message: "Build completed successfully".to_string(),
         };
-        
+
         assert_eq!(payload.common().session_id, "test-123");
         assert_eq!(payload.message(), "Build completed successfully");
         assert!(payload.contains("completed"));

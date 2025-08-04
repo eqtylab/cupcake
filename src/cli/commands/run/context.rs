@@ -1,6 +1,7 @@
 use crate::engine::actions::ActionContext;
 use crate::engine::conditions::EvaluationContext;
-use crate::engine::events::{AgentEvent, claude_code::ClaudeCodeEvent};
+use crate::engine::environment::SanitizedEnvironment;
+use crate::engine::events::{claude_code::ClaudeCodeEvent, AgentEvent};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -26,18 +27,18 @@ impl ExecutionContextBuilder {
             // Future: Add other agent types here
         }
     }
-    
+
     /// Build evaluation context from Claude Code event
     fn build_claude_code_context(&self, event: &ClaudeCodeEvent) -> EvaluationContext {
         let common = event.common();
         let current_dir = PathBuf::from(&common.cwd);
-        
-        // Start with base context
+
+        // Start with base context - using SanitizedEnvironment for security
         let mut context = EvaluationContext {
             event_type: event.event_name().to_string(),
             session_id: common.session_id.clone(),
             current_dir,
-            env_vars: std::env::vars().collect(),
+            env_vars: SanitizedEnvironment::vars(), // Only allowed env vars
             timestamp: Utc::now(),
             // All optional fields default to None
             tool_name: String::new(),
@@ -49,7 +50,7 @@ impl ExecutionContextBuilder {
             trigger: None,
             custom_instructions: None,
         };
-        
+
         // Fill in event-specific fields using clean pattern matching
         match event {
             ClaudeCodeEvent::PreToolUse(payload) => {
@@ -88,7 +89,7 @@ impl ExecutionContextBuilder {
                 // No special fields for notification
             }
         }
-        
+
         context
     }
 
@@ -98,7 +99,6 @@ impl ExecutionContextBuilder {
         let evaluation_context = self.build_evaluation_context(agent_event);
         ActionContext::from_evaluation_context(&evaluation_context)
     }
-
 
     fn extract_tool_input(
         &self,
@@ -114,7 +114,7 @@ impl ExecutionContextBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::events::{CommonEventData, HookEvent};
+    use crate::engine::events::{ClaudeCodeEvent, CommonEventData};
 
     #[test]
     fn test_context_builder_creation() {
@@ -124,15 +124,16 @@ mod tests {
     #[test]
     fn test_evaluation_context_from_pre_tool_use() {
         let builder = ExecutionContextBuilder::new();
-        let event = HookEvent::PreToolUse(crate::engine::events::claude_code::PreToolUsePayload {
-            common: CommonEventData {
-                session_id: "test-123".to_string(),
-                transcript_path: "/tmp/transcript".to_string(),
-                cwd: "/home/user".to_string(),
-            },
-            tool_name: "Bash".to_string(),
-            tool_input: serde_json::json!({"command": "ls"}),
-        });
+        let event =
+            ClaudeCodeEvent::PreToolUse(crate::engine::events::claude_code::PreToolUsePayload {
+                common: CommonEventData {
+                    session_id: "test-123".to_string(),
+                    transcript_path: "/tmp/transcript".to_string(),
+                    cwd: "/home/user".to_string(),
+                },
+                tool_name: "Bash".to_string(),
+                tool_input: serde_json::json!({"command": "ls"}),
+            });
 
         let agent_event = AgentEvent::ClaudeCode(event);
         let context = builder.build_evaluation_context(&agent_event);
@@ -145,14 +146,16 @@ mod tests {
     #[test]
     fn test_action_context_from_user_prompt() {
         let builder = ExecutionContextBuilder::new();
-        let event = HookEvent::UserPromptSubmit(crate::engine::events::claude_code::UserPromptSubmitPayload {
-            common: CommonEventData {
-                session_id: "test-456".to_string(),
-                transcript_path: "/tmp/transcript".to_string(),
-                cwd: "/home/user".to_string(),
+        let event = ClaudeCodeEvent::UserPromptSubmit(
+            crate::engine::events::claude_code::UserPromptSubmitPayload {
+                common: CommonEventData {
+                    session_id: "test-456".to_string(),
+                    transcript_path: "/tmp/transcript".to_string(),
+                    cwd: "/home/user".to_string(),
+                },
+                prompt: "Hello".to_string(),
             },
-            prompt: "Hello".to_string(),
-        });
+        );
 
         let agent_event = AgentEvent::ClaudeCode(event);
         let context = builder.build_action_context(&agent_event);
@@ -164,14 +167,16 @@ mod tests {
     #[test]
     fn test_evaluation_context_from_session_start() {
         let builder = ExecutionContextBuilder::new();
-        let event = HookEvent::SessionStart(crate::engine::events::claude_code::SessionStartPayload {
-            common: CommonEventData {
-                session_id: "test-789".to_string(),
-                transcript_path: "/tmp/transcript".to_string(),
-                cwd: "/home/user/project".to_string(),
+        let event = ClaudeCodeEvent::SessionStart(
+            crate::engine::events::claude_code::SessionStartPayload {
+                common: CommonEventData {
+                    session_id: "test-789".to_string(),
+                    transcript_path: "/tmp/transcript".to_string(),
+                    cwd: "/home/user/project".to_string(),
+                },
+                source: crate::engine::events::SessionSource::Startup,
             },
-            source: crate::engine::events::SessionSource::Startup,
-        });
+        );
 
         let agent_event = AgentEvent::ClaudeCode(event);
         let context = builder.build_evaluation_context(&agent_event);
@@ -185,14 +190,16 @@ mod tests {
     #[test]
     fn test_action_context_from_session_start() {
         let builder = ExecutionContextBuilder::new();
-        let event = HookEvent::SessionStart(crate::engine::events::claude_code::SessionStartPayload {
-            common: CommonEventData {
-                session_id: "test-789".to_string(),
-                transcript_path: "/tmp/transcript".to_string(),
-                cwd: "/home/user/project".to_string(),
+        let event = ClaudeCodeEvent::SessionStart(
+            crate::engine::events::claude_code::SessionStartPayload {
+                common: CommonEventData {
+                    session_id: "test-789".to_string(),
+                    transcript_path: "/tmp/transcript".to_string(),
+                    cwd: "/home/user/project".to_string(),
+                },
+                source: crate::engine::events::SessionSource::Resume,
             },
-            source: crate::engine::events::SessionSource::Resume,
-        });
+        );
 
         let agent_event = AgentEvent::ClaudeCode(event);
         let context = builder.build_action_context(&agent_event);

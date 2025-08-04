@@ -1,8 +1,8 @@
+use super::context::ExecutionContextBuilder;
 use crate::config::types::{ComposedPolicy, Settings};
 use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
-use crate::engine::conditions::EvaluationContext;
 use crate::engine::evaluation::{MatchedPolicy, PolicyEvaluator};
-use crate::engine::events::HookEvent;
+use crate::engine::events::AgentEvent;
 use crate::engine::response::EngineDecision;
 use crate::Result;
 
@@ -31,17 +31,23 @@ impl EngineRunner {
     }
 
     /// Run policy evaluation and action execution
+    /// The EngineRunner now creates its own contexts internally for single-source-of-truth
     pub fn run(
         &mut self,
         policies: &[ComposedPolicy],
-        hook_event: &HookEvent,
-        evaluation_context: &EvaluationContext,
-        action_context: &ActionContext,
+        agent_event: &AgentEvent,
     ) -> Result<EngineResult> {
+        // Create contexts internally - single authoritative data flow
+        let context_builder = ExecutionContextBuilder::new();
+        let evaluation_context = context_builder.build_evaluation_context(agent_event);
+        let action_context = context_builder.build_action_context(agent_event);
+
+        // Extract ClaudeCodeEvent for legacy interface
+        let AgentEvent::ClaudeCode(hook_event) = agent_event;
         // Evaluate policies
         let evaluation_result =
             self.policy_evaluator
-                .evaluate(policies, hook_event, evaluation_context)?;
+                .evaluate(policies, hook_event, &evaluation_context)?;
 
         if self.debug {
             eprintln!(
@@ -58,7 +64,7 @@ impl EngineRunner {
 
         // Execute actions for matched policies
         let action_results =
-            self.execute_matched_actions(&evaluation_result.matched_policies, action_context)?;
+            self.execute_matched_actions(&evaluation_result.matched_policies, &action_context)?;
 
         // Process action results
         let mut final_decision = evaluation_result.decision.clone();
@@ -212,5 +218,28 @@ mod tests {
         let settings = Settings::default();
         let engine = EngineRunner::new(settings, true);
         assert!(engine.debug);
+    }
+
+    #[test]
+    fn test_engine_runner_with_agent_event() {
+        use crate::engine::events::{
+            claude_code::SessionStartPayload, ClaudeCodeEvent, CommonEventData,
+        };
+
+        let settings = Settings::default();
+        let mut engine = EngineRunner::new(settings, false);
+
+        let event = AgentEvent::ClaudeCode(ClaudeCodeEvent::SessionStart(SessionStartPayload {
+            common: CommonEventData {
+                session_id: "test-123".to_string(),
+                transcript_path: "/tmp/transcript".to_string(),
+                cwd: "/home/user".to_string(),
+            },
+            source: crate::engine::events::SessionSource::Startup,
+        }));
+
+        let policies = vec![];
+        let result = engine.run(&policies, &event);
+        assert!(result.is_ok());
     }
 }

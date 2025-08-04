@@ -1,4 +1,4 @@
-use crate::engine::events::{AgentEvent, HookEvent};
+use crate::engine::events::{AgentEvent, ClaudeCodeEvent};
 use crate::{CupcakeError, Result};
 use std::io::Read;
 
@@ -30,9 +30,9 @@ impl HookEventParser {
         }
 
         // First try to parse as ClaudeCodeEvent (currently our only agent type)
-        let claude_event: HookEvent = serde_json::from_str(&input)
+        let claude_event: ClaudeCodeEvent = serde_json::from_str(&input)
             .map_err(|e| CupcakeError::HookEvent(format!("Invalid JSON from stdin: {e}")))?;
-        
+
         // Wrap in AgentEvent
         Ok(AgentEvent::ClaudeCode(claude_event))
     }

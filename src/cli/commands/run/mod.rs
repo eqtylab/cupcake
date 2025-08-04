@@ -9,7 +9,9 @@ pub use self::parser::HookEventParser;
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
 use crate::engine::events::AgentEvent;
-use crate::engine::response::{EngineDecision, ResponseHandler};
+use crate::engine::response::{
+    claude_code::ClaudeCodeResponseBuilder, EngineDecision, ResponseHandler,
+};
 use crate::Result;
 
 /// Handler for the `run` command
@@ -103,60 +105,58 @@ impl CommandHandler for RunCommand {
             configuration.policies.len()
         ));
 
-        // Build contexts
-        let context_builder = ExecutionContextBuilder::new();
-        let evaluation_context = context_builder.build_evaluation_context(&hook_event);
-        let action_context = context_builder.build_action_context(&hook_event);
-
-        // Run engine
+        // Run engine - now creates its own contexts internally
         let mut engine = EngineRunner::new(configuration.settings, self.debug);
-        
-        // Extract ClaudeCodeEvent for engine (temporary during refactor)
-        let AgentEvent::ClaudeCode(claude_event) = &hook_event;
-        
-        let result = match engine.run(
-            &configuration.policies,
-            claude_event,
-            &evaluation_context,
-            &action_context,
-        ) {
+
+        let result = match engine.run(&configuration.policies, &hook_event) {
             Ok(result) => result,
             Err(e) => {
                 eprintln!("Error during policy evaluation: {e}");
                 self.log_debug("Graceful degradation - allowing operation due to evaluation error");
-                ResponseHandler::new(self.debug).send_response_for_hook(
-                    EngineDecision::Allow { reason: None },
-                    hook_event.event_name(),
-                );
+                std::process::exit(0);
             }
         };
 
-        // Handle different hook types appropriately
-        match hook_event.event_name() {
-            "UserPromptSubmit" | "SessionStart" => {
-                // These hooks support context injection via stdout
-                ResponseHandler::new(self.debug).send_user_prompt_response_with_suppress(
-                    result.final_decision,
-                    result.context_to_inject,
-                    result.suppress_output,
-                );
-            }
-            "PreCompact" if !result.context_to_inject.is_empty() => {
-                // PreCompact outputs compaction instructions to stdout
-                // This matches Claude Code's behavior where stdout becomes instructions
-                let combined_instructions = result.context_to_inject.join("\n\n");
-                println!("{combined_instructions}");
-                std::process::exit(0);
-            }
-            _ => {
-                // All other hooks use the standard response format
-                ResponseHandler::new(self.debug).send_response_for_hook_with_suppress(
-                    result.final_decision,
-                    hook_event.event_name(),
-                    result.suppress_output,
-                );
-            }
+        // Special handling for PreCompact with context injection
+        if hook_event.event_name() == "PreCompact" && !result.context_to_inject.is_empty() {
+            // PreCompact outputs compaction instructions to stdout
+            // This matches Claude Code's behavior where stdout becomes instructions
+            let combined_instructions = result.context_to_inject.join("\n\n");
+            println!("{combined_instructions}");
+            std::process::exit(0);
         }
+
+        // Handle stdout mode for UserPromptSubmit and SessionStart
+        if (hook_event.event_name() == "UserPromptSubmit"
+            || hook_event.event_name() == "SessionStart")
+            && !result.suppress_output
+            && matches!(result.final_decision, EngineDecision::Allow { .. })
+        {
+            // For Allow decisions without suppress_output, use stdout mode
+            if !result.context_to_inject.is_empty() {
+                let combined_context = result.context_to_inject.join("\n");
+                println!("{combined_context}");
+            }
+            // Exit with success (empty stdout is valid)
+            std::process::exit(0);
+        }
+
+        // Use the new modular response builder for all other cases
+        // Extract the HookEvent from AgentEvent
+        let AgentEvent::ClaudeCode(claude_event) = &hook_event;
+
+        let response = ClaudeCodeResponseBuilder::build_response(
+            &result.final_decision,
+            claude_event,
+            if result.context_to_inject.is_empty() {
+                None
+            } else {
+                Some(result.context_to_inject)
+            },
+            result.suppress_output,
+        );
+
+        ResponseHandler::new(self.debug).send_json_response(response);
     }
 
     fn name(&self) -> &'static str {

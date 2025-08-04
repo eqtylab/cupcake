@@ -54,15 +54,69 @@ impl PolicyEvaluator {
         }
     }
 
+    /// Extracts the string to be used for policy matching from a given event,
+    /// per the nuanced Claude Code hook specification.
+    fn get_match_query(event: &crate::engine::events::ClaudeCodeEvent) -> Option<String> {
+        match event {
+            crate::engine::events::ClaudeCodeEvent::PreToolUse(p) => Some(p.tool_name.clone()),
+            crate::engine::events::ClaudeCodeEvent::PostToolUse(p) => Some(p.tool_name.clone()),
+            crate::engine::events::ClaudeCodeEvent::PreCompact(p) => {
+                Some(p.trigger.to_string().to_lowercase())
+            } // e.g., "manual"
+            crate::engine::events::ClaudeCodeEvent::SessionStart(p) => {
+                Some(p.source.to_string().to_lowercase())
+            } // e.g., "startup"
+            _ => None, // UserPromptSubmit, Stop, etc., have no spec-defined query string.
+        }
+    }
+
     /// Execute two-pass evaluation on the given policies
     pub fn evaluate(
         &mut self,
         policies: &[ComposedPolicy],
-        hook_event: &crate::engine::events::HookEvent,
+        hook_event: &crate::engine::events::ClaudeCodeEvent,
         evaluation_context: &EvaluationContext,
     ) -> Result<EvaluationResult> {
-        // Single evaluation pass: evaluate each policy once and cache results
-        let ordered_policies = self.build_ordered_policy_list(policies, hook_event)?;
+        // Filter policies based on hook event and matcher
+        let hook_event_name = hook_event.event_name();
+        let query_string = Self::get_match_query(hook_event);
+
+        let mut ordered_policies = Vec::new();
+        for policy in policies {
+            // Check if policy applies to this hook event
+            if policy.hook_event.to_string() != hook_event_name {
+                continue;
+            }
+
+            // Check matcher logic per Claude Code spec
+            if let Some(ref query) = query_string {
+                // Event has a query string (tool name, trigger, source)
+                if policy.matcher == "*" || policy.matcher.is_empty() {
+                    // Per Claude Code docs: "Use `*` to match all tools. You can also use empty string (`""`)"
+                    // Both wildcard and empty string match everything
+                    ordered_policies.push(policy);
+                } else {
+                    // Non-empty, non-wildcard matcher must be valid regex that matches query
+                    let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
+                        crate::CupcakeError::Config(format!(
+                            "Invalid matcher regex '{}': {}",
+                            policy.matcher, e
+                        ))
+                    })?;
+
+                    if matcher_regex.is_match(query) {
+                        ordered_policies.push(policy);
+                    }
+                }
+            } else {
+                // Event has no query string (UserPromptSubmit, Stop, etc.)
+                // Only wildcard or empty matcher applies
+                if policy.matcher == "*" || policy.matcher.is_empty() {
+                    ordered_policies.push(policy);
+                }
+            }
+        }
+
         let mut matched_policies = Vec::new();
         let mut evaluation_cache = std::collections::HashMap::new();
 
@@ -110,58 +164,6 @@ impl PolicyEvaluator {
             feedback_messages: feedback_collection.feedback_messages,
             matched_policies,
         })
-    }
-
-    /// Build ordered list of policies matching the hook event
-    fn build_ordered_policy_list<'a>(
-        &self,
-        policies: &'a [ComposedPolicy],
-        hook_event: &crate::engine::events::HookEvent,
-    ) -> Result<Vec<&'a ComposedPolicy>> {
-        let mut ordered_policies = Vec::new();
-        let hook_event_name = hook_event.event_name();
-        let tool_name = hook_event.tool_name();
-
-        for policy in policies {
-            // Check if policy applies to this hook event
-            let policy_event_name = policy.hook_event.to_string();
-
-            if policy_event_name != hook_event_name {
-                continue;
-            }
-
-            // Check if policy matcher applies
-            if policy.matcher.is_empty() {
-                // Empty string matcher: only matches non-tool events
-                if tool_name.is_some() {
-                    continue; // Skip this policy for tool events
-                }
-            } else if policy.matcher == "*" {
-                // Special case: "*" matches everything (both tool and non-tool events)
-                // Continue to next check
-            } else {
-                // Non-empty, non-wildcard matcher: only matches tool events with regex
-                if let Some(tool) = tool_name {
-                    let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
-                        crate::CupcakeError::Config(format!(
-                            "Invalid matcher regex '{}': {}",
-                            policy.matcher, e
-                        ))
-                    })?;
-
-                    if !matcher_regex.is_match(tool) {
-                        continue;
-                    }
-                } else {
-                    // Non-tool event with non-wildcard matcher: no match
-                    continue;
-                }
-            }
-
-            ordered_policies.push(policy);
-        }
-
-        Ok(ordered_policies)
     }
 
     /// Execute Pass 1: Collect all feedback from soft actions (using cached evaluation results)

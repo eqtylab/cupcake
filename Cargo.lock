@@ -298,6 +298,7 @@ dependencies = [
  "directories",
  "glob",
  "libc",
+ "once_cell",
  "pretty_assertions",
  "ratatui",
  "regex",

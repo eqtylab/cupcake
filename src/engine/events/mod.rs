@@ -1,13 +1,13 @@
 //! Abstract event layer for multi-agent support
-//! 
+//!
 //! This module provides the top-level abstraction for handling events
 //! from different AI coding agents. Currently supports Claude Code,
 //! but designed for extensibility.
 
 pub mod claude_code;
 
-// Re-export commonly used types for backward compatibility during refactor
-pub use claude_code::{ClaudeCodeEvent as HookEvent, CommonEventData, SessionSource, CompactTrigger};
+// Re-export commonly used types
+pub use claude_code::{ClaudeCodeEvent, CommonEventData, CompactTrigger, SessionSource};
 
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,7 @@ impl AgentEvent {
             AgentEvent::ClaudeCode(event) => event.event_name(),
         }
     }
-    
+
     /// Get the common data (session_id, cwd, etc)
     pub fn common_data(&self) -> &claude_code::CommonEventData {
         match self {

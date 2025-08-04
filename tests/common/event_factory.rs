@@ -1,8 +1,10 @@
 //! EventFactory - Test data builder for Claude Code hook events
-//! 
+//!
 //! This module provides a clean, builder-pattern API for creating valid
 //! Claude Code hook event JSON payloads. It eliminates manual JSON construction
 //! errors and makes test data creation trivial and reliable.
+
+#![allow(dead_code)] // Many builder methods are provided for completeness
 
 use serde_json::{json, Value};
 
@@ -121,12 +123,12 @@ impl PreToolUseBuilder {
         self.tool_input = json!({"file_path": path.into()});
         self
     }
-    
+
     pub fn tool_input_description(mut self, desc: impl Into<String>) -> Self {
         self.tool_input["description"] = json!(desc.into());
         self
     }
-    
+
     pub fn tool_input_timeout(mut self, timeout: u32) -> Self {
         self.tool_input["timeout"] = json!(timeout);
         self
@@ -155,7 +157,7 @@ impl PreToolUseBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
@@ -244,7 +246,7 @@ impl PostToolUseBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
@@ -307,7 +309,7 @@ impl UserPromptSubmitBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
@@ -385,7 +387,7 @@ impl SessionStartBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
@@ -476,25 +478,17 @@ impl PreCompactBuilder {
         json
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
 }
 
 /// Builder for Stop events
+#[derive(Default)]
 pub struct StopBuilder {
     common: CommonEventData,
     stop_hook_active: bool,
-}
-
-impl Default for StopBuilder {
-    fn default() -> Self {
-        Self {
-            common: CommonEventData::default(),
-            stop_hook_active: false,
-        }
-    }
 }
 
 impl StopBuilder {
@@ -539,25 +533,17 @@ impl StopBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
 }
 
 /// Builder for SubagentStop events
+#[derive(Default)]
 pub struct SubagentStopBuilder {
     common: CommonEventData,
     stop_hook_active: bool,
-}
-
-impl Default for SubagentStopBuilder {
-    fn default() -> Self {
-        Self {
-            common: CommonEventData::default(),
-            stop_hook_active: false,
-        }
-    }
 }
 
 impl SubagentStopBuilder {
@@ -602,7 +588,7 @@ impl SubagentStopBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
@@ -665,7 +651,7 @@ impl NotificationBuilder {
         })
     }
 
-    pub fn build(self) -> cupcake::engine::events::HookEvent {
+    pub fn build(self) -> cupcake::engine::events::ClaudeCodeEvent {
         let json = self.build_json();
         serde_json::from_str(&json).expect("EventFactory should produce valid events")
     }
@@ -721,19 +707,13 @@ mod tests {
     #[test]
     fn test_session_start_sources() {
         // Test all three source types
-        let startup = EventFactory::session_start()
-            .source_startup()
-            .build_value();
+        let startup = EventFactory::session_start().source_startup().build_value();
         assert_eq!(startup["source"], "startup");
 
-        let resume = EventFactory::session_start()
-            .source_resume()
-            .build_value();
+        let resume = EventFactory::session_start().source_resume().build_value();
         assert_eq!(resume["source"], "resume");
 
-        let clear = EventFactory::session_start()
-            .source_clear()
-            .build_value();
+        let clear = EventFactory::session_start().source_clear().build_value();
         assert_eq!(clear["source"], "clear");
     }
 }

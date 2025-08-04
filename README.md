@@ -11,11 +11,15 @@
 
 # Cupcake - Agent Governance as Code
 
+<!-- Last Verified: 2025-08-04 -->
+
 **NOT JUST POLICY ENFORCEMENT, BUT BEHAVIORAL GUIDANCE**
 **STRIKE PINS, AVOID GUTTERBALLS**
 Policy enforcement engine that makes AI coding agents actually follow your rules, now with behavioral guidance capabilities.
 
 > **Note**: Currently in beta with Claude Code support. The policy format is designed to be agent-agnostic, with eventual support for any coding agent hook system.
+>
+> **Architecture Note**: Cupcake's modular architecture uses an AgentEvent abstraction layer to support multiple agent types. Currently, ClaudeCodeEvent is the primary implementation, providing 100% compatibility with Claude Code's hook specification.
 
 ## Overview
 
@@ -83,7 +87,7 @@ PreToolUse:
 
 # guardrails/policies/prompt-security.yaml - UserPromptSubmit policies
 UserPromptSubmit:
-  "": # Empty string or "*" matcher required in YAML format
+  "": # Empty string or "*" matcher for all events (both are equivalent)
     - name: "Block API keys in prompts"
       description: "Prevent accidental exposure of secrets"
       conditions:
@@ -178,7 +182,9 @@ Cupcake supports several action types for different policy enforcement strategie
 
 - **CLI Binary**: Single Rust executable with init, sync, run, validate commands
 - **Hook Integration**: Registers with Claude Code's lifecycle events
-- **Policy Cache**: Binary serialization for fast loading
+- **Policy Engine**: Modular evaluation with single-source-of-truth context creation
+- **Response Generation**: Type-safe builders for 100% Claude Code spec compliance
+- **Environment Security**: Hardened with allow-list filtering (CLAUDE_PROJECT_DIR, CLAUDE_SESSION_ID preserved)
 - **Two-pass evaluation**: Collects all feedback, then checks for blocks
 
 ## Installation

@@ -1,5 +1,7 @@
 # Policy Format Guide
 
+<!-- Last Verified: 2025-08-04 -->
+
 ## Overview
 
 Cupcake policies are written in YAML and define rules that govern AI agent behavior. Policies can match specific tools and conditions, then take actions like providing feedback or blocking operations.
@@ -33,6 +35,8 @@ The `guardrails/cupcake.yaml` file controls settings and imports:
 ```yaml
 settings:
   debug_mode: false       # Extra debug output
+  allow_shell: false      # Enable shell mode execution (security risk)
+  default_timeout: 120000 # Default command timeout in milliseconds
 
 imports:
   - "policies/*.yaml"     # Import all .yaml files from policies/
@@ -40,7 +44,7 @@ imports:
 
 ## Policy Structure
 
-Policies use a "grouped map" format organized by hook event and tool:
+Policies use a "grouped map" format organized by hook event and tool/matcher:
 
 ```yaml
 PreToolUse:              # When to evaluate (before tool use)
@@ -64,6 +68,7 @@ PreToolUse:              # When to evaluate (before tool use)
 - `Stop` - When session ends
 - `SubagentStop` - When a subagent session ends
 - `PreCompact` - Before context compaction
+- `SessionStart` - When a session starts (new in July 2024)
 
 ### Tool Matchers
 
@@ -74,10 +79,24 @@ For tool events (PreToolUse/PostToolUse):
 - Regex pattern: `".*Test$"` (matches any tool ending with "Test")
 - MCP tools: `"mcp__.*"` (matches all MCP tools)
 
-For non-tool events (UserPromptSubmit, Notification, etc.):
-- In Cupcake's YAML format, a matcher is required as a map key
-- Use `""` (empty string) or `"*"` (wildcard) - both are equivalent
-- Note: This differs from Claude Code's JSON spec where matcher can be omitted
+For non-tool events:
+- **UserPromptSubmit/SessionStart**: Matcher filters against the event itself
+  - `""` or `"*"` - Match all events
+- **PreCompact**: Matcher compares against trigger field ("manual"/"auto")
+  - `"manual"` - Only manual compactions
+  - `"auto"` - Only automatic compactions
+  - `""` or `"*"` - All compactions
+- **SessionStart**: Matcher compares against source field ("startup"/"resume"/"clear")
+  - `"startup"` - New sessions
+  - `"resume"` - Resumed sessions
+  - `"clear"` - Cleared sessions
+  - `""` or `"*"` - All session types
+- **Other events**: Use `""` or `"*"` to match
+
+**Important Note on Empty Matchers:**
+- Both `""` (empty string) and `"*"` (wildcard) match ALL events, including tool events
+- This aligns with Claude Code's behavior where empty matcher means "match all tools"
+- For tool events like PreToolUse/PostToolUse, empty matcher will match any tool
 
 ## Conditions
 
@@ -107,6 +126,16 @@ UserPromptSubmit fields:
 
 SessionStart fields:
 - `source` - Session start type: "startup", "resume", or "clear"
+
+PreCompact fields:
+- `trigger` - Compaction trigger: "manual" or "auto"
+- `custom_instructions` - Optional custom summarization instructions
+
+Stop/SubagentStop fields:
+- `stop_hook_active` - Boolean indicating if stop hook is active
+
+Notification fields:
+- `message` - Notification message content
 
 PreCompact fields:
 - `trigger` - Compaction trigger: "manual" or "auto"
@@ -290,6 +319,21 @@ PreToolUse:
       action:
         type: "block_with_feedback"
         feedback_message: "Cannot display AWS credentials"
+```
+
+### Universal Tool Monitoring
+
+```yaml
+PreToolUse:
+  "":  # Empty matcher - applies to ALL tools
+    - name: "Log sensitive file access"
+      conditions:
+        - type: "pattern"
+          field: "tool_input.file_path"
+          regex: "(secrets|passwords|keys)\\.txt"
+      action:
+        type: "provide_feedback"
+        message: "Accessing potentially sensitive file"
 ```
 
 ### Development Workflow

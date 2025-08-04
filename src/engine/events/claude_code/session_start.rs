@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct SessionStartPayload {
     #[serde(flatten)]
     pub common: CommonEventData,
-    
+
     /// Source of the session start
     pub source: SessionSource,
 }
@@ -25,17 +25,17 @@ impl SessionStartPayload {
     pub fn is_startup(&self) -> bool {
         matches!(self.source, SessionSource::Startup)
     }
-    
+
     /// Check if this is a resumed session
     pub fn is_resume(&self) -> bool {
         matches!(self.source, SessionSource::Resume)
     }
-    
+
     /// Check if this is after a clear command
     pub fn is_clear(&self) -> bool {
         matches!(self.source, SessionSource::Clear)
     }
-    
+
     /// Get source as string
     pub fn source_str(&self) -> &'static str {
         match self.source {
@@ -60,18 +60,18 @@ mod tests {
             },
             source: SessionSource::Startup,
         };
-        
+
         assert_eq!(startup_payload.common().session_id, "test-123");
         assert!(startup_payload.is_startup());
         assert!(!startup_payload.is_resume());
         assert!(!startup_payload.is_clear());
         assert_eq!(startup_payload.source_str(), "startup");
-        
+
         let resume_payload = SessionStartPayload {
             common: startup_payload.common.clone(),
             source: SessionSource::Resume,
         };
-        
+
         assert!(!resume_payload.is_startup());
         assert!(resume_payload.is_resume());
         assert!(!resume_payload.is_clear());

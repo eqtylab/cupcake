@@ -425,11 +425,10 @@ impl PolicyLoader {
             super::actions::Action::InjectContext { .. } => {
                 match hook_event {
                     super::types::HookEventType::UserPromptSubmit
-                    | super::types::HookEventType::SessionStart => Ok(()),
+                    | super::types::HookEventType::SessionStart
+                    | super::types::HookEventType::PreCompact => Ok(()),
                     _ => Err(CupcakeError::Config(format!(
-                        "inject_context action is only valid for UserPromptSubmit and SessionStart events, not {hook_event}. \
-                        Context injection allows adding information to Claude's awareness and is only \
-                        supported for these two hook events per Claude Code's specification."
+                        "inject_context action is only valid for UserPromptSubmit, SessionStart, and PreCompact events, not {hook_event}."
                     ))),
                 }
             }

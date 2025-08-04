@@ -1,5 +1,7 @@
 # Conditions and Actions
 
+<!-- Last Verified: 2025-08-04 -->
+
 This guide explains the condition types (evaluations) and action types available in Cupcake policies.
 
 ## Quick Reference
@@ -20,7 +22,7 @@ This guide explains the condition types (evaluations) and action types available
 3. **allow** - Auto-allow (bypass permission prompt)
 4. **run_command** - Execute a command
 5. **conditional** - If/then/else based on a condition
-6. **inject_context** - Inject context for UserPromptSubmit
+6. **inject_context** - Inject context for UserPromptSubmit, SessionStart, and PreCompact
 7. **ask** - Ask user for confirmation
 
 ### When Actions Execute
@@ -64,6 +66,8 @@ sequenceDiagram
 ```
 
 ### Two-Pass Evaluation Model
+
+Cupcake uses a two-pass evaluation system to ensure all feedback is collected before any blocking decisions are made. This provides a consistent experience where users see all relevant feedback at once.
 
 ```mermaid
 flowchart TD

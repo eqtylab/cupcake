@@ -1,7 +1,7 @@
 use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::{ConditionEvaluator, EvaluationContext};
 use crate::engine::response::EngineDecision;
-use crate::Result;
+use crate::{Result, tracing::{debug, warn}};
 
 /// Two-pass policy evaluation engine
 pub struct PolicyEvaluator {
@@ -263,8 +263,8 @@ impl PolicyEvaluator {
         policy: &ComposedPolicy,
         context: &EvaluationContext,
     ) -> Result<bool> {
-        // Debug: Track policy condition evaluations
-        eprintln!("Debug: Evaluating policy conditions for '{}'", policy.name);
+        // Track policy condition evaluations
+        debug!(policy_name = %policy.name, "Evaluating policy conditions");
 
         // If no conditions, policy always matches
         if policy.conditions.is_empty() {
@@ -280,9 +280,10 @@ impl PolicyEvaluator {
                 crate::engine::conditions::ConditionResult::Match => continue,
                 crate::engine::conditions::ConditionResult::NoMatch => return Ok(false),
                 crate::engine::conditions::ConditionResult::Error(err) => {
-                    eprintln!(
-                        "Warning: Condition evaluation error in policy '{}': {}",
-                        policy.name, err
+                    warn!(
+                        policy_name = %policy.name,
+                        error = %err,
+                        "Condition evaluation error in policy"
                     );
                     return Ok(false); // Graceful degradation
                 }

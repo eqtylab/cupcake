@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::process;
+use crate::tracing::{debug, error};
 
 pub mod claude_code;
 
@@ -104,31 +105,29 @@ impl ResponseHandler {
 
     /// Send JSON response to Claude Code (for advanced control)
     pub fn send_json_response(&self, response: CupcakeResponse) -> ! {
-        if self.debug {
-            // Determine the type of response for debugging
-            let response_type = if let Some(ref hook_output) = response.hook_specific_output {
-                match hook_output {
-                    HookSpecificOutput::PreToolUse {
-                        permission_decision,
-                        ..
-                    } => match permission_decision {
-                        PermissionDecision::Allow => "Allow response for PreToolUse event",
-                        PermissionDecision::Deny => "Deny response for PreToolUse event",
-                        PermissionDecision::Ask => "Ask response for PreToolUse event",
-                    },
-                    HookSpecificOutput::UserPromptSubmit { .. } => "UserPromptSubmit response",
-                }
-            } else if response.decision.is_some() {
-                "Feedback loop response"
-            } else if response.continue_execution == Some(false) {
-                "Block response"
-            } else {
-                "Allow response"
-            };
+        // Determine the type of response for debugging
+        let response_type = if let Some(ref hook_output) = response.hook_specific_output {
+            match hook_output {
+                HookSpecificOutput::PreToolUse {
+                    permission_decision,
+                    ..
+                } => match permission_decision {
+                    PermissionDecision::Allow => "Allow response for PreToolUse event",
+                    PermissionDecision::Deny => "Deny response for PreToolUse event",
+                    PermissionDecision::Ask => "Ask response for PreToolUse event",
+                },
+                HookSpecificOutput::UserPromptSubmit { .. } => "UserPromptSubmit response",
+            }
+        } else if response.decision.is_some() {
+            "Feedback loop response"
+        } else if response.continue_execution == Some(false) {
+            "Block response"
+        } else {
+            "Allow response"
+        };
 
-            eprintln!("Debug: Sending {response_type}");
-            eprintln!("Debug: JSON response: {response:?}");
-        }
+        debug!(response_type = %response_type, "Sending response");
+        debug!(?response, "JSON response");
 
         match serde_json::to_string(&response) {
             Ok(json) => {
@@ -136,7 +135,7 @@ impl ResponseHandler {
                 process::exit(0);
             }
             Err(e) => {
-                eprintln!("Error serializing response: {e}");
+                error!(error = %e, "Error serializing response");
                 process::exit(1);
             }
         }

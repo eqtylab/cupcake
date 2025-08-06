@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod fail_closed;
 pub mod hook_contract;
 pub mod july20_features;
 pub mod parsing;

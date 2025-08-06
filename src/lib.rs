@@ -10,3 +10,6 @@ pub use error::{CupcakeError, Result};
 extern crate chrono;
 extern crate glob;
 extern crate regex;
+
+// Re-export tracing for use throughout the crate
+pub use tracing;

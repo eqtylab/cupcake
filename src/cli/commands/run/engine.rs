@@ -4,7 +4,7 @@ use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::evaluation::{MatchedPolicy, PolicyEvaluator};
 use crate::engine::events::AgentEvent;
 use crate::engine::response::EngineDecision;
-use crate::Result;
+use crate::{Result, tracing::{debug, warn}};
 
 /// Orchestrates policy evaluation and action execution
 pub struct EngineRunner {
@@ -49,17 +49,9 @@ impl EngineRunner {
             self.policy_evaluator
                 .evaluate(policies, hook_event, &evaluation_context)?;
 
-        if self.debug {
-            eprintln!(
-                "Debug: Evaluation complete - Decision: {:?}",
-                evaluation_result.decision
-            );
-            if !evaluation_result.feedback_messages.is_empty() {
-                eprintln!(
-                    "Debug: Collected feedback messages: {:?}",
-                    evaluation_result.feedback_messages
-                );
-            }
+        debug!(?evaluation_result.decision, "Evaluation complete");
+        if !evaluation_result.feedback_messages.is_empty() {
+            debug!(?evaluation_result.feedback_messages, "Collected feedback messages");
         }
 
         // Execute actions for matched policies
@@ -151,20 +143,17 @@ impl EngineRunner {
     ) -> Result<Vec<(String, ActionResult)>> {
         let mut results = Vec::new();
 
-        if self.debug {
-            eprintln!(
-                "Debug: Executing actions for {} matched policies",
-                matched_policies.len()
-            );
-        }
+        debug!(
+            policy_count = matched_policies.len(),
+            "Executing actions for matched policies"
+        );
 
         for matched_policy in matched_policies {
-            if self.debug {
-                eprintln!(
-                    "Debug: Executing action for policy '{}': {:?}",
-                    matched_policy.name, matched_policy.action
-                );
-            }
+            debug!(
+                policy_name = %matched_policy.name,
+                action = ?matched_policy.action,
+                "Executing action for policy"
+            );
 
             let result = self
                 .action_executor
@@ -173,30 +162,23 @@ impl EngineRunner {
             match &result {
                 ActionResult::Success { feedback, .. } => {
                     if let Some(msg) = feedback {
-                        if self.debug {
-                            eprintln!("Debug: Action feedback: {msg}");
-                        }
+                        debug!(feedback = %msg, "Action feedback");
                     }
                 }
                 ActionResult::Block { feedback } => {
-                    if self.debug {
-                        eprintln!("Debug: Action execution resulted in block: {feedback}");
-                    }
+                    debug!(feedback = %feedback, "Action execution resulted in block");
                 }
                 ActionResult::Allow { .. } => {
-                    if self.debug {
-                        eprintln!("Debug: Action execution resulted in allow");
-                    }
+                    debug!("Action execution resulted in allow");
                 }
                 ActionResult::Ask { reason } => {
-                    if self.debug {
-                        eprintln!("Debug: Action execution resulted in ask: {reason}");
-                    }
+                    debug!(reason = %reason, "Action execution resulted in ask");
                 }
                 ActionResult::Error { message } => {
-                    eprintln!(
-                        "Error executing action for policy '{}': {}",
-                        matched_policy.name, message
+                    warn!(
+                        policy = %matched_policy.name,
+                        error = %message,
+                        "Error executing action for policy"
                     );
                 }
             }

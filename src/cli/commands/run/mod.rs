@@ -12,7 +12,7 @@ use crate::engine::events::AgentEvent;
 use crate::engine::response::{
     claude_code::ClaudeCodeResponseBuilder, EngineDecision, ResponseHandler,
 };
-use crate::Result;
+use crate::{Result, tracing::{debug, info}};
 
 /// Handler for the `run` command
 pub struct RunCommand {
@@ -30,13 +30,10 @@ impl RunCommand {
         }
     }
 
-    fn log_debug(&self, message: &str) {
-        if self.debug {
-            eprintln!("Debug: {message}");
-        }
-    }
-
     fn append_debug_log(&self, message: &str) {
+        // Log to both tracing and file for backward compatibility
+        info!(message);
+        
         if let Ok(mut file) = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -71,39 +68,31 @@ impl CommandHandler for RunCommand {
             self.event, self.config, self.debug
         ));
 
-        self.log_debug(&format!("Event: {}", self.event));
-        self.log_debug(&format!("Config file: {}", self.config));
+        debug!(event = %self.event, "Processing hook event");
+        debug!(config = %self.config, "Using config file");
 
         // Parse hook event
         let parser = HookEventParser::new(self.debug);
         let hook_event = match parser.parse_from_stdin() {
             Ok(event) => event,
             Err(e) => {
-                eprintln!("Error reading hook event: {e}");
-                self.log_debug("Graceful degradation - allowing operation due to input error");
-                self.append_debug_log(&format!("ERROR reading hook event: {e}"));
-                std::process::exit(0);
+                // Use the event type from command line for proper error response format
+                crate::cli::error_handler::handle_run_command_error_with_type(e, &self.event);
             }
         };
 
-        self.log_debug(&format!("Parsed hook event: {hook_event:?}"));
+        debug!(?hook_event, "Parsed hook event");
 
         // Load configuration
         let configuration = match self.load_configuration() {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("Error loading configuration: {e}");
-                self.log_debug(
-                    "Graceful degradation - allowing operation due to configuration loading error",
-                );
-                std::process::exit(0);
+                // Use the event type from command line for proper error response format
+                crate::cli::error_handler::handle_run_command_error_with_type(e, &self.event);
             }
         };
 
-        self.log_debug(&format!(
-            "Loaded {} composed policies",
-            configuration.policies.len()
-        ));
+        debug!(policy_count = configuration.policies.len(), "Loaded composed policies");
 
         // Run engine - now creates its own contexts internally
         let mut engine = EngineRunner::new(configuration.settings, self.debug);
@@ -111,9 +100,8 @@ impl CommandHandler for RunCommand {
         let result = match engine.run(&configuration.policies, &hook_event) {
             Ok(result) => result,
             Err(e) => {
-                eprintln!("Error during policy evaluation: {e}");
-                self.log_debug("Graceful degradation - allowing operation due to evaluation error");
-                std::process::exit(0);
+                // Use the event type from command line for proper error response format
+                crate::cli::error_handler::handle_run_command_error_with_type(e, &self.event);
             }
         };
 

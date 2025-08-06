@@ -25,9 +25,15 @@ fn test_run_command_stdin_parsing() {
         .tool_input_description("Test command for integration")
         .build_json();
 
+    // Create an empty config file for this test
+    let temp_dir = std::env::temp_dir();
+    let config_path = temp_dir.join("test-stdin-parsing-config.yaml");
+    std::fs::write(&config_path, "# Empty config\n").expect("Failed to write test config");
+
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
-        .args(["run", "--debug", "--event", "PreToolUse"])
+        .args(["run", "--debug", "--event", "PreToolUse", "--config", config_path.to_str().unwrap()])
+        .env("RUST_LOG", "cupcake=debug")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -57,26 +63,36 @@ fn test_run_command_stdin_parsing() {
 
     // Convert stderr to string for debugging
     let stderr_output = String::from_utf8_lossy(&output.stderr);
+    let stdout_output = String::from_utf8_lossy(&output.stdout);
 
-    // Check that debug output contains expected information
+    // The test should succeed
     assert!(
-        stderr_output.contains("Debug: Event: PreToolUse"),
-        "Expected event debug output"
+        output.status.success(),
+        "Command failed with status: {}",
+        output.status
     );
-    assert!(
-        stderr_output.contains("Debug: Parsed hook event:"),
-        "Expected parsed event debug output"
+    
+    // With an empty config and valid input, it should allow by default
+    // In the new spec-compliant behavior, we output JSON even for allow
+    assert!(!stdout_output.is_empty(), "Expected JSON output for allow decision");
+    
+    // Parse and verify the JSON response
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout_output).expect("stdout should be valid JSON");
+    
+    // Should be an allow decision
+    let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
+    assert_eq!(
+        decision, "allow",
+        "JSON response should have permissionDecision: allow"
     );
-    assert!(
-        stderr_output.contains("test-session-integration"),
-        "Expected session ID in debug output"
-    );
-    assert!(
-        stderr_output.contains("Debug: Allowing operation")
-            || stderr_output.contains("Debug: Evaluation complete")
-            || stderr_output.contains("Debug: Graceful degradation - allowing operation"),
-        "Expected evaluation or allow operation debug output"
-    );
+    
+    // Default allow should have null reason
+    let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];
+    assert!(reason.is_null(), "Default allow should have null reason");
+    
+    // Cleanup
+    std::fs::remove_file(&config_path).ok();
 }
 
 #[test]
@@ -121,6 +137,7 @@ PreToolUse:
             "--config",
             policy_path.to_str().unwrap(),
         ])
+        .env("RUST_LOG", "cupcake=debug")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -160,13 +177,10 @@ PreToolUse:
     );
 
     let stderr_output = String::from_utf8_lossy(&output.stderr);
+    // The blocking feedback should still appear in stderr as it's not a debug message
     assert!(
         stderr_output.contains("Dangerous command blocked!"),
         "Expected blocking feedback message"
-    );
-    assert!(
-        stderr_output.contains("Debug: Evaluation complete"),
-        "Expected evaluation complete message"
     );
 
     // Test 2: Command that should be allowed
@@ -188,6 +202,7 @@ PreToolUse:
             "--config",
             policy_path.to_str().unwrap(),
         ])
+        .env("RUST_LOG", "cupcake=debug")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -215,7 +230,7 @@ PreToolUse:
 
     let stderr_output2 = String::from_utf8_lossy(&output2.stderr);
     assert!(
-        stderr_output2.contains("Debug: Sending Allow response for PreToolUse event"),
+        stderr_output2.contains("Sending response") || stderr_output2.contains("Allow response"),
         "Expected allow operation message"
     );
 
@@ -256,16 +271,28 @@ fn test_run_command_invalid_json() {
         .wait_with_output()
         .expect("Failed to wait for command");
 
-    // The command should succeed (graceful degradation) but show error message
+    // The command should succeed with exit code 0 (fail-closed behavior)
     assert!(
         output.status.success(),
-        "Command should succeed with graceful degradation"
+        "Command should succeed with fail-closed behavior"
     );
 
+    // Should output blocking JSON response
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON for fail-closed");
+    
+    // For PreToolUse, blocking response should have permissionDecision: deny
+    let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
+    assert_eq!(
+        decision, "deny",
+        "Expected permissionDecision: deny for fail-closed behavior"
+    );
+    
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr_output.contains("Error reading hook event"),
-        "Expected hook event error message"
+        stderr_output.contains("Cupcake error (failing closed)"),
+        "Expected fail-closed error message in stderr"
     );
 }
 
@@ -288,15 +315,27 @@ fn test_run_command_empty_stdin() {
         .wait_with_output()
         .expect("Failed to wait for command");
 
-    // The command should succeed (graceful degradation) but show error message
+    // The command should succeed with exit code 0 (fail-closed behavior)
     assert!(
         output.status.success(),
-        "Command should succeed with graceful degradation"
+        "Command should succeed with fail-closed behavior"
     );
 
+    // Should output blocking JSON response
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON for fail-closed");
+    
+    // For PreToolUse, blocking response should have permissionDecision: deny
+    let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
+    assert_eq!(
+        decision, "deny",
+        "Expected permissionDecision: deny for fail-closed behavior"
+    );
+    
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr_output.contains("Error reading hook event"),
-        "Expected hook event error message"
+        stderr_output.contains("Cupcake error (failing closed)"),
+        "Expected fail-closed error message in stderr"
     );
 }

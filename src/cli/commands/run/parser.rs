@@ -1,5 +1,5 @@
 use crate::engine::events::{AgentEvent, ClaudeCodeEvent};
-use crate::{CupcakeError, Result};
+use crate::{CupcakeError, Result, tracing::trace};
 use std::io::Read;
 
 /// Parses hook events from stdin
@@ -25,9 +25,7 @@ impl HookEventParser {
             ));
         }
 
-        if self.debug {
-            eprintln!("Debug: Raw stdin input: {}", input.trim());
-        }
+        trace!(stdin_input = %input.trim(), "Raw stdin input");
 
         // First try to parse as ClaudeCodeEvent (currently our only agent type)
         let claude_event: ClaudeCodeEvent = serde_json::from_str(&input)
@@ -38,6 +36,15 @@ impl HookEventParser {
     }
 
     fn log_stdin_content(&self, content: &str) {
+        let stdin_content = if content.trim().is_empty() {
+            "[EMPTY]"
+        } else {
+            content.trim()
+        };
+        
+        trace!(stdin_content = %stdin_content, "STDIN received");
+        
+        // Keep file logging for backward compatibility
         if let Ok(mut file) = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -47,11 +54,7 @@ impl HookEventParser {
             let _ = writeln!(
                 file,
                 "  STDIN received: {}",
-                if content.trim().is_empty() {
-                    "[EMPTY]"
-                } else {
-                    content.trim()
-                }
+                stdin_content
             );
         }
     }

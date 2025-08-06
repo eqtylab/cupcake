@@ -12,6 +12,7 @@
 
 use crate::config::actions::{ArrayCommandSpec, CommandSpec, ShellCommandSpec};
 use crate::config::types::Settings;
+use crate::tracing::debug;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -617,9 +618,9 @@ impl CommandExecutor {
     ) -> Result<(), ExecutionError> {
         // Log seccomp application in debug mode
         if self.settings.debug_mode {
-            eprintln!(
-                "DEBUG: seccomp stub applied to command: {}",
-                command.program
+            debug!(
+                program = %command.program,
+                "seccomp stub applied to command"
             );
         }
 

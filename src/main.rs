@@ -7,8 +7,25 @@ use cupcake::{
     cli::{Cli, Commands},
     Result,
 };
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 fn main() -> Result<()> {
+    // Initialize tracing based on RUST_LOG env var (only if set)
+    if std::env::var("RUST_LOG").is_ok() {
+        tracing_subscriber::registry()
+            .with(
+                fmt::layer()
+                    .with_target(false)
+                    .with_file(false)
+                    .with_writer(std::io::stderr)
+            )
+            .with(
+                EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| EnvFilter::new("cupcake=info")),
+            )
+            .init();
+    }
+    
     let cli = Cli::parse();
 
     match cli.command {

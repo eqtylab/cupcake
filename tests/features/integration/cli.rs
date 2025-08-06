@@ -89,11 +89,14 @@ fn test_cli_run_with_debug() {
 
     let output = Command::new(&cupcake_binary)
         .args(["run", "--event", "PostToolUse", "--debug"])
+        .env("RUST_LOG", "cupcake=debug")
         .output()
         .expect("Failed to execute cupcake run --debug");
 
     let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("Event: PostToolUse"));
+    // With fail-closed behavior, no stdin results in an error
+    assert!(stderr.contains("Cupcake error (failing closed)"));
+    assert!(stderr.contains("No input received from stdin"));
 }
 
 #[test]
@@ -190,12 +193,14 @@ fn test_cli_default_values() {
 
     let output = Command::new(&cupcake_binary)
         .args(["run", "--event", "PreToolUse", "--debug"])
+        .env("RUST_LOG", "cupcake=debug")
         .output()
         .expect("Failed to execute cupcake run with defaults");
 
     let stderr = String::from_utf8(output.stderr).unwrap();
-    // Will fail due to no YAML config, but debug should show event
-    assert!(stderr.contains("Event: PreToolUse"));
+    // With fail-closed behavior, no stdin results in an error
+    assert!(stderr.contains("Cupcake error (failing closed)"));
+    assert!(stderr.contains("No input received from stdin"));
 }
 
 #[test]

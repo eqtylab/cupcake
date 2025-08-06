@@ -20,5 +20,6 @@ mod features {
     pub mod response_format;
     pub mod security;
     pub mod shell_execution;
+    pub mod sync_idempotent;
     pub mod tui;
 }

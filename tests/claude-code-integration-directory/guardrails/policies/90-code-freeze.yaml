@@ -1,0 +1,18 @@
+# Code Freeze Policy
+# This policy checks if "CODE FREEZE" is present in the README file
+# If found, it blocks all file editing operations to prevent changes during freeze periods
+
+PreToolUse:
+  "Write|Edit":
+    - name: "Code Freeze Protection"
+      description: "Prevents file modifications when CODE FREEZE is active in README"
+      conditions:
+        - type: "check"
+          spec:
+            mode: array
+            command: ["grep", "-q", "CODE FREEZE", "README.md"]
+          expect_success: true
+      action:
+        type: "block_with_feedback"
+        feedback_message: "🚫 CODE FREEZE is active! All file modifications are blocked until freeze is lifted. Check README.md for details."
+        include_context: true

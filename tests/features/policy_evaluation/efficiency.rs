@@ -86,7 +86,7 @@ PreToolUse:
 
     // The test should succeed
     assert!(result.status.success(), "Command should succeed");
-    
+
     // Instead of counting debug output (which is implementation detail),
     // verify the behavior: both policies should have been evaluated correctly
     // and the command should be allowed (empty stdout)
@@ -155,7 +155,7 @@ PreToolUse:
 
     // The test should succeed
     assert!(result.status.success(), "Command should succeed");
-    
+
     // Verify behavior: the single policy should evaluate and allow the command
 }
 
@@ -259,12 +259,15 @@ PreToolUse:
 
     // The test should succeed
     assert!(result.status.success(), "Command should succeed");
-    
+
     // Verify behavior: the command matches Policy 3 which provides feedback but allows
     let stdout = String::from_utf8_lossy(&result.stdout);
     assert!(!stdout.is_empty(), "Expected JSON output");
     let response_json: serde_json::Value = serde_json::from_str(&stdout).expect("Invalid JSON");
-    
+
     // Policy 3 matches "echo.*" with provide_feedback action, which still allows the command
-    assert_eq!(response_json["hookSpecificOutput"]["permissionDecision"], "allow");
+    assert_eq!(
+        response_json["hookSpecificOutput"]["permissionDecision"],
+        "allow"
+    );
 }

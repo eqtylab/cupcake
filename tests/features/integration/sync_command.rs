@@ -236,23 +236,20 @@ fn test_sync_preserves_existing_user_settings() {
         .expect("PreToolUse should be array");
 
     // Should still have the user's Write hook
-    let user_hook_exists = pre_tool_use
-        .iter()
-        .any(|entry| entry.get("matcher").and_then(|m| m.as_str()) == Some("Write") &&
-                      entry.get("managed_by").is_none());
+    let user_hook_exists = pre_tool_use.iter().any(|entry| {
+        entry.get("matcher").and_then(|m| m.as_str()) == Some("Write")
+            && entry.get("managed_by").is_none()
+    });
     assert!(
         user_hook_exists,
         "Should preserve user's existing Write hook"
     );
-    
+
     // Should also have Cupcake's hook
     let cupcake_hook_exists = pre_tool_use
         .iter()
         .any(|entry| entry.get("managed_by").and_then(|v| v.as_str()) == Some("cupcake"));
-    assert!(
-        cupcake_hook_exists,
-        "Should add Cupcake's PreToolUse hook"
-    );
+    assert!(cupcake_hook_exists, "Should add Cupcake's PreToolUse hook");
 }
 
 #[test]

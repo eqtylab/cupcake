@@ -39,12 +39,18 @@ impl ClaudeCodeResponseBuilder {
                 hook_event.event_name(),
                 suppress_output,
             ),
-            ClaudeCodeEvent::UserPromptSubmit(_) => {
-                ContextInjectionResponseBuilder::build(decision, context_to_inject, suppress_output, true)
-            }
-            ClaudeCodeEvent::SessionStart(_) => {
-                ContextInjectionResponseBuilder::build(decision, context_to_inject, suppress_output, false)
-            }
+            ClaudeCodeEvent::UserPromptSubmit(_) => ContextInjectionResponseBuilder::build(
+                decision,
+                context_to_inject,
+                suppress_output,
+                true,
+            ),
+            ClaudeCodeEvent::SessionStart(_) => ContextInjectionResponseBuilder::build(
+                decision,
+                context_to_inject,
+                suppress_output,
+                false,
+            ),
             ClaudeCodeEvent::PreCompact(_) => {
                 // PreCompact is special - it uses stdout for instructions, not JSON
                 GenericResponseBuilder::build_precompact(

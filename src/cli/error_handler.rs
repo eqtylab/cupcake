@@ -15,10 +15,10 @@ use crate::CupcakeError;
 pub fn handle_run_command_error_with_type(error: CupcakeError, event_type: &str) -> ! {
     // Log the error for debugging
     eprintln!("Cupcake error (failing closed): {error}");
-    
+
     // Generate appropriate blocking response based on event type string
     let response = generate_blocking_response_for_type(event_type, &error.to_string());
-    
+
     // Output the blocking response
     if let Ok(json) = serde_json::to_string(&response) {
         println!("{json}");
@@ -26,7 +26,7 @@ pub fn handle_run_command_error_with_type(error: CupcakeError, event_type: &str)
         // Even if JSON serialization fails, output a minimal blocking response
         println!(r#"{{"continue":false,"error":"Failed to serialize error response"}}"#);
     }
-    
+
     // Exit with success code (0) as required by Claude Code hooks
     std::process::exit(0);
 }
@@ -39,10 +39,10 @@ pub fn handle_run_command_error_with_type(error: CupcakeError, event_type: &str)
 pub fn handle_run_command_error(error: CupcakeError, event: &ClaudeCodeEvent) -> ! {
     // Log the error for debugging
     eprintln!("Cupcake error (failing closed): {error}");
-    
+
     // Generate appropriate blocking response based on event type
     let response = generate_blocking_response(event, &error.to_string());
-    
+
     // Output the blocking response
     if let Ok(json) = serde_json::to_string(&response) {
         println!("{json}");
@@ -50,7 +50,7 @@ pub fn handle_run_command_error(error: CupcakeError, event: &ClaudeCodeEvent) ->
         // Even if JSON serialization fails, output a minimal blocking response
         println!(r#"{{"continue":false,"error":"Failed to serialize error response"}}"#);
     }
-    
+
     // Exit with success code (0) as required by Claude Code hooks
     std::process::exit(0);
 }
@@ -58,7 +58,7 @@ pub fn handle_run_command_error(error: CupcakeError, event: &ClaudeCodeEvent) ->
 /// Generate a blocking response based on event type string
 fn generate_blocking_response_for_type(event_type: &str, error_message: &str) -> CupcakeResponse {
     let mut response = CupcakeResponse::empty();
-    
+
     match event_type {
         "PreToolUse" => {
             // PreToolUse uses permission decision format
@@ -87,14 +87,14 @@ fn generate_blocking_response_for_type(event_type: &str, error_message: &str) ->
             response.stop_reason = Some(format!("Cupcake error: {error_message}"));
         }
     }
-    
+
     response
 }
 
 /// Generate a blocking response appropriate for the event type
 fn generate_blocking_response(event: &ClaudeCodeEvent, error_message: &str) -> CupcakeResponse {
     let mut response = CupcakeResponse::empty();
-    
+
     match event {
         ClaudeCodeEvent::PreToolUse(_) => {
             // PreToolUse uses permission decision format
@@ -108,8 +108,8 @@ fn generate_blocking_response(event: &ClaudeCodeEvent, error_message: &str) -> C
             response.continue_execution = Some(false);
             response.stop_reason = Some(format!("Cupcake error: {error_message}"));
         }
-        ClaudeCodeEvent::PostToolUse(_) 
-        | ClaudeCodeEvent::Stop(_) 
+        ClaudeCodeEvent::PostToolUse(_)
+        | ClaudeCodeEvent::Stop(_)
         | ClaudeCodeEvent::SubagentStop(_) => {
             // These events also use generic blocking format
             response.continue_execution = Some(false);
@@ -125,15 +125,15 @@ fn generate_blocking_response(event: &ClaudeCodeEvent, error_message: &str) -> C
             // Error will be logged to stderr
         }
     }
-    
+
     response
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::events::claude_code::{PreToolUsePayload, CommonEventData};
-    
+    use crate::engine::events::claude_code::{CommonEventData, PreToolUsePayload};
+
     #[test]
     fn test_blocking_response_for_pre_tool_use() {
         let event = ClaudeCodeEvent::PreToolUse(PreToolUsePayload {
@@ -145,11 +145,14 @@ mod tests {
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "rm -rf /"}),
         });
-        
+
         let response = generate_blocking_response(&event, "Test error");
-        
+
         match response.hook_specific_output {
-            Some(HookSpecificOutput::PreToolUse { permission_decision, permission_decision_reason }) => {
+            Some(HookSpecificOutput::PreToolUse {
+                permission_decision,
+                permission_decision_reason,
+            }) => {
                 assert_eq!(permission_decision, PermissionDecision::Deny);
                 assert!(permission_decision_reason.unwrap().contains("Test error"));
             }

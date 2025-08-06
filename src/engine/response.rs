@@ -1,6 +1,6 @@
+use crate::tracing::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::process;
-use crate::tracing::{debug, error};
 
 pub mod claude_code;
 
@@ -98,13 +98,11 @@ impl CupcakeResponse {
 }
 
 /// Response handler for communicating with Claude Code
-pub struct ResponseHandler {
-    debug: bool,
-}
+pub struct ResponseHandler {}
 
 impl ResponseHandler {
-    pub fn new(debug: bool) -> Self {
-        Self { debug }
+    pub fn new(_debug: bool) -> Self {
+        Self {}
     }
 
     /// Send JSON response to Claude Code (for advanced control)
@@ -195,10 +193,12 @@ mod tests {
     #[test]
     fn test_response_handler_creation() {
         let handler = ResponseHandler::new(true);
-        assert!(handler.debug);
+        // Debug flag removed in Phase 4 cleanup
+        let _ = handler;
 
         let handler = ResponseHandler::new(false);
-        assert!(!handler.debug);
+        // Debug flag removed in Phase 4 cleanup
+        let _ = handler;
     }
 
     #[test]

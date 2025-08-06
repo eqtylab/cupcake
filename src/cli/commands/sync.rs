@@ -152,16 +152,16 @@ impl SyncCommand {
                                 hook.get("managed_by")
                                     .and_then(|v| v.as_str())
                                     .map(|s| s != "cupcake")
-                                    .unwrap_or(true)  // Keep if no managed_by field
+                                    .unwrap_or(true) // Keep if no managed_by field
                             })
                             .cloned()
                             .collect();
-                        
+
                         // If we removed any hooks, we've updated
                         if filtered.len() != existing_array.len() {
                             updated = true;
                         }
-                        
+
                         Some(filtered)
                     } else {
                         None
@@ -169,15 +169,17 @@ impl SyncCommand {
                 } else {
                     None
                 };
-                
+
                 // Update with filtered array if needed
                 if let Some(filtered) = filtered_array {
                     hooks.insert(event_name.clone(), json!(filtered));
                 }
-                
+
                 // Step 2: Clean append - add our new cupcake hooks
                 if let Some(new_hooks) = cupcake_hook_array.as_array() {
-                    if let Some(existing_array) = hooks.get_mut(event_name).and_then(|v| v.as_array_mut()) {
+                    if let Some(existing_array) =
+                        hooks.get_mut(event_name).and_then(|v| v.as_array_mut())
+                    {
                         // Append to existing array
                         for hook in new_hooks {
                             existing_array.push(hook.clone());

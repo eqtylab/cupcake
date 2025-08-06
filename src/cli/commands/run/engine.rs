@@ -4,7 +4,10 @@ use crate::engine::actions::{ActionContext, ActionExecutor, ActionResult};
 use crate::engine::evaluation::{MatchedPolicy, PolicyEvaluator};
 use crate::engine::events::AgentEvent;
 use crate::engine::response::EngineDecision;
-use crate::{Result, tracing::{debug, warn}};
+use crate::{
+    tracing::{debug, warn},
+    Result,
+};
 
 /// How context injection should be handled for output
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +22,6 @@ pub enum InjectionMode {
 pub struct EngineRunner {
     policy_evaluator: PolicyEvaluator,
     action_executor: ActionExecutor,
-    debug: bool,
 }
 
 /// Result of engine execution
@@ -32,11 +34,10 @@ pub struct EngineResult {
 }
 
 impl EngineRunner {
-    pub fn new(settings: Settings, debug: bool) -> Self {
+    pub fn new(settings: Settings, _debug: bool) -> Self {
         Self {
             policy_evaluator: PolicyEvaluator::new(),
             action_executor: ActionExecutor::with_settings(settings),
-            debug,
         }
     }
 
@@ -128,7 +129,9 @@ impl EngineRunner {
                     suppress_output, ..
                 } => *suppress_output,
                 crate::config::actions::Action::InjectContext {
-                    suppress_output, use_stdout, ..
+                    suppress_output,
+                    use_stdout,
+                    ..
                 } => {
                     // Update injection mode based on this policy's preference
                     // Last matching InjectContext wins
@@ -140,7 +143,7 @@ impl EngineRunner {
                         });
                     }
                     *suppress_output
-                },
+                }
                 crate::config::actions::Action::Conditional { .. } => false, // Conditional doesn't have suppress_output
             };
 
@@ -223,7 +226,9 @@ mod tests {
     fn test_engine_runner_creation() {
         let settings = Settings::default();
         let engine = EngineRunner::new(settings, true);
-        assert!(engine.debug);
+        // Debug flag removed in Phase 4 cleanup
+        // Verify engine was created successfully
+        let _ = engine;
     }
 
     #[test]

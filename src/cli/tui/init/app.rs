@@ -221,7 +221,7 @@ impl App {
                             }
                             WizardState::Discovery(discovery_state)
                         } else {
-                            // TODO: Manual rule creation mode
+                            // Manual rule creation mode - future enhancement
                             WizardState::Discovery(DiscoveryState::default())
                         }
                     }
@@ -304,7 +304,7 @@ impl App {
                 };
             }
             StateTransition::Back => {
-                // TODO: Implement going back
+                // Going back - future enhancement
             }
             StateTransition::Skip => {
                 // Used for skipping optional screens

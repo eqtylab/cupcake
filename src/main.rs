@@ -17,7 +17,7 @@ fn main() -> Result<()> {
                 fmt::layer()
                     .with_target(false)
                     .with_file(false)
-                    .with_writer(std::io::stderr)
+                    .with_writer(std::io::stderr),
             )
             .with(
                 EnvFilter::try_from_default_env()
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
             )
             .init();
     }
-    
+
     let cli = Cli::parse();
 
     match cli.command {

@@ -157,22 +157,29 @@ mod tests {
     #[test]
     fn test_managed_by_marker_present() {
         let hooks = build_cupcake_hooks();
-        
+
         // Check each event type has managed_by marker
-        for event_type in &["PreToolUse", "PostToolUse", "UserPromptSubmit", 
-                            "Notification", "Stop", "SubagentStop", 
-                            "PreCompact", "SessionStart"] {
-            let event_array = hooks.get(event_type)
-                .expect(&format!("{} should exist", event_type))
+        for event_type in &[
+            "PreToolUse",
+            "PostToolUse",
+            "UserPromptSubmit",
+            "Notification",
+            "Stop",
+            "SubagentStop",
+            "PreCompact",
+            "SessionStart",
+        ] {
+            let event_array = hooks
+                .get(event_type)
+                .unwrap_or_else(|| panic!("{event_type} should exist"))
                 .as_array()
-                .expect(&format!("{} should be an array", event_type));
-            
+                .unwrap_or_else(|| panic!("{event_type} should be an array"));
+
             for hook_obj in event_array {
                 assert_eq!(
                     hook_obj.get("managed_by").and_then(|v| v.as_str()),
                     Some("cupcake"),
-                    "{} hook should have managed_by: cupcake marker",
-                    event_type
+                    "{event_type} hook should have managed_by: cupcake marker"
                 );
             }
         }
@@ -182,19 +189,19 @@ mod tests {
     fn test_precompact_intelligent_matchers() {
         let hooks = build_cupcake_hooks();
         let precompact = hooks["PreCompact"].as_array().unwrap();
-        
+
         // Should have exactly 2 entries
         assert_eq!(precompact.len(), 2, "PreCompact should have 2 matchers");
-        
+
         // Check matchers
         let matchers: Vec<&str> = precompact
             .iter()
             .filter_map(|h| h.get("matcher").and_then(|v| v.as_str()))
             .collect();
-        
+
         assert!(matchers.contains(&"manual"), "Should have manual matcher");
         assert!(matchers.contains(&"auto"), "Should have auto matcher");
-        
+
         // Both should have managed_by marker
         for hook in precompact {
             assert_eq!(
@@ -208,20 +215,24 @@ mod tests {
     fn test_session_start_intelligent_matchers() {
         let hooks = build_cupcake_hooks();
         let session_start = hooks["SessionStart"].as_array().unwrap();
-        
+
         // Should have exactly 3 entries
-        assert_eq!(session_start.len(), 3, "SessionStart should have 3 matchers");
-        
+        assert_eq!(
+            session_start.len(),
+            3,
+            "SessionStart should have 3 matchers"
+        );
+
         // Check matchers
         let matchers: Vec<&str> = session_start
             .iter()
             .filter_map(|h| h.get("matcher").and_then(|v| v.as_str()))
             .collect();
-        
+
         assert!(matchers.contains(&"startup"), "Should have startup matcher");
         assert!(matchers.contains(&"resume"), "Should have resume matcher");
         assert!(matchers.contains(&"clear"), "Should have clear matcher");
-        
+
         // All should have managed_by marker
         for hook in session_start {
             assert_eq!(

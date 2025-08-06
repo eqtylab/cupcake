@@ -171,7 +171,7 @@ impl InspectCommand {
                 spec,
                 expect_success,
             } => {
-                // TODO: Improve display of CommandSpec in Phase 2
+                // Display CommandSpec with proper formatting
                 let command_display = match spec.as_ref() {
                     crate::config::actions::CommandSpec::Array(array_spec) => {
                         let mut parts = array_spec.command.clone();

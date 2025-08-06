@@ -1,7 +1,10 @@
 use crate::config::types::ComposedPolicy;
 use crate::engine::conditions::{ConditionEvaluator, EvaluationContext};
 use crate::engine::response::EngineDecision;
-use crate::{Result, tracing::{debug, warn}};
+use crate::{
+    tracing::{debug, warn},
+    Result,
+};
 
 /// Two-pass policy evaluation engine
 pub struct PolicyEvaluator {
@@ -264,7 +267,7 @@ impl PolicyEvaluator {
             let result = self.condition_evaluator.evaluate(condition, context);
 
             match result {
-                crate::engine::conditions::ConditionResult::Match => continue,
+                crate::engine::conditions::ConditionResult::Match => {}
                 crate::engine::conditions::ConditionResult::NoMatch => return Ok(false),
                 crate::engine::conditions::ConditionResult::Error(err) => {
                     warn!(

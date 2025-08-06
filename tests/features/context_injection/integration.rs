@@ -210,11 +210,11 @@ UserPromptSubmit:
 
     // Should output JSON with block decision to stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Parse as JSON to check for UserPromptSubmit Block format
-    let response: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout should be valid JSON");
-    
+    let response: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+
     // UserPromptSubmit Block uses decision: "block" format
     assert_eq!(response["hookSpecificOutput"]["decision"], "block");
     assert!(response["hookSpecificOutput"]["decisionReason"]

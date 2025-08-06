@@ -88,10 +88,7 @@ UserPromptSubmit:
         serde_json::from_str(&stdout).expect("Should be valid JSON response");
 
     // Verify it's a blocking response - UserPromptSubmit uses decision: "block" format
-    assert_eq!(
-        json_response["hookSpecificOutput"]["decision"],
-        "block"
-    );
+    assert_eq!(json_response["hookSpecificOutput"]["decision"], "block");
     assert!(json_response["hookSpecificOutput"]["decisionReason"]
         .as_str()
         .unwrap()
@@ -263,7 +260,10 @@ UserPromptSubmit:
 
     // For UserPromptSubmit with no match, we should get empty JSON object {}
     // (which means allow with no additional context)
-    assert!(stdout == "{}" || stdout.trim() == "{}", "Expected empty JSON object, got: {}", stdout);
+    assert!(
+        stdout == "{}" || stdout.trim() == "{}",
+        "Expected empty JSON object, got: {stdout}"
+    );
     // Allow state tracking messages on stderr
     assert!(!stderr.contains("Should not see this"));
 }

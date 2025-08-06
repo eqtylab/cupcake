@@ -8,8 +8,8 @@ pub struct ContextInjectionResponseBuilder;
 
 impl ContextInjectionResponseBuilder {
     /// Build response for context injection events
-    /// 
-    /// is_user_prompt_submit: true for UserPromptSubmit (uses special block format), 
+    ///
+    /// is_user_prompt_submit: true for UserPromptSubmit (uses special block format),
     ///                        false for SessionStart (uses standard continue: false format)
     pub fn build(
         decision: &EngineDecision,
@@ -77,10 +77,15 @@ mod tests {
     fn test_context_injection_allow_with_context() {
         let decision = EngineDecision::Allow { reason: None };
         let context = vec!["Context line 1".to_string(), "Context line 2".to_string()];
-        let response = ContextInjectionResponseBuilder::build(&decision, Some(context), false, true);
+        let response =
+            ContextInjectionResponseBuilder::build(&decision, Some(context), false, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
+            Some(HookSpecificOutput::UserPromptSubmit {
+                additional_context,
+                decision,
+                decision_reason,
+            }) => {
                 assert_eq!(
                     additional_context,
                     Some("Context line 1\nContext line 2".to_string())
@@ -112,10 +117,17 @@ mod tests {
         let response = ContextInjectionResponseBuilder::build(&decision, None, false, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
+            Some(HookSpecificOutput::UserPromptSubmit {
+                additional_context,
+                decision,
+                decision_reason,
+            }) => {
                 assert_eq!(additional_context, None);
                 assert_eq!(decision, Some("block".to_string()));
-                assert_eq!(decision_reason, Some("Sensitive content detected".to_string()));
+                assert_eq!(
+                    decision_reason,
+                    Some("Sensitive content detected".to_string())
+                );
             }
             _ => panic!("Expected UserPromptSubmit hook output with block decision"),
         }
@@ -131,7 +143,11 @@ mod tests {
         let response = ContextInjectionResponseBuilder::build(&decision, None, false, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
+            Some(HookSpecificOutput::UserPromptSubmit {
+                additional_context,
+                decision,
+                decision_reason,
+            }) => {
                 assert_eq!(
                     additional_context,
                     Some("Please confirm this action".to_string())
@@ -150,7 +166,11 @@ mod tests {
         let response = ContextInjectionResponseBuilder::build(&decision, Some(context), true, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
+            Some(HookSpecificOutput::UserPromptSubmit {
+                additional_context,
+                decision,
+                decision_reason,
+            }) => {
                 assert_eq!(additional_context, Some("Silent context".to_string()));
                 assert_eq!(decision, None);
                 assert_eq!(decision_reason, None);

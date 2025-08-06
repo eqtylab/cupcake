@@ -32,7 +32,14 @@ fn test_run_command_stdin_parsing() {
 
     let cupcake_binary = get_cupcake_binary();
     let mut child = Command::new(&cupcake_binary)
-        .args(["run", "--debug", "--event", "PreToolUse", "--config", config_path.to_str().unwrap()])
+        .args([
+            "run",
+            "--debug",
+            "--event",
+            "PreToolUse",
+            "--config",
+            config_path.to_str().unwrap(),
+        ])
         .env("RUST_LOG", "cupcake=debug")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -62,7 +69,7 @@ fn test_run_command_stdin_parsing() {
     );
 
     // Convert stderr to string for debugging
-    let stderr_output = String::from_utf8_lossy(&output.stderr);
+    let _stderr_output = String::from_utf8_lossy(&output.stderr);
     let stdout_output = String::from_utf8_lossy(&output.stdout);
 
     // The test should succeed
@@ -71,26 +78,29 @@ fn test_run_command_stdin_parsing() {
         "Command failed with status: {}",
         output.status
     );
-    
+
     // With an empty config and valid input, it should allow by default
     // In the new spec-compliant behavior, we output JSON even for allow
-    assert!(!stdout_output.is_empty(), "Expected JSON output for allow decision");
-    
+    assert!(
+        !stdout_output.is_empty(),
+        "Expected JSON output for allow decision"
+    );
+
     // Parse and verify the JSON response
     let response_json: serde_json::Value =
         serde_json::from_str(&stdout_output).expect("stdout should be valid JSON");
-    
+
     // Should be an allow decision
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
     assert_eq!(
         decision, "allow",
         "JSON response should have permissionDecision: allow"
     );
-    
+
     // Default allow should have null reason
     let reason = &response_json["hookSpecificOutput"]["permissionDecisionReason"];
     assert!(reason.is_null(), "Default allow should have null reason");
-    
+
     // Cleanup
     std::fs::remove_file(&config_path).ok();
 }
@@ -281,14 +291,14 @@ fn test_run_command_invalid_json() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let response_json: serde_json::Value =
         serde_json::from_str(&stdout).expect("stdout should be valid JSON for fail-closed");
-    
+
     // For PreToolUse, blocking response should have permissionDecision: deny
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
     assert_eq!(
         decision, "deny",
         "Expected permissionDecision: deny for fail-closed behavior"
     );
-    
+
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr_output.contains("Cupcake error (failing closed)"),
@@ -325,14 +335,14 @@ fn test_run_command_empty_stdin() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let response_json: serde_json::Value =
         serde_json::from_str(&stdout).expect("stdout should be valid JSON for fail-closed");
-    
+
     // For PreToolUse, blocking response should have permissionDecision: deny
     let decision = &response_json["hookSpecificOutput"]["permissionDecision"];
     assert_eq!(
         decision, "deny",
         "Expected permissionDecision: deny for fail-closed behavior"
     );
-    
+
     let stderr_output = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr_output.contains("Cupcake error (failing closed)"),

@@ -259,7 +259,10 @@ fn test_user_prompt_submit_block_contract() {
 
     // UserPromptSubmit uses decision: "block" format in hookSpecificOutput
     assert_eq!(json["hookSpecificOutput"]["decision"], "block");
-    assert_eq!(json["hookSpecificOutput"]["decisionReason"], "Prompt contains sensitive information");
+    assert_eq!(
+        json["hookSpecificOutput"]["decisionReason"],
+        "Prompt contains sensitive information"
+    );
 
     // Should NOT have continue/stopReason at top level
     assert_eq!(json.get("continue"), None);

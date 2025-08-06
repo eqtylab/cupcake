@@ -278,7 +278,7 @@ impl ConditionEvaluator {
     ) -> ConditionResult {
         for condition in conditions {
             match self.evaluate(condition, context) {
-                ConditionResult::Match => continue,
+                ConditionResult::Match => {}
                 other => return other, // Return first non-match or error
             }
         }
@@ -296,10 +296,10 @@ impl ConditionEvaluator {
         for condition in conditions {
             match self.evaluate(condition, context) {
                 ConditionResult::Match => return ConditionResult::Match,
-                ConditionResult::NoMatch => continue,
+                ConditionResult::NoMatch => {}
                 ConditionResult::Error(e) => {
                     last_error = Some(e);
-                    continue;
+                    // Keep iterating to check all conditions
                 }
             }
         }

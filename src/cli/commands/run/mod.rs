@@ -9,10 +9,11 @@ pub use self::parser::HookEventParser;
 use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
 use crate::engine::events::AgentEvent;
-use crate::engine::response::{
-    claude_code::ClaudeCodeResponseBuilder, ResponseHandler,
+use crate::engine::response::{claude_code::ClaudeCodeResponseBuilder, ResponseHandler};
+use crate::{
+    tracing::{debug, info},
+    Result,
 };
-use crate::{Result, tracing::{debug, info}};
 
 /// Handler for the `run` command
 pub struct RunCommand {
@@ -33,7 +34,7 @@ impl RunCommand {
     fn append_debug_log(&self, message: &str) {
         // Log to both tracing and file for backward compatibility
         info!(message);
-        
+
         if let Ok(mut file) = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -92,7 +93,10 @@ impl CommandHandler for RunCommand {
             }
         };
 
-        debug!(policy_count = configuration.policies.len(), "Loaded composed policies");
+        debug!(
+            policy_count = configuration.policies.len(),
+            "Loaded composed policies"
+        );
 
         // Run engine - now creates its own contexts internally
         let mut engine = EngineRunner::new(configuration.settings, self.debug);
@@ -112,18 +116,21 @@ impl CommandHandler for RunCommand {
             println!("{combined_instructions}");
             std::process::exit(0);
         }
-        
+
         // For other events, check injection mode
         // IMPORTANT: Block decisions always use JSON regardless of injection mode
         if let Some(engine::InjectionMode::Stdout) = result.injection_mode {
-            if !matches!(result.final_decision, crate::engine::response::EngineDecision::Block { .. }) {
+            if !matches!(
+                result.final_decision,
+                crate::engine::response::EngineDecision::Block { .. }
+            ) {
                 // In stdout mode for non-blocking decisions, output context and exit
                 let combined_context = result.context_to_inject.join("\n");
                 println!("{combined_context}");
                 std::process::exit(0);
             }
         }
-        
+
         // For JSON mode, Block decisions, or when no injection mode is set, continue to JSON response
 
         // Use the new modular response builder for all other cases

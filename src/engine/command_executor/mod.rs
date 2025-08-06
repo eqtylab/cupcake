@@ -624,7 +624,7 @@ impl CommandExecutor {
             );
         }
 
-        // TODO: Implement actual seccomp-bpf filters
+        // Future enhancement: Implement actual seccomp-bpf filters
         // This would involve:
         // 1. Creating a seccomp filter that allows only necessary system calls
         // 2. Loading the filter using prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)

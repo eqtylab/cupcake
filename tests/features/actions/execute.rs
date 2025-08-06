@@ -103,7 +103,7 @@ PreToolUse:
 
         // With the new tracing system, debug output format has changed
         // Just verify the command executed successfully
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let _stderr = String::from_utf8_lossy(&output.stderr);
         // The test should pass as the echo command succeeds
     }
 
@@ -159,12 +159,15 @@ PreToolUse:
 
         // Should provide JSON response with block decision
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         // Debug output if parsing fails
         if stdout.trim().is_empty() {
-            eprintln!("Empty stdout, stderr: {}", String::from_utf8_lossy(&output.stderr));
+            eprintln!(
+                "Empty stdout, stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
-        
+
         let response_json: serde_json::Value =
             serde_json::from_str(&stdout).expect("stdout was not valid JSON");
 

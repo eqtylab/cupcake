@@ -1,15 +1,13 @@
 use crate::engine::events::{AgentEvent, ClaudeCodeEvent};
-use crate::{CupcakeError, Result, tracing::trace};
+use crate::{tracing::trace, CupcakeError, Result};
 use std::io::Read;
 
 /// Parses hook events from stdin
-pub struct HookEventParser {
-    debug: bool,
-}
+pub struct HookEventParser {}
 
 impl HookEventParser {
-    pub fn new(debug: bool) -> Self {
-        Self { debug }
+    pub fn new(_debug: bool) -> Self {
+        Self {}
     }
 
     /// Parse hook event JSON from stdin
@@ -41,9 +39,9 @@ impl HookEventParser {
         } else {
             content.trim()
         };
-        
+
         trace!(stdin_content = %stdin_content, "STDIN received");
-        
+
         // Keep file logging for backward compatibility
         if let Ok(mut file) = std::fs::OpenOptions::new()
             .create(true)
@@ -51,11 +49,7 @@ impl HookEventParser {
             .open("/tmp/cupcake-debug.log")
         {
             use std::io::Write;
-            let _ = writeln!(
-                file,
-                "  STDIN received: {}",
-                stdin_content
-            );
+            let _ = writeln!(file, "  STDIN received: {stdin_content}");
         }
     }
 }
@@ -67,9 +61,11 @@ mod tests {
     #[test]
     fn test_parser_creation() {
         let parser = HookEventParser::new(true);
-        assert!(parser.debug);
+        // Debug flag removed in Phase 4 cleanup
+        let _ = parser;
 
         let parser = HookEventParser::new(false);
-        assert!(!parser.debug);
+        // Debug flag removed in Phase 4 cleanup
+        let _ = parser;
     }
 }

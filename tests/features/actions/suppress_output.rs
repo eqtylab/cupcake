@@ -199,6 +199,7 @@ UserPromptSubmit:
       action:
         type: inject_context
         context: "Remember: handle secrets carefully"
+        use_stdout: false
         suppress_output: true
 "#;
     fs::write(policies_dir.join("silent-inject.yaml"), policy_yaml).unwrap();

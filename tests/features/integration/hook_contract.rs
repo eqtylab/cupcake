@@ -231,10 +231,10 @@ UserPromptSubmit:
     // Parse and verify JSON response
     let response: Value = serde_json::from_str(&output).expect("Invalid JSON output");
 
-    // For UserPromptSubmit blocks, it should use continue: false
-    assert_eq!(response["continue"], false);
+    // For UserPromptSubmit blocks, it now uses decision: "block" format
+    assert_eq!(response["hookSpecificOutput"]["decision"], "block");
     assert_eq!(
-        response["stopReason"],
+        response["hookSpecificOutput"]["decisionReason"],
         "Detected potential secret in prompt"
     );
 }

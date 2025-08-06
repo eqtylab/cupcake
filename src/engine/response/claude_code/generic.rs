@@ -16,8 +16,15 @@ impl GenericResponseBuilder {
                 response.continue_execution = Some(false);
                 response.stop_reason = Some(feedback.clone());
             }
-            EngineDecision::Allow { .. } | EngineDecision::Ask { .. } => {
-                // Allow and Ask produce empty response for generic events
+            EngineDecision::Allow { .. } => {
+                // Allow produces empty response for generic events
+            }
+            EngineDecision::Ask { reason } => {
+                // Per tactical advisory: Ask is a no-op for non-tool events
+                // Log warning and treat as Allow
+                tracing::warn!("Ask action not supported for {} - treating as Allow", 
+                    if suppress_output { "event with suppress_output" } else { "generic event" });
+                // Empty response (same as Allow)
             }
         }
 

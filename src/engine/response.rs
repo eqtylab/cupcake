@@ -42,6 +42,10 @@ pub enum HookSpecificOutput {
     UserPromptSubmit {
         #[serde(rename = "additionalContext", skip_serializing_if = "Option::is_none")]
         additional_context: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        decision: Option<String>,
+        #[serde(rename = "decisionReason", skip_serializing_if = "Option::is_none")]
+        decision_reason: Option<String>,
     },
 }
 

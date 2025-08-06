@@ -91,22 +91,9 @@ impl PolicyEvaluator {
             // Check matcher logic per Claude Code spec
             if let Some(ref query) = query_string {
                 // Event has a query string (tool name, trigger, source)
-                if policy.matcher == "*" || policy.matcher.is_empty() {
-                    // Per Claude Code docs: "Use `*` to match all tools. You can also use empty string (`""`)"
-                    // Both wildcard and empty string match everything
+                // Use the new matcher evaluation logic with exact match first, regex second
+                if crate::engine::matcher_utils::evaluate_matcher(&policy.matcher, query)? {
                     ordered_policies.push(policy);
-                } else {
-                    // Non-empty, non-wildcard matcher must be valid regex that matches query
-                    let matcher_regex = regex::Regex::new(&policy.matcher).map_err(|e| {
-                        crate::CupcakeError::Config(format!(
-                            "Invalid matcher regex '{}': {}",
-                            policy.matcher, e
-                        ))
-                    })?;
-
-                    if matcher_regex.is_match(query) {
-                        ordered_policies.push(policy);
-                    }
                 }
             } else {
                 // Event has no query string (UserPromptSubmit, Stop, etc.)

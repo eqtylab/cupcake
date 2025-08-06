@@ -8,18 +8,31 @@ pub struct ContextInjectionResponseBuilder;
 
 impl ContextInjectionResponseBuilder {
     /// Build response for context injection events
+    /// 
+    /// is_user_prompt_submit: true for UserPromptSubmit (uses special block format), 
+    ///                        false for SessionStart (uses standard continue: false format)
     pub fn build(
         decision: &EngineDecision,
         context_to_inject: Option<Vec<String>>,
         suppress_output: bool,
+        is_user_prompt_submit: bool,
     ) -> CupcakeResponse {
         let mut response = CupcakeResponse::empty();
 
         match decision {
             EngineDecision::Block { feedback } => {
-                // Blocking uses continue/stopReason format
-                response.continue_execution = Some(false);
-                response.stop_reason = Some(feedback.clone());
+                if is_user_prompt_submit {
+                    // UserPromptSubmit Block uses decision: "block" format in hookSpecificOutput
+                    response.hook_specific_output = Some(HookSpecificOutput::UserPromptSubmit {
+                        additional_context: None,
+                        decision: Some("block".to_string()),
+                        decision_reason: Some(feedback.clone()),
+                    });
+                } else {
+                    // SessionStart uses standard continue: false format
+                    response.continue_execution = Some(false);
+                    response.stop_reason = Some(feedback.clone());
+                }
             }
             EngineDecision::Allow { .. } => {
                 // Add context injection if provided
@@ -29,14 +42,20 @@ impl ContextInjectionResponseBuilder {
                         response.hook_specific_output =
                             Some(HookSpecificOutput::UserPromptSubmit {
                                 additional_context: Some(combined_context),
+                                decision: None,
+                                decision_reason: None,
                             });
                     }
                 }
             }
             EngineDecision::Ask { reason } => {
-                // Ask uses context injection to provide the reason
+                // Per tactical advisory: Ask is a no-op for non-tool events
+                // Log warning and treat as Allow with context
+                tracing::warn!("Ask action not supported for UserPromptSubmit - treating as Allow with context");
                 response.hook_specific_output = Some(HookSpecificOutput::UserPromptSubmit {
                     additional_context: Some(reason.clone()),
+                    decision: None,
+                    decision_reason: None,
                 });
             }
         }
@@ -58,14 +77,16 @@ mod tests {
     fn test_context_injection_allow_with_context() {
         let decision = EngineDecision::Allow { reason: None };
         let context = vec!["Context line 1".to_string(), "Context line 2".to_string()];
-        let response = ContextInjectionResponseBuilder::build(&decision, Some(context), false);
+        let response = ContextInjectionResponseBuilder::build(&decision, Some(context), false, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context }) => {
+            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
                 assert_eq!(
                     additional_context,
                     Some("Context line 1\nContext line 2".to_string())
                 );
+                assert_eq!(decision, None);
+                assert_eq!(decision_reason, None);
             }
             _ => panic!("Expected UserPromptSubmit hook output"),
         }
@@ -76,7 +97,7 @@ mod tests {
     #[test]
     fn test_context_injection_allow_no_context() {
         let decision = EngineDecision::Allow { reason: None };
-        let response = ContextInjectionResponseBuilder::build(&decision, None, false);
+        let response = ContextInjectionResponseBuilder::build(&decision, None, false, true);
 
         assert_eq!(response.hook_specific_output, None);
         assert_eq!(response.continue_execution, None);
@@ -88,14 +109,18 @@ mod tests {
         let decision = EngineDecision::Block {
             feedback: "Sensitive content detected".to_string(),
         };
-        let response = ContextInjectionResponseBuilder::build(&decision, None, false);
+        let response = ContextInjectionResponseBuilder::build(&decision, None, false, true);
 
-        assert_eq!(response.continue_execution, Some(false));
-        assert_eq!(
-            response.stop_reason,
-            Some("Sensitive content detected".to_string())
-        );
-        assert_eq!(response.hook_specific_output, None);
+        match response.hook_specific_output {
+            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
+                assert_eq!(additional_context, None);
+                assert_eq!(decision, Some("block".to_string()));
+                assert_eq!(decision_reason, Some("Sensitive content detected".to_string()));
+            }
+            _ => panic!("Expected UserPromptSubmit hook output with block decision"),
+        }
+        assert_eq!(response.continue_execution, None);
+        assert_eq!(response.stop_reason, None);
     }
 
     #[test]
@@ -103,14 +128,16 @@ mod tests {
         let decision = EngineDecision::Ask {
             reason: "Please confirm this action".to_string(),
         };
-        let response = ContextInjectionResponseBuilder::build(&decision, None, false);
+        let response = ContextInjectionResponseBuilder::build(&decision, None, false, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context }) => {
+            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
                 assert_eq!(
                     additional_context,
                     Some("Please confirm this action".to_string())
                 );
+                assert_eq!(decision, None);
+                assert_eq!(decision_reason, None);
             }
             _ => panic!("Expected UserPromptSubmit hook output"),
         }
@@ -120,14 +147,30 @@ mod tests {
     fn test_context_injection_with_suppress() {
         let decision = EngineDecision::Allow { reason: None };
         let context = vec!["Silent context".to_string()];
-        let response = ContextInjectionResponseBuilder::build(&decision, Some(context), true);
+        let response = ContextInjectionResponseBuilder::build(&decision, Some(context), true, true);
 
         match response.hook_specific_output {
-            Some(HookSpecificOutput::UserPromptSubmit { additional_context }) => {
+            Some(HookSpecificOutput::UserPromptSubmit { additional_context, decision, decision_reason }) => {
                 assert_eq!(additional_context, Some("Silent context".to_string()));
+                assert_eq!(decision, None);
+                assert_eq!(decision_reason, None);
             }
             _ => panic!("Expected UserPromptSubmit hook output"),
         }
         assert_eq!(response.suppress_output, Some(true));
+    }
+
+    #[test]
+    fn test_session_start_block() {
+        let decision = EngineDecision::Block {
+            feedback: "Session blocked".to_string(),
+        };
+        // is_user_prompt_submit = false for SessionStart
+        let response = ContextInjectionResponseBuilder::build(&decision, None, false, false);
+
+        // SessionStart uses standard continue: false format
+        assert_eq!(response.continue_execution, Some(false));
+        assert_eq!(response.stop_reason, Some("Session blocked".to_string()));
+        assert_eq!(response.hook_specific_output, None);
     }
 }

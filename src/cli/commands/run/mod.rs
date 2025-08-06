@@ -10,7 +10,7 @@ use super::CommandHandler;
 use crate::config::loader::PolicyLoader;
 use crate::engine::events::AgentEvent;
 use crate::engine::response::{
-    claude_code::ClaudeCodeResponseBuilder, EngineDecision, ResponseHandler,
+    claude_code::ClaudeCodeResponseBuilder, ResponseHandler,
 };
 use crate::{Result, tracing::{debug, info}};
 
@@ -105,29 +105,26 @@ impl CommandHandler for RunCommand {
             }
         };
 
-        // Special handling for PreCompact with context injection
+        // Handle context injection based on injection mode
+        // Special case: PreCompact always uses stdout regardless of use_stdout setting
         if hook_event.event_name() == "PreCompact" && !result.context_to_inject.is_empty() {
-            // PreCompact outputs compaction instructions to stdout
-            // This matches Claude Code's behavior where stdout becomes instructions
             let combined_instructions = result.context_to_inject.join("\n\n");
             println!("{combined_instructions}");
             std::process::exit(0);
         }
-
-        // Handle stdout mode for UserPromptSubmit and SessionStart
-        if (hook_event.event_name() == "UserPromptSubmit"
-            || hook_event.event_name() == "SessionStart")
-            && !result.suppress_output
-            && matches!(result.final_decision, EngineDecision::Allow { .. })
-        {
-            // For Allow decisions without suppress_output, use stdout mode
-            if !result.context_to_inject.is_empty() {
+        
+        // For other events, check injection mode
+        // IMPORTANT: Block decisions always use JSON regardless of injection mode
+        if let Some(engine::InjectionMode::Stdout) = result.injection_mode {
+            if !matches!(result.final_decision, crate::engine::response::EngineDecision::Block { .. }) {
+                // In stdout mode for non-blocking decisions, output context and exit
                 let combined_context = result.context_to_inject.join("\n");
                 println!("{combined_context}");
+                std::process::exit(0);
             }
-            // Exit with success (empty stdout is valid)
-            std::process::exit(0);
         }
+        
+        // For JSON mode, Block decisions, or when no injection mode is set, continue to JSON response
 
         // Use the new modular response builder for all other cases
         // Extract the HookEvent from AgentEvent

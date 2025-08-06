@@ -6,6 +6,15 @@ use crate::engine::events::AgentEvent;
 use crate::engine::response::EngineDecision;
 use crate::{Result, tracing::{debug, warn}};
 
+/// How context injection should be handled for output
+#[derive(Debug, Clone, PartialEq)]
+pub enum InjectionMode {
+    /// Output context as raw text to stdout (use_stdout: true)
+    Stdout,
+    /// Include context in JSON response (use_stdout: false or unset)
+    Json,
+}
+
 /// Orchestrates policy evaluation and action execution
 pub struct EngineRunner {
     policy_evaluator: PolicyEvaluator,
@@ -19,6 +28,7 @@ pub struct EngineResult {
     pub feedback_messages: Vec<String>,
     pub context_to_inject: Vec<String>,
     pub suppress_output: bool,
+    pub injection_mode: Option<InjectionMode>,
 }
 
 impl EngineRunner {
@@ -62,6 +72,7 @@ impl EngineRunner {
         let mut final_decision = evaluation_result.decision.clone();
         let mut context_to_inject = Vec::new();
         let mut suppress_output = false;
+        let mut injection_mode = None;
         let is_context_injection_event = hook_event.event_name() == "UserPromptSubmit"
             || hook_event.event_name() == "SessionStart"
             || hook_event.event_name() == "PreCompact";
@@ -96,8 +107,9 @@ impl EngineRunner {
             }
         }
 
-        // Check suppress_output from ALL matched policies, not just the winning one
+        // Check suppress_output and injection mode from ALL matched policies
         // This ensures soft actions (provide_feedback, inject_context) can also suppress output
+        // Per tactical advisory: last matching InjectContext policy's use_stdout preference wins
         for matched_policy in &evaluation_result.matched_policies {
             let policy_suppress = match &matched_policy.action {
                 crate::config::actions::Action::Allow {
@@ -116,8 +128,19 @@ impl EngineRunner {
                     suppress_output, ..
                 } => *suppress_output,
                 crate::config::actions::Action::InjectContext {
-                    suppress_output, ..
-                } => *suppress_output,
+                    suppress_output, use_stdout, ..
+                } => {
+                    // Update injection mode based on this policy's preference
+                    // Last matching InjectContext wins
+                    if is_context_injection_event {
+                        injection_mode = Some(if *use_stdout {
+                            InjectionMode::Stdout
+                        } else {
+                            InjectionMode::Json
+                        });
+                    }
+                    *suppress_output
+                },
                 crate::config::actions::Action::Conditional { .. } => false, // Conditional doesn't have suppress_output
             };
 
@@ -133,6 +156,7 @@ impl EngineRunner {
             feedback_messages: evaluation_result.feedback_messages,
             context_to_inject,
             suppress_output,
+            injection_mode,
         })
     }
 

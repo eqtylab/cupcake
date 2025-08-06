@@ -143,6 +143,8 @@ UserPromptSubmit:
 
     // Should output empty context (command failed but on_failure: continue)
     let stdout = String::from_utf8_lossy(&output.stdout);
+    
+    
     // Empty output or just newline is expected
     assert!(stdout.trim().is_empty() || stdout == "\n");
 }
@@ -203,8 +205,16 @@ UserPromptSubmit:
 
     // Should output JSON with block decision
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
-    assert!(stdout.contains("Dynamic context generation failed"));
+    
+    let response_json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    
+    // UserPromptSubmit Block now uses decision: "block" format
+    assert_eq!(response_json["hookSpecificOutput"]["decision"], "block");
+    assert!(response_json["hookSpecificOutput"]["decisionReason"]
+        .as_str()
+        .unwrap()
+        .contains("Dynamic context generation failed"));
 }
 
 #[test]

@@ -210,8 +210,17 @@ UserPromptSubmit:
 
     // Should output JSON with block decision to stdout
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("\"continue\":false") || stdout.contains("\"continue\": false"));
-    assert!(stdout.contains("\"stopReason\"") && stdout.contains("Dangerous command detected"));
+    
+    // Parse as JSON to check for UserPromptSubmit Block format
+    let response: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("stdout should be valid JSON");
+    
+    // UserPromptSubmit Block uses decision: "block" format
+    assert_eq!(response["hookSpecificOutput"]["decision"], "block");
+    assert!(response["hookSpecificOutput"]["decisionReason"]
+        .as_str()
+        .unwrap()
+        .contains("Dangerous command detected"));
 
     // Context should not appear in stdout due to block (block overrides context injection)
     assert!(!stdout.contains("This context won't be seen"));

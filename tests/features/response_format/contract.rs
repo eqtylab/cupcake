@@ -257,13 +257,13 @@ fn test_user_prompt_submit_block_contract() {
 
     let json: Value = serde_json::to_value(&response).unwrap();
 
-    // UserPromptSubmit uses continue/stopReason for blocking
-    assert_eq!(json["continue"], false);
-    assert_eq!(json["stopReason"], "Prompt contains sensitive information");
+    // UserPromptSubmit uses decision: "block" format in hookSpecificOutput
+    assert_eq!(json["hookSpecificOutput"]["decision"], "block");
+    assert_eq!(json["hookSpecificOutput"]["decisionReason"], "Prompt contains sensitive information");
 
-    // Should NOT have decision/reason
-    assert_eq!(json.get("decision"), None);
-    assert_eq!(json.get("reason"), None);
+    // Should NOT have continue/stopReason at top level
+    assert_eq!(json.get("continue"), None);
+    assert_eq!(json.get("stopReason"), None);
 }
 
 #[test]

@@ -1,0 +1,53 @@
+[package]
+name = "cupcake-rego"
+version = "0.1.0"
+edition = "2021"
+authors = ["Cupcake Contributors"]
+description = "Governance and augmentation orchestrator for agentic AI systems using OPA Rego policies"
+license = "MIT"
+
+[dependencies]
+# Core
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_yaml_ng = "0.10.0"
+anyhow = "1.0.98"
+thiserror = "2.0.12"
+
+# WASM Runtime
+wasmtime = "35.0"
+
+# Async Runtime
+tokio = { version = "1.46.1", features = ["rt", "rt-multi-thread", "process", "time", "macros", "fs", "io-util", "io-std", "sync"] }
+futures = "0.3"
+
+# CLI
+clap = { version = "4.5.41", features = ["derive"] }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.11.1"
+once_cell = "1.20"
+directories = "6.0.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time", "local-time"] }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+tempfile = "3.0"
+insta = "1.35"
+criterion = "0.5"
+
+[[bench]]
+name = "engine_benchmark"
+harness = false
+
+[lib]
+name = "cupcake_rego"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cupcake"
+path = "src/main.rs"

@@ -5,8 +5,9 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use serde_json::Value;
+use std::fs;
 use std::io::{self, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -49,6 +50,9 @@ enum Command {
         #[clap(long, default_value = "./policies")]
         policy_dir: PathBuf,
     },
+    
+    /// Initialize a new Cupcake project in the current directory
+    Init,
 }
 
 #[tokio::main]
@@ -79,6 +83,9 @@ async fn main() -> Result<()> {
         }
         Command::Verify { policy_dir } => {
             verify_command(policy_dir).await
+        }
+        Command::Init => {
+            init_command().await
         }
     }
 }
@@ -192,6 +199,126 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
     info!("Verification complete!");
     Ok(())
 }
+
+async fn init_command() -> Result<()> {
+    let cupcake_dir = Path::new(".cupcake");
+    
+    // If exists, we're done
+    if cupcake_dir.exists() {
+        println!("Cupcake project already initialized (.cupcake/ exists)");
+        return Ok(());
+    }
+    
+    info!("Initializing Cupcake project structure...");
+    
+    // Create directories
+    fs::create_dir_all(".cupcake/policies/system")
+        .context("Failed to create .cupcake/policies/system directory")?;
+    fs::create_dir_all(".cupcake/signals")
+        .context("Failed to create .cupcake/signals directory")?;
+    fs::create_dir_all(".cupcake/actions")
+        .context("Failed to create .cupcake/actions directory")?;
+    
+    // Write the one required file
+    fs::write(
+        ".cupcake/policies/system/evaluate.rego",
+        SYSTEM_EVALUATE_TEMPLATE
+    )
+    .context("Failed to create system evaluate.rego file")?;
+    
+    // Write a simple example policy to avoid OPA compilation issues
+    fs::write(
+        ".cupcake/policies/example.rego",
+        EXAMPLE_POLICY_TEMPLATE
+    )
+    .context("Failed to create example policy file")?;
+    
+    println!("✅ Initialized Cupcake project in .cupcake/");
+    println!("   Add your policies to .cupcake/policies/");
+    println!("   Add signal scripts to .cupcake/signals/");
+    println!("   Add action scripts to .cupcake/actions/");
+    
+    Ok(())
+}
+
+const SYSTEM_EVALUATE_TEMPLATE: &str = r#"package cupcake.system
+
+import rego.v1
+
+# METADATA
+# scope: rule
+# title: System Aggregation Policy
+# authors: ["Cupcake Engine"]
+
+# Collect all decision verbs from the policy hierarchy
+# Uses walk() for automatic policy discovery
+
+halts := collect_verbs("halt")
+denies := collect_verbs("deny") 
+blocks := collect_verbs("block")
+asks := collect_verbs("ask")
+allow_overrides := collect_verbs("allow_override")
+add_context := collect_verbs("add_context")
+
+# Single evaluation entrypoint for the engine
+evaluate := {
+    "halts": halts,
+    "denies": denies,
+    "blocks": blocks,
+    "asks": asks,
+    "allow_overrides": allow_overrides,
+    "add_context": add_context
+}
+
+# Collect all instances of a decision verb across all policies
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
+}
+"#;
+
+const EXAMPLE_POLICY_TEMPLATE: &str = r#"package cupcake.policies.example
+
+import rego.v1
+
+# METADATA
+# scope: rule
+# title: Example Policy
+# description: A minimal example policy that never fires
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
+
+# This rule will never fire - it's just here to prevent OPA compilation issues
+# It checks for a command that nobody would ever type
+deny contains decision if {
+    input.tool_input.command == "CUPCAKE_EXAMPLE_RULE_THAT_NEVER_FIRES_12345"
+    decision := {
+        "reason": "This will never happen",
+        "severity": "LOW",
+        "rule_id": "EXAMPLE-001"
+    }
+}
+
+# Replace the above with your actual policies
+# Example of a real policy:
+# deny contains decision if {
+#     contains(input.tool_input.command, "rm -rf /")
+#     decision := {
+#         "reason": "Dangerous command blocked",
+#         "severity": "HIGH",
+#         "rule_id": "SAFETY-001"
+#     }
+# }
+"#;
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

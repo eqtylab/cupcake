@@ -18,30 +18,30 @@ import rego.v1
 
 # Deny commands containing "test" for demonstration
 deny contains decision if {
-    # Trust routing - we know this is PreToolUse:Bash from metadata
-    contains(input.tool_input.command, "test")
-    
-    decision := {
-        "reason": "Commands containing 'test' are blocked by test policy",
-        "severity": "HIGH",
-        "rule_id": "TEST-METADATA-001"
-    }
+	# Trust routing - we know this is PreToolUse:Bash from metadata
+	contains(input.tool_input.command, "test")
+
+	decision := {
+		"reason": "Commands containing 'test' are blocked by test policy",
+		"severity": "HIGH",
+		"rule_id": "TEST-METADATA-001",
+	}
 }
 
 # Ask for confirmation on long commands
 ask contains decision if {
-    # Trust routing - we know this is PreToolUse:Bash from metadata  
-    count(input.tool_input.command) > 50
-    
-    decision := {
-        "reason": "Long command detected - please review for safety",
-        "severity": "MEDIUM", 
-        "rule_id": "TEST-METADATA-002"
-    }
+	# Trust routing - we know this is PreToolUse:Bash from metadata
+	count(input.tool_input.command) > 50
+
+	decision := {
+		"reason": "Long command detected - please review for safety",
+		"severity": "MEDIUM",
+		"rule_id": "TEST-METADATA-002",
+	}
 }
 
 # Add context about test signals
 add_context contains "This policy demonstrates signal integration" if {
-    # Trust routing - we know this is PreToolUse:Bash from metadata
-    input.signals.test_signal
+	# Trust routing - we know this is PreToolUse:Bash from metadata
+	input.signals.test_signal
 }

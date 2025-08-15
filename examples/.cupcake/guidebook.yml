@@ -1,0 +1,12 @@
+# Minimal guidebook - only custom signals (scripts are auto-discovered)
+
+signals:
+  # Override the test_status script with inline command
+  test_status:
+    command: "echo '{\"passing\": false, \"coverage\": 85}'"
+    timeout_seconds: 5
+  
+  # Git branch uses the auto-discovered script
+  # git_branch: auto-discovered from signals/git_branch.sh
+
+# Actions are auto-discovered from actions/ directory by rule_id

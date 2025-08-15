@@ -99,7 +99,7 @@ impl WasmRuntime {
         // Use the low-level evaluate_raw function with entrypoint 0 (single entrypoint)
         let result_json = self.evaluate_raw(input, 0)?;
         
-        trace!("Raw WASM result: {}", result_json);
+        debug!("Raw WASM result JSON: {}", result_json);
         
         // Parse the raw JSON result
         let result_value: Value = serde_json::from_str(&result_json)
@@ -147,6 +147,7 @@ impl WasmRuntime {
         let opa_eval = instance.get_typed_func::<(i32, i32, i32, i32, i32, i32, i32), i32>(&mut store, "opa_eval")?;
         
         let input_json = serde_json::to_string(input)?;
+        debug!("WASM input JSON: {}", input_json);
         let input_bytes = input_json.as_bytes();
         
         let input_ptr = opa_malloc.call(&mut store, input_bytes.len() as i32)?;
@@ -171,31 +172,50 @@ impl WasmRuntime {
         debug!("Extracting DecisionSet from cupcake.system.evaluate result");
         debug!("Raw result structure: {:?}", result);
         
-        // The OPA eval result format is an array with a single object
-        let result_array = result.as_array()
-            .context("WASM result is not an array")?;
+        // The OPA eval result format can be either:
+        // 1. An array with a single object: [{"result": <decision_set>}]
+        // 2. Direct decision set object: {"denies": [...], "halts": [...]}
+        
+        let decision_value = if let Some(result_array) = result.as_array() {
+            if result_array.is_empty() {
+                // No result means undefined - return empty decision set
+                debug!("Empty result array, returning default DecisionSet");
+                return Ok(DecisionSet::default());
+            }
             
-        if result_array.is_empty() {
-            // No result means undefined - return empty decision set
-            debug!("Empty result array, returning default DecisionSet");
-            return Ok(DecisionSet::default());
-        }
-        
-        // The result is wrapped in {"result": <decision_set>}
-        let first_element = &result_array[0];
-        let wrapper = first_element.as_object()
-            .context("WASM result element is not an object")?;
-        
-        let decision_value = wrapper.get("result")
-            .context("No 'result' field in WASM output")?;
+            // Check if it's wrapped in {"result": <decision_set>}
+            let first_element = &result_array[0];
+            if let Some(wrapper) = first_element.as_object() {
+                if let Some(result_field) = wrapper.get("result") {
+                    debug!("Found wrapped result format");
+                    result_field
+                } else {
+                    debug!("Array element is not wrapped, using directly");
+                    first_element
+                }
+            } else {
+                debug!("Array element is not an object");
+                first_element
+            }
+        } else {
+            // Direct decision set object
+            debug!("Found direct decision set format");
+            result
+        };
         
         // Parse the result as a DecisionSet
+        debug!("Attempting to parse decision_value: {}", 
+            serde_json::to_string_pretty(decision_value).unwrap_or_default());
+            
         let decision_set: DecisionSet = serde_json::from_value(decision_value.clone())
             .with_context(|| {
                 format!("Failed to parse DecisionSet. Raw value: {}", 
                     serde_json::to_string_pretty(decision_value).unwrap_or_default())
             })?;
             
+        debug!("Successfully extracted DecisionSet with {} total decisions", decision_set.decision_count());
+        debug!("DecisionSet details - denies: {}, halts: {}, blocks: {}", 
+            decision_set.denies.len(), decision_set.halts.len(), decision_set.blocks.len());
         Ok(decision_set)
     }
 }

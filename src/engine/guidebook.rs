@@ -55,7 +55,7 @@ pub struct ActionSection {
 }
 
 impl Guidebook {
-    /// Load guidebook from a YAML file
+    /// Load guidebook from a YAML file, enhanced with convention-based discovery
     pub async fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         info!("Loading guidebook from: {:?}", path);
@@ -67,12 +67,121 @@ impl Guidebook {
         let guidebook: Guidebook = serde_yaml_ng::from_str(&content)
             .context("Failed to parse guidebook YAML")?;
             
-        debug!("Loaded {} signals and {} rule-specific actions", 
+        debug!("Loaded {} explicit signals and {} rule-specific actions", 
             guidebook.signals.len(),
             guidebook.actions.by_rule_id.len()
         );
         
         Ok(guidebook)
+    }
+    
+    /// Create a guidebook with convention-based signal and action discovery
+    /// Discovers scripts in signals/ and actions/ directories automatically
+    pub async fn load_with_conventions(
+        guidebook_path: impl AsRef<Path>,
+        signals_dir: impl AsRef<Path>,
+        actions_dir: impl AsRef<Path>,
+    ) -> Result<Self> {
+        let mut guidebook = if guidebook_path.as_ref().exists() {
+            Self::load(guidebook_path).await?
+        } else {
+            info!("No guidebook.yml found, using pure convention-based approach");
+            Self::default()
+        };
+        
+        // Discover signals from directory (if exists)
+        if signals_dir.as_ref().exists() {
+            Self::discover_signals(&mut guidebook, signals_dir).await?;
+        }
+        
+        // Discover actions from directory (if exists) 
+        if actions_dir.as_ref().exists() {
+            Self::discover_actions(&mut guidebook, actions_dir).await?;
+        }
+        
+        info!("Final guidebook: {} signals, {} actions", 
+            guidebook.signals.len(),
+            guidebook.actions.by_rule_id.len()
+        );
+        
+        Ok(guidebook)
+    }
+    
+    /// Discover signal scripts from a directory
+    async fn discover_signals(guidebook: &mut Guidebook, signals_dir: impl AsRef<Path>) -> Result<()> {
+        let signals_dir = signals_dir.as_ref();
+        debug!("Discovering signals in: {:?}", signals_dir);
+        
+        let mut entries = tokio::fs::read_dir(signals_dir)
+            .await
+            .context("Failed to read signals directory")?;
+            
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                // Skip hidden files and non-executable extensions
+                if file_name.starts_with('.') {
+                    continue;
+                }
+                
+                // Extract signal name (filename without extension)
+                let signal_name = path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(file_name);
+                
+                // Don't override explicit guidebook signals
+                if !guidebook.signals.contains_key(signal_name) {
+                    let signal_config = SignalConfig {
+                        command: path.to_string_lossy().to_string(),
+                        timeout_seconds: default_timeout(),
+                    };
+                    
+                    guidebook.signals.insert(signal_name.to_string(), signal_config);
+                    debug!("Discovered signal: {} -> {}", signal_name, path.display());
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Discover action scripts from a directory  
+    async fn discover_actions(guidebook: &mut Guidebook, actions_dir: impl AsRef<Path>) -> Result<()> {
+        let actions_dir = actions_dir.as_ref();
+        debug!("Discovering actions in: {:?}", actions_dir);
+        
+        let mut entries = tokio::fs::read_dir(actions_dir)
+            .await
+            .context("Failed to read actions directory")?;
+            
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                // Skip hidden files
+                if file_name.starts_with('.') {
+                    continue;
+                }
+                
+                // Extract action name (filename without extension)
+                let action_name = path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(file_name);
+                
+                // Add as rule-specific action (convention: action name = rule ID)
+                let action_config = ActionConfig {
+                    command: path.to_string_lossy().to_string(),
+                };
+                
+                guidebook.actions.by_rule_id
+                    .entry(action_name.to_string())
+                    .or_insert_with(Vec::new)
+                    .push(action_config);
+                    
+                debug!("Discovered action: {} -> {}", action_name, path.display());
+            }
+        }
+        
+        Ok(())
     }
     
     /// Get signal command by name

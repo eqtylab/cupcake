@@ -12,6 +12,7 @@ import rego.v1
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
+#     required_signals: ["git_branch", "test_status"]
 
 # Decision Verbs - Modern Rego v1.0 format for NEW_GUIDING_FINAL.md
 
@@ -64,8 +65,38 @@ ask contains decision if {
     }
 }
 
+# Enhanced rules using signal data
+deny contains decision if {
+    # Trust routing - we know this is PreToolUse:Bash from metadata
+    contains(input.tool_input.command, "git push")
+    input.signals.git_branch == "main"  # Use signal data
+    
+    decision := {
+        "reason": "Direct pushes to main branch are not allowed",
+        "severity": "HIGH",
+        "rule_id": "BASH-001-MAIN-PUSH"
+    }
+}
+
+ask contains decision if {
+    # Trust routing - we know this is PreToolUse:Bash from metadata
+    contains(input.tool_input.command, "npm publish")
+    input.signals.test_status.passing == false  # Use signal data
+    
+    decision := {
+        "reason": "Tests are failing. Are you sure you want to publish?",
+        "severity": "MEDIUM", 
+        "rule_id": "BASH-001-PUBLISH-FAILING"
+    }
+}
+
 # Context: Helpful information for users
 add_context contains "⚠️ Working in production environment - extra caution advised" if {
     # Trust routing - we know this is PreToolUse:Bash from metadata
     contains(input.cwd, "/prod")
+}
+
+add_context contains sprintf("📋 Current branch: %s", [input.signals.git_branch]) if {
+    # Trust routing - we know this is PreToolUse:Bash from metadata
+    input.signals.git_branch != "unknown"
 }

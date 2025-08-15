@@ -36,7 +36,7 @@ impl SynthesisEngine {
         
         // Priority 2: Deny/Block (High - blocking actions)
         if decision_set.has_denials() {
-            let reason = Self::aggregate_reasons(&decision_set.denials);
+            let reason = Self::aggregate_reasons(&decision_set.denies);
             debug!("Synthesized DENY decision: {}", reason);
             return Ok(FinalDecision::Deny { reason });
         }
@@ -153,8 +153,8 @@ impl SynthesisEngine {
         if !decision_set.halts.is_empty() {
             summary_parts.push(format!("{} halt(s)", decision_set.halts.len()));
         }
-        if !decision_set.denials.is_empty() {
-            summary_parts.push(format!("{} denial(s)", decision_set.denials.len()));
+        if !decision_set.denies.is_empty() {
+            summary_parts.push(format!("{} denial(s)", decision_set.denies.len()));
         }
         if !decision_set.blocks.is_empty() {
             summary_parts.push(format!("{} block(s)", decision_set.blocks.len()));
@@ -190,7 +190,7 @@ mod tests {
                 severity: "CRITICAL".to_string(),
                 rule_id: "HALT-001".to_string(),
             }],
-            denials: vec![DecisionObject {
+            denies: vec![DecisionObject {
                 reason: "Denied".to_string(),
                 severity: "HIGH".to_string(),
                 rule_id: "DENY-001".to_string(),
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn test_decision_set_summary() {
         let decision_set = DecisionSet {
-            denials: vec![DecisionObject {
+            denies: vec![DecisionObject {
                 reason: "Test".to_string(),
                 severity: "HIGH".to_string(),
                 rule_id: "TEST-001".to_string(),

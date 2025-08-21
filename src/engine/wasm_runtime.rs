@@ -99,6 +99,10 @@ impl WasmRuntime {
         // Use the low-level evaluate_raw function with entrypoint 0 (single entrypoint)
         let result_json = self.evaluate_raw(input, 0)?;
         
+        // Enhanced debug logging to understand what WASM is returning
+        eprintln!("==== RAW WASM RESPONSE ====");
+        eprintln!("{}", result_json);
+        eprintln!("==========================");
         debug!("Raw WASM result JSON: {}", result_json);
         
         // Parse the raw JSON result
@@ -148,6 +152,9 @@ impl WasmRuntime {
         
         let input_json = serde_json::to_string(input)?;
         debug!("WASM input JSON: {}", input_json);
+        eprintln!("==== WASM INPUT TO OPA ====");
+        eprintln!("{}", serde_json::to_string_pretty(input).unwrap_or_default());
+        eprintln!("===========================");
         let input_bytes = input_json.as_bytes();
         
         let input_ptr = opa_malloc.call(&mut store, input_bytes.len() as i32)?;
@@ -174,7 +181,7 @@ impl WasmRuntime {
         
         // The OPA eval result format can be either:
         // 1. An array with a single object: [{"result": <decision_set>}]
-        // 2. Direct decision set object: {"denies": [...], "halts": [...]}
+        // 2. Direct decision set object: {"denials": [...], "halts": [...]}
         
         let decision_value = if let Some(result_array) = result.as_array() {
             if result_array.is_empty() {
@@ -214,8 +221,8 @@ impl WasmRuntime {
             })?;
             
         debug!("Successfully extracted DecisionSet with {} total decisions", decision_set.decision_count());
-        debug!("DecisionSet details - denies: {}, halts: {}, blocks: {}", 
-            decision_set.denies.len(), decision_set.halts.len(), decision_set.blocks.len());
+        debug!("DecisionSet details - denials: {}, halts: {}, blocks: {}", 
+            decision_set.denials.len(), decision_set.halts.len(), decision_set.blocks.len());
         Ok(decision_set)
     }
 }

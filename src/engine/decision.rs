@@ -30,7 +30,7 @@ pub struct DecisionSet {
     
     /// Policy violation decisions (high priority)
     #[serde(default)]
-    pub denies: Vec<DecisionObject>,
+    pub denials: Vec<DecisionObject>,
     
     /// Blocking decisions for specific events (high priority)
     #[serde(default)]
@@ -120,7 +120,7 @@ impl DecisionSet {
     
     /// Check if any denial decisions are present
     pub fn has_denials(&self) -> bool {
-        !self.denies.is_empty()
+        !self.denials.is_empty()
     }
     
     /// Check if any block decisions are present
@@ -141,7 +141,7 @@ impl DecisionSet {
     /// Check if the decision set is completely empty (no decisions)
     pub fn is_empty(&self) -> bool {
         self.halts.is_empty()
-            && self.denies.is_empty()
+            && self.denials.is_empty()
             && self.blocks.is_empty()
             && self.asks.is_empty()
             && self.allow_overrides.is_empty()
@@ -152,7 +152,7 @@ impl DecisionSet {
     pub fn all_decisions(&self) -> Vec<&DecisionObject> {
         let mut decisions = Vec::new();
         decisions.extend(&self.halts);
-        decisions.extend(&self.denies);
+        decisions.extend(&self.denials);
         decisions.extend(&self.blocks);
         decisions.extend(&self.asks);
         decisions.extend(&self.allow_overrides);
@@ -162,7 +162,7 @@ impl DecisionSet {
     /// Count total number of decisions
     pub fn decision_count(&self) -> usize {
         self.halts.len()
-            + self.denies.len()
+            + self.denials.len()
             + self.blocks.len()
             + self.asks.len()
             + self.allow_overrides.len()
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(decision_set.decision_count(), 0);
         
         // Add a denial
-        decision_set.denies.push(DecisionObject {
+        decision_set.denials.push(DecisionObject {
             reason: "Test denial".to_string(),
             severity: "HIGH".to_string(),
             rule_id: "TEST-001".to_string(),

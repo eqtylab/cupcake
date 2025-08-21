@@ -152,16 +152,23 @@ impl Engine {
         let policy_files = scanner::scan_policies(&self.paths.policies).await?;
         info!("Found {} policy files", policy_files.len());
         
+        // Debug: Log all found policy files
+        for (i, path) in policy_files.iter().enumerate() {
+            eprintln!("=== ENGINE: Found policy file {}: {:?}", i, path);
+        }
+        
         // Step 2: Parse selectors and build policy units
         for path in policy_files {
             match self.parse_policy(&path).await {
                 Ok(unit) => {
                     info!("Successfully parsed policy: {} from {:?}", unit.package_name, path);
+                    eprintln!("=== ENGINE: Successfully parsed policy: {} from {:?}", unit.package_name, path);
                     self.policies.push(unit);
                 }
                 Err(e) => {
                     // Fail loudly but don't crash - log and skip bad policies
                     error!("Failed to parse policy at {:?}: {}", path, e);
+                    eprintln!("=== ENGINE: ERROR - Failed to parse policy at {:?}: {}", path, e);
                 }
             }
         }
@@ -216,7 +223,7 @@ impl Engine {
         let routing = if let Some(ref meta) = policy_metadata {
             if let Some(ref routing_directive) = meta.custom.routing {
                 // Validate the routing directive
-                metadata::validate_routing_directive(routing_directive)
+                metadata::validate_routing_directive(routing_directive, &package_name)
                     .with_context(|| format!("Invalid routing directive in policy {}", package_name))?;
                 routing_directive.clone()
             } else if package_name.starts_with("cupcake.system") {
@@ -228,8 +235,14 @@ impl Engine {
                 return Err(anyhow::anyhow!("Policy missing routing directive"));
             }
         } else {
-            warn!("Policy {} has no metadata block - will not be routed", package_name);
-            return Err(anyhow::anyhow!("Policy missing metadata"));
+            // System policies are allowed to have no metadata
+            if package_name.starts_with("cupcake.system") {
+                debug!("System policy {} has no metadata block (this is allowed)", package_name);
+                RoutingDirective::default()
+            } else {
+                warn!("Policy {} has no metadata block - will not be routed", package_name);
+                return Err(anyhow::anyhow!("Policy missing metadata"));
+            }
         };
         
         Ok(PolicyUnit {
@@ -416,6 +429,8 @@ impl Engine {
             input_obj.insert("signals".to_string(), serde_json::to_value(signal_data)?);
         }
         
+        eprintln!("DEBUG ENRICHED INPUT: {}", serde_json::to_string_pretty(&enriched_input).unwrap_or_default());
+        
         debug!("Input enriched with {} signal values", signal_count);
         Ok(enriched_input)
     }
@@ -442,7 +457,7 @@ impl Engine {
                 }
                 
                 // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions(&decision_set.denies, guidebook).await;
+                self.execute_rule_specific_actions(&decision_set.denials, guidebook).await;
             },
             decision::FinalDecision::Block { reason } => {
                 info!("Executing actions for BLOCK decision: {}", reason);

@@ -6,7 +6,7 @@
 //! This module enables Host-Side Indexing by parsing `# METADATA` blocks
 //! and extracting routing directives for O(1) policy lookups.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
@@ -141,10 +141,31 @@ pub fn extract_routing_directive(metadata: &PolicyMetadata) -> Option<RoutingDir
 }
 
 /// Validate a routing directive for completeness
-pub fn validate_routing_directive(directive: &RoutingDirective) -> Result<()> {
-    // Allow empty events for system aggregation policies
-    if directive.required_events.is_empty() {
-        debug!("Routing directive has no required events - treating as system/aggregation policy");
+pub fn validate_routing_directive(directive: &RoutingDirective, package_name: &str) -> Result<()> {
+    let is_system_policy = package_name.starts_with("cupcake.system");
+    
+    if is_system_policy {
+        // System policies: aggregation functions that don't need event-specific routing
+        if !directive.required_events.is_empty() {
+            return Err(anyhow!("System policy '{}' should not specify required_events - system policies are aggregation functions", package_name));
+        }
+        if !directive.required_tools.is_empty() {
+            return Err(anyhow!("System policy '{}' should not specify required_tools - system policies don't operate on specific tools", package_name));
+        }
+        if !directive.required_signals.is_empty() {
+            return Err(anyhow!("System policy '{}' should not specify required_signals - system policies work with pre-aggregated data", package_name));
+        }
+        debug!("System policy {} has valid empty routing directive", package_name);
+        return Ok(());
+    }
+    
+    // Regular policies: business logic that responds to specific events
+    if directive.required_events.is_empty() && !directive.required_tools.is_empty() {
+        return Err(anyhow!(
+            "Policy '{}' specifies required_tools {:?} but no required_events. Tools are only meaningful in the context of specific events (e.g., PreToolUse:Bash)", 
+            package_name, 
+            directive.required_tools
+        ));
     }
     
     // Validate known Claude Code event types
@@ -161,14 +182,13 @@ pub fn validate_routing_directive(directive: &RoutingDirective) -> Result<()> {
     
     for event in &directive.required_events {
         if !valid_events.contains(&event.as_str()) {
-            warn!("Unknown event type '{}' in routing directive. Known events: {:?}", 
-                  event, valid_events);
+            warn!("Unknown event type '{}' in routing directive for policy '{}'. Known events: {:?}", 
+                  event, package_name, valid_events);
         }
     }
     
-    // Tools are optional - some events don't use tools
-    // Signals are optional - not all policies need external context
-    
+    // Tools and signals are optional for regular policies
+    debug!("Regular policy {} has valid routing directive", package_name);
     Ok(())
 }
 
@@ -254,21 +274,45 @@ deny if {
     
     #[test]
     fn test_validate_routing_directive() {
-        let valid = RoutingDirective {
+        // Test valid regular policy
+        let valid_regular = RoutingDirective {
             required_events: vec!["PreToolUse".to_string()],
             required_tools: vec!["Bash".to_string()],
             required_signals: vec![],
         };
+        assert!(validate_routing_directive(&valid_regular, "cupcake.policies.bash_guard").is_ok());
         
-        assert!(validate_routing_directive(&valid).is_ok());
-        
-        let invalid = RoutingDirective {
-            required_events: vec![], // Empty events - should fail
+        // Test invalid regular policy - tools without events
+        let invalid_regular = RoutingDirective {
+            required_events: vec![], // Empty events but has tools - should fail for regular policies
             required_tools: vec!["Bash".to_string()],
             required_signals: vec![],
         };
+        assert!(validate_routing_directive(&invalid_regular, "cupcake.policies.bash_guard").is_err());
         
-        assert!(validate_routing_directive(&invalid).is_err());
+        // Test valid system policy - empty routing
+        let valid_system = RoutingDirective {
+            required_events: vec![],
+            required_tools: vec![],
+            required_signals: vec![],
+        };
+        assert!(validate_routing_directive(&valid_system, "cupcake.system.evaluate").is_ok());
+        
+        // Test invalid system policy - system policies shouldn't have routing requirements
+        let invalid_system = RoutingDirective {
+            required_events: vec!["PreToolUse".to_string()],
+            required_tools: vec![],
+            required_signals: vec![],
+        };
+        assert!(validate_routing_directive(&invalid_system, "cupcake.system.evaluate").is_err());
+        
+        // Test valid regular policy with empty events and empty tools - event-agnostic policies are OK
+        let valid_empty_regular = RoutingDirective {
+            required_events: vec![],
+            required_tools: vec![],
+            required_signals: vec!["global_setting".to_string()],
+        };
+        assert!(validate_routing_directive(&valid_empty_regular, "cupcake.policies.global_rules").is_ok());
     }
     
     #[test]

@@ -18,30 +18,70 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     
     info!("Compiling {} policies into unified WASM module", policies.len());
     
-    // Create a temporary directory for the compilation
-    let temp_dir = std::env::temp_dir().join(format!("cupcake-compile-{}", std::process::id()));
+    // Create a temporary directory for the compilation with a unique ID
+    // TODO: Consider using the `tempfile` crate for cleaner temp directory management
+    // that automatically handles uniqueness and cleanup
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COMPILE_ID: AtomicU64 = AtomicU64::new(0);
+    let compile_id = COMPILE_ID.fetch_add(1, Ordering::SeqCst);
+    let temp_dir = std::env::temp_dir().join(format!("cupcake-compile-{}-{}", std::process::id(), compile_id));
     tokio::fs::create_dir_all(&temp_dir).await?;
     let temp_path = temp_dir.as_path();
+    eprintln!("=== COMPILER: Using temp directory: {:?}", temp_dir);
     
-    // Write all policies to the temp directory
+    // Write all policies to the temp directory, preserving directory structure
+    eprintln!("=== COMPILER: Copying {} policies to temp dir", policies.len());
+    
+    // Find the common policies directory root
+    let policies_root = if !policies.is_empty() {
+        // Assume all policies are under a common "policies" directory
+        let first_policy_path = &policies[0].path;
+        let mut current = first_policy_path.parent();
+        while let Some(parent) = current {
+            if parent.file_name() == Some(std::ffi::OsStr::new("policies")) {
+                break;
+            }
+            current = parent.parent();
+        }
+        current.unwrap_or_else(|| first_policy_path.parent().unwrap())
+    } else {
+        bail!("No policies to determine root from");
+    };
+    
+    eprintln!("=== COMPILER: Policies root: {:?}", policies_root);
+    
     for (i, policy) in policies.iter().enumerate() {
-        let file_name = format!("policy_{}.rego", i);
-        let dest_path = temp_path.join(&file_name);
+        // Get the relative path from the policies root
+        let relative_path = policy.path.strip_prefix(policies_root)
+            .unwrap_or_else(|_| policy.path.file_name().unwrap().as_ref());
+        
+        let dest_path = temp_path.join(relative_path);
+        
+        // Create parent directories if needed (for system/ subdirectory)
+        if let Some(parent) = dest_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
         
         // Copy the policy file to temp dir
         tokio::fs::copy(&policy.path, &dest_path)
             .await
             .context(format!("Failed to copy policy {:?}", policy.path))?;
         
+        // Debug: Read and print the copied file to verify content
+        let copied_content = tokio::fs::read_to_string(&dest_path).await?;
+        eprintln!("=== COMPILER: Policy {} content preview (first 200 chars):", policy.package_name);
+        eprintln!("{}", &copied_content.chars().take(200).collect::<String>());
+        
         debug!("Copied policy {} to temp: {:?}", policy.package_name, dest_path);
+        eprintln!("=== COMPILER: Copied policy {} ({}) to {:?}", i, policy.package_name, dest_path);
     }
     
     // Build the OPA command for Hybrid Model
     // Single entrypoint: cupcake.system.evaluate
     let mut opa_cmd = Command::new("opa");
     opa_cmd.arg("build")
-        .arg("-t").arg("wasm")  // Target WASM
-        .arg("-O").arg("2");     // Optimization level 2
+        .arg("-t").arg("wasm")   // Target WASM
+        .arg("-O").arg("2");      // Optimization level 2
     
     // Add the single aggregation entrypoint for the Hybrid Model
     // This entrypoint collects all decision verbs across all policies
@@ -57,6 +97,12 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     
     info!("Executing OPA build command...");
     debug!("OPA command: {:?}", opa_cmd);
+    eprintln!("=== COMPILER: OPA command: {:?}", opa_cmd);
+    eprintln!("=== COMPILER: Working directory contents:");
+    for entry in std::fs::read_dir(temp_path)? {
+        let entry = entry?;
+        eprintln!("  - {:?}", entry.path());
+    }
     
     // Execute the command - this MUST work or we fail
     let output = opa_cmd.output()
@@ -80,6 +126,11 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     
     info!("Extracted WASM module: {} bytes", wasm_bytes.len());
     
+    // Debug: Save WASM to temp file for inspection
+    let debug_wasm_path = std::env::temp_dir().join(format!("cupcake-debug-{}-{}.wasm", std::process::id(), compile_id));
+    tokio::fs::write(&debug_wasm_path, &wasm_bytes).await?;
+    eprintln!("=== COMPILER: Saved WASM to {:?} for debugging", debug_wasm_path);
+    
     Ok(wasm_bytes)
 }
 
@@ -92,7 +143,11 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
         .context("Failed to read bundle file")?;
     
     // Use tar command to extract (simpler than adding tar crate dependency)
-    let temp_dir = std::env::temp_dir().join(format!("cupcake-extract-{}", std::process::id()));
+    // TODO: Consider using the `tempfile` crate here as well for automatic cleanup
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static EXTRACT_ID: AtomicU64 = AtomicU64::new(0);
+    let extract_id = EXTRACT_ID.fetch_add(1, Ordering::SeqCst);
+    let temp_dir = std::env::temp_dir().join(format!("cupcake-extract-{}-{}", std::process::id(), extract_id));
     std::fs::create_dir_all(&temp_dir)?;
     let extract_path = temp_dir.as_path();
     
@@ -131,7 +186,7 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
 
 // Aligns with NEW_GUIDING_FINAL.md:
 // - Compiles all discovered policies into a SINGLE unified WASM module
-// - Uses OPA build with optimization (-O 2) for performance  
+// - Uses OPA build with optimization (-O 2) for performance
 // - Exports single aggregation entrypoint: cupcake/system/evaluate
 // - Handles compilation failures gracefully with clear errors
 // - Foundation for the Hybrid Model's sub-millisecond performance target

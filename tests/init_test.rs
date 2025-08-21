@@ -70,7 +70,7 @@ fn test_evaluate_file_valid() {
     assert!(content.contains("evaluate :="));
     assert!(content.contains("collect_verbs"));
     assert!(content.contains("halts"));
-    assert!(content.contains("denies"));
+    assert!(content.contains("denials"));
 }
 
 #[test]

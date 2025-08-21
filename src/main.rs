@@ -254,7 +254,7 @@ import rego.v1
 # Uses walk() for automatic policy discovery
 
 halts := collect_verbs("halt")
-denies := collect_verbs("deny") 
+denials := collect_verbs("deny") 
 blocks := collect_verbs("block")
 asks := collect_verbs("ask")
 allow_overrides := collect_verbs("allow_override")
@@ -263,7 +263,7 @@ add_context := collect_verbs("add_context")
 # Single evaluation entrypoint for the engine
 evaluate := {
     "halts": halts,
-    "denies": denies,
+    "denials": denials,
     "blocks": blocks,
     "asks": asks,
     "allow_overrides": allow_overrides,

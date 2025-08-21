@@ -135,8 +135,9 @@ deny contains decision if {
     some path in sensitive_paths
     contains(input.tool_input.file_path, path)
     
+    # Note: sprintf doesn't work in WASM, use concat instead
     decision := {
-        "reason": sprintf("Cannot modify files in sensitive directory: %s", [path]),
+        "reason": concat("", ["Cannot modify files in sensitive directory: ", path]),
         "severity": "HIGH",
         "rule_id": "FILE-001"
     }

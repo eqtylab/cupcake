@@ -402,11 +402,11 @@ impl Engine {
         let signal_data = if let Some(guidebook) = &self.guidebook {
             guidebook.execute_signals(&signal_names).await.unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
-                std::collections::HashMap::new()
+                std::collections::HashMap::<String, serde_json::Value>::new()
             })
         } else {
             debug!("No guidebook available - no signals collected");
-            std::collections::HashMap::new()
+            std::collections::HashMap::<String, serde_json::Value>::new()
         };
         
         // Merge signal data into input

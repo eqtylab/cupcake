@@ -208,8 +208,8 @@ impl Guidebook {
         actions
     }
     
-    /// Execute a signal and return its output
-    pub async fn execute_signal(&self, signal_name: &str) -> Result<String> {
+    /// Execute a signal and return its output as JSON Value
+    pub async fn execute_signal(&self, signal_name: &str) -> Result<serde_json::Value> {
         let signal = self.get_signal(signal_name)
             .with_context(|| format!("Signal '{}' not found in guidebook", signal_name))?;
             
@@ -233,11 +233,23 @@ impl Guidebook {
         }
         
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.trim().to_string())
+        let trimmed_output = stdout.trim();
+        
+        // Try to parse as JSON first, fall back to string if it fails
+        match serde_json::from_str::<serde_json::Value>(trimmed_output) {
+            Ok(json_value) => {
+                debug!("Signal '{}' output parsed as JSON successfully", signal_name);
+                Ok(json_value)
+            }
+            Err(_) => {
+                debug!("Signal '{}' output is not valid JSON, storing as string", signal_name);
+                Ok(serde_json::Value::String(trimmed_output.to_string()))
+            }
+        }
     }
     
     /// Execute multiple signals concurrently
-    pub async fn execute_signals(&self, signal_names: &[String]) -> Result<HashMap<String, String>> {
+    pub async fn execute_signals(&self, signal_names: &[String]) -> Result<HashMap<String, serde_json::Value>> {
         use futures::future::join_all;
         
         if signal_names.is_empty() {

@@ -81,12 +81,27 @@ deny contains decision if {
 ask contains decision if {
     # Trust routing - we know this is PreToolUse:Bash from metadata
     contains(input.tool_input.command, "npm publish")
-    input.signals.test_status.passing == false  # Use signal data
+    input.signals.test_status.passing == false  # Use structured signal data
     
     decision := {
         "reason": "Tests are failing. Are you sure you want to publish?",
         "severity": "MEDIUM", 
         "rule_id": "BASH-001-PUBLISH-FAILING"
+    }
+}
+
+# Enhanced rule using complex signal data structures
+deny contains decision if {
+    # Trust routing - we know this is PreToolUse:Bash from metadata
+    contains(input.tool_input.command, "kubectl apply")
+    input.signals.test_status.coverage < 80  # Use numeric field from structured signal
+    count(input.signals.test_status.failed_tests) > 0  # Use array length from structured signal
+    
+    decision := {
+        "reason": sprintf("Cannot deploy with low test coverage (%.1f%%) and %d failing tests", 
+                         [input.signals.test_status.coverage, count(input.signals.test_status.failed_tests)]),
+        "severity": "HIGH",
+        "rule_id": "BASH-001-DEPLOY-COVERAGE"
     }
 }
 
@@ -98,5 +113,11 @@ add_context contains "⚠️ Working in production environment - extra caution a
 
 add_context contains sprintf("📋 Current branch: %s", [input.signals.git_branch]) if {
     # Trust routing - we know this is PreToolUse:Bash from metadata
-    input.signals.git_branch != "unknown"
+    input.signals.git_branch != "unknown"  # String signal access
+}
+
+add_context contains sprintf("🧪 Test status: %.1f%% coverage, %d failing tests", 
+                            [input.signals.test_status.coverage, count(input.signals.test_status.failed_tests)]) if {
+    # Trust routing - we know this is PreToolUse:Bash from metadata
+    input.signals.test_status  # Structured signal access with multiple fields
 }

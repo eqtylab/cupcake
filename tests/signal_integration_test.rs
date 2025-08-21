@@ -22,48 +22,59 @@ async fn test_end_to_end_signal_integration() {
     fs::create_dir_all(&signals_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
     
-    // Create system evaluation policy
+    // Create system evaluation policy - matching examples/.cupcake/policies/system/evaluate.rego
     let system_policy = r#"package cupcake.system
 
 import rego.v1
 
 # METADATA
-# scope: rule
-# title: System Aggregation Policy
+# scope: document
+# title: System Aggregation Entrypoint for Hybrid Model
 # authors: ["Cupcake Engine"]
+# custom:
+#   description: "Aggregates all decision verbs from policies into a DecisionSet"
+#   entrypoint: true
+#   routing:
+#     required_events: []
+#     required_tools: []
 
-# Collect all decision verbs from the policy hierarchy
-# Uses walk() for automatic policy discovery
-
-halts := collect_verbs("halt")
-denies := collect_verbs("deny") 
-blocks := collect_verbs("block")
-asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
-add_context := collect_verbs("add_context")
-
-# Single evaluation entrypoint for the engine
-evaluate := {
-    "halts": halts,
-    "denies": denies,
-    "blocks": blocks,
-    "asks": asks,
-    "allow_overrides": allow_overrides,
-    "add_context": add_context
+# The single entrypoint for the Hybrid Model.
+# This uses the `walk()` built-in to recursively traverse data.cupcake.policies,
+# automatically discovering and aggregating all decision verbs from all loaded
+# policies, regardless of their package name or nesting depth.
+evaluate := decision_set if {
+    decision_set := {
+        "halts": collect_verbs("halt"),
+        "denials": collect_verbs("deny"),
+        "blocks": collect_verbs("block"),
+        "asks": collect_verbs("ask"),
+        "allow_overrides": collect_verbs("allow_override"),
+        "add_context": collect_verbs("add_context")
+    }
 }
 
-# Collect all instances of a decision verb across all policies
+# Helper function to collect all decisions for a specific verb type.
+# Uses walk() to recursively find all instances of the verb across
+# the entire policy hierarchy under data.cupcake.policies.
 collect_verbs(verb_name) := result if {
+    # Collect all matching verb sets from the policy tree
     verb_sets := [value |
         walk(data.cupcake.policies, [path, value])
         path[count(path) - 1] == verb_name
     ]
+    
+    # Flatten all sets into a single array
+    # Since Rego v1 decision verbs are sets, we need to convert to arrays
     all_decisions := [decision |
         some verb_set in verb_sets
         some decision in verb_set
     ]
+    
     result := all_decisions
 }
+
+# Default to empty arrays if no decisions found
+default collect_verbs(_) := []
 "#;
     
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
@@ -100,8 +111,12 @@ ask contains decision if {
     input.signals.test_status.coverage < 90
     contains(input.tool_input.command, "deploy")
     
+    # WASM workaround: use concat instead of sprintf
+    coverage_int := floor(input.signals.test_status.coverage)
+    coverage_str := format_int(coverage_int, 10)
+    
     decision := {
-        "reason": sprintf("Deploy with failing tests and %.1f%% coverage?", [input.signals.test_status.coverage]),
+        "reason": concat("", ["Deploy with failing tests and ", coverage_str, "% coverage?"]),
         "severity": "MEDIUM", 
         "rule_id": "TEST-002"
     }
@@ -112,18 +127,26 @@ deny contains decision if {
     count(input.signals.test_status.failed_tests) > 3
     contains(input.tool_input.command, "release")
     
+    # WASM workaround: use concat instead of sprintf
+    failed_count := count(input.signals.test_status.failed_tests)
+    failed_count_str := format_int(failed_count, 10)
+    
     decision := {
-        "reason": sprintf("Cannot release with %d failing tests", [count(input.signals.test_status.failed_tests)]),
+        "reason": concat("", ["Cannot release with ", failed_count_str, " failing tests"]),
         "severity": "HIGH",
         "rule_id": "TEST-003"
     }
 }
 
-# Context using both signal types
-add_context contains sprintf("Branch: %s, Test Coverage: %.1f%%", 
-                            [input.signals.git_branch, input.signals.test_status.coverage]) if {
+# Context using both signal types  
+add_context contains context_msg if {
     input.signals.git_branch
     input.signals.test_status.coverage
+    
+    # WASM workaround: use concat instead of sprintf
+    coverage_int := floor(input.signals.test_status.coverage)
+    coverage_str := format_int(coverage_int, 10)
+    context_msg := concat("", ["Branch: ", input.signals.git_branch, ", Test Coverage: ", coverage_str, "%"])
 }
 "#;
     
@@ -168,6 +191,24 @@ echo '{
     }
     
     // Initialize engine with test project
+    eprintln!("=== TEST: Initializing engine with project path: {:?}", project_path);
+    eprintln!("=== TEST: Policies dir exists: {}", policies_dir.exists());
+    eprintln!("=== TEST: System dir exists: {}", system_dir.exists());
+    
+    // List all .rego files to debug
+    eprintln!("=== TEST: Listing all .rego files:");
+    for entry in std::fs::read_dir(&policies_dir).unwrap() {
+        let entry = entry.unwrap();
+        eprintln!("  - {:?}", entry.path());
+    }
+    if system_dir.exists() {
+        eprintln!("=== TEST: System directory contents:");
+        for entry in std::fs::read_dir(&system_dir).unwrap() {
+            let entry = entry.unwrap();
+            eprintln!("  - {:?}", entry.path());
+        }
+    }
+    
     let mut engine = Engine::new(&project_path).await.unwrap();
     
     // Test 1: String signal access (git_branch == "main")
@@ -199,10 +240,11 @@ echo '{
     });
     
     let decision2 = engine.evaluate(&event2).await.unwrap();
+    println!("DEBUG: decision2 = {:?}", decision2);
     assert!(decision2.requires_confirmation(), "Should ask for confirmation on deploy with failing tests");
     if let Some(reason) = decision2.reason() {
         assert!(reason.contains("Deploy with failing tests"));
-        assert!(reason.contains("85.5%")); // Should include coverage from structured signal
+        assert!(reason.contains("85%")); // Now shows integer due to WASM concat workaround
     }
     
     // Test 3: Array access from structured signal (failed_tests count > 3)
@@ -240,7 +282,7 @@ echo '{
     if let cupcake_rego::engine::decision::FinalDecision::Allow { context } = decision4 {
         let context_str = context.join(" ");
         assert!(context_str.contains("Branch: main")); // String signal
-        assert!(context_str.contains("Test Coverage: 85.5%")); // Structured signal numeric field
+        assert!(context_str.contains("Test Coverage: 85%")); // Now shows integer due to WASM concat workaround
     } else {
         panic!("Expected Allow decision with context");
     }
@@ -260,30 +302,31 @@ async fn test_signal_json_parsing_fallback() {
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
     
-    // Create minimal system policy
+    // Create minimal system policy - matching examples/.cupcake/policies/system/evaluate.rego
     let system_policy = r#"package cupcake.system
 
 import rego.v1
 
 # METADATA
-# scope: rule
-# title: System Aggregation Policy
+# scope: document
+# title: System Aggregation Entrypoint for Hybrid Model
 # authors: ["Cupcake Engine"]
+# custom:
+#   description: "Aggregates all decision verbs from policies into a DecisionSet"
+#   entrypoint: true
+#   routing:
+#     required_events: []
+#     required_tools: []
 
-halts := collect_verbs("halt")
-denies := collect_verbs("deny") 
-blocks := collect_verbs("block")
-asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
-add_context := collect_verbs("add_context")
-
-evaluate := {
-    "halts": halts,
-    "denies": denies,
-    "blocks": blocks,
-    "asks": asks,
-    "allow_overrides": allow_overrides,
-    "add_context": add_context
+evaluate := decision_set if {
+    decision_set := {
+        "halts": collect_verbs("halt"),
+        "denials": collect_verbs("deny"),
+        "blocks": collect_verbs("block"),
+        "asks": collect_verbs("ask"),
+        "allow_overrides": collect_verbs("allow_override"),
+        "add_context": collect_verbs("add_context")
+    }
 }
 
 collect_verbs(verb_name) := result if {
@@ -297,6 +340,8 @@ collect_verbs(verb_name) := result if {
     ]
     result := all_decisions
 }
+
+default collect_verbs(_) := []
 "#;
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
     
@@ -314,8 +359,10 @@ import rego.v1
 #     required_tools: ["Bash"]
 #     required_signals: ["invalid_json_signal"]
 
-add_context contains sprintf("Signal output: %s", [input.signals.invalid_json_signal]) if {
+add_context contains context_msg if {
     input.signals.invalid_json_signal
+    # WASM workaround: use concat instead of sprintf
+    context_msg := concat("", ["Signal output: ", input.signals.invalid_json_signal])
 }
 "#;
     

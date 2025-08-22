@@ -5,20 +5,27 @@
 
 ## Overview
 
-Signals are Cupcake's mechanism for enriching policy evaluation with real-time contextual data from the environment. They enable policies to make intelligent decisions based on external state like git branches, test results, deployment status, and security scans.
+Signals enable you to gather additional context that you need within the rule enforcement layer of Cupcake. You use signals when an agent's action in isolation does not provide full context on its own. They bridge the gap between what the agent attempts to do and what the environment actually looks like.
+
+Signals have dual-use capability:
+- **Context Gathering**: Fetch real-time state about git branches, test results, deployment status, database connections, etc.
+- **Evaluation Delegation**: Integrate existing industry guardrails (NVIDIA NeMo, Invariant) as signal evaluators, allowing Cupcake to orchestrate best-in-class safety systems
 
 ## Core Design Principles
 
 ### 1. **JSON-First Data Model**
-Signals can output any valid JSON structure. The engine attempts to parse all signal outputs as JSON, falling back to plain strings for non-JSON output.
+Signals can output any valid JSON structure. The engine attempts to parse all signal outputs as JSON, falling back to plain strings for non-JSON output. This enables rich, structured data access in policies.
 
-### 2. **User Responsibility**
-Signal authors are responsible for outputting well-formed data. The engine provides the plumbing but doesn't validate or transform signal semantics.
+### 2. **Orchestration, Not Competition**
+Cupcake doesn't compete with existing guardrails. Through signals, it orchestrates them. A signal can call NeMo Guardrails or Invariant, returning their evaluation results for use in Rego policies with simple checks like `input.signals.nemo_evaluation.passed == true`.
 
-### 3. **Graceful Degradation**
+### 3. **User Responsibility**
+Signal authors are responsible for outputting well-formed data. The engine provides the plumbing but doesn't validate or transform signal semantics. This gives maximum flexibility for integration patterns.
+
+### 4. **Graceful Degradation**
 Invalid JSON doesn't break policy evaluation - it's stored as a string and users can debug by examining the raw output.
 
-### 4. **Performance First**
+### 5. **Performance First**
 Signals execute concurrently and only when required by matched policies. O(1) routing ensures minimal overhead.
 
 ## How Signals Work

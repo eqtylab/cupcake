@@ -517,46 +517,6 @@ impl Engine {
         });
     }
     
-    /// Trigger actions for violations (runs in background)
-    fn trigger_actions(&self, violations: &[decision::ViolationObject]) {
-        let Some(guidebook) = &self.guidebook else {
-            return;
-        };
-        
-        for violation in violations {
-            let actions = guidebook.get_actions_for_violation(&violation.id);
-            
-            for action in actions {
-                // Clone data for the spawned task
-                let command = action.command.clone();
-                let violation_id = violation.id.clone();
-                
-                // Fire and forget - spawn background task
-                tokio::spawn(async move {
-                    debug!("Executing action for violation {}: {}", violation_id, command);
-                    
-                    match tokio::process::Command::new("sh")
-                        .arg("-c")
-                        .arg(&command)
-                        .output()
-                        .await
-                    {
-                        Ok(output) => {
-                            if output.status.success() {
-                                debug!("Action for {} completed successfully", violation_id);
-                            } else {
-                                let stderr = String::from_utf8_lossy(&output.stderr);
-                                error!("Action for {} failed: {}", violation_id, stderr);
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed to execute action for {}: {}", violation_id, e);
-                        }
-                    }
-                });
-            }
-        }
-    }
 }
 
 // Aligns with NEW_GUIDING_FINAL.md:

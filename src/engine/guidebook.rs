@@ -63,6 +63,7 @@ impl Guidebook {
         let content = tokio::fs::read_to_string(path)
             .await
             .context("Failed to read guidebook file")?;
+        
             
         let guidebook: Guidebook = serde_yaml_ng::from_str(&content)
             .context("Failed to parse guidebook YAML")?;
@@ -71,6 +72,7 @@ impl Guidebook {
             guidebook.signals.len(),
             guidebook.actions.by_rule_id.len()
         );
+        
         
         Ok(guidebook)
     }
@@ -99,10 +101,15 @@ impl Guidebook {
             Self::discover_actions(&mut guidebook, actions_dir).await?;
         }
         
-        info!("Final guidebook: {} signals, {} actions", 
+        info!("Final guidebook: {} signals, {} action rules", 
             guidebook.signals.len(),
             guidebook.actions.by_rule_id.len()
         );
+        
+        // Debug: show loaded actions
+        for (rule_id, actions) in &guidebook.actions.by_rule_id {
+            debug!("Rule {}: {} actions", rule_id, actions.len());
+        }
         
         Ok(guidebook)
     }
@@ -177,7 +184,7 @@ impl Guidebook {
                     .or_insert_with(Vec::new)
                     .push(action_config);
                     
-                debug!("Discovered action: {} -> {}", action_name, path.display());
+                info!("Discovered action: {} -> {}", action_name, path.display());
             }
         }
         

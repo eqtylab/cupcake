@@ -152,23 +152,17 @@ impl Engine {
         let policy_files = scanner::scan_policies(&self.paths.policies).await?;
         info!("Found {} policy files", policy_files.len());
         
-        // Debug: Log all found policy files
-        for (i, path) in policy_files.iter().enumerate() {
-            eprintln!("=== ENGINE: Found policy file {}: {:?}", i, path);
-        }
         
         // Step 2: Parse selectors and build policy units
         for path in policy_files {
             match self.parse_policy(&path).await {
                 Ok(unit) => {
                     info!("Successfully parsed policy: {} from {:?}", unit.package_name, path);
-                    eprintln!("=== ENGINE: Successfully parsed policy: {} from {:?}", unit.package_name, path);
                     self.policies.push(unit);
                 }
                 Err(e) => {
                     // Fail loudly but don't crash - log and skip bad policies
                     error!("Failed to parse policy at {:?}: {}", path, e);
-                    eprintln!("=== ENGINE: ERROR - Failed to parse policy at {:?}: {}", path, e);
                 }
             }
         }
@@ -429,7 +423,6 @@ impl Engine {
             input_obj.insert("signals".to_string(), serde_json::to_value(signal_data)?);
         }
         
-        eprintln!("DEBUG ENRICHED INPUT: {}", serde_json::to_string_pretty(&enriched_input).unwrap_or_default());
         
         debug!("Input enriched with {} signal values", signal_count);
         Ok(enriched_input)
@@ -477,13 +470,21 @@ impl Engine {
     
     /// Execute actions for a specific set of decision objects (by rule ID)
     async fn execute_rule_specific_actions(&self, decisions: &[decision::DecisionObject], guidebook: &guidebook::Guidebook) {
+        info!("Checking actions for {} decision objects", decisions.len());
+        info!("Available action rules: {:?}", guidebook.actions.by_rule_id.keys().collect::<Vec<_>>());
+        
+        
         for decision_obj in decisions {
             let rule_id = &decision_obj.rule_id;
+            info!("Looking for actions for rule ID: {}", rule_id);
+            
             if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
                 info!("Executing {} actions for rule {}", actions.len(), rule_id);
                 for action in actions {
                     self.execute_single_action(action).await;
                 }
+            } else {
+                info!("No actions found for rule ID: {}", rule_id);
             }
         }
     }
@@ -492,14 +493,44 @@ impl Engine {
     async fn execute_single_action(&self, action: &guidebook::ActionConfig) {
         debug!("Executing action: {}", action.command);
         
+        // Get the project root as working directory
+        let project_root = self.paths.root.clone();
+        
         // Execute action asynchronously without blocking
         let command = action.command.clone();
         tokio::spawn(async move {
-            let result = tokio::process::Command::new("sh")
-                .arg("-c")
-                .arg(&command)
-                .output()
-                .await;
+            
+            // Determine if this is a script file or a shell command
+            // A script file starts with / or ./ and doesn't contain shell operators
+            let is_script = (command.starts_with('/') || command.starts_with("./")) 
+                && !command.contains("&&") 
+                && !command.contains("||") 
+                && !command.contains(';')
+                && !command.contains('|')
+                && !command.contains('>');
+                
+            let result = if is_script {
+                // It's a script file, execute directly
+                // Extract the directory from the script path to use as working directory
+                let script_path = std::path::Path::new(&command);
+                let working_dir = script_path.parent().and_then(|p| p.parent()).and_then(|p| p.parent())
+                    .unwrap_or(&project_root);
+                
+                tokio::process::Command::new(&command)
+                    .current_dir(working_dir)
+                    .output()
+                    .await
+            } else {
+                // It's a shell command, use sh -c
+                // Use project root as working directory for consistency
+                let result = tokio::process::Command::new("sh")
+                    .arg("-c")
+                    .arg(&command)
+                    .current_dir(&project_root)
+                    .output()
+                    .await;
+                result
+            };
                 
             match result {
                 Ok(output) => {
@@ -507,7 +538,8 @@ impl Engine {
                         debug!("Action completed successfully: {}", command);
                     } else {
                         let stderr = String::from_utf8_lossy(&output.stderr);
-                        warn!("Action failed: {} - {}", command, stderr);
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        warn!("Action failed: {} - stderr: {} stdout: {}", command, stderr, stdout);
                     }
                 },
                 Err(e) => {
@@ -515,6 +547,9 @@ impl Engine {
                 }
             }
         });
+        
+        // Give the runtime a chance to start the spawned task
+        tokio::task::yield_now().await;
     }
     
 }

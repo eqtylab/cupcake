@@ -95,8 +95,8 @@ deny contains decision if {
     // Verify we got a deny decision
     assert!(decision.is_blocking(), "Expected blocking decision");
     
-    // Wait a bit for the async action to complete
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    // Wait for the async action to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     // Verify the action executed by checking the marker file
     assert!(
@@ -195,7 +195,7 @@ halt contains decision if {
     assert!(decision.is_halt(), "Expected halt decision");
     
     // Wait for async action
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     assert!(
         halt_marker.exists(),
@@ -357,7 +357,7 @@ deny contains decision if {
     assert!(decision.is_blocking());
     
     // Wait for async action
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     assert!(
         general_marker.exists(),

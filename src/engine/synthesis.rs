@@ -25,21 +25,13 @@ impl SynthesisEngine {
     pub fn synthesize(decision_set: &DecisionSet) -> Result<FinalDecision> {
         info!("Synthesizing decision from {} total decisions", decision_set.decision_count());
         
-        // Enhanced debug logging to understand what we're synthesizing
-        eprintln!("==== SYNTHESIS INPUT ====");
-        eprintln!("Halts: {}", decision_set.halts.len());
-        eprintln!("Denials: {}", decision_set.denials.len());
-        eprintln!("Blocks: {}", decision_set.blocks.len());
-        eprintln!("Asks: {}", decision_set.asks.len());
-        eprintln!("Allow Overrides: {}", decision_set.allow_overrides.len());
-        eprintln!("Context Items: {}", decision_set.add_context.len());
-        if !decision_set.denials.is_empty() {
-            eprintln!("Denial reasons: {:?}", decision_set.denials.iter().map(|d| &d.reason).collect::<Vec<_>>());
-        }
-        if !decision_set.asks.is_empty() {
-            eprintln!("Ask reasons: {:?}", decision_set.asks.iter().map(|d| &d.reason).collect::<Vec<_>>());
-        }
-        eprintln!("========================");
+        debug!("Synthesis input - Halts: {}, Denials: {}, Blocks: {}, Asks: {}, Allow Overrides: {}, Context Items: {}",
+            decision_set.halts.len(),
+            decision_set.denials.len(),
+            decision_set.blocks.len(),
+            decision_set.asks.len(),
+            decision_set.allow_overrides.len(),
+            decision_set.add_context.len());
         
         // Apply strict priority hierarchy
         

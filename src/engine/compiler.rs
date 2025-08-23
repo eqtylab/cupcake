@@ -6,7 +6,7 @@
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Command;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 use super::PolicyUnit;
 
@@ -27,10 +27,10 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     let temp_dir = std::env::temp_dir().join(format!("cupcake-compile-{}-{}", std::process::id(), compile_id));
     tokio::fs::create_dir_all(&temp_dir).await?;
     let temp_path = temp_dir.as_path();
-    eprintln!("=== COMPILER: Using temp directory: {:?}", temp_dir);
+    debug!("Using temp directory: {:?}", temp_dir);
     
     // Write all policies to the temp directory, preserving directory structure
-    eprintln!("=== COMPILER: Copying {} policies to temp dir", policies.len());
+    debug!("Copying {} policies to temp dir", policies.len());
     
     // Find the common policies directory root
     let policies_root = if !policies.is_empty() {
@@ -48,7 +48,7 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
         bail!("No policies to determine root from");
     };
     
-    eprintln!("=== COMPILER: Policies root: {:?}", policies_root);
+    debug!("Policies root: {:?}", policies_root);
     
     for (i, policy) in policies.iter().enumerate() {
         // Get the relative path from the policies root
@@ -69,11 +69,11 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
         
         // Debug: Read and print the copied file to verify content
         let copied_content = tokio::fs::read_to_string(&dest_path).await?;
-        eprintln!("=== COMPILER: Policy {} content preview (first 200 chars):", policy.package_name);
-        eprintln!("{}", &copied_content.chars().take(200).collect::<String>());
+        debug!("Policy {} content preview (first 200 chars): {}", 
+            policy.package_name, 
+            &copied_content.chars().take(200).collect::<String>());
         
         debug!("Copied policy {} to temp: {:?}", policy.package_name, dest_path);
-        eprintln!("=== COMPILER: Copied policy {} ({}) to {:?}", i, policy.package_name, dest_path);
     }
     
     // Build the OPA command for Hybrid Model
@@ -97,12 +97,6 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     
     info!("Executing OPA build command...");
     debug!("OPA command: {:?}", opa_cmd);
-    eprintln!("=== COMPILER: OPA command: {:?}", opa_cmd);
-    eprintln!("=== COMPILER: Working directory contents:");
-    for entry in std::fs::read_dir(temp_path)? {
-        let entry = entry?;
-        eprintln!("  - {:?}", entry.path());
-    }
     
     // Execute the command - this MUST work or we fail
     let output = opa_cmd.output()
@@ -111,9 +105,7 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        eprintln!("OPA command failed: {:?}", opa_cmd);
-        eprintln!("Stderr: {}", stderr);
-        eprintln!("Stdout: {}", stdout);
+        error!("OPA command failed: {:?}\nStderr: {}\nStdout: {}", opa_cmd, stderr, stdout);
         bail!("OPA compilation failed: {}", stderr);
     }
     
@@ -129,7 +121,7 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     // Debug: Save WASM to temp file for inspection
     let debug_wasm_path = std::env::temp_dir().join(format!("cupcake-debug-{}-{}.wasm", std::process::id(), compile_id));
     tokio::fs::write(&debug_wasm_path, &wasm_bytes).await?;
-    eprintln!("=== COMPILER: Saved WASM to {:?} for debugging", debug_wasm_path);
+    debug!("Saved WASM to {:?} for debugging", debug_wasm_path);
     
     Ok(wasm_bytes)
 }

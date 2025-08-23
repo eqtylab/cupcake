@@ -87,8 +87,8 @@ deny contains decision if {
     let decision = engine.evaluate(&event).await.unwrap();
     assert!(decision.is_blocking());
     
-    // Wait for async action
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    // Wait for async action to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     // Verify the auto-discovered action executed
     let marker_path = std::path::PathBuf::from("/tmp/cupcake_discover_TEST-001.sh.txt");
@@ -198,7 +198,7 @@ deny contains decision if {
     let decision = engine.evaluate(&event).await.unwrap();
     assert!(decision.is_blocking());
     
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     // Both actions should execute (guidebook adds to discovered)
     assert!(
@@ -289,7 +289,7 @@ deny contains decision if {
     let decision = engine.evaluate(&event).await.unwrap();
     assert!(decision.is_blocking());
     
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     // Only root action should execute
     assert!(

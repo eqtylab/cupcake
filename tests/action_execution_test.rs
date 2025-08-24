@@ -221,13 +221,15 @@ async fn test_multiple_actions_per_rule() {
     fs::create_dir_all(&actions_dir).unwrap();
     
     // Create guidebook with multiple actions for one rule
-    let guidebook = r#"
+    let marker1 = temp_dir.path().join("cupcake_test_action1.txt");
+    let marker2 = temp_dir.path().join("cupcake_test_action2.txt");
+    let guidebook = format!(r#"
 actions:
   by_rule_id:
     MULTI-001:
-      - command: 'echo "First action" > /tmp/cupcake_test_action1.txt'
-      - command: 'echo "Second action" > /tmp/cupcake_test_action2.txt'
-"#;
+      - command: 'echo "First action" > {}'
+      - command: 'echo "Second action" > {}'
+"#, marker1.display(), marker2.display());
     
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
     
@@ -275,18 +277,18 @@ deny contains decision if {
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
     // Verify both actions executed
+    let marker1 = temp_dir.path().join("cupcake_test_action1.txt");
+    let marker2 = temp_dir.path().join("cupcake_test_action2.txt");
     assert!(
-        PathBuf::from("/tmp/cupcake_test_action1.txt").exists(),
+        marker1.exists(),
         "First action did not execute"
     );
     assert!(
-        PathBuf::from("/tmp/cupcake_test_action2.txt").exists(),
+        marker2.exists(),
         "Second action did not execute"
     );
     
-    // Cleanup
-    let _ = fs::remove_file("/tmp/cupcake_test_action1.txt");
-    let _ = fs::remove_file("/tmp/cupcake_test_action2.txt");
+    // No cleanup needed - TempDir handles it
 }
 
 /// Test general denial actions (on_any_denial)

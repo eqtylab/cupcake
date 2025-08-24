@@ -27,7 +27,8 @@ async fn test_action_discovery_from_directory() {
     ];
     
     for (filename, content) in &test_actions {
-        let action_script = format!("#!/bin/bash\n{} > /tmp/cupcake_discover_{}.txt", content, filename);
+        let marker_file = temp_dir.path().join(format!("cupcake_discover_{}.txt", filename));
+        let action_script = format!("#!/bin/bash\n{} > {}", content, marker_file.display());
         let action_path = actions_dir.join(filename);
         fs::write(&action_path, action_script).unwrap();
         
@@ -91,21 +92,20 @@ deny contains decision if {
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
     // Verify the auto-discovered action executed
-    let marker_path = std::path::PathBuf::from("/tmp/cupcake_discover_TEST-001.sh.txt");
+    let marker_path = temp_dir.path().join("cupcake_discover_TEST-001.sh.txt");
     assert!(
         marker_path.exists(),
         "Auto-discovered action TEST-001 did not execute"
     );
     
     // Verify hidden file was not discovered/executed
-    let hidden_marker = std::path::PathBuf::from("/tmp/cupcake_discover_.hidden.sh.txt");
+    let hidden_marker = temp_dir.path().join("cupcake_discover_.hidden.sh.txt");
     assert!(
         !hidden_marker.exists(),
         "Hidden file should not have been discovered as an action"
     );
     
-    // Cleanup
-    let _ = fs::remove_file(marker_path);
+    // No cleanup needed - TempDir handles it
 }
 
 /// Test that convention-discovered actions override guidebook entries
@@ -243,9 +243,10 @@ echo "Root action" > {}
     }
     
     // Create action in subdirectory (should be ignored)
-    let subdir_script = r#"#!/bin/bash
-echo "Subdir action" > /tmp/cupcake_subdir_action.txt
-"#;
+    let subdir_marker = temp_dir.path().join("cupcake_subdir_action.txt");
+    let subdir_script = format!(r#"#!/bin/bash
+echo "Subdir action" > {}
+"#, subdir_marker.display());
     
     fs::write(subdir.join("SUB-001.sh"), subdir_script).unwrap();
     
@@ -298,8 +299,9 @@ deny contains decision if {
     );
     
     // Subdirectory action should not execute
+    let subdir_marker = temp_dir.path().join("cupcake_subdir_action.txt");
     assert!(
-        !std::path::PathBuf::from("/tmp/cupcake_subdir_action.txt").exists(),
+        !subdir_marker.exists(),
         "Subdirectory action should not have been discovered"
     );
 }

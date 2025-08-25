@@ -114,6 +114,9 @@ pub struct Engine {
     /// Optional guidebook for signals and actions
     guidebook: Option<guidebook::Guidebook>,
     
+    /// Optional trust verifier for script integrity
+    trust_verifier: Option<crate::trust::TrustVerifier>,
+    
     // Removed: No longer need entrypoint mapping in Hybrid Model
 }
 
@@ -136,6 +139,7 @@ impl Engine {
             wasm_runtime: None,
             policies: Vec::new(),
             guidebook: None,
+            trust_verifier: None,
         };
         
         // Initialize the engine (scan, parse, compile)
@@ -194,6 +198,26 @@ impl Engine {
             &self.paths.actions,
         ).await?);
         info!("Guidebook loaded with convention-based discovery");
+        
+        // Step 7: Try to initialize trust verifier (optional - don't fail if not enabled)
+        match crate::trust::TrustVerifier::new(&self.paths.root).await {
+            Ok(verifier) => {
+                info!("Trust mode ENABLED - script integrity verification active");
+                self.trust_verifier = Some(verifier);
+            }
+            Err(crate::trust::TrustError::NotInitialized) => {
+                info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
+                // Show startup notification for users
+                self.show_trust_startup_notification();
+            }
+            Err(e) => {
+                // Other errors are more serious but still don't fail engine init
+                warn!("Failed to initialize trust verifier: {}", e);
+                warn!("Continuing without trust verification");
+                // Also show startup notification since trust isn't working
+                self.show_trust_startup_notification();
+            }
+        }
         
         info!("Engine initialization complete");
         Ok(())
@@ -407,7 +431,7 @@ impl Engine {
         
         // Execute signals if we have a guidebook
         let signal_data = if let Some(guidebook) = &self.guidebook {
-            guidebook.execute_signals(&signal_names).await.unwrap_or_else(|e| {
+            self.execute_signals_with_trust(&signal_names, guidebook).await.unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
                 std::collections::HashMap::<String, serde_json::Value>::new()
             })
@@ -426,6 +450,69 @@ impl Engine {
         
         debug!("Input enriched with {} signal values", signal_count);
         Ok(enriched_input)
+    }
+    
+    /// Execute signals with trust verification
+    async fn execute_signals_with_trust(
+        &self,
+        signal_names: &[String],
+        guidebook: &guidebook::Guidebook,
+    ) -> Result<HashMap<String, serde_json::Value>> {
+        use futures::future::join_all;
+        
+        if signal_names.is_empty() {
+            return Ok(HashMap::new());
+        }
+        
+        debug!("Executing {} signals with trust verification", signal_names.len());
+        
+        let futures: Vec<_> = signal_names.iter()
+            .map(|name| {
+                let name = name.clone();
+                let trust_verifier = self.trust_verifier.clone();
+                let signal_config = guidebook.get_signal(&name).cloned();
+                
+                async move {
+                    // Get the signal config
+                    let signal = match signal_config {
+                        Some(s) => s,
+                        None => {
+                            return (name.clone(), Err(anyhow::anyhow!("Signal '{}' not found", name)));
+                        }
+                    };
+                    
+                    // Verify trust if enabled
+                    if let Some(verifier) = &trust_verifier {
+                        if let Err(e) = verifier.verify_script(&signal.command).await {
+                            // Log trust violation specially (TrustError logs itself on creation)
+                            return (name.clone(), Err(anyhow::anyhow!("Trust verification failed: {}", e)));
+                        }
+                    }
+                    
+                    // Execute the signal (using the existing guidebook method)
+                    let result = guidebook.execute_signal(&name).await;
+                    (name, result)
+                }
+            })
+            .collect();
+        
+        let results = join_all(futures).await;
+        
+        let mut signal_data = HashMap::new();
+        for (name, result) in results {
+            match result {
+                Ok(value) => {
+                    debug!("Signal '{}' executed successfully", name);
+                    signal_data.insert(name, value);
+                }
+                Err(e) => {
+                    // Log error but don't fail the whole evaluation
+                    error!("Signal '{}' failed: {}", name, e);
+                }
+            }
+        }
+        
+        Ok(signal_data)
     }
     
     /// Execute actions based on the final decision and decision set
@@ -493,6 +580,15 @@ impl Engine {
     async fn execute_single_action(&self, action: &guidebook::ActionConfig) {
         debug!("Executing action: {}", action.command);
         
+        // Verify trust if enabled
+        if let Some(verifier) = &self.trust_verifier {
+            if let Err(e) = verifier.verify_script(&action.command).await {
+                // Log trust violation specially (TrustError logs itself on creation)
+                error!("Action blocked by trust verification: {}", e);
+                return; // Don't execute untrusted action
+            }
+        }
+        
         // Get the project root as working directory
         let project_root = self.paths.root.clone();
         
@@ -550,6 +646,19 @@ impl Engine {
         
         // Give the runtime a chance to start the spawned task
         tokio::task::yield_now().await;
+    }
+    
+    /// Show startup notification about trust mode when it's not enabled
+    fn show_trust_startup_notification(&self) {
+        eprintln!("┌─────────────────────────────────────────────────────────┐");
+        eprintln!("│ Cupcake is running in STANDARD mode                    │");
+        eprintln!("│                                                         │");
+        eprintln!("│ Script integrity verification is DISABLED.             │");
+        eprintln!("│ Enable trust mode for enhanced security:               │");
+        eprintln!("│   $ cupcake trust init                                  │");
+        eprintln!("│                                                         │");
+        eprintln!("│ Learn more: cupcake trust --help                       │");
+        eprintln!("└─────────────────────────────────────────────────────────┘");
     }
     
 }

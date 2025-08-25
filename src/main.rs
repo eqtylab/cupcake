@@ -13,8 +13,7 @@ use tracing_subscriber::EnvFilter;
 
 mod engine;
 mod harness;
-
-use engine::decision::FinalDecision;
+mod trust;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -53,6 +52,12 @@ enum Command {
     
     /// Initialize a new Cupcake project in the current directory
     Init,
+    
+    /// Manage script trust and integrity verification
+    Trust {
+        #[clap(subcommand)]
+        command: trust::TrustCommand,
+    },
 }
 
 #[tokio::main]
@@ -86,6 +91,9 @@ async fn main() -> Result<()> {
         }
         Command::Init => {
             init_command().await
+        }
+        Command::Trust { command } => {
+            command.execute().await
         }
     }
 }

@@ -30,6 +30,11 @@ regex = "1.11.1"
 once_cell = "1.20"
 directories = "6.0.0"
 
+# Trust System
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time", "local-time"] }

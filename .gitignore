@@ -6,6 +6,9 @@
 # OPA build artifacts
 bundle.tar.gz
 *.wasm
+**/.cupcake/.manifest
+**/.cupcake/data.json
+**/.cupcake/optimized/
 
 # IDE
 .vscode/

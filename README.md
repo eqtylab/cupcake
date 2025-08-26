@@ -23,7 +23,7 @@ Cupcake runs in the agent hook path and can inject context for nuanced, behavior
 
 - **Block any tool call**: Prevent the use of specific tools or commands based on your policies.
 - **Behavioral Guidance**: Inject context and reminders directly into Claude's awareness.
-- **MCP**: Includes rule support for Model Context Protocol tools.
+- **MCP Support**: Works seamlessly with Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
 - **LLM as a Judge**: Cupcake makes it easy to integrate other AI agents/LLMs to review actions.
 - **Guardrail Libraries**: Cupcake provides first-class support for: `NeMo` and `Invariant` guardrails.
 
@@ -67,6 +67,41 @@ Simple examples:
 
   - `"Block 'git merge' if the current branch is not 'develop'."`
   - `"Warn if 'git push' is attempted before tests have passed."`
+
+- **MCP Tool Governance:**
+
+  - `"Block storing sensitive data in MCP memory tools."`
+  - `"Require confirmation for destructive MCP GitHub operations."`
+  - `"Prevent MCP filesystem access to system directories."`
+
+## Development
+
+### Running Tests
+
+**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag. This is NOT optional - the trust system tests will fail intermittently without it.
+
+```bash
+# Run all tests (REQUIRED for correct behavior)
+cargo test --features deterministic-tests
+
+# Or use the configured alias
+cargo t
+
+# Run specific tests
+cargo test test_name --features deterministic-tests
+```
+
+The feature flag ensures deterministic HMAC key generation for reliable test execution. Without it, integration tests will experience race conditions and cryptographic verification failures due to non-deterministic key derivation in production mode.
+
+### Building
+
+```bash
+# Development build
+cargo build
+
+# Release build  
+cargo build --release
+```
 
 ## License
 

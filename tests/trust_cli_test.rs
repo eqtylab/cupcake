@@ -1,18 +1,11 @@
 //! Integration tests for the trust CLI commands
 //!
 //! These tests verify the full CLI workflow that users experience
-//!
-//! Note: These tests are serialized to avoid race conditions in concurrent JSON serialization
-//! affecting HMAC verification.
 
 use anyhow::Result;
 use cupcake_rego::trust::{TrustManifest, TrustCommand};
 use std::fs;
-use std::sync::Mutex;
 use tempfile::TempDir;
-
-/// Global mutex to serialize trust tests and prevent concurrent JSON serialization issues
-static TRUST_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 /// Create a test project with basic Cupcake structure
 async fn setup_cupcake_project() -> Result<TempDir> {
@@ -54,7 +47,6 @@ actions: {}
 
 #[tokio::test]
 async fn test_trust_init_empty_project() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     
     let trust_cmd = TrustCommand::Init {
@@ -79,7 +71,6 @@ async fn test_trust_init_empty_project() -> Result<()> {
 
 #[tokio::test]
 async fn test_trust_init_with_existing_scripts() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     let signals_dir = project.path().join(".cupcake/signals");
     let actions_dir = project.path().join(".cupcake/actions");
@@ -122,7 +113,6 @@ actions:
 
 #[tokio::test]
 async fn test_trust_list_empty_manifest() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     
     // Initialize empty trust
@@ -147,7 +137,6 @@ async fn test_trust_list_empty_manifest() -> Result<()> {
 
 #[tokio::test]
 async fn test_trust_list_with_scripts() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     let signals_dir = project.path().join(".cupcake/signals");
     
@@ -185,7 +174,6 @@ actions: {}
 
 #[tokio::test]
 async fn test_trust_verify_valid_manifest() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     
     // Initialize trust
@@ -208,7 +196,6 @@ async fn test_trust_verify_valid_manifest() -> Result<()> {
 
 #[tokio::test]
 async fn test_trust_verify_no_manifest() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     
     // Verify without trust should handle gracefully
@@ -225,7 +212,6 @@ async fn test_trust_verify_no_manifest() -> Result<()> {
 
 #[tokio::test]
 async fn test_hmac_integrity_round_trip() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     let trust_file = project.path().join(".cupcake/.trust");
     
@@ -246,7 +232,6 @@ async fn test_hmac_integrity_round_trip() -> Result<()> {
 
 #[tokio::test]
 async fn test_trust_init_already_exists() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let project = setup_cupcake_project().await?;
     
     // Initialize once
@@ -272,7 +257,6 @@ async fn test_trust_init_already_exists() -> Result<()> {
 
 #[tokio::test]
 async fn test_trust_init_no_cupcake_project() -> Result<()> {
-    let _lock = TRUST_TEST_MUTEX.lock().unwrap();
     let temp_dir = TempDir::new()?;
     
     let init_cmd = TrustCommand::Init {

@@ -1,0 +1,3 @@
+[alias]
+t = "test --features deterministic-tests"
+test-deterministic = "test --features deterministic-tests"

@@ -1,7 +1,8 @@
 //! Unit tests for trust system components
 
 use anyhow::Result;
-use cupcake_rego::trust::{TrustManifest, TrustError, ScriptReference};
+use cupcake_rego::trust::{TrustManifest, TrustError};
+use cupcake_rego::trust::manifest::ScriptReference;
 use std::fs;
 use tempfile::TempDir;
 

@@ -177,7 +177,7 @@ impl ScriptEntry {
         let hash = script_ref.compute_hash().await?;
         
         let entry = match script_ref {
-            ScriptReference::Inline(cmd) => ScriptEntry {
+            ScriptReference::Inline(_cmd) => ScriptEntry {
                 script_type: "inline".to_string(),
                 command: original_command.to_string(),
                 hash,

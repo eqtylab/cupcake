@@ -6,7 +6,7 @@
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Command;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use super::PolicyUnit;
 
@@ -50,7 +50,7 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     
     debug!("Policies root: {:?}", policies_root);
     
-    for (i, policy) in policies.iter().enumerate() {
+    for (_i, policy) in policies.iter().enumerate() {
         // Get the relative path from the policies root
         let relative_path = policy.path.strip_prefix(policies_root)
             .unwrap_or_else(|_| policy.path.file_name().unwrap().as_ref());

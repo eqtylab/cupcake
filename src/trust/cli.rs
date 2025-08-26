@@ -2,11 +2,10 @@
 //! 
 //! Provides the user interface for managing script trust: init, update, verify, list
 
-use crate::trust::{TrustManifest, TrustVerifier};
+use crate::trust::TrustManifest;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::{Path, PathBuf};
-use tracing::{info, warn};
 
 #[derive(Parser, Debug)]
 pub enum TrustCommand {
@@ -359,55 +358,4 @@ async fn trust_list(project_dir: &Path, show_modified: bool, show_hashes: bool) 
     Ok(())
 }
 
-/// Scan a directory for script files and add them to the manifest
-async fn scan_and_add_scripts(
-    manifest: &mut TrustManifest,
-    dir: &Path,
-    category: &str,
-) -> Result<usize> {
-    if !dir.exists() {
-        return Ok(0);
-    }
-    
-    let mut count = 0;
-    let entries = std::fs::read_dir(dir)
-        .with_context(|| format!("Failed to read directory: {}", dir.display()))?;
-    
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        
-        // Skip hidden files and directories
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name.starts_with('.') {
-                continue;
-            }
-        }
-        
-        // Only process files (not subdirectories)
-        if path.is_file() {
-            let name = path.file_name()
-                .and_then(|n| n.to_str())
-                .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?;
-            
-            // Create script entry from file
-            let entry = crate::trust::manifest::ScriptEntry::from_command(
-                &path.to_string_lossy(),
-                dir
-            ).await?;
-            
-            manifest.add_script(category, name, entry);
-            count += 1;
-        }
-    }
-    
-    Ok(count)
-}
 
-/// Scan guidebook.yml for inline scripts
-async fn scan_guidebook(_manifest: &mut TrustManifest, _guidebook_path: &Path) -> Result<usize> {
-    // TODO: Parse guidebook.yml and extract script commands
-    // This would parse the YAML and find signal/action commands
-    info!("Guidebook scanning not yet implemented");
-    Ok(0)
-}

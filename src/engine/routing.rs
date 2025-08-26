@@ -49,34 +49,6 @@ pub fn create_event_key(event_name: &str, tool_name: Option<&str>) -> String {
     }
 }
 
-/// Check if a routing directive matches the given event criteria
-pub fn directive_matches(
-    directive: &RoutingDirective,
-    event_name: &str,
-    tool_name: Option<&str>,
-) -> bool {
-    // Event must be in required_events
-    if !directive.required_events.contains(&event_name.to_string()) {
-        return false;
-    }
-    
-    // If directive has tool constraints, check them
-    if !directive.required_tools.is_empty() {
-        match tool_name {
-            None => return false, // Directive expects tools but none provided
-            Some(tool) => {
-                // Check if tool matches
-                if !directive.required_tools.contains(&tool.to_string()) 
-                    && !directive.required_tools.contains(&"*".to_string()) {
-                    return false;
-                }
-            }
-        }
-    }
-    
-    // No tool constraint or tool matches
-    true
-}
 
 #[cfg(test)]
 mod tests {
@@ -147,43 +119,6 @@ mod tests {
         assert!(keys.contains(&"PostToolUse:Bash".to_string()));
     }
     
-    #[test]
-    fn test_directive_matches_exact() {
-        let directive = RoutingDirective {
-            required_events: vec!["PreToolUse".to_string()],
-            required_tools: vec!["Bash".to_string()],
-            required_signals: vec![],
-        };
-        
-        assert!(directive_matches(&directive, "PreToolUse", Some("Bash")));
-        assert!(!directive_matches(&directive, "PreToolUse", Some("Python")));
-        assert!(!directive_matches(&directive, "PostToolUse", Some("Bash")));
-    }
-    
-    #[test]
-    fn test_directive_matches_wildcard() {
-        let directive = RoutingDirective {
-            required_events: vec!["PreToolUse".to_string()],
-            required_tools: vec!["*".to_string()],
-            required_signals: vec![],
-        };
-        
-        assert!(directive_matches(&directive, "PreToolUse", Some("Bash")));
-        assert!(directive_matches(&directive, "PreToolUse", Some("Python")));
-        assert!(directive_matches(&directive, "PreToolUse", Some("AnyTool")));
-    }
-    
-    #[test]
-    fn test_directive_matches_no_tools() {
-        let directive = RoutingDirective {
-            required_events: vec!["UserPromptSubmit".to_string()],
-            required_tools: vec![],
-            required_signals: vec![],
-        };
-        
-        assert!(directive_matches(&directive, "UserPromptSubmit", None));
-        assert!(directive_matches(&directive, "UserPromptSubmit", Some("Bash")));
-    }
 }
 
 // Aligns with NEW_GUIDING_FINAL.md:

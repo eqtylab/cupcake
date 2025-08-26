@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
 mod engine;

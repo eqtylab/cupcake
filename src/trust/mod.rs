@@ -18,13 +18,9 @@ pub mod verifier;
 
 pub use cli::TrustCommand;
 pub use error::TrustError;
-pub use manifest::{TrustManifest, ScriptReference};
+pub use manifest::TrustManifest;
 pub use verifier::TrustVerifier;
 
-/// Check if trust is enabled for a project
-pub fn is_trust_enabled(project_path: &std::path::Path) -> bool {
-    project_path.join(".cupcake/.trust").exists()
-}
 
 /// Trust system version for future compatibility
 pub const TRUST_VERSION: u32 = 1;

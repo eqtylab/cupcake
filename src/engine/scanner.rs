@@ -66,14 +66,6 @@ fn scan_directory_recursive<'a>(
     })
 }
 
-/// Watch a directory for changes to .rego files (future enhancement)
-/// This will enable hot-reload as described in CRITICAL_GUIDING_STAR.md:
-/// "This process is automatic and repeats if any policy files change"
-pub async fn watch_policies(_dir: &Path) -> Result<()> {
-    // TODO: Implement file watching with notify crate
-    // This is for future hot-reload functionality
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {

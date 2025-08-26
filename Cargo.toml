@@ -56,3 +56,8 @@ path = "src/lib.rs"
 [[bin]]
 name = "cupcake"
 path = "src/main.rs"
+
+[features]
+# This feature should ONLY be enabled for testing.
+# It forces the trust system's HMAC key derivation to be deterministic.
+deterministic-tests = []

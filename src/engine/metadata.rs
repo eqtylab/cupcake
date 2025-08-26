@@ -135,10 +135,6 @@ fn extract_metadata_yaml(content: &str) -> Result<String> {
     Ok(yaml_lines.join("\n"))
 }
 
-/// Extract the routing directive from metadata, if present
-pub fn extract_routing_directive(metadata: &PolicyMetadata) -> Option<RoutingDirective> {
-    metadata.custom.routing.clone()
-}
 
 /// Validate a routing directive for completeness
 pub fn validate_routing_directive(directive: &RoutingDirective, package_name: &str) -> Result<()> {

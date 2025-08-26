@@ -21,11 +21,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build the project
 cargo build --release
 
-# Run tests
-cargo test
+# Run tests (REQUIRED: Must use deterministic-tests feature for correct test behavior)
+cargo test --features deterministic-tests
+# Or use the provided alias
+cargo t
 
 # Run a specific test
-cargo test test_name
+cargo test test_name --features deterministic-tests
 
 # Run benchmarks
 cargo bench
@@ -74,6 +76,9 @@ Event Input → Route (O(1) lookup) → Gather Signals → Evaluate (WASM) → S
 4. **Single Aggregation Entrypoint**: All policies are evaluated through `cupcake.system.evaluate` which uses `walk()` for automatic policy discovery.
 
 ## Critical Implementation Details
+
+### Test Execution Requirements
+**IMPORTANT**: Tests MUST be run with the `--features deterministic-tests` flag. This is NOT optional - the trust system tests will fail intermittently without it due to non-deterministic HMAC key derivation in production mode. The feature flag ensures deterministic key generation for reliable test execution. Use `cargo t` (alias) or `cargo test --features deterministic-tests`.
 
 ### Field Name Mismatch
 Claude Code sends events with `hook_event_name` (snake_case) but expects responses with `hookEventName` (camelCase). The engine accepts both formats for compatibility.

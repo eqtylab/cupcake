@@ -3,12 +3,12 @@
 //! Implements the NEW_GUIDING_FINAL.md single entrypoint evaluation.
 //! Queries the cupcake.system.evaluate aggregation endpoint and returns DecisionSet.
 
-use anyhow::{anyhow, Context, Result, bail};
+use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use std::env;
 use std::time::Instant;
 use wasmtime::*;
-use tracing::{debug, trace, warn};
+use tracing::{debug, warn};
 
 use super::decision::DecisionSet;
 

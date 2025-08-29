@@ -1,17 +1,16 @@
-[workspace]
-members = ["cupcake-core", "cupcake-cli", "cupcake-py"]
-resolver = "2"
-
-[workspace.package]
+[package]
+name = "cupcake-rego"
 version = "0.1.0"
 edition = "2021"
 authors = ["Cupcake Contributors"]
+description = "Governance and augmentation orchestrator for agentic AI systems using OPA Rego policies"
 license = "MIT"
 
-[workspace.dependencies]
-# Core dependencies shared across crates
+[dependencies]
+# Core
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+serde_yaml_ng = "0.10.0"
 anyhow = "1.0.98"
 thiserror = "2.0.12"
 
@@ -22,10 +21,14 @@ wasmtime = "35.0"
 tokio = { version = "1.46.1", features = ["rt", "rt-multi-thread", "process", "time", "macros", "fs", "io-util", "io-std", "sync"] }
 futures = "0.3"
 
+# CLI
+clap = { version = "4.5.41", features = ["derive"] }
+
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.11.1"
 once_cell = "1.20"
+directories = "6.0.0"
 
 # Trust System
 sha2 = "0.10"
@@ -36,23 +39,25 @@ hex = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time", "local-time"] }
 
-# Testing
+[dev-dependencies]
 pretty_assertions = "1.4"
 tempfile = "3.0"
 insta = "1.35"
 criterion = "0.5"
 
-# Internal workspace dependencies
-cupcake-core = { path = "cupcake-core" }
+[[bench]]
+name = "engine_benchmark"
+harness = false
 
-# Profile optimizations
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = 3
+[lib]
+name = "cupcake_rego"
+path = "src/lib.rs"
 
-[profile.dev]
-opt-level = 1
+[[bin]]
+name = "cupcake"
+path = "src/main.rs"
 
-[profile.test]
-opt-level = 2
+[features]
+# This feature should ONLY be enabled for testing.
+# It forces the trust system's HMAC key derivation to be deterministic.
+deterministic-tests = []

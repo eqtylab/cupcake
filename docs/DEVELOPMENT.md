@@ -1,175 +1,252 @@
 # Cupcake Development Guide
 
-## The Philosophy: Simplicity for the User, Intelligence in the Engine
+## Architecture: The Hybrid Model
 
-Instead of requiring users to wire together complex pipelines, Cupcake discovers your policies, understands their requirements, and intelligently routes events to them.
+Cupcake implements a **Hybrid Model** where:
+- **Rego (WASM)**: Declares policies, evaluates rules, returns decision verbs
+- **Rust (Engine)**: Routes events, gathers signals, synthesizes final decisions
+
+The engine is intelligent - it discovers policies, understands their requirements via metadata, and routes events efficiently.
 
 ## Quick Start
 
 ```bash
 # Install OPA (required for policy compilation)
-brew install opa  # or your package manager
+brew install opa  # v0.70.0+ for v1.0 Rego syntax
 
 # Build Cupcake
 cargo build --release
+
+# Run tests (REQUIRED: Use deterministic-tests feature)
+cargo test --features deterministic-tests
+# Or use the alias
+cargo t
 
 # Test with an example event
 cat examples/events/pre_tool_use_bash_safe.json | \
   target/release/cupcake eval --policy-dir ./examples/policies
 
-# Output: {"hook_specific_output":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}
+# Output: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}
 ```
 
-## Architecture Overview
+## Architecture Flow
 
 ```
 Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
                             ↓
-                    1. Parse Event (ClaudeHarness)
-                    2. Route to Policies (Engine)
-                    3. Evaluate with WASM (OPA)
-                    4. Aggregate Decisions
-                    5. Format Response (ClaudeHarness)
+                    1. Route (O(1) metadata lookup)
+                    2. Gather Signals (proactive)
+                    3. Evaluate (WASM via cupcake.system.evaluate)
+                    4. Synthesize (apply priority hierarchy)
+                    5. Execute Actions (async, non-blocking)
+                    6. Format Response
 ```
 
 ### Core Components
 
-1. **Engine** (`src/engine/`) - The intelligent core
-
+1. **Engine** (`src/engine/`)
    - Scanner: Discovers `.rego` files
-   - Parser: Extracts `selector` blocks
-   - Router: Matches events to policies
+   - Metadata Parser: Extracts routing from `# METADATA` blocks
+   - Router: O(1) event-to-policy matching
    - Compiler: Creates unified WASM module
-   - Runtime: Executes policies and aggregates decisions
+   - Runtime: Executes single aggregation entrypoint
+   - Synthesis: Applies decision priority hierarchy
 
-2. **ClaudeHarness** (`src/harness/`) - Pure data translation
-
-   - Events: Strongly-typed Claude Code event structures
+2. **Harness** (`src/harness/`)
+   - Events: Strongly-typed Claude Code structures
    - Response: Spec-compliant JSON builders
-   - Zero business logic - just data transformation
+   - Pure data transformation layer
 
-3. **Policies** (`examples/policies/`) - Your governance rules
-   - Standard OPA/Rego syntax
-   - Selector block for routing
-   - Decision object output
+3. **Trust System** (`src/trust/`)
+   - HMAC-based integrity verification
+   - Project-specific key derivation
+   - Tamper detection for scripts
 
-## The Selector Pattern
+## Metadata-Driven Routing
 
-Every policy declares what events it handles via a `selector` block:
+Policies declare their requirements via OPA metadata blocks:
 
 ```rego
-# Simple selector - just the event
-selector := {
-    "event": "PreToolUse"
-}
+package cupcake.policies.bash_guard
+import rego.v1
 
-# Specific tool selector
-selector := {
-    "event": "PreToolUse",
-    "tools": ["Bash", "Write"]
-}
+# METADATA
+# scope: rule
+# title: Bash Security Guard
+# authors: ["Security Team"]
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
+#     required_signals: ["git_branch"]
 
-# Pattern matching (future)
-selector := {
-    "event": "PreToolUse",
-    "tool_pattern": ".*Test$"  # Matches any tool ending in "Test"
-}
+# Policy rules follow...
 ```
 
-The engine reads these selectors at startup and builds an intelligent routing map. When an event arrives, only relevant policies are evaluated.
+The engine reads metadata at startup and builds an intelligent routing map. When events arrive, only relevant policies are evaluated.
 
-## The Decision Object
+## Decision Verbs
 
-Policies output a standardized decision object that the engine understands:
-
-```rego
-decision := {
-    "deny": deny_list,           # List of violations (or empty)
-    "additional_context": [...],  # Context to inject
-    "missing_signals": [...]      # Signals needed for re-evaluation
-}
-```
-
-### Violation Objects
-
-When denying, provide structured violations:
+Policies output decisions using standardized verb sets:
 
 ```rego
-deny_list := [violation] if {
-    contains(input.command, "rm -rf /")
-    violation := {
-        "id": "dangerous_rm",
-        "msg": "Dangerous rm command",
-        "meta": {"command": input.command},
-        "feedback": {
-            "permissionDecision": "deny",
-            "permissionDecisionReason": "This command is too dangerous"
-        }
+# Deny dangerous commands
+deny contains decision if {
+    contains(input.tool_input.command, "rm -rf /")
+    decision := {
+        "reason": "Dangerous rm command detected",
+        "severity": "HIGH",
+        "rule_id": "BASH-001"
     }
 }
+
+# Ask for confirmation on production
+ask contains decision if {
+    input.signals.git_branch == "main"
+    decision := {
+        "reason": "Production branch - please confirm",
+        "severity": "MEDIUM",
+        "rule_id": "BASH-002"
+    }
+}
+
+# Add context for best practices
+add_context contains "Remember to run tests before committing" if {
+    contains(input.tool_input.command, "git commit")
+}
 ```
 
-## Two-Pass Reactive Evaluation
+### Verb Priority Hierarchy
 
-The engine implements intelligent signal fetching:
+The synthesis layer enforces strict priority:
 
-1. **Pass 1**: Evaluate with initial input
-2. If policies request signals via `missing_signals`, fetch them
-3. **Pass 2**: Re-evaluate with enriched input
+1. **halt** - Immediate cessation (highest priority)
+2. **deny/block** - Prevent action
+3. **ask** - Require confirmation
+4. **allow_override** - Explicit permission
+5. **add_context** - Inject guidance (lowest priority)
 
-This means signals are only executed when actually needed, not proactively.
+## Single Aggregation Entrypoint
+
+All policies are evaluated through `cupcake.system.evaluate`:
+
+```rego
+package cupcake.system
+import rego.v1
+
+# The single aggregation entrypoint
+evaluate := decision_set if {
+    decision_set := {
+        "halts": collect_verbs("halt"),
+        "denials": collect_verbs("deny"),
+        "blocks": collect_verbs("block"),
+        "asks": collect_verbs("ask"),
+        "allow_overrides": collect_verbs("allow_override"),
+        "add_context": collect_verbs("add_context")
+    }
+}
+
+# Collect all decisions from a verb across the policy hierarchy
+collect_verbs(verb_name) := result if {
+    # Use walk() to traverse data.cupcake.policies
+    # Aggregate all decisions for the verb
+    # ... implementation details
+}
+```
+
+## Signals (Proactive Enrichment)
+
+Signals are gathered **before** policy evaluation (not reactively):
+
+1. Engine routes event to policies
+2. Collects all `required_signals` from matched policies
+3. Executes signals in parallel
+4. Enriches input with signal data
+5. Evaluates policies with enriched input
+
+Example signal in `guidebook.yml`:
+
+```yaml
+signals:
+  git_branch:
+    command: "git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'"
+    timeout_seconds: 5
+```
+
+## Actions (Fire-and-Forget)
+
+Actions execute asynchronously after decision synthesis:
+
+```yaml
+actions:
+  on_any_denial:
+    - command: "echo 'Action denied' | tee -a /tmp/cupcake.log"
+  
+  on_halt:
+    - command: "notify-send 'Cupcake' 'Critical action halted'"
+  
+  violations:
+    BASH-001:
+      - command: "alert-security-team.sh"
+```
 
 ## Running Tests
 
 ```bash
-# Run all tests
-cargo test
+# REQUIRED: Use deterministic-tests feature flag
+cargo test --features deterministic-tests
 
-# Run with single thread (required for WASM tests)
-cargo test -- --test-threads=1
+# Or use the configured alias
+cargo t
 
 # Run specific test
-cargo test test_selector_parsing
+cargo test test_metadata_parsing --features deterministic-tests
+
+# Run with single thread if needed for WASM tests
+cargo test --features deterministic-tests -- --test-threads=1
 ```
 
-## Benchmarking
-
-```bash
-# Run performance benchmarks
-cargo bench
-
-# Target: <50ms for complete evaluation
-```
+**Why the feature flag?** The trust system uses HMAC with system entropy in production. Tests need deterministic keys to avoid race conditions. See `src/trust/CLAUDE.md` for details.
 
 ## Adding a New Policy
 
 1. Create a `.rego` file in your policies directory
-2. Add the required imports and selector:
+2. Add the metadata block with routing requirements:
 
-   ```rego
-   package cupcake.policies.my_policy
-   import rego.v1
+```rego
+package cupcake.policies.my_policy
+import rego.v1
 
-   selector := {
-       "event": "PreToolUse",
-       "tools": ["MyTool"]
-   }
-   ```
+# METADATA
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["MyTool"]
+#     required_signals: ["my_signal"]
 
-3. Write your rules using OPA v1.7.1 syntax (remember `if` keywords!)
-4. Output the decision object
-5. Test with: `cat event.json | cupcake eval --policy-dir ./policies`
+# Use decision verbs
+deny contains decision if {
+    # Your logic here
+    decision := {
+        "reason": "...",
+        "severity": "HIGH",
+        "rule_id": "MY-001"
+    }
+}
+```
+
+3. Test with: `cat event.json | cupcake eval --policy-dir ./policies`
 
 ## Integration with Claude Code
 
-Cupcake is designed to be used as a hook processor for Claude Code:
+Configure as a hook processor:
 
 ```bash
 # In your Claude Code hooks configuration
 pre-tool-use = "cat $HOOK_INPUT | cupcake eval --policy-dir /path/to/policies"
 ```
 
-The output is guaranteed to match Claude Code's expected JSON format for each hook type.
+The output matches Claude Code's expected JSON format for each hook type.
 
 ## Debugging
 
@@ -177,45 +254,65 @@ The output is guaranteed to match Claude Code's expected JSON format for each ho
 # Enable debug logging
 RUST_LOG=debug cupcake eval --policy-dir ./policies
 
-# Use --debug flag for verbose output
-cupcake eval --policy-dir ./policies --debug
+# Verify policy discovery and routing
+RUST_LOG=debug cupcake verify --policy-dir ./policies
 
-# Verify engine initialization
-cupcake verify --policy-dir ./policies
+# Check trust manifest
+cupcake trust verify
 ```
 
 ## Common Issues
 
 ### "Missing hookEventName in input"
 
-The engine expects Claude Code's standard event format. Ensure your JSON includes:
-
-- `hook_event_name` (snake_case)
+Ensure your JSON includes Claude Code's standard fields:
+- `hook_event_name` or `hookEventName`
 - `session_id`, `transcript_path`, `cwd`
-- Hook-specific fields (e.g., `tool_name`, `tool_input` for PreToolUse)
+- Hook-specific fields (e.g., `tool_name`, `tool_input`)
 
-### "Failed to parse selector block"
+### "Policy missing routing directive"
 
-Selectors must be valid JSON-like Rego objects. Check for:
+Non-system policies must have metadata with routing:
 
-- Proper quoting of keys and string values
-- Correct field names (`event`, not `hook`)
-- Array syntax for `tools` field
+```rego
+# METADATA
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+```
 
 ### "OPA compilation failed"
 
-Ensure you're using OPA v1.7.1+ syntax:
+Use OPA v1.0 syntax:
+- `import rego.v1` at the top
+- `if` keyword in rule bodies
+- `contains` for set operations
 
-- Use `import rego.v1` at the top
-- Include `if` keyword in rule bodies
-- Use `contains` for set operations
+### "Trust manifest verification failed"
+
+Run tests with the deterministic flag:
+```bash
+cargo test --features deterministic-tests
+```
 
 ## Architecture Principles
 
-1. **The Engine is Intelligent** - It discovers, compiles, routes, and aggregates automatically
-2. **Policies are Declarative** - They declare what they handle (selector) and what they decide
-3. **The Harness is a Translator** - Pure data transformation, no business logic
-4. **Signals are Reactive** - Only fetched when needed, not proactively
-5. **Actions are Asynchronous** - Fire-and-forget, never block the response
+1. **Metadata-Driven** - Policies declare requirements, engine handles routing
+2. **Single Aggregation** - All evaluation through `cupcake.system.evaluate`
+3. **Proactive Signals** - Gathered before evaluation, not reactively
+4. **Strict Priority** - Synthesis layer enforces decision hierarchy
+5. **Trust by Default** - Scripts verified via HMAC before execution
 
-Remember: The CRITICAL_GUIDING_STAR is always the source of truth. When in doubt, refer to it.
+## Performance Targets
+
+- Policy discovery and compilation: < 100ms
+- Event routing: O(1) lookup
+- Policy evaluation: < 50ms
+- Full request cycle: < 200ms
+
+## References
+
+- `CLAUDE.md` - Project configuration and guidelines
+- `src/trust/CLAUDE.md` - Trust system implementation details
+- `tests/CLAUDE.md` - Testing requirements
+- `examples/0_start_here_demo/` - Complete working examples

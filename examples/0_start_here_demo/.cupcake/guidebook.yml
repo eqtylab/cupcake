@@ -11,11 +11,11 @@ signals:
   # Inline structured signal example
   deployment_status:
     command: 'echo "{\"environment\": \"staging\", \"healthy\": true, \"replicas\": 3}"'
-    timeout_seconds: 10
+    
     
   # Simple string signal example
   current_user:
     command: "echo \"\\\"$(whoami)\\\"\""  # Outputs JSON string
-    timeout_seconds: 2
+    
 
 # Actions are auto-discovered from actions/ directory by rule_id

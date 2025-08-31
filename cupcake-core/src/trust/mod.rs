@@ -10,7 +10,6 @@
 //! - Industry standard crypto - SHA-256 hashing, HMAC-SHA256 signing
 
 pub mod error;
-pub mod guidebook;
 pub mod hasher;
 pub mod manifest;
 pub mod verifier;

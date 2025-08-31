@@ -2,7 +2,8 @@
 //! 
 //! Provides the user interface for managing script trust: init, update, verify, list
 
-use cupcake_core::trust::TrustManifest;
+use cupcake_core::trust::{TrustManifest, manifest::ScriptEntry};
+use cupcake_core::engine::guidebook::Guidebook;  // Use ENGINE's parser, not trust's!
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::{Path, PathBuf};
@@ -105,21 +106,52 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
     let mut manifest = TrustManifest::new();
     
     if !empty {
-        println!("📁 Scanning guidebook.yml for scripts...");
+        println!("📁 Scanning for scripts (guidebook.yml + auto-discovery)...");
         
-        // Load guidebook from project directory
-        let guidebook = crate::trust::guidebook::Guidebook::load(project_dir)
-            .context("Failed to load guidebook.yml")?;
+        // Use ENGINE's parser with auto-discovery!
+        let guidebook_path = cupcake_dir.join("guidebook.yml");
+        let signals_dir = cupcake_dir.join("signals");
+        let actions_dir = cupcake_dir.join("actions");
         
-        // Get all scripts from guidebook
-        let scripts = guidebook.get_all_scripts();
-        let working_dir = guidebook.get_working_dir(project_dir);
+        let guidebook = Guidebook::load_with_conventions(
+            &guidebook_path,
+            &signals_dir,
+            &actions_dir
+        ).await
+        .context("Failed to load guidebook with auto-discovery")?;
+        
+        // Get all scripts from the engine's guidebook
+        let mut scripts = Vec::new();
+        
+        // Add all signals
+        for (name, signal) in &guidebook.signals {
+            scripts.push(("signals".to_string(), name.clone(), signal.command.clone()));
+        }
+        
+        // Add all actions (including on_any_denial)
+        for action in &guidebook.actions.on_any_denial {
+            scripts.push(("actions".to_string(), "on_any_denial".to_string(), action.command.clone()));
+        }
+        
+        // Add rule-specific actions
+        for (rule_id, actions) in &guidebook.actions.by_rule_id {
+            for (idx, action) in actions.iter().enumerate() {
+                let name = if actions.len() > 1 {
+                    format!("{}_{}", rule_id, idx)
+                } else {
+                    rule_id.clone()
+                };
+                scripts.push(("actions".to_string(), name, action.command.clone()));
+            }
+        }
+        
+        let working_dir = project_dir.to_path_buf();
         
         let mut script_count = 0;
         
         for (category, name, command) in scripts {
             // Create script entry from command
-            match crate::trust::manifest::ScriptEntry::from_command(&command, &working_dir).await {
+            match ScriptEntry::from_command(&command, &working_dir).await {
                 Ok(entry) => {
                     manifest.add_script(&category, &name, entry);
                     script_count += 1;
@@ -166,17 +198,49 @@ async fn trust_update(project_dir: &Path, dry_run: bool, auto_yes: bool) -> Resu
     let manifest = TrustManifest::load(&trust_file)
         .context("Failed to load existing trust manifest")?;
     
-    // Load current guidebook
-    let guidebook = crate::trust::guidebook::Guidebook::load(project_dir)
-        .context("Failed to load guidebook.yml")?;
+    // Use ENGINE's parser with auto-discovery!
+    let guidebook_path = cupcake_dir.join("guidebook.yml");
+    let signals_dir = cupcake_dir.join("signals");
+    let actions_dir = cupcake_dir.join("actions");
     
-    let scripts = guidebook.get_all_scripts();
-    let working_dir = guidebook.get_working_dir(project_dir);
+    let guidebook = Guidebook::load_with_conventions(
+        &guidebook_path,
+        &signals_dir,
+        &actions_dir
+    ).await
+    .context("Failed to load guidebook with auto-discovery")?;
+    
+    // Get all scripts from the engine's guidebook
+    let mut scripts = Vec::new();
+    
+    // Add all signals
+    for (name, signal) in &guidebook.signals {
+        scripts.push(("signals".to_string(), name.clone(), signal.command.clone()));
+    }
+    
+    // Add all actions (including on_any_denial)
+    for action in &guidebook.actions.on_any_denial {
+        scripts.push(("actions".to_string(), "on_any_denial".to_string(), action.command.clone()));
+    }
+    
+    // Add rule-specific actions
+    for (rule_id, actions) in &guidebook.actions.by_rule_id {
+        for (idx, action) in actions.iter().enumerate() {
+            let name = if actions.len() > 1 {
+                format!("{}_{}", rule_id, idx)
+            } else {
+                rule_id.clone()
+            };
+            scripts.push(("actions".to_string(), name, action.command.clone()));
+        }
+    }
+    
+    let working_dir = project_dir.to_path_buf();
     
     // Build current script state
     let mut current_scripts = std::collections::BTreeMap::new();
     for (category, name, command) in scripts {
-        match crate::trust::manifest::ScriptEntry::from_command(&command, &working_dir).await {
+        match ScriptEntry::from_command(&command, &working_dir).await {
             Ok(entry) => {
                 current_scripts
                     .entry(category)

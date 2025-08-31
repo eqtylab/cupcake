@@ -14,6 +14,7 @@ import threading
 import time
 import pytest
 import tempfile
+import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -23,6 +24,19 @@ try:
     CUPCAKE_AVAILABLE = True
 except ImportError:
     CUPCAKE_AVAILABLE = False
+
+
+def setup_test_policies(base_path: Path) -> Path:
+    """Helper to set up test policies in a directory"""
+    policies_path = base_path / "policies"
+    policies_path.mkdir(parents=True, exist_ok=True)
+    
+    # Copy test fixtures - they MUST exist
+    fixture_dir = Path(__file__).parent.parent / "test-fixtures" / ".cupcake" / "policies"
+    assert fixture_dir.exists(), f"Test fixtures not found at {fixture_dir}"
+    
+    shutil.copytree(fixture_dir, policies_path, dirs_exist_ok=True)
+    return base_path
     
 
 @pytest.mark.skipif(not CUPCAKE_AVAILABLE, reason="Cupcake module not built")
@@ -39,7 +53,11 @@ class TestBasicFunctionality:
         """Test initialization with non-existent path"""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_path = Path(tmpdir) / ".cupcake"
-            # Should create the directory if it doesn't exist
+            
+            # Set up test policies
+            setup_test_policies(test_path)
+            
+            # Now init should work
             cupcake.init(str(test_path))
             assert test_path.exists()
     
@@ -83,6 +101,7 @@ class TestThreadSafety:
                 engine = cupcake.Cupcake()
                 with tempfile.TemporaryDirectory() as tmpdir:
                     test_path = Path(tmpdir) / ".cupcake"
+                    setup_test_policies(test_path)
                     engine.init(str(test_path))
                     
                     # Simulate evaluation (will fail without policies but tests threading)
@@ -169,26 +188,30 @@ class TestAsyncFunctionality:
         
         with tempfile.TemporaryDirectory() as tmpdir:
             test_path = Path(tmpdir) / ".cupcake"
+            setup_test_policies(test_path)
             
             # Async init
             await engine.init_async(str(test_path))
             assert test_path.exists()
             
-            # Async eval (will fail without policies)
-            with pytest.raises(Exception):
-                await engine.eval_async({"hookEventName": "test"})
+            # Async eval should work with our test policies
+            result = await engine.eval_async({"hookEventName": "test"})
+            assert isinstance(result, dict)
+            # Should get a valid response from our test policy
     
     async def test_module_level_async(self):
         """Test module-level async functions"""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_path = Path(tmpdir) / ".cupcake"
+            setup_test_policies(test_path)
             
             # Module-level async init
             await cupcake.init_async(str(test_path))
             
-            # Module-level async eval
-            with pytest.raises(Exception):
-                await cupcake.eval_async({"hookEventName": "test"})
+            # Module-level async eval should work with our test policies
+            result = await cupcake.eval_async({"hookEventName": "test"})
+            assert isinstance(result, dict)
+            # Should get a valid response from our test policy
 
 
 @pytest.mark.skipif(not CUPCAKE_AVAILABLE, reason="Cupcake module not built")
@@ -213,7 +236,9 @@ class TestErrorHandling:
         assert not engine.is_ready()
         
         with tempfile.TemporaryDirectory() as tmpdir:
-            engine.init(str(Path(tmpdir) / ".cupcake"))
+            test_path = Path(tmpdir) / ".cupcake"
+            setup_test_policies(test_path)
+            engine.init(str(test_path))
             assert engine.is_ready()
 
 

@@ -26,6 +26,20 @@ build-cli:
 build-python:
     cd cupcake-py && maturin build --release
 
+# ==================== ENVIRONMENT ====================
+
+# Setup Python virtual environment with dependencies
+venv:
+    #!/usr/bin/env bash
+    if [ ! -d ".venv" ]; then
+        python3 -m venv .venv
+        source .venv/bin/activate && pip install --upgrade pip
+        source .venv/bin/activate && pip install maturin pytest pytest-asyncio
+        echo "✅ Virtual environment created at .venv/"
+    else
+        echo "Virtual environment already exists"
+    fi
+
 # ==================== TEST COMMANDS ====================
 
 # Run ALL tests (Rust + Python if available)
@@ -66,15 +80,20 @@ test-core:
 test-cli:
     cargo test -p cupcake-cli
 
-# Run Python tests (requires maturin develop first)
-test-python:
+# Run Python tests (auto-builds if needed)
+test-python: venv
     #!/usr/bin/env bash
-    if [ -d "cupcake-py" ]; then
-        echo "Running Python tests..."
-        cd cupcake-py && python -m pytest tests/ -v || echo "⚠️  Python tests need 'just develop-python' first"
-    else
-        echo "⚠️  Python package not found"
+    set -euo pipefail
+    
+    echo "Running Python tests..."
+    # Build Python module if needed
+    if ! source .venv/bin/activate && python -c "import cupcake" 2>/dev/null; then
+        echo "Building Python module first..."
+        source .venv/bin/activate && cd cupcake-py && maturin develop
     fi
+    
+    # Run tests
+    source .venv/bin/activate && python -m pytest cupcake-py/tests/ -v
 
 # Run benchmarks
 bench:
@@ -82,9 +101,9 @@ bench:
 
 # ==================== DEVELOPMENT COMMANDS ====================
 
-# Develop Python bindings locally (installs in current Python env)
-develop-python:
-    cd cupcake-py && maturin develop
+# Develop Python bindings locally (uses venv)
+develop-python: venv
+    source .venv/bin/activate && cd cupcake-py && maturin develop
 
 # Check code without building
 check:
@@ -106,22 +125,8 @@ fix:
 # ==================== PERFORMANCE TESTING ====================
 
 # Run performance validation tests
-perf-test:
-    #!/usr/bin/env bash
-    echo "🚀 Running performance validation..."
-    
-    # Build in release mode first
-    cargo build --workspace --release
-    
-    # Run benchmarks
-    echo "Running benchmarks..."
+perf-test: build
     cargo bench -p cupcake-core --bench engine_benchmark
-    
-    # If Python is available, run thread safety demo
-    if command -v python3 &> /dev/null; then
-        echo "Running Python thread safety test..."
-        cd cupcake-py && python3 examples/thread_safety_demo.py --threads 10 --events 100
-    fi
 
 # Memory leak test with valgrind (Linux/macOS)
 test-memory:

@@ -1,0 +1,172 @@
+# Cupcake Base Configuration Template
+# This template demonstrates all available builtin abstractions and configuration options.
+# Copy this file to .cupcake/guidebook.yml and uncomment/modify as needed.
+
+# ============================================================================
+# SIGNALS - External data providers
+# ============================================================================
+# Signals are commands that provide data to policies. They can return strings
+# or JSON structures. Convention: place scripts in .cupcake/signals/ directory
+# for auto-discovery, or define explicitly here.
+
+signals:
+  # Example: Simple string signal
+  # current_branch:
+  #   command: "git branch --show-current"
+  #   timeout_seconds: 2
+  
+  # Example: Structured JSON signal
+  # system_info:
+  #   command: 'echo "{\"os\": \"$(uname)\", \"user\": \"$(whoami)\"}"'
+  #   timeout_seconds: 5
+
+  # Note: Signals in .cupcake/signals/ directory are auto-discovered
+  # File signals/foo.sh becomes signal "foo" automatically
+
+# ============================================================================
+# ACTIONS - Response to policy violations
+# ============================================================================
+# Actions are commands executed when policies trigger. Convention: place scripts
+# in .cupcake/actions/ directory named by rule_id for auto-discovery.
+
+actions:
+  # Actions that run on ANY policy denial
+  # on_any_denial:
+  #   - command: "echo 'Policy violation detected' >> audit.log"
+  
+  # Rule-specific actions (by rule_id)
+  # by_rule_id:
+  #   SECURITY-001:
+  #     - command: "notify-team --severity high"
+  #   LINT-001:
+  #     - command: "echo 'Code style violation'"
+
+  # Note: Scripts in .cupcake/actions/ are auto-mapped by filename
+  # File actions/SECURITY-001.sh triggers for rule_id: SECURITY-001
+
+# ============================================================================
+# BUILTINS - Higher-level policy abstractions
+# ============================================================================
+# Builtins provide common security patterns without writing Rego policies.
+# Each builtin can be enabled/disabled and configured independently.
+
+# ============================================================================
+# USAGE NOTES
+# ============================================================================
+# 1. Builtins are processed BEFORE custom policies, allowing you to set
+#    foundational rules that custom policies can build upon.
+#
+# 2. Signal commands are executed with 'sh -c' and should output valid JSON
+#    for structured data, or plain text for simple strings.
+#
+# 3. All paths are relative to the project root (parent of .cupcake/)
+#
+# 4. Builtin policies are located in .cupcake/policies/builtins/ and are
+#    only compiled when their corresponding builtin is enabled.
+#
+# 5. For debugging, set RUST_LOG=debug when running Cupcake to see detailed
+#    information about builtin activation and signal execution.
+#
+# 6. LIMITATION: Due to Claude Code hook limitations, context can only be
+#    injected on UserPromptSubmit and SessionStart events. PreToolUse events
+#    do not support context injection.
+
+builtins:
+  # ---------------------------------------------------------------------------
+  # ALWAYS_INJECT_ON_PROMPT - Add context to every user prompt
+  # ---------------------------------------------------------------------------
+  # Inject additional context with every user interaction. Useful for project
+  # guidelines, current state awareness, or team conventions.
+  
+  # always_inject_on_prompt:
+  #   enabled: false
+  #   context:
+  #     # Static text context
+  #     - "Follow SOLID principles and write comprehensive tests"
+  #     - "This is a production system - be careful with database changes"
+  #     
+  #     # Dynamic context from command
+  #     - command: "git status --short"
+  #     - command: "date '+Today is %A, %B %d'"
+  #     
+  #     # Context from file
+  #     - file: ".cupcake/coding-standards.md"
+  #     - file: "docs/current-sprint-goals.md"
+
+  # ---------------------------------------------------------------------------
+  # NEVER_EDIT_FILES - Enforce read-only mode
+  # ---------------------------------------------------------------------------
+  # Completely prevent file modifications. Useful for code review sessions,
+  # learning/exploration, or when working with sensitive codebases.
+  
+  # never_edit_files:
+  #   enabled: false
+  #   message: "File editing is disabled. This session is read-only for security."
+  #   
+  #   # Optional: exempt certain patterns (future enhancement)
+  #   # exempt_patterns:
+  #   #   - "*.tmp"
+  #   #   - "scratch/*"
+
+  # ---------------------------------------------------------------------------
+  # GIT_PRE_CHECK - Enforce checks before git operations
+  # ---------------------------------------------------------------------------
+  # Run validation before allowing git commits, pushes, or merges. Ensures
+  # code quality and prevents broken commits from entering the repository.
+  
+  # git_pre_check:
+  #   enabled: false
+  #   checks:
+  #     # Each check must succeed (exit 0) to allow git operation
+  #     - command: "cargo test"
+  #       message: "All tests must pass before committing"
+  #     
+  #     - command: "cargo fmt --check"
+  #       message: "Code must be formatted (run 'cargo fmt')"
+  #     
+  #     - command: "cargo clippy -- -D warnings"
+  #       message: "No clippy warnings allowed"
+  #     
+  #     # Can also run custom scripts
+  #     - command: ".cupcake/scripts/check-secrets.sh"
+  #       message: "No secrets or API keys in commit"
+  #   
+  #   # Optional: only apply to certain operations
+  #   # operations: ["commit", "push"]  # skip for merge
+
+  # ---------------------------------------------------------------------------
+  # POST_EDIT_CHECK - Validate files after modification
+  # ---------------------------------------------------------------------------
+  # Run language-specific validation after files are edited. Provides immediate
+  # feedback about syntax errors, type issues, or style violations.
+  
+  # post_edit_check:
+  #   enabled: false
+  #   # Checks by file extension
+  #   by_extension:
+  #     "rs":
+  #       command: "cargo check --message-format short"
+  #       message: "Rust compilation check"
+  #     
+  #     "py":
+  #       command: "python -m py_compile"
+  #       message: "Python syntax validation"
+  #     
+  #     "tsx":
+  #       command: "npx tsc --noEmit"
+  #       message: "TypeScript type checking"
+  #     
+  #     "jsx":
+  #       command: "npx eslint --quiet"
+  #       message: "ESLint validation"
+  #     
+  #     "go":
+  #       command: "go fmt && go vet"
+  #       message: "Go format and vet check"
+  #   
+  #   # Checks by glob pattern (future enhancement)
+  #   # by_pattern:
+  #   #   "src/**/*.test.ts":
+  #   #     command: "npm test -- --findRelatedTests"
+  #   #     message: "Running related tests"
+

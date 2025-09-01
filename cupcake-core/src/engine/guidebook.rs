@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use tracing::{debug, info};
 
+use super::builtins::BuiltinsConfig;
+
 /// Signal configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalConfig {
@@ -40,6 +42,10 @@ pub struct Guidebook {
     /// Action configurations
     #[serde(default)]
     pub actions: ActionSection,
+    
+    /// Builtin abstractions configuration
+    #[serde(default)]
+    pub builtins: BuiltinsConfig,
 }
 
 /// Action section with both general and ID-specific actions
@@ -101,9 +107,28 @@ impl Guidebook {
             Self::discover_actions(&mut guidebook, actions_dir).await?;
         }
         
-        info!("Final guidebook: {} signals, {} action rules", 
+        // Generate signals for enabled builtins
+        if guidebook.builtins.any_enabled() {
+            info!("Generating signals for enabled builtins: {:?}", 
+                guidebook.builtins.enabled_builtins());
+            
+            let builtin_signals = guidebook.builtins.generate_signals();
+            
+            // Merge builtin-generated signals (don't override user-defined)
+            for (name, signal) in builtin_signals {
+                if !guidebook.signals.contains_key(&name) {
+                    debug!("Adding builtin-generated signal: {}", name);
+                    guidebook.signals.insert(name, signal);
+                } else {
+                    debug!("Keeping user-defined signal: {} (skipping builtin)", name);
+                }
+            }
+        }
+        
+        info!("Final guidebook: {} signals, {} action rules, {} enabled builtins", 
             guidebook.signals.len(),
-            guidebook.actions.by_rule_id.len()
+            guidebook.actions.by_rule_id.len(),
+            guidebook.builtins.enabled_builtins().len()
         );
         
         // Debug: show loaded actions

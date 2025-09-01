@@ -73,6 +73,7 @@ pub mod decision;
 pub mod synthesis;
 pub mod wasm_runtime;
 pub mod guidebook;
+pub mod builtins;
 
 // Re-export metadata types for public API
 pub use metadata::{RoutingDirective, PolicyMetadata};
@@ -152,8 +153,29 @@ impl Engine {
     async fn initialize(&mut self) -> Result<()> {
         info!("Starting engine initialization...");
         
-        // Step 1: Scan for .rego files in policies directory
-        let policy_files = scanner::scan_policies(&self.paths.policies).await?;
+        // Step 0: Load guidebook first to get builtin configuration
+        self.guidebook = Some(guidebook::Guidebook::load_with_conventions(
+            &self.paths.guidebook,
+            &self.paths.signals,
+            &self.paths.actions,
+        ).await?);
+        info!("Guidebook loaded with convention-based discovery");
+        
+        // Get list of enabled builtins for filtering
+        let enabled_builtins = self.guidebook
+            .as_ref()
+            .map(|g| g.builtins.enabled_builtins())
+            .unwrap_or_default();
+        
+        if !enabled_builtins.is_empty() {
+            info!("Enabled builtins: {:?}", enabled_builtins);
+        }
+        
+        // Step 1: Scan for .rego files in policies directory with builtin filtering
+        let policy_files = scanner::scan_policies_with_filter(
+            &self.paths.policies,
+            &enabled_builtins
+        ).await?;
         info!("Found {} policy files", policy_files.len());
         
         
@@ -191,15 +213,7 @@ impl Engine {
         self.wasm_runtime = Some(wasm_runtime::WasmRuntime::new(&wasm_bytes)?);
         info!("WASM runtime initialized");
         
-        // Step 6: Load guidebook with convention-based discovery
-        self.guidebook = Some(guidebook::Guidebook::load_with_conventions(
-            &self.paths.guidebook,
-            &self.paths.signals,
-            &self.paths.actions,
-        ).await?);
-        info!("Guidebook loaded with convention-based discovery");
-        
-        // Step 7: Try to initialize trust verifier (optional - don't fail if not enabled)
+        // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
         match crate::trust::TrustVerifier::new(&self.paths.root).await {
             Ok(verifier) => {
                 info!("Trust mode ENABLED - script integrity verification active");

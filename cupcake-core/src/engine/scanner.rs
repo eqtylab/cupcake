@@ -9,6 +9,14 @@ use tracing::{debug, info};
 
 /// Scan a directory recursively for all .rego files
 pub async fn scan_policies(dir: &Path) -> Result<Vec<PathBuf>> {
+    scan_policies_with_filter(dir, &[]).await
+}
+
+/// Scan a directory recursively for .rego files with builtin filtering
+pub async fn scan_policies_with_filter(
+    dir: &Path,
+    enabled_builtins: &[String],
+) -> Result<Vec<PathBuf>> {
     if !dir.exists() {
         return Err(anyhow::anyhow!(
             "Policy directory does not exist: {:?}",
@@ -24,19 +32,23 @@ pub async fn scan_policies(dir: &Path) -> Result<Vec<PathBuf>> {
     }
     
     info!("Scanning for .rego files in: {:?}", dir);
+    if !enabled_builtins.is_empty() {
+        info!("With builtin filter for: {:?}", enabled_builtins);
+    }
     
     let mut policy_files = Vec::new();
-    scan_directory_recursive(dir, &mut policy_files).await?;
+    scan_directory_recursive_filtered(dir, &mut policy_files, enabled_builtins).await?;
     
     info!("Scan complete: found {} .rego files", policy_files.len());
     
     Ok(policy_files)
 }
 
-/// Recursively scan a directory for .rego files
-fn scan_directory_recursive<'a>(
+/// Recursively scan a directory for .rego files with optional builtin filtering
+fn scan_directory_recursive_filtered<'a>(
     dir: &'a Path,
     files: &'a mut Vec<PathBuf>,
+    enabled_builtins: &'a [String],
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
     Box::pin(async move {
     let mut entries = tokio::fs::read_dir(dir)
@@ -50,13 +62,18 @@ fn scan_directory_recursive<'a>(
         if file_type.is_dir() {
             // Recurse into subdirectories
             debug!("Scanning subdirectory: {:?}", path);
-            scan_directory_recursive(&path, files).await?;
+            scan_directory_recursive_filtered(&path, files, enabled_builtins).await?;
         } else if file_type.is_file() {
             // Check if it's a .rego file
             if let Some(extension) = path.extension() {
                 if extension == "rego" {
-                    debug!("Found policy file: {:?}", path);
-                    files.push(path);
+                    // Check if this is a builtin policy that should be filtered
+                    if should_include_policy(&path, enabled_builtins) {
+                        debug!("Found policy file: {:?}", path);
+                        files.push(path);
+                    } else {
+                        debug!("Skipping disabled builtin policy: {:?}", path);
+                    }
                 }
             }
         }
@@ -64,6 +81,25 @@ fn scan_directory_recursive<'a>(
     
     Ok(())
     })
+}
+
+/// Check if a policy should be included based on builtin filtering
+fn should_include_policy(path: &Path, enabled_builtins: &[String]) -> bool {
+    // Check if this is a builtin policy
+    if let Some(parent) = path.parent() {
+        if parent.file_name() == Some(std::ffi::OsStr::new("builtins")) {
+            // This is a builtin policy - only include if enabled
+            if let Some(stem) = path.file_stem() {
+                let policy_name = stem.to_string_lossy();
+                return enabled_builtins.contains(&policy_name.to_string());
+            }
+            // Unknown builtin, exclude by default
+            return false;
+        }
+    }
+    
+    // Not a builtin policy, always include
+    true
 }
 
 

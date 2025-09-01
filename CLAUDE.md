@@ -2,6 +2,38 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Hook Event Format Requirements
+
+### Required Common Fields
+All Claude Code events MUST include:
+```json
+{
+  "hook_event_name": "EventType",
+  "session_id": "string",
+  "transcript_path": "/path/to/transcript",
+  "cwd": "/working/directory"
+}
+```
+
+### Event-Specific Fields
+- **PreToolUse**: `tool_name`, `tool_input`
+- **PostToolUse**: `tool_name`, `tool_input`, `tool_response`
+- **UserPromptSubmit**: `prompt`
+- **SessionStart**: `source` (Startup/Resume/Clear)
+
+### Context Injection Support
+Only these events support `additionalContext`:
+- `UserPromptSubmit` - via `hookSpecificOutput.additionalContext`
+- `SessionStart` - via `hookSpecificOutput.additionalContext`
+- `PreCompact` - joins output with `\n\n` (double newline)
+
+**Note**: PreToolUse does NOT support context injection.
+
+### Response Formats by Event
+- **Tool events** (Pre/PostToolUse): `continue: false` with `stopReason` for blocking
+- **UserPromptSubmit**: `decision: "block"` OR `hookSpecificOutput` for context
+- **Ask verb**: Only works on tool events, ignored on prompt events
+
 ## Dependencies and Requirements
 
 ### Required Tools
@@ -94,8 +126,10 @@ The synthesis layer enforces strict priority: Halt > Deny/Block > Ask > Allow
 - `src/engine/mod.rs` - Core engine with routing and evaluation
 - `src/engine/metadata.rs` - OPA metadata parser
 - `src/engine/synthesis.rs` - Decision synthesis (Intelligence Layer)
+- `src/engine/builtins.rs` - Builtin abstractions configuration
 - `src/harness/` - Claude Code response formatting
 - `examples/policies/system/evaluate.rego` - Mandatory aggregation entrypoint
+- `examples/base-config.yml` - Template for builtin configuration
 
 ## Reference Documents
 
@@ -111,5 +145,16 @@ Policies follow the new metadata-driven format:
 2. Use decision verbs (`deny contains`, `halt contains`)
 3. Trust the engine's routing (no redundant checks)
 4. Return structured decision objects with reason, severity, rule_id
+5. Use `concat` instead of `sprintf` (WASM limitation)
 
 See `docs/policies/POLICIES.md` for the complete policy authoring guide.
+
+## Builtin Abstractions
+
+Four working builtins provide common patterns without writing Rego:
+- **never_edit_files** - Blocks all file write operations
+- **always_inject_on_prompt** - Adds context to every user prompt
+- **git_pre_check** - Validates before git operations
+- **post_edit_check** - Runs validation after file edits
+
+Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `examples/base-config.yml` for template.

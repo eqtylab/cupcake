@@ -32,29 +32,23 @@ add_context contains decision if {
 
 # Get all configured contexts from signals
 get_all_contexts := contexts if {
-    # In production, this would:
-    # 1. Query signals like __builtin_prompt_context_0, __builtin_prompt_context_1, etc.
-    # 2. Collect results from each signal
-    # 3. Format appropriately
-    
-    # For demonstration, provide example contexts
-    contexts := [
-        "Project Guidelines: Follow SOLID principles and write comprehensive tests",
-        "Current Status: Development environment - be careful with database changes",
-        "Team Convention: All new features require unit tests with >80% coverage"
+    # Collect all builtin prompt context signals
+    signal_results := [value |
+        some key, value in input.signals
+        startswith(key, "__builtin_prompt_context_")
     ]
     
-    # In real implementation, would execute signals like:
-    # signal_results := [
-    #     data.signals["__builtin_prompt_context_0"],
-    #     data.signals["__builtin_prompt_context_1"],
-    #     data.signals["__builtin_prompt_context_2"]
-    # ]
-    # 
-    # contexts := [ctx | 
-    #     some result in signal_results
-    #     ctx := format_context(result)
-    # ]
+    # Format each context appropriately
+    contexts := [ctx | 
+        some result in signal_results
+        ctx := format_context(result)
+    ]
+    
+    # Ensure we have at least one context
+    count(contexts) > 0
+} else := [] if {
+    # No signals available or no contexts configured
+    true
 }
 
 # Format context based on its source

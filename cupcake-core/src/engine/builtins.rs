@@ -109,6 +109,75 @@ pub enum ContextSource {
 }
 
 impl BuiltinsConfig {
+    /// Validate configuration and return errors if invalid
+    pub fn validate(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+        
+        // Validate always_inject_on_prompt
+        if let Some(config) = &self.always_inject_on_prompt {
+            if config.enabled && config.context.is_empty() {
+                errors.push("always_inject_on_prompt: enabled but no context configured".to_string());
+            }
+            
+            for (idx, source) in config.context.iter().enumerate() {
+                if let ContextSource::Dynamic { file, command } = source {
+                    if file.is_none() && command.is_none() {
+                        errors.push(format!(
+                            "always_inject_on_prompt.context[{}]: dynamic source must have either 'file' or 'command'",
+                            idx
+                        ));
+                    }
+                }
+            }
+        }
+        
+        // Validate git_pre_check
+        if let Some(config) = &self.git_pre_check {
+            if config.enabled && config.checks.is_empty() {
+                errors.push("git_pre_check: enabled but no checks configured".to_string());
+            }
+            
+            for (idx, check) in config.checks.iter().enumerate() {
+                if check.command.trim().is_empty() {
+                    errors.push(format!(
+                        "git_pre_check.checks[{}]: command cannot be empty",
+                        idx
+                    ));
+                }
+            }
+        }
+        
+        // Validate post_edit_check
+        if let Some(config) = &self.post_edit_check {
+            if config.enabled && config.by_extension.is_empty() {
+                errors.push("post_edit_check: enabled but no extensions configured".to_string());
+            }
+            
+            for (ext, check) in &config.by_extension {
+                if check.command.trim().is_empty() {
+                    errors.push(format!(
+                        "post_edit_check.by_extension.{}: command cannot be empty",
+                        ext
+                    ));
+                }
+                
+                // Warn about common extension mistakes
+                if ext.contains('.') {
+                    errors.push(format!(
+                        "post_edit_check.by_extension.{}: extension should not include dot (use 'rs' not '.rs')",
+                        ext
+                    ));
+                }
+            }
+        }
+        
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+    
     /// Check if any builtin is enabled
     pub fn any_enabled(&self) -> bool {
         self.always_inject_on_prompt.as_ref().map_or(false, |c| c.enabled)
@@ -220,19 +289,6 @@ fn context_source_to_signal(source: &ContextSource) -> Option<SignalConfig> {
     }
 }
 
-/// Sanitize a file pattern for use in signal names
-fn sanitize_pattern(pattern: &str) -> String {
-    pattern
-        .replace('/', "_")
-        .replace("**", "starstar")
-        .replace('*', "star")
-        .replace('.', "_dot_")
-        .replace(' ', "_")
-        .replace('?', "q")
-        .replace('[', "")
-        .replace(']', "")
-}
-
 /// Check if a builtin policy should be loaded
 pub fn should_load_builtin_policy(
     policy_path: &Path,
@@ -286,6 +342,62 @@ never_edit_files:
     }
     
     #[test]
+    fn test_validation() {
+        // Test valid configuration passes
+        let mut config = BuiltinsConfig::default();
+        assert!(config.validate().is_ok());
+        
+        // Test empty enabled builtin fails
+        config.always_inject_on_prompt = Some(AlwaysInjectConfig {
+            enabled: true,
+            context: vec![],
+        });
+        let result = config.validate();
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors[0].contains("no context configured"));
+        
+        // Test invalid dynamic source
+        config.always_inject_on_prompt = Some(AlwaysInjectConfig {
+            enabled: true,
+            context: vec![ContextSource::Dynamic {
+                file: None,
+                command: None,
+            }],
+        });
+        let result = config.validate();
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("must have either 'file' or 'command'")));
+        
+        // Test extension with dot fails
+        let mut by_ext = HashMap::new();
+        by_ext.insert(".rs".to_string(), CheckConfig {
+            command: "cargo check".to_string(),
+            message: "Check Rust".to_string(),
+        });
+        config.post_edit_check = Some(PostEditCheckConfig {
+            enabled: true,
+            by_extension: by_ext,
+        });
+        let result = config.validate();
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("should not include dot")));
+        
+        // Test valid configuration
+        let mut valid_config = BuiltinsConfig::default();
+        valid_config.git_pre_check = Some(GitPreCheckConfig {
+            enabled: true,
+            checks: vec![CheckConfig {
+                command: "cargo test".to_string(),
+                message: "Run tests".to_string(),
+            }],
+        });
+        assert!(valid_config.validate().is_ok());
+    }
+    
+    #[test]
     fn test_signal_generation() {
         let mut config = BuiltinsConfig::default();
         config.never_edit_files = Some(NeverEditConfig {
@@ -311,10 +423,4 @@ never_edit_files:
         assert!(signals.contains_key("__builtin_git_check_0"));
     }
     
-    #[test]
-    fn test_pattern_sanitization() {
-        assert_eq!(sanitize_pattern("src/*.rs"), "src_star_dot_rs");
-        assert_eq!(sanitize_pattern("**/*.tsx"), "starstar_star_dot_tsx");
-        assert_eq!(sanitize_pattern("file name.txt"), "file_name_dot_txt");
-    }
 }

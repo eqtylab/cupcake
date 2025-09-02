@@ -64,46 +64,60 @@ is_git_operation(cmd) if {
 
 # Run all configured pre-checks
 run_all_checks := results if {
-    # In production, this would:
-    # 1. Execute signals like __builtin_git_check_0, __builtin_git_check_1, etc.
-    # 2. Check exit codes and output
-    # 3. Return success/failure for each
-    
-    # For demonstration, simulate some checks
-    results := [
-        {
-            "name": "cargo test",
-            "success": true,
-            "message": "All tests pass"
-        },
-        {
-            "name": "cargo fmt --check",
-            "success": false,
-            "message": "Code must be formatted (run 'cargo fmt')"
-        }
+    # Collect all git check signals
+    check_signals := [name |
+        some name, _ in input.signals
+        startswith(name, "__builtin_git_check_")
     ]
     
-    # In real implementation:
-    # check_signals := [name |
-    #     some name, _ in data.signals
-    #     startswith(name, "__builtin_git_check_")
-    # ]
-    # 
-    # results := [result |
-    #     some signal_name in check_signals
-    #     signal_result := data.signals[signal_name]
-    #     result := evaluate_check(signal_name, signal_result)
-    # ]
+    # Evaluate each check
+    results := [result |
+        some signal_name in check_signals
+        signal_result := input.signals[signal_name]
+        result := evaluate_check(signal_name, signal_result)
+    ]
+    
+    # Return results if we have any
+    count(results) > 0
+} else := [] if {
+    # No checks configured
+    true
 }
 
 # Evaluate a check result
 evaluate_check(name, result) := check if {
-    # Check would examine exit code, stdout, stderr
-    # For now, just check if result exists
-    result != null
+    # Parse the signal result which should contain exit_code and output
+    is_object(result)
     check := {
-        "name": name,
+        "name": clean_signal_name(name),
         "success": result.exit_code == 0,
-        "message": result.message
+        "message": default_message(result)
     }
+} else := check if {
+    # Handle string results (command output)
+    is_string(result)
+    check := {
+        "name": clean_signal_name(name),
+        "success": true,  # Assume success if we got output
+        "message": result
+    }
+}
+
+# Extract readable name from signal name
+clean_signal_name(signal_name) := name if {
+    # Remove __builtin_git_check_ prefix and return the index
+    parts := split(signal_name, "__builtin_git_check_")
+    count(parts) > 1
+    name := concat("Check ", [parts[1]])
+} else := signal_name
+
+# Get appropriate message from result
+default_message(result) := msg if {
+    result.output != ""
+    msg := result.output
+} else := msg if {
+    result.exit_code == 0
+    msg := "Check passed"
+} else := msg if {
+    msg := concat("", ["Check failed with exit code ", format_int(result.exit_code, 10)])
 }

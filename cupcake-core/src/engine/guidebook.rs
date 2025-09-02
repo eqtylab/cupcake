@@ -136,6 +136,12 @@ impl Guidebook {
             debug!("Rule {}: {} actions", rule_id, actions.len());
         }
         
+        // Validate builtin configuration
+        if let Err(errors) = guidebook.builtins.validate() {
+            use anyhow::bail;
+            bail!("Builtin configuration errors:\n{}", errors.join("\n"));
+        }
+        
         Ok(guidebook)
     }
     

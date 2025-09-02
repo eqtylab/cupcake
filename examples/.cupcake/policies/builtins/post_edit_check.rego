@@ -89,35 +89,15 @@ get_file_extension(path) := ext if {
 
 # Run validation for a specific file extension
 run_validation_for_extension(ext, file_path) := result if {
-    # In production, this would:
-    # 1. Check if there's a configured validation for this extension
-    # 2. Execute signal like __builtin_post_edit_rs, __builtin_post_edit_py, etc.
-    # 3. Return the validation result
+    # Check if there's a configured validation signal for this extension
+    signal_name := concat("", ["__builtin_post_edit_", ext])
+    signal_name in input.signals
     
-    # For demonstration, provide extension-specific feedback
-    ext == "rs"
-    result := {
-        "success": false,
-        "message": "Rust compilation error: expected `;` at line 42"
-    }
-} else := result if {
-    ext == "py"
-    result := {
-        "success": true,
-        "message": "Python syntax valid"
-    }
-} else := result if {
-    ext == "tsx"
-    result := {
-        "success": false,
-        "message": "TypeScript error: Property 'name' does not exist on type 'User'"
-    }
-} else := result if {
-    ext == "go"
-    result := {
-        "success": true,
-        "message": "Go format and vet passed"
-    }
+    # Get the validation result from the signal
+    signal_result := input.signals[signal_name]
+    
+    # Parse the result based on its type
+    result := parse_validation_result(signal_result, file_path)
 } else := result if {
     # No validation configured for this extension
     result := {
@@ -126,14 +106,30 @@ run_validation_for_extension(ext, file_path) := result if {
     }
 }
 
-# In real implementation, would execute validation command:
-# execute_validation(ext, file_path) := result if {
-#     signal_name := concat("", ["__builtin_post_edit_", ext])
-#     signal_name in data.signals
-#     
-#     signal_result := data.signals[signal_name]
-#     result := {
-#         "success": signal_result.exit_code == 0,
-#         "message": signal_result.output
-#     }
-# }
+# Parse validation result from signal
+parse_validation_result(signal_result, file_path) := result if {
+    # Handle object results with exit_code and output
+    is_object(signal_result)
+    result := {
+        "success": signal_result.exit_code == 0,
+        "message": default_validation_message(signal_result, file_path)
+    }
+} else := result if {
+    # Handle string results (assume success if we got output)
+    is_string(signal_result)
+    result := {
+        "success": true,
+        "message": signal_result
+    }
+}
+
+# Generate appropriate validation message
+default_validation_message(signal_result, file_path) := msg if {
+    signal_result.output != ""
+    msg := signal_result.output
+} else := msg if {
+    signal_result.exit_code == 0
+    msg := "Validation passed"
+} else := msg if {
+    msg := concat("", ["Validation failed with exit code ", format_int(signal_result.exit_code, 10)])
+}

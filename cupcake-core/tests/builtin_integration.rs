@@ -208,9 +208,8 @@ add_context contains decision if {
     timeout_seconds: 1
 
 builtins:
-  # Mark test_signal_access as enabled (for conditional loading)
-  test_signal_access:
-    enabled: true"#;
+  # test_signal_access is enabled by default when configured
+  test_signal_access: {}"#;
     fs::write(&guidebook_path, guidebook_content)?;
     
     // Initialize engine from the temp directory
@@ -270,7 +269,6 @@ async fn test_post_edit_validation_flow() -> Result<()> {
     let guidebook_content = r#"
 builtins:
   post_edit_check:
-    enabled: true
     by_extension:
       txt:
         command: "echo 'Text file validated'"

@@ -34,7 +34,8 @@ pub struct BuiltinsConfig {
 /// Configuration for always_inject_on_prompt builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlwaysInjectConfig {
-    /// Whether this builtin is enabled
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
     pub enabled: bool,
     
     /// Context sources to inject
@@ -45,7 +46,8 @@ pub struct AlwaysInjectConfig {
 /// Configuration for never_edit_files builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NeverEditConfig {
-    /// Whether this builtin is enabled
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
     pub enabled: bool,
     
     /// Message to show when blocking edits
@@ -57,10 +59,15 @@ fn default_never_edit_message() -> String {
     "File editing is disabled by policy".to_string()
 }
 
+fn default_enabled() -> bool {
+    true  // If a builtin is configured, it's enabled by default
+}
+
 /// Configuration for git_pre_check builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitPreCheckConfig {
-    /// Whether this builtin is enabled
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
     pub enabled: bool,
     
     /// Checks to run before git operations
@@ -71,7 +78,8 @@ pub struct GitPreCheckConfig {
 /// Configuration for post_edit_check builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostEditCheckConfig {
-    /// Whether this builtin is enabled
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
     pub enabled: bool,
     
     /// Checks by file extension
@@ -323,6 +331,7 @@ mod tests {
     
     #[test]
     fn test_builtins_config_parsing() {
+        // Test with explicit enabled values
         let yaml = r#"
 always_inject_on_prompt:
   enabled: true
@@ -339,6 +348,31 @@ never_edit_files:
         assert!(config.always_inject_on_prompt.as_ref().unwrap().enabled);
         assert!(!config.never_edit_files.as_ref().unwrap().enabled);
         assert_eq!(config.enabled_builtins(), vec!["always_inject_on_prompt"]);
+    }
+    
+    #[test]
+    fn test_default_enabled() {
+        // Test that builtins default to enabled when field is omitted
+        let yaml = r#"
+always_inject_on_prompt:
+  context:
+    - "Test context"
+
+git_pre_check:
+  checks:
+    - command: "cargo test"
+      message: "Tests must pass"
+"#;
+        
+        let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        
+        // Both should default to enabled=true
+        assert!(config.always_inject_on_prompt.as_ref().unwrap().enabled);
+        assert!(config.git_pre_check.as_ref().unwrap().enabled);
+        
+        let enabled = config.enabled_builtins();
+        assert!(enabled.contains(&"always_inject_on_prompt".to_string()));
+        assert!(enabled.contains(&"git_pre_check".to_string()));
     }
     
     #[test]

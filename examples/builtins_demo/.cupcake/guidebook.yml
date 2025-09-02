@@ -8,19 +8,16 @@
 builtins:
   # Block all file editing - useful for code review sessions
   never_edit_files:
-    enabled: true
     message: "File editing is disabled in this demo session"
   
   # Inject context on every user prompt
   always_inject_on_prompt:
-    enabled: true
     context:
       - "This is a demo session showcasing Cupcake builtins"
       - "All file edits are blocked for safety"
   
   # Pre-checks for git operations
   git_pre_check:
-    enabled: true
     checks:
       - command: "echo 'Demo check 1 passed'"
         message: "Basic validation"
@@ -29,7 +26,6 @@ builtins:
   
   # Post-edit validation (won't trigger since editing is blocked)
   post_edit_check:
-    enabled: true
     by_extension:
       "rs":
         command: "cargo check --message-format short 2>&1 || echo 'Syntax check'"

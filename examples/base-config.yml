@@ -49,6 +49,10 @@ actions:
 # ============================================================================
 # Builtins provide common security patterns without writing Rego policies.
 # Each builtin can be enabled/disabled and configured independently.
+#
+# IMPORTANT: Builtins are ENABLED BY DEFAULT when configured. 
+# Simply configuring a builtin (even with just empty settings) enables it.
+# To disable, either remove the configuration or set 'enabled: false'.
 
 # ============================================================================
 # USAGE NOTES
@@ -77,9 +81,10 @@ builtins:
   # ---------------------------------------------------------------------------
   # Inject additional context with every user interaction. Useful for project
   # guidelines, current state awareness, or team conventions.
+  # Note: Builtins are enabled by default when configured. Use 'enabled: false' to disable.
   
   # always_inject_on_prompt:
-  #   enabled: false
+  #   # enabled: true  # Optional - defaults to true when configured
   #   context:
   #     # Static text context
   #     - "Follow SOLID principles and write comprehensive tests"
@@ -100,8 +105,8 @@ builtins:
   # learning/exploration, or when working with sensitive codebases.
   
   # never_edit_files:
-  #   enabled: false
   #   message: "File editing is disabled. This session is read-only for security."
+  #   # enabled: false  # Uncomment to explicitly disable (rarely needed)
   #   
   #   # Optional: exempt certain patterns (future enhancement)
   #   # exempt_patterns:
@@ -115,7 +120,7 @@ builtins:
   # code quality and prevents broken commits from entering the repository.
   
   # git_pre_check:
-  #   enabled: false
+  #   # enabled: true  # Optional - defaults to true when configured
   #   checks:
   #     # Each check must succeed (exit 0) to allow git operation
   #     - command: "cargo test"
@@ -141,7 +146,7 @@ builtins:
   # feedback about syntax errors, type issues, or style violations.
   
   # post_edit_check:
-  #   enabled: false
+  #   # enabled: true  # Optional - defaults to true when configured
   #   # Checks by file extension
   #   by_extension:
   #     "rs":

@@ -2,9 +2,12 @@
 
 This walkthrough demonstrates Cupcake's policy enforcement in action with Claude Code hooks.
 
+[Cupcake Architecture - Excalidraw](https://excalidraw.com/#room=2331833bcb24d9f35a25,-TMNhQhHqtWayRMJam4ZIg)
+
 ## Prerequisites
 
 Before starting, ensure you have:
+
 - **Rust & Cargo** - [Install Rust](https://rustup.rs/)
 - **OPA (Open Policy Agent)** - [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
 - **Claude Code** - The AI coding assistant
@@ -20,6 +23,7 @@ First, run the setup script:
 ```
 
 This creates the following structure:
+
 - `.cupcake/` - Policy engine configuration
   - `guidebook.yml` - Builtin configuration (protection enabled by default)
   - `policies/` - Rego policy files
@@ -46,7 +50,7 @@ Ask Claude to run a dangerous command:
 
 **Expected Result**: The command will be **blocked** before execution.
 
-*[Screenshot placeholder: Claude Code showing blocked command with policy reason]*
+_[Screenshot placeholder: Claude Code showing blocked command with policy reason]_
 
 **Pro Tip**: Press `Ctrl+R` to see verbose logging from the Cupcake policy evaluation.
 
@@ -81,12 +85,14 @@ Now, let's see if Claude can remove the blocking policy:
 What happened? Claude was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's own configuration from tampering.
 
 **Built-ins are special policies that:**
+
 - Are enabled by default in `guidebook.yml`
 - Protect critical system functionality
 - Cannot be easily bypassed, even by AI agents
 - Provide layered security (global + project level)
 
 **Active Built-ins in this demo:**
+
 - `rulebook_security_guardrails` - Protects `.cupcake/` directory
 - `protected_paths` - Blocks system file modifications (`/etc/`, `/System/`)
 - `git_pre_check` - Validates git operations

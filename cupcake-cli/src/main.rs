@@ -4,13 +4,14 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
-use cupcake_core::{engine, harness, trust};
+use cupcake_core::{engine, harness, validator};
 
 mod trust_cli;
 
@@ -57,18 +58,88 @@ enum Command {
         #[clap(subcommand)]
         command: trust_cli::TrustCommand,
     },
+    
+    /// Validate policies for Cupcake requirements and best practices
+    Validate {
+        /// Directory containing policy files
+        #[clap(long, default_value = ".cupcake/policies")]
+        policy_dir: PathBuf,
+        
+        /// Output results as JSON
+        #[clap(long)]
+        json: bool,
+    },
+}
+
+/// Initialize tracing with support for CUPCAKE_TRACE environment variable
+/// 
+/// Supports two environment variables:
+/// - RUST_LOG: Standard Rust logging levels (info, debug, trace, etc.)
+/// - CUPCAKE_TRACE: Specialized evaluation tracing (eval, signals, wasm, etc.)
+/// 
+/// When CUPCAKE_TRACE is set, enables JSON output for structured tracing.
+fn initialize_tracing() {
+    // Check for CUPCAKE_TRACE environment variable
+    let cupcake_trace = env::var("CUPCAKE_TRACE").ok();
+    
+    // Build the env filter based on RUST_LOG and CUPCAKE_TRACE
+    let mut filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+    
+    // If CUPCAKE_TRACE is set, add trace-level logging for specific modules
+    if let Some(trace_config) = &cupcake_trace {
+        let trace_modules: Vec<&str> = trace_config.split(',').collect();
+        
+        // Enable trace level for requested modules
+        for module in trace_modules {
+            let directive = match module.trim() {
+                "eval" => "cupcake_core::engine=trace",
+                "signals" => "cupcake_core::engine::guidebook=trace",
+                "wasm" => "cupcake_core::engine::wasm_runtime=trace",
+                "synthesis" => "cupcake_core::engine::synthesis=trace",
+                "routing" => "cupcake_core::engine::routing=trace",
+                "all" => "cupcake_core=trace",
+                _ => continue,
+            };
+            
+            // Parse and add the directive
+            if let Ok(parsed) = directive.parse() {
+                filter = filter.add_directive(parsed);
+            }
+        }
+    }
+    
+    // Configure the subscriber based on whether tracing is enabled
+    if cupcake_trace.is_some() {
+        // JSON output for structured tracing
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(filter)
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_thread_names(true)
+            .with_file(true)
+            .with_line_number(true)
+            .init();
+        
+        // Log that tracing is enabled
+        tracing::info!(
+            cupcake_trace = ?cupcake_trace,
+            "Cupcake evaluation tracing enabled"
+        );
+    } else {
+        // Standard text output
+        tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .with_target(false)
+            .init();
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
-    
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_target(false)
-        .init();
+    // Initialize tracing with enhanced support for CUPCAKE_TRACE
+    initialize_tracing();
     
     let cli = Cli::parse();
     
@@ -93,6 +164,9 @@ async fn main() -> Result<()> {
         }
         Command::Trust { command } => {
             command.execute().await
+        }
+        Command::Validate { policy_dir, json } => {
+            validate_command(policy_dir, json).await
         }
     }
 }
@@ -221,19 +295,53 @@ async fn init_command() -> Result<()> {
     // Create directories
     fs::create_dir_all(".cupcake/policies/system")
         .context("Failed to create .cupcake/policies/system directory")?;
+    fs::create_dir_all(".cupcake/policies/builtins")
+        .context("Failed to create .cupcake/policies/builtins directory")?;
     fs::create_dir_all(".cupcake/signals")
         .context("Failed to create .cupcake/signals directory")?;
     fs::create_dir_all(".cupcake/actions")
         .context("Failed to create .cupcake/actions directory")?;
     
-    // Write the one required file
+    // Write guidebook.yml with commented template
+    fs::write(
+        ".cupcake/guidebook.yml",
+        GUIDEBOOK_TEMPLATE
+    )
+    .context("Failed to create guidebook.yml file")?;
+    
+    // Write the authoritative system evaluate policy
     fs::write(
         ".cupcake/policies/system/evaluate.rego",
         SYSTEM_EVALUATE_TEMPLATE
     )
     .context("Failed to create system evaluate.rego file")?;
     
-    // Write a simple example policy to avoid OPA compilation issues
+    // Write all builtin policies
+    fs::write(
+        ".cupcake/policies/builtins/always_inject_on_prompt.rego",
+        ALWAYS_INJECT_POLICY
+    )
+    .context("Failed to create always_inject_on_prompt.rego")?;
+    
+    fs::write(
+        ".cupcake/policies/builtins/never_edit_files.rego",
+        NEVER_EDIT_FILES_POLICY
+    )
+    .context("Failed to create never_edit_files.rego")?;
+    
+    fs::write(
+        ".cupcake/policies/builtins/git_pre_check.rego",
+        GIT_PRE_CHECK_POLICY
+    )
+    .context("Failed to create git_pre_check.rego")?;
+    
+    fs::write(
+        ".cupcake/policies/builtins/post_edit_check.rego",
+        POST_EDIT_CHECK_POLICY
+    )
+    .context("Failed to create post_edit_check.rego")?;
+    
+    // Write a simple example policy
     fs::write(
         ".cupcake/policies/example.rego",
         EXAMPLE_POLICY_TEMPLATE
@@ -241,11 +349,154 @@ async fn init_command() -> Result<()> {
     .context("Failed to create example policy file")?;
     
     println!("✅ Initialized Cupcake project in .cupcake/");
-    println!("   Add your policies to .cupcake/policies/");
-    println!("   Add signal scripts to .cupcake/signals/");
-    println!("   Add action scripts to .cupcake/actions/");
+    println!("   Configuration: .cupcake/guidebook.yml (with examples)");
+    println!("   Add policies:  .cupcake/policies/");
+    println!("   Add signals:   .cupcake/signals/");
+    println!("   Add actions:   .cupcake/actions/");
+    println!();
+    println!("   Edit guidebook.yml to enable builtins and configure your project.");
     
     Ok(())
+}
+
+async fn validate_command(policy_dir: PathBuf, json: bool) -> Result<()> {
+    info!("Validating policies in directory: {:?}", policy_dir);
+    
+    if !policy_dir.exists() {
+        eprintln!("Error: Policy directory does not exist: {:?}", policy_dir);
+        std::process::exit(1);
+    }
+    
+    // Find all .rego files recursively
+    let mut policy_files = Vec::new();
+    find_rego_files(&policy_dir, &mut policy_files)?;
+    
+    if policy_files.is_empty() {
+        eprintln!("No .rego files found in {:?}", policy_dir);
+        return Ok(());
+    }
+    
+    info!("Found {} policy files", policy_files.len());
+    
+    // Load all policies
+    let mut policies = Vec::new();
+    for path in policy_files {
+        match validator::PolicyContent::from_file(&path) {
+            Ok(policy) => policies.push(policy),
+            Err(e) => {
+                eprintln!("Warning: Failed to load policy {:?}: {}", path, e);
+            }
+        }
+    }
+    
+    // Create validator
+    let validator = validator::PolicyValidator::new();
+    
+    // Validate policies
+    let result = validator.validate_policies(&policies);
+    
+    
+    // Output results
+    if json {
+        let json_output = serde_json::json!({
+            "total_files": policies.len(),
+            "total_errors": result.total_errors,
+            "total_warnings": result.total_warnings,
+            "policies": result.policies.iter().map(|p| {
+                serde_json::json!({
+                    "path": p.path,
+                    "error_count": p.error_count,
+                    "warning_count": p.warning_count,
+                    "issues": p.issues.iter().map(|i| {
+                        serde_json::json!({
+                            "severity": format!("{:?}", i.severity),
+                            "rule_id": i.rule_id,
+                            "message": i.message,
+                            "line": i.line,
+                        })
+                    }).collect::<Vec<_>>()
+                })
+            }).collect::<Vec<_>>()
+        });
+        println!("{}", serde_json::to_string_pretty(&json_output)?);
+    } else {
+        // Human-readable output
+        print_validation_results(&result);
+    }
+    
+    // Exit with error code if there were errors
+    if result.total_errors > 0 {
+        std::process::exit(1);
+    }
+    
+    Ok(())
+}
+
+fn find_rego_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                if ext == "rego" {
+                    files.push(path);
+                }
+            }
+        } else if path.is_dir() {
+            find_rego_files(&path, files)?;
+        }
+    }
+    
+    Ok(())
+}
+
+fn print_validation_results(result: &validator::ValidationResult) {
+    use validator::Severity;
+    
+    for policy_result in &result.policies {
+        if policy_result.issues.is_empty() {
+            println!("✓ {}", policy_result.path.display());
+        } else {
+            // Group by severity
+            let errors: Vec<_> = policy_result.issues.iter()
+                .filter(|i| i.severity == Severity::Error).collect();
+            let warnings: Vec<_> = policy_result.issues.iter()
+                .filter(|i| i.severity == Severity::Warning).collect();
+            
+            if !errors.is_empty() {
+                println!("✗ {}", policy_result.path.display());
+                for issue in errors {
+                    let line_info = if let Some(line) = issue.line {
+                        format!(" (line {})", line)
+                    } else {
+                        String::new()
+                    };
+                    println!("  ERROR{}: {}", line_info, issue.message);
+                }
+            } else {
+                println!("⚠ {}", policy_result.path.display());
+            }
+            
+            for issue in warnings {
+                let line_info = if let Some(line) = issue.line {
+                    format!(" (line {})", line)
+                } else {
+                    String::new()
+                };
+                println!("  WARNING{}: {}", line_info, issue.message);
+            }
+        }
+    }
+    
+    // Summary
+    println!();
+    if result.total_errors == 0 && result.total_warnings == 0 {
+        println!("✅ All policies passed validation!");
+    } else {
+        println!("{} errors, {} warnings in {} files", 
+                result.total_errors, result.total_warnings, result.policies.len());
+    }
 }
 
 const SYSTEM_EVALUATE_TEMPLATE: &str = r#"package cupcake.system
@@ -253,56 +504,66 @@ const SYSTEM_EVALUATE_TEMPLATE: &str = r#"package cupcake.system
 import rego.v1
 
 # METADATA
-# scope: rule
-# title: System Aggregation Policy
+# scope: document
+# title: System Aggregation Entrypoint for Hybrid Model
 # authors: ["Cupcake Engine"]
+# custom:
+#   description: "Aggregates all decision verbs from policies into a DecisionSet"
+#   entrypoint: true
+#   routing:
+#     required_events: []
+#     required_tools: []
 
-# Collect all decision verbs from the policy hierarchy
-# Uses walk() for automatic policy discovery
-
-halts := collect_verbs("halt")
-denials := collect_verbs("deny") 
-blocks := collect_verbs("block")
-asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
-add_context := collect_verbs("add_context")
-
-# Single evaluation entrypoint for the engine
-evaluate := {
-    "halts": halts,
-    "denials": denials,
-    "blocks": blocks,
-    "asks": asks,
-    "allow_overrides": allow_overrides,
-    "add_context": add_context
+# The single entrypoint for the Hybrid Model.
+# This uses the `walk()` built-in to recursively traverse data.cupcake.policies,
+# automatically discovering and aggregating all decision verbs from all loaded
+# policies, regardless of their package name or nesting depth.
+evaluate := decision_set if {
+    decision_set := {
+        "halts": collect_verbs("halt"),
+        "denials": collect_verbs("deny"),
+        "blocks": collect_verbs("block"),
+        "asks": collect_verbs("ask"),
+        "allow_overrides": collect_verbs("allow_override"),
+        "add_context": collect_verbs("add_context")
+    }
 }
 
-# Collect all instances of a decision verb across all policies
+# Helper function to collect all decisions for a specific verb type.
+# Uses walk() to recursively find all instances of the verb across
+# the entire policy hierarchy under data.cupcake.policies.
 collect_verbs(verb_name) := result if {
+    # Collect all matching verb sets from the policy tree
     verb_sets := [value |
         walk(data.cupcake.policies, [path, value])
         path[count(path) - 1] == verb_name
     ]
+    
+    # Flatten all sets into a single array
+    # Since Rego v1 decision verbs are sets, we need to convert to arrays
     all_decisions := [decision |
         some verb_set in verb_sets
         some decision in verb_set
     ]
+    
     result := all_decisions
 }
+
+# Default to empty arrays if no decisions found
+default collect_verbs(_) := []
 "#;
 
-const EXAMPLE_POLICY_TEMPLATE: &str = r#"package cupcake.policies.example
-
-import rego.v1
-
-# METADATA
-# scope: rule
+const EXAMPLE_POLICY_TEMPLATE: &str = r#"# METADATA
+# scope: package
 # title: Example Policy
 # description: A minimal example policy that never fires
 # custom:
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
+package cupcake.policies.example
+
+import rego.v1
 
 # This rule will never fire - it's just here to prevent OPA compilation issues
 # It checks for a command that nobody would ever type
@@ -326,6 +587,15 @@ deny contains decision if {
 #     }
 # }
 "#;
+
+// Include guidebook.yml template directly from base-config.yml
+const GUIDEBOOK_TEMPLATE: &str = include_str!("../../examples/base-config.yml");
+
+// Include authoritative builtin policies from examples
+const ALWAYS_INJECT_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/always_inject_on_prompt.rego");
+const NEVER_EDIT_FILES_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/never_edit_files.rego");
+const GIT_PRE_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/git_pre_check.rego");
+const POST_EDIT_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

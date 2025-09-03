@@ -7,7 +7,8 @@
 //! prioritization and handling Claude Code API semantics.
 
 use anyhow::Result;
-use tracing::{debug, info};
+use std::time::Instant;
+use tracing::{debug, info, instrument, trace};
 
 use super::decision::{DecisionSet, DecisionObject, FinalDecision};
 
@@ -22,7 +23,21 @@ impl SynthesisEngine {
     /// 
     /// This is the primary function of the Intelligence Layer.
     /// It applies the strict priority hierarchy and aggregates reasons.
+    #[instrument(
+        name = "synthesize",
+        skip(decision_set),
+        fields(
+            total_decisions = decision_set.decision_count(),
+            halts = decision_set.halts.len(),
+            denials = decision_set.denials.len(),
+            blocks = decision_set.blocks.len(),
+            asks = decision_set.asks.len(),
+            final_decision_type = tracing::field::Empty,
+            synthesis_time_us = tracing::field::Empty
+        )
+    )]
     pub fn synthesize(decision_set: &DecisionSet) -> Result<FinalDecision> {
+        let start = Instant::now();
         info!("Synthesizing decision from {} total decisions", decision_set.decision_count());
         
         debug!("Synthesis input - Halts: {}, Denials: {}, Blocks: {}, Asks: {}, Allow Overrides: {}, Context Items: {}",
@@ -35,38 +50,52 @@ impl SynthesisEngine {
         
         // Apply strict priority hierarchy
         
+        // Helper to record decision type and duration
+        let record_and_return = |decision_type: &str, decision: FinalDecision| {
+            let duration = start.elapsed();
+            let current_span = tracing::Span::current();
+            current_span.record("final_decision_type", decision_type);
+            current_span.record("synthesis_time_us", &duration.as_micros());
+            trace!(
+                decision_type = decision_type,
+                duration_us = duration.as_micros(),
+                "Synthesis complete"
+            );
+            Ok(decision)
+        };
+        
         // Priority 1: Halt (Highest - immediate cessation)
         if decision_set.has_halts() {
             let reason = Self::aggregate_reasons(&decision_set.halts);
             debug!("Synthesized HALT decision: {}", reason);
-            return Ok(FinalDecision::Halt { reason });
+            return record_and_return("Halt", FinalDecision::Halt { reason });
         }
         
         // Priority 2: Deny/Block (High - blocking actions)
         if decision_set.has_denials() {
             let reason = Self::aggregate_reasons(&decision_set.denials);
             debug!("Synthesized DENY decision: {}", reason);
-            return Ok(FinalDecision::Deny { reason });
+            return record_and_return("Deny", FinalDecision::Deny { reason });
         }
         
         if decision_set.has_blocks() {
             let reason = Self::aggregate_reasons(&decision_set.blocks);
             debug!("Synthesized BLOCK decision: {}", reason);
-            return Ok(FinalDecision::Block { reason });
+            return record_and_return("Block", FinalDecision::Block { reason });
         }
         
         // Priority 3: Ask (Medium - user confirmation required)
         if decision_set.has_asks() {
             let reason = Self::aggregate_reasons(&decision_set.asks);
             debug!("Synthesized ASK decision: {}", reason);
-            return Ok(FinalDecision::Ask { reason });
+            return record_and_return("Ask", FinalDecision::Ask { reason });
         }
         
         // Priority 4: Allow Override (Low - explicit permission)
         if decision_set.has_allow_overrides() {
             let reason = Self::aggregate_reasons(&decision_set.allow_overrides);
             debug!("Synthesized ALLOW OVERRIDE decision: {}", reason);
-            return Ok(FinalDecision::AllowOverride { reason });
+            return record_and_return("AllowOverride", FinalDecision::AllowOverride { reason });
         }
         
         // Priority 5: Allow (Default - with optional context)
@@ -77,7 +106,7 @@ impl SynthesisEngine {
             debug!("Synthesized ALLOW decision (no policies triggered)");
         }
         
-        Ok(FinalDecision::Allow { context })
+        record_and_return("Allow", FinalDecision::Allow { context })
     }
     
     /// Aggregate multiple decision reasons into a single, clear message

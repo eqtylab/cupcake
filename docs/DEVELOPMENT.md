@@ -22,6 +22,9 @@ cargo test --features deterministic-tests
 # Or use the alias
 cargo t
 
+# Enable evaluation tracing for debugging
+CUPCAKE_TRACE=eval cargo run -- eval --policy-dir ./examples/policies
+
 # Test with an example event
 cat examples/events/pre_tool_use_bash_safe.json | \
   target/release/cupcake eval --policy-dir ./examples/policies
@@ -189,6 +192,34 @@ actions:
     BASH-001:
       - command: "alert-security-team.sh"
 ```
+
+## Debugging and Tracing
+
+Cupcake includes comprehensive tracing for debugging policy evaluation:
+
+```bash
+# Enable evaluation tracing
+CUPCAKE_TRACE=eval cupcake eval < event.json
+
+# Trace specific components
+CUPCAKE_TRACE=routing,wasm cupcake eval < event.json
+
+# View trace output with jq
+CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq '.span'
+
+# Debug slow evaluations
+CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq 'select(.span.duration_ms > 10)'
+```
+
+Tracing provides:
+- Unique trace IDs for each evaluation
+- Timing measurements for all operations
+- Policy routing and matching details
+- Signal execution tracking
+- WASM evaluation metrics
+- Decision synthesis flow
+
+See [DEBUGGING.md](../DEBUGGING.md) for comprehensive debugging guide.
 
 ## Running Tests
 

@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::env;
 use std::time::Instant;
 use wasmtime::*;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, trace, warn};
 
 use super::decision::DecisionSet;
 
@@ -90,6 +90,16 @@ impl WasmRuntime {
     /// Query the aggregated decision set from cupcake.system.evaluate
     /// This is the single entrypoint defined in the Hybrid Model
     /// Thread-safe: creates fresh Store per evaluation
+    #[instrument(
+        name = "wasm_evaluate",
+        skip(self, input),
+        fields(
+            input_size_bytes = input.to_string().len(),
+            output_size_bytes = tracing::field::Empty,
+            decision_count = tracing::field::Empty,
+            evaluation_time_ms = tracing::field::Empty
+        )
+    )]
     pub fn query_decision_set(
         &self,
         input: &Value,
@@ -110,7 +120,19 @@ impl WasmRuntime {
         let decision_set = self.extract_decision_set_from_result(&result_value)?;
         
         let elapsed = start.elapsed();
+        
+        // Record span fields
+        let current_span = tracing::Span::current();
+        current_span.record("output_size_bytes", &result_json.len());
+        current_span.record("decision_count", &decision_set.decision_count());
+        current_span.record("evaluation_time_ms", &elapsed.as_millis());
+        
         debug!("Decision set evaluation completed in {:?}", elapsed);
+        trace!(
+            decisions = decision_set.decision_count(),
+            duration_ms = elapsed.as_millis(),
+            "WASM evaluation complete"
+        );
         
         Ok(decision_set)
     }

@@ -1,8 +1,149 @@
-# Cross-Language Debugging Guide for Cupcake
+# Cupcake Debugging Guide
 
-This guide helps debug issues across the Rust/Python/Node.js boundaries in Cupcake bindings.
+This guide covers debugging techniques for Cupcake, including policy evaluation tracing and cross-language debugging for bindings.
 
-## Common Issues and Solutions
+## Policy Evaluation Tracing
+
+Cupcake provides comprehensive tracing to debug policy evaluation flow, timing, and decision-making.
+
+### Enabling Tracing
+
+Use the `CUPCAKE_TRACE` environment variable to enable structured JSON tracing output:
+
+```bash
+# Enable tracing for evaluation flow
+CUPCAKE_TRACE=eval cupcake eval
+
+# Enable tracing for specific modules
+CUPCAKE_TRACE=wasm,synthesis cupcake eval
+
+# Enable all tracing
+CUPCAKE_TRACE=all cupcake eval
+
+# Combine with RUST_LOG for additional logging
+RUST_LOG=debug CUPCAKE_TRACE=eval cupcake eval
+```
+
+### Available Trace Modules
+
+- `eval` - Main evaluation flow (routing, signals, WASM, synthesis)
+- `signals` - Signal gathering and execution
+- `wasm` - WASM runtime policy evaluation
+- `synthesis` - Decision synthesis and prioritization  
+- `routing` - Policy routing and matching
+- `all` - Enable all trace modules
+
+### Trace Output Format
+
+When tracing is enabled, structured JSON is output to stderr with detailed spans:
+
+```json
+{
+  "timestamp": "2024-09-03T12:00:00Z",
+  "level": "INFO",
+  "span": {
+    "name": "evaluate",
+    "trace_id": "018f4d2a-7c92-7f3e-b4c5-a3e9c7d8f5e1",
+    "event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "session_id": "test-123",
+    "matched_policy_count": 1,
+    "final_decision": "Allow",
+    "duration_ms": 15
+  }
+}
+```
+
+### Understanding Trace Spans
+
+#### 1. **evaluate** - Root Evaluation Span
+- `trace_id`: Unique UUID v7 for this evaluation
+- `event_name`: Claude Code hook event type
+- `tool_name`: Tool being invoked (if applicable)
+- `session_id`: Claude Code session identifier
+- `matched_policy_count`: Number of policies that matched
+- `final_decision`: The synthesized decision
+- `duration_ms`: Total evaluation time
+
+#### 2. **route_event** - Policy Routing
+- `routing_key`: The computed routing key
+- `matched_count`: Number of matching policies
+- `policy_names`: List of matched policy packages
+
+#### 3. **gather_signals** - Signal Collection
+- `signal_count`: Number of signals executed
+- `signals_executed`: Comma-separated list of signal names
+- `duration_ms`: Time spent gathering signals
+
+#### 4. **wasm_evaluate** - WASM Policy Evaluation
+- `input_size_bytes`: Size of input JSON
+- `output_size_bytes`: Size of result JSON
+- `decision_count`: Total decisions from all policies
+- `evaluation_time_ms`: WASM execution time
+
+#### 5. **synthesize** - Decision Synthesis
+- `total_decisions`: Sum of all decision types
+- `halts`, `denials`, `blocks`, `asks`: Count by type
+- `final_decision_type`: The prioritized decision
+- `synthesis_time_us`: Synthesis duration in microseconds
+
+### Debugging Common Scenarios
+
+#### No Policies Matching
+
+```bash
+CUPCAKE_TRACE=routing cupcake eval < event.json
+```
+
+Look for `matched_count: 0` in the `route_event` span. Check:
+- Policy metadata has correct `required_events` and `required_tools`
+- Event JSON has proper `hook_event_name` and `tool_name` fields
+
+#### Slow Evaluation
+
+```bash
+CUPCAKE_TRACE=eval cupcake eval < event.json
+```
+
+Check `duration_ms` fields to identify bottlenecks:
+- Signal gathering often takes longest (external commands)
+- WASM evaluation should be <5ms for most policies
+- Synthesis should be <1ms
+
+#### Unexpected Decisions
+
+```bash
+CUPCAKE_TRACE=synthesis cupcake eval < event.json
+```
+
+The `synthesize` span shows decision counts by type. Remember priority:
+1. Halt (highest)
+2. Deny/Block
+3. Ask
+4. AllowOverride
+5. Allow (default)
+
+### Performance Considerations
+
+- **Zero Overhead**: Tracing has no performance impact when disabled
+- **Production Safe**: Can be enabled in production for troubleshooting
+- **JSON Format**: Output can be ingested by observability tools
+
+### Integration with Observability Tools
+
+The JSON output is compatible with tools like:
+- Elasticsearch/Kibana for log aggregation
+- Jaeger/Zipkin for distributed tracing (with adapter)
+- CloudWatch/Datadog for metrics extraction
+
+Example: Filtering for slow evaluations
+```bash
+CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq 'select(.span.duration_ms > 50)'
+```
+
+## Cross-Language Debugging
+
+### Python/Node.js Bindings
 
 ### 1. Python: Segmentation Fault / Access Violation
 

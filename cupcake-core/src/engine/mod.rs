@@ -12,7 +12,8 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, info, warn};
+use std::time::Instant;
+use tracing::{debug, error, info, instrument, trace, warn};
 
 /// Project path resolution following .cupcake/ convention
 #[derive(Debug, Clone)]
@@ -74,6 +75,7 @@ pub mod synthesis;
 pub mod wasm_runtime;
 pub mod guidebook;
 pub mod builtins;
+pub mod trace;
 
 // Re-export metadata types for public API
 pub use metadata::{RoutingDirective, PolicyMetadata};
@@ -354,18 +356,71 @@ impl Engine {
     }
     
     /// Find policies that match the given event criteria
+    #[instrument(
+        name = "route_event",
+        skip(self),
+        fields(
+            routing_key = %routing::create_event_key(event_name, tool_name),
+            matched_count = tracing::field::Empty,
+            policy_names = tracing::field::Empty
+        )
+    )]
     pub fn route_event(&self, event_name: &str, tool_name: Option<&str>) -> Vec<&PolicyUnit> {
+        let start = Instant::now();
         let key = routing::create_event_key(event_name, tool_name);
         
-        self.routing_map
+        // First try the specific key
+        let mut result: Vec<&PolicyUnit> = self.routing_map
             .get(&key)
             .map(|policies| policies.iter().collect())
-            .unwrap_or_default()
+            .unwrap_or_default();
+            
+        // If we have a tool name, also check for policies that match the event without tool constraints
+        // (these are treated as wildcards that match any tool)
+        if tool_name.is_some() {
+            let wildcard_key = event_name.to_string();
+            if let Some(wildcard_policies) = self.routing_map.get(&wildcard_key) {
+                result.extend(wildcard_policies.iter());
+            }
+        }
+        
+        // Record matched policies
+        let current_span = tracing::Span::current();
+        current_span.record("matched_count", &result.len());
+        if !result.is_empty() {
+            let policy_names: Vec<&str> = result.iter()
+                .map(|p| p.package_name.as_str())
+                .collect();
+            current_span.record("policy_names", &format!("{:?}", policy_names).as_str());
+        }
+        
+        trace!(
+            duration_us = start.elapsed().as_micros(),
+            matched = result.len(),
+            "Policy routing complete"
+        );
+        
+        result
     }
     
     /// Evaluate policies for a hook event - THE MAIN PUBLIC API
     /// Implements the NEW_GUIDING_FINAL.md Hybrid Model evaluation flow
+    #[instrument(
+        name = "evaluate",
+        skip(self, input),
+        fields(
+            trace_id = %trace::generate_trace_id(),
+            event_name = tracing::field::Empty,
+            tool_name = tracing::field::Empty,
+            session_id = tracing::field::Empty,
+            matched_policy_count = tracing::field::Empty,
+            final_decision = tracing::field::Empty,
+            duration_ms = tracing::field::Empty
+        )
+    )]
     pub async fn evaluate(&self, input: &Value) -> Result<decision::FinalDecision> {
+        let eval_start = Instant::now();
+        
         // Extract event info from input for routing
         // Try both camelCase and snake_case for compatibility
         let event_name = input.get("hookEventName")
@@ -375,6 +430,14 @@ impl Engine {
             
         let tool_name = input.get("tool_name")
             .and_then(|v| v.as_str());
+            
+        // Set span fields
+        let current_span = tracing::Span::current();
+        current_span.record("event_name", &event_name);
+        current_span.record("tool_name", &tool_name);
+        if let Some(session_id) = trace::extract_session_id(input) {
+            current_span.record("session_id", &session_id.as_str());
+        }
             
         info!("Evaluating event: {} tool: {:?}", event_name, tool_name);
         
@@ -386,13 +449,29 @@ impl Engine {
             
         if matched_policies.is_empty() {
             info!("No policies matched for this event - allowing");
+            current_span.record("matched_policy_count", &0);
+            current_span.record("final_decision", "Allow");
+            current_span.record("duration_ms", &eval_start.elapsed().as_millis());
             return Ok(decision::FinalDecision::Allow { context: vec![] });
         }
         
+        current_span.record("matched_policy_count", &matched_policies.len());
         info!("Found {} matching policies", matched_policies.len());
         
         // Step 2: Gather Signals - collect all required signals from matched policies
         let enriched_input = self.gather_signals(input, &matched_policies).await?;
+        
+        // Debug output for testing
+        if let Some(params) = input.get("params") {
+            if let Some(file_path) = params.get("file_path") {
+                if let Some(path_str) = file_path.as_str() {
+                    if path_str.ends_with(".fail") {
+                        eprintln!("DEBUG: Enriched input for .fail file: {}", 
+                            serde_json::to_string_pretty(&enriched_input).unwrap_or_else(|_| "failed to serialize".to_string()));
+                    }
+                }
+            }
+        }
         
         // Step 3: Evaluate using single aggregation entrypoint with enriched input
         debug!("About to evaluate decision set with enriched input");
@@ -405,6 +484,18 @@ impl Engine {
         
         // Step 5: Execute actions based on decision (async, non-blocking)
         self.execute_actions(&final_decision, &decision_set).await;
+        
+        // Record final decision type and duration
+        let duration = eval_start.elapsed();
+        let current_span = tracing::Span::current();
+        current_span.record("final_decision", &format!("{:?}", final_decision).as_str());
+        current_span.record("duration_ms", &duration.as_millis());
+        
+        trace!(
+            decision = ?final_decision,
+            duration_ms = duration.as_millis(),
+            "Evaluation complete"
+        );
         
         Ok(final_decision)
     }
@@ -426,12 +517,65 @@ impl Engine {
     }
     
     /// Gather signals required by the matched policies and enrich the input
+    #[instrument(
+        name = "gather_signals",
+        skip(self, input, matched_policies),
+        fields(
+            signal_count = tracing::field::Empty,
+            signals_executed = tracing::field::Empty,
+            duration_ms = tracing::field::Empty
+        )
+    )]
     async fn gather_signals(&self, input: &Value, matched_policies: &[PolicyUnit]) -> Result<Value> {
+        let start = Instant::now();
         // Collect all unique required signals from matched policies
         let mut required_signals = std::collections::HashSet::new();
         for policy in matched_policies {
             for signal_name in &policy.routing.required_signals {
                 required_signals.insert(signal_name.clone());
+            }
+        }
+        
+        // ALSO: For builtin policies, automatically include their generated signals
+        // This is needed because builtin policies can't statically declare dynamic signals
+        if let Some(guidebook) = &self.guidebook {
+            for policy in matched_policies {
+                if policy.package_name.starts_with("cupcake.policies.builtins.") {
+                    // This is a builtin policy - add signals that match its pattern
+                    let builtin_name = policy.package_name
+                        .strip_prefix("cupcake.policies.builtins.")
+                        .unwrap_or("");
+                    
+                    // Special handling for post_edit_check - only add the signal for the actual file extension
+                    if builtin_name == "post_edit_check" {
+                        // Extract file extension from input if available
+                        if let Some(params) = input.get("params") {
+                            if let Some(file_path) = params.get("file_path") {
+                                if let Some(path_str) = file_path.as_str() {
+                                    if let Some(extension) = std::path::Path::new(path_str)
+                                        .extension()
+                                        .and_then(|e| e.to_str()) {
+                                        // Only add the signal for this specific extension
+                                        let signal_name = format!("__builtin_post_edit_{}", extension);
+                                        if guidebook.signals.contains_key(&signal_name) {
+                                            debug!("Auto-adding signal '{}' for file extension '{}'", signal_name, extension);
+                                            required_signals.insert(signal_name);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // For other builtins, add all matching signals
+                        let signal_prefix = format!("__builtin_{}_", builtin_name);
+                        for signal_name in guidebook.signals.keys() {
+                            if signal_name.starts_with(&signal_prefix) {
+                                debug!("Auto-adding signal '{}' for builtin '{}'", signal_name, builtin_name);
+                                required_signals.insert(signal_name.clone());
+                            }
+                        }
+                    }
+                }
             }
         }
         
@@ -462,7 +606,20 @@ impl Engine {
         }
         
         
+        // Record span fields
+        let duration = start.elapsed();
+        let current_span = tracing::Span::current();
+        current_span.record("signal_count", &signal_count);
+        current_span.record("signals_executed", &signal_names.join(",").as_str());
+        current_span.record("duration_ms", &duration.as_millis());
+        
         debug!("Input enriched with {} signal values", signal_count);
+        trace!(
+            signal_count = signal_count,
+            duration_ms = duration.as_millis(),
+            "Signal gathering complete"
+        );
+        
         Ok(enriched_input)
     }
     

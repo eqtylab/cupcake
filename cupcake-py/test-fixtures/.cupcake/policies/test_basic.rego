@@ -1,8 +1,5 @@
-package cupcake.policies.test_basic
-
-import rego.v1
-
 # METADATA
+# scope: package
 # title: Basic Test Policy
 # authors: ["Test Suite"]
 # custom:
@@ -11,6 +8,9 @@ import rego.v1
 #   routing:
 #     required_events: ["test", "PreToolUse"]
 #     required_tools: []
+package cupcake.policies.test_basic
+
+import rego.v1
 
 # Simple allow rule for test events
 allow_override contains decision if {

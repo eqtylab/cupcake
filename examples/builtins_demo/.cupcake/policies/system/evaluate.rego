@@ -1,11 +1,10 @@
+# METADATA
+# scope: package
+# title: System Aggregation Policy
+# authors: ["Cupcake Engine"]
 package cupcake.system
 
 import rego.v1
-
-# METADATA
-# scope: rule
-# title: System Aggregation Policy
-# authors: ["Cupcake Engine"]
 
 # Collect all decision verbs from the policy hierarchy
 # Uses walk() for automatic policy discovery

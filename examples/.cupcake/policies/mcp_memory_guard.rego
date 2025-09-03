@@ -1,9 +1,5 @@
-package cupcake.policies.mcp.memory_guard
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: MCP Memory Security Guard
 # authors: ["Security Team"]
 # custom:
@@ -12,6 +8,9 @@ import rego.v1
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["mcp__memory__create_entities"]
+package cupcake.policies.mcp.memory_guard
+
+import rego.v1
 
 # Deny storing sensitive information in MCP memory tools
 deny contains decision if {

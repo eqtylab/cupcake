@@ -1,14 +1,13 @@
-package cupcake.policies.bash_safety
-
-import rego.v1
-
 # METADATA
-# scope: rule  
+# scope: package
 # title: Bash Safety Policy
 # custom:
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
+package cupcake.policies.bash_safety
+
+import rego.v1
 
 # Halt catastrophic commands
 halt contains decision if {

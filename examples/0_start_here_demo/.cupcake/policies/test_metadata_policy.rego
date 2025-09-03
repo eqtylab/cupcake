@@ -1,9 +1,5 @@
-package cupcake.policies.test.metadata
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Test Policy for Metadata Verification
 # authors: ["Test Author"]
 # custom:
@@ -13,6 +9,9 @@ import rego.v1
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
 #     required_signals: ["test_signal"]
+package cupcake.policies.test.metadata
+
+import rego.v1
 
 # Test decision verbs using modern Rego v1.0 syntax and NEW_GUIDING_FINAL format
 

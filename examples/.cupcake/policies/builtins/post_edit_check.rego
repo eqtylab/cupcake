@@ -1,9 +1,5 @@
-package cupcake.policies.builtins.post_edit_check
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Post Edit Check - Builtin Policy
 # authors: ["Cupcake Builtins"]
 # custom:
@@ -11,6 +7,9 @@ import rego.v1
 #   id: BUILTIN-POST-EDIT
 #   routing:
 #     required_events: ["PostToolUse"]
+package cupcake.policies.builtins.post_edit_check
+
+import rego.v1
 
 # Run validation after file edits
 ask contains decision if {
@@ -43,13 +42,15 @@ ask contains decision if {
     
     decision := {
         "rule_id": "BUILTIN-POST-EDIT",
+        "reason": question,
         "question": question,
         "severity": "MEDIUM"
     }
 }
 
+
 # Also provide feedback as context when validation succeeds
-add_context contains decision if {
+add_context contains context_msg if {
     input.hook_event_name == "PostToolUse"
     
     editing_tools := {"Edit", "Write", "MultiEdit", "NotebookEdit"}
@@ -66,11 +67,8 @@ add_context contains decision if {
     # If validation succeeded, provide positive feedback
     validation_result.success
     
-    decision := {
-        "rule_id": "BUILTIN-POST-EDIT",
-        "context": concat(" ", ["✓ Validation passed for", file_path]),
-        "severity": "LOW"
-    }
+    # add_context expects strings, not decision objects
+    context_msg := concat(" ", ["✓ Validation passed for", file_path])
 }
 
 # Extract file path from tool response/params
@@ -91,7 +89,7 @@ get_file_extension(path) := ext if {
 run_validation_for_extension(ext, file_path) := result if {
     # Check if there's a configured validation signal for this extension
     signal_name := concat("", ["__builtin_post_edit_", ext])
-    signal_name in input.signals
+    signal_name in object.keys(input.signals)
     
     # Get the validation result from the signal
     signal_result := input.signals[signal_name]
@@ -102,14 +100,16 @@ run_validation_for_extension(ext, file_path) := result if {
     # No validation configured for this extension
     result := {
         "success": true,
-        "message": "No validation configured"
+        "message": "No validation configured - FALLBACK"
     }
 }
 
-# Parse validation result from signal
+# Parse validation result from signal  
 parse_validation_result(signal_result, file_path) := result if {
-    # Handle object results with exit_code and output
+    # Handle object results with exit_code (standard format from signal execution)
     is_object(signal_result)
+    "exit_code" in object.keys(signal_result)
+    
     result := {
         "success": signal_result.exit_code == 0,
         "message": default_validation_message(signal_result, file_path)

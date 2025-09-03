@@ -1,9 +1,5 @@
-package cupcake.policies.builtins.git_pre_check
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Git Pre-Check - Builtin Policy
 # authors: ["Cupcake Builtins"]
 # custom:
@@ -12,6 +8,9 @@ import rego.v1
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
+package cupcake.policies.builtins.git_pre_check
+
+import rego.v1
 
 # Check git operations and run validation before allowing
 halt contains decision if {

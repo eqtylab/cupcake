@@ -1,9 +1,5 @@
-package cupcake.policies.builtins.never_edit_files
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Never Edit Files - Builtin Policy
 # authors: ["Cupcake Builtins"]
 # custom:
@@ -11,6 +7,9 @@ import rego.v1
 #   id: BUILTIN-NEVER-EDIT
 #   routing:
 #     required_events: ["PreToolUse"]
+package cupcake.policies.builtins.never_edit_files
+
+import rego.v1
 
 # Block all file write operations when enabled
 halt contains decision if {

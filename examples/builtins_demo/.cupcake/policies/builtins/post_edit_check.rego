@@ -1,9 +1,5 @@
-package cupcake.policies.builtins.post_edit_check
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Post Edit Check - Builtin Policy
 # authors: ["Cupcake Builtins"]
 # custom:
@@ -11,6 +7,9 @@ import rego.v1
 #   id: BUILTIN-POST-EDIT
 #   routing:
 #     required_events: ["PostToolUse"]
+package cupcake.policies.builtins.post_edit_check
+
+import rego.v1
 
 # Run validation after file edits
 ask contains decision if {
@@ -91,7 +90,7 @@ get_file_extension(path) := ext if {
 run_validation_for_extension(ext, file_path) := result if {
     # Check if there's a configured validation signal for this extension
     signal_name := concat("", ["__builtin_post_edit_", ext])
-    signal_name in input.signals
+    signal_name in object.keys(input.signals)
     
     # Get the validation result from the signal
     signal_result := input.signals[signal_name]

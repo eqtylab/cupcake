@@ -1,9 +1,5 @@
-package cupcake.policies.mcp.github_operations
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: MCP GitHub Operations Policy
 # authors: ["DevOps Team"]
 # custom:
@@ -12,6 +8,9 @@ import rego.v1
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["mcp__github__.*"]
+package cupcake.policies.mcp.github_operations
+
+import rego.v1
 
 # Block destructive operations on main branch
 deny contains decision if {

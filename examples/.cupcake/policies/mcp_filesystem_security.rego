@@ -1,9 +1,5 @@
-package cupcake.policies.mcp.filesystem_security
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: MCP Filesystem Security Policy
 # authors: ["Security Team"]
 # custom:
@@ -12,6 +8,9 @@ import rego.v1
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["mcp__filesystem__.*"]
+package cupcake.policies.mcp.filesystem_security
+
+import rego.v1
 
 # Block access to sensitive system directories
 deny contains decision if {

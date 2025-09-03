@@ -1,9 +1,5 @@
-package cupcake.policies.builtins.always_inject_on_prompt
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Always Inject On Prompt - Builtin Policy
 # authors: ["Cupcake Builtins"]
 # custom:
@@ -11,6 +7,9 @@ import rego.v1
 #   id: BUILTIN-INJECT-PROMPT
 #   routing:
 #     required_events: ["UserPromptSubmit"]
+package cupcake.policies.builtins.always_inject_on_prompt
+
+import rego.v1
 
 # Inject configured context on every user prompt
 add_context contains decision if {

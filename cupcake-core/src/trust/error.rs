@@ -19,7 +19,7 @@ pub enum TrustError {
     },
     
     /// Trust manifest has been tampered with
-    #[error("SECURITY ALERT: Trust manifest has been tampered with!\n\nThe trust manifest's HMAC signature verification failed.\nThis is a critical security event that may indicate an attack.\n\nRecommended actions:\n1. Check for unauthorized access to your system\n2. Review recent changes to .cupcake/.trust\n3. Re-initialize trust with: cupcake trust reset && cupcake trust init")]
+    #[error("SECURITY ALERT: Trust manifest has been tampered with!\n\nThe trust manifest's HMAC signature verification failed.\nThis is a critical security event that may indicate an attack.\n\nRecommended actions:\n1. Check for unauthorized access to your system\n2. Review recent changes to .cupcake/.trust\n3. Re-initialize trust with: cupcake trust reset --force && cupcake trust init")]
     ManifestTampered,
     
     /// Script is not in the trust manifest

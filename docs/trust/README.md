@@ -32,7 +32,7 @@ cupcake trust init
 ✓ All scripts fingerprinted and protected
 
 # Normal usage - scripts are now verified before execution
-cat event.json | cupcake eval --policy-dir .cupcake
+cat event.json | cupcake eval --project-dir .cupcake
 
 # If a script changes, Cupcake will detect it
 # ERROR: Script integrity violation!
@@ -85,6 +85,40 @@ Cupcake operates in one of two modes:
    - Modifications require explicit approval
    - Suitable for production and high-security environments
 
+### Architecture Integration
+
+```
+Cupcake Engine with Trust System:
+
+┌─────────────────────────────────────────────────────────────┐
+│                       Cupcake Engine                        │
+│  ┌─────────────┐  ┌────────────────┐  ┌─────────────────┐  │
+│  │  Policy     │  │    Signal      │  │     Action      │  │
+│  │ Evaluation  │  │   Execution    │  │   Execution     │  │
+│  │             │  │                │  │                 │  │
+│  └─────────────┘  └────────┬───────┘  └─────────┬───────┘  │
+│                           │                     │          │
+└───────────────────────────┼─────────────────────┼──────────┘
+                            │                     │
+                    ┌───────▼─────────┐   ┌──────▼──────┐
+                    │ Trust Verifier  │   │ Trust       │
+                    │ (Optional)      │   │ Verifier    │
+                    │                 │   │ (Optional)  │
+                    │ • Hash Check    │   │             │
+                    │ • Manifest      │   │ • Hash Check│
+                    │   Lookup        │   │ • HMAC      │
+                    └─────────────────┘   └─────────────┘
+                            │                     │
+                    ┌───────▼─────────┐   ┌──────▼──────┐
+                    │  .cupcake/      │   │ Security    │
+                    │    .trust       │   │ Violation   │
+                    │                 │   │ Handling    │
+                    │ • Script Hashes │   │             │
+                    │ • HMAC Signature│   │ • Block     │
+                    │ • Metadata      │   │ • Alert     │
+                    └─────────────────┘   └─────────────┘
+```
+
 ### Startup Notification
 
 When Cupcake starts without trust mode:
@@ -108,16 +142,87 @@ When Cupcake starts without trust mode:
 3. **Violation Detection**: Modified scripts are blocked from execution
 4. **Explicit Updates**: `cupcake trust update` allows you to approve changes
 
+### Runtime Execution Flow
+
+```
+User Script Execution (Signal/Action):
+
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Script Call   │───▶│ Trust Enabled?   │───▶│   Execute       │
+│   (Signal/      │    │                  │    │   Script        │
+│    Action)      │    │ Standard Mode    │    │   Immediately   │
+└─────────────────┘    │ → Skip Check     │    └─────────────────┘
+                       └──────────────────┘
+                                │
+                          Trust Mode ▼
+                       ┌──────────────────┐
+                       │ Load .trust      │
+                       │ Manifest         │
+                       └──────────────────┘
+                                │
+                                ▼
+                       ┌──────────────────┐
+                       │ Compute Current  │
+                       │ Script Hash      │
+                       │ (SHA-256)        │
+                       └──────────────────┘
+                                │
+                                ▼
+                       ┌──────────────────┐
+                       │ Find Script in   │
+                       │ Manifest         │
+                       └──────────────────┘
+                                │
+                      ┌─────────▼─────────┐
+                      │                   │
+                      ▼                   ▼
+               ┌─────────────┐     ┌─────────────┐
+               │ Hash Match  │     │ Hash Mismatch│
+               │             │     │             │
+               │ ✅ Execute  │     │ ❌ Block &  │
+               │   Script    │     │   Error     │
+               └─────────────┘     └─────────────┘
+                                          │
+                                          ▼
+                                  ┌─────────────┐
+                                  │ Show Error: │
+                                  │ "Run trust  │
+                                  │  update"    │
+                                  └─────────────┘
+```
+
+### Trust Lifecycle
+
+```
+Project Setup:
+cupcake init → cupcake trust init → Scripts Approved & Hashed
+
+Development Cycle:
+Script Modified → Execution Blocked → cupcake trust update → Approval → Continue
+
+Security Event:
+Script Tampered → HMAC Verification Failed → Security Alert → Manual Investigation
+```
+
 ## Trust Manifest Format
 
-The trust manifest (`.cupcake/.trust`) is a JSON file containing cryptographic hashes of all approved scripts:
+The trust manifest (`.cupcake/.trust`) is a JSON file containing cryptographic hashes of all approved scripts.
+
+### Quick Reference
+
+| Script Type | Example Command | Hash Source |
+|-------------|-----------------|-------------|
+| **Inline** | `npm test` | Command string itself |
+| **File** | `./scripts/lint.sh` | Script file contents |
+| **Complex** | `python analyzer.py --args` | Script file + arguments |
+
+### Complete Manifest Structure
 
 ```json
 {
   "version": 1,
   "timestamp": "2024-01-20T10:00:00Z",
-  "mode": "trust",
-  "policy_hash": "sha256:abc123...",
+  "mode": "enabled",
   "scripts": {
     "signals": {
       "test_status": {
@@ -157,19 +262,19 @@ The trust manifest (`.cupcake/.trust`) is a JSON file containing cryptographic h
         "modified": "2024-01-18T14:20:00Z"
       }
     }
-  },
-  "hmac": "hmac-sha256:1a2b3c4d5e6f..."
+  }
 }
+
+/* HMAC: hmac-sha256:1a2b3c4d5e6f... */
 ```
 
 ### Manifest Fields
 
 - **version**: Manifest format version for future compatibility
 - **timestamp**: When the manifest was created/updated
-- **mode**: Always "trust" for trust-enabled manifests
-- **policy_hash**: Hash of all .rego files for completeness
+- **mode**: "enabled" or "disabled" for trust state
 - **scripts**: Nested structure matching guidebook organization
-- **hmac**: HMAC signature using derived key for tamper detection
+- **HMAC comment**: HMAC signature using derived key for tamper detection
 
 ### Script Entry Types
 
@@ -197,13 +302,12 @@ Initialize trust mode for the current project.
 cupcake trust init [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
-  --auto                Skip confirmation prompts
-  --verbose             Show detailed hashing information
+  --project-dir <PATH>  Path to .cupcake directory [default: .]
+  --empty               Skip scanning for existing scripts
 ```
 
 **Behavior**:
-- Scans guidebook.yml for all script references
+- Scans guidebook.yml for all script references (unless --empty)
 - Computes SHA-256 hashes for each script
 - Creates .cupcake/.trust manifest
 - Enables trust mode for future executions
@@ -216,16 +320,15 @@ Update the trust manifest after script modifications.
 cupcake trust update [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
-  --auto                Automatically approve all changes
+  --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
+  --yes                 Automatically approve all changes
   --dry-run            Show changes without updating
-  --log <FILE>         Log changes to file
 ```
 
 **Behavior**:
 - Compares current scripts against trust manifest
 - Shows all changes (modified, added, removed)
-- Prompts for confirmation (unless --auto)
+- Prompts for confirmation (unless --yes)
 - Updates manifest with new hashes
 
 **Example Output**:
@@ -249,14 +352,13 @@ Verify current scripts against the trust manifest without updating.
 cupcake trust verify [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
+  --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
   --verbose             Show verification details for each script
 ```
 
 **Exit Codes**:
 - 0: All scripts match manifest
 - 1: One or more scripts modified
-- 2: Trust not initialized
 
 ### `cupcake trust list`
 
@@ -266,8 +368,9 @@ Display all currently trusted scripts.
 cupcake trust list [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
-  --format <FORMAT>    Output format [json|table|yaml] [default: table]
+  --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
+  --modified           Show only modified scripts
+  --hashes             Show script hashes
 ```
 
 **Example Output**:
@@ -293,7 +396,7 @@ Temporarily disable trust verification (converts to standard mode).
 cupcake trust disable [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
+  --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
 
 Warning: This disables script integrity verification!
 Continue? [y/N]: 
@@ -307,7 +410,7 @@ Re-enable trust verification (requires existing manifest).
 cupcake trust enable [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
+  --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
   --verify              Verify all scripts before enabling
 ```
 
@@ -319,7 +422,7 @@ Remove trust manifest and disable trust mode.
 cupcake trust reset [OPTIONS]
 
 Options:
-  --policy-dir <PATH>   Path to .cupcake directory [default: .cupcake]
+  --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
   --force               Skip confirmation prompt
 
 Warning: This will delete the trust manifest!
@@ -346,7 +449,7 @@ cupcake trust init
 # ✓ Trust mode enabled with 8 scripts protected
 
 # 5. Test your setup
-cat test-event.json | cupcake eval --policy-dir .cupcake
+cat test-event.json | cupcake eval --project-dir .cupcake
 ```
 
 ### Development Iteration
@@ -356,7 +459,7 @@ cat test-event.json | cupcake eval --policy-dir .cupcake
 vim ./scripts/validation.sh
 
 # Try to run Cupcake - it detects the change
-cat event.json | cupcake eval --policy-dir .cupcake
+cat event.json | cupcake eval --project-dir .cupcake
 # ERROR: Script integrity violation!
 # ./scripts/validation.sh has been modified
 # Expected: sha256:abc123...
@@ -368,7 +471,7 @@ cupcake trust update
 # Shows diff, prompts for confirmation
 
 # Continue development
-cat event.json | cupcake eval --policy-dir .cupcake
+cat event.json | cupcake eval --project-dir .cupcake
 # ✓ Works normally
 ```
 
@@ -380,7 +483,7 @@ cupcake trust verify || exit 1
 
 # Auto-update trust in development branches
 if [ "$BRANCH" = "development" ]; then
-  cupcake trust update --auto --log trust-changes.log
+  cupcake trust update --yes
 fi
 
 # Strict verification in production
@@ -413,6 +516,19 @@ cupcake trust verify
 ```
 
 ## Security Properties
+
+### Security Summary
+
+**✅ Trust Mode Protects Against:**
+- TOCTOU (Time-of-Check-Time-of-Use) attacks
+- Unauthorized script modifications by AI agents
+- Script file tampering between approval and execution
+- Supply chain attacks via script substitution
+
+**❌ Trust Mode Does NOT Protect Against:**
+- Cupcake binary replacement or tampering
+- System-level compromises (root access)
+- Social engineering attacks on users
 
 ### What Trust Mode Provides
 

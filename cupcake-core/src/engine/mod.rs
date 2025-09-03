@@ -216,24 +216,7 @@ impl Engine {
         info!("WASM runtime initialized");
         
         // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
-        match crate::trust::TrustVerifier::new(&self.paths.root).await {
-            Ok(verifier) => {
-                info!("Trust mode ENABLED - script integrity verification active");
-                self.trust_verifier = Some(verifier);
-            }
-            Err(crate::trust::TrustError::NotInitialized) => {
-                info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
-                // Show startup notification for users
-                self.show_trust_startup_notification();
-            }
-            Err(e) => {
-                // Other errors are more serious but still don't fail engine init
-                warn!("Failed to initialize trust verifier: {}", e);
-                warn!("Continuing without trust verification");
-                // Also show startup notification since trust isn't working
-                self.show_trust_startup_notification();
-            }
-        }
+        self.initialize_trust_system().await;
         
         info!("Engine initialization complete");
         Ok(())
@@ -817,6 +800,69 @@ impl Engine {
         
         // Give the runtime a chance to start the spawned task
         tokio::task::yield_now().await;
+    }
+    
+    /// Initialize the trust system, respecting the mode setting
+    async fn initialize_trust_system(&mut self) {
+        let trust_path = self.paths.root.join(".cupcake").join(".trust");
+        
+        // First check if trust manifest exists
+        if !trust_path.exists() {
+            info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
+            self.show_trust_startup_notification();
+            return;
+        }
+        
+        // Load manifest to check mode
+        match crate::trust::TrustManifest::load(&trust_path) {
+            Ok(manifest) => {
+                // Check if trust is enabled or disabled
+                if manifest.is_enabled() {
+                    // Trust is enabled, create verifier
+                    match crate::trust::TrustVerifier::new(&self.paths.root).await {
+                        Ok(verifier) => {
+                            info!("Trust mode ENABLED - script integrity verification active");
+                            self.trust_verifier = Some(verifier);
+                        }
+                        Err(e) => {
+                            warn!("Failed to initialize trust verifier: {}", e);
+                            warn!("Continuing without trust verification");
+                            self.show_trust_startup_notification();
+                        }
+                    }
+                } else {
+                    // Trust exists but is disabled
+                    info!("Trust mode DISABLED by user - scripts will execute without verification");
+                    self.show_trust_disabled_notification();
+                    // Explicitly set verifier to None
+                    self.trust_verifier = None;
+                }
+            }
+            Err(crate::trust::TrustError::NotInitialized) => {
+                // This shouldn't happen since we checked file exists, but handle it
+                info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
+                self.show_trust_startup_notification();
+            }
+            Err(e) => {
+                // Manifest exists but can't be loaded (corruption, tampering, etc.)
+                warn!("Failed to load trust manifest: {}", e);
+                warn!("Continuing without trust verification for safety");
+                self.show_trust_startup_notification();
+            }
+        }
+    }
+    
+    /// Show notification when trust is disabled by user
+    fn show_trust_disabled_notification(&self) {
+        eprintln!("┌─────────────────────────────────────────────────────────┐");
+        eprintln!("│ Trust Mode: DISABLED                                    │");
+        eprintln!("│                                                         │");
+        eprintln!("│ ⚠️  Script integrity verification is OFF                │");
+        eprintln!("│ Scripts will execute without safety checks.            │");
+        eprintln!("│                                                         │");
+        eprintln!("│ To re-enable: cupcake trust enable                     │");
+        eprintln!("└─────────────────────────────────────────────────────────┘");
+        eprintln!();
     }
     
     /// Show startup notification about trust mode when it's not enabled

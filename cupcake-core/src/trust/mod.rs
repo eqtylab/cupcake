@@ -15,7 +15,7 @@ pub mod manifest;
 pub mod verifier;
 
 pub use error::TrustError;
-pub use manifest::TrustManifest;
+pub use manifest::{TrustManifest, TrustMode};
 pub use verifier::TrustVerifier;
 
 

@@ -11,6 +11,22 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+/// Trust verification mode
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum TrustMode {
+    /// Trust verification is enabled (default)
+    Enabled,
+    /// Trust verification is temporarily disabled
+    Disabled,
+}
+
+impl Default for TrustMode {
+    fn default() -> Self {
+        TrustMode::Enabled
+    }
+}
+
 /// Reference to a script that may be executed
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScriptReference {
@@ -233,6 +249,10 @@ pub struct TrustManifest {
     /// When this manifest was created/updated
     pub timestamp: DateTime<Utc>,
     
+    /// Trust mode (enabled/disabled)
+    #[serde(default)]
+    pub mode: TrustMode,
+    
     /// Hash of all policy files for completeness
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_hash: Option<String>,
@@ -255,6 +275,7 @@ impl TrustManifest {
         TrustManifest {
             version: crate::trust::TRUST_VERSION,
             timestamp: Utc::now(),
+            mode: TrustMode::Enabled,
             policy_hash: None,
             scripts,
             hmac: String::new(),
@@ -390,6 +411,24 @@ impl TrustManifest {
             }
         }
         None
+    }
+    
+    /// Check if trust verification is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.mode == TrustMode::Enabled
+    }
+    
+    /// Set the trust mode (enabled/disabled)
+    pub fn set_mode(&mut self, mode: TrustMode) -> Result<()> {
+        self.mode = mode;
+        self.timestamp = Utc::now();
+        // HMAC will be automatically updated when save() is called
+        Ok(())
+    }
+    
+    /// Get the current trust mode
+    pub fn mode(&self) -> TrustMode {
+        self.mode
     }
 }
 

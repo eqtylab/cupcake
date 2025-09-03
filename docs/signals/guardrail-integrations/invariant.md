@@ -106,9 +106,12 @@ import rego.v1
 deny contains decision if {
     input.signals.invariant_evaluation.safety_score < 0.8
     
+    # Format score for display (WASM doesn't support sprintf)
+    score_int := floor(input.signals.invariant_evaluation.safety_score * 100)
+    score_str := format_int(score_int, 10)
+    
     decision := {
-        "reason": sprintf("Safety score too low: %.2f (minimum: 0.8)", 
-                         [input.signals.invariant_evaluation.safety_score]),
+        "reason": concat("", ["Safety score too low: 0.", score_str, " (minimum: 0.8)"]),
         "severity": "HIGH",
         "rule_id": "INVARIANT-SAFETY-001"
     }
@@ -141,8 +144,7 @@ ask contains decision if {
         issue := input.signals.invariant_evaluation.security_issues[_]])
     
     decision := {
-        "reason": sprintf("Security concerns detected: %s. Continue anyway?", 
-                         [issues_text]),
+        "reason": concat("", ["Security concerns detected: ", issues_text, ". Continue anyway?"]),
         "severity": "MEDIUM",
         "rule_id": "INVARIANT-SEC-001"
     }

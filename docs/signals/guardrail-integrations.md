@@ -66,9 +66,10 @@ import rego.v1
 deny contains decision if {
     input.signals.nemo_evaluation.passed == false
     
+    violations_text := json.marshal(input.signals.nemo_evaluation.violations)
+    
     decision := {
-        "reason": sprintf("NeMo Guardrails detected safety violation: %v", 
-                         [input.signals.nemo_evaluation.violations]),
+        "reason": concat("", ["NeMo Guardrails detected safety violation: ", violations_text]),
         "severity": "HIGH",
         "rule_id": "GUARDRAIL-NEMO-001"
     }

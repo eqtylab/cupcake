@@ -117,8 +117,7 @@ deny contains decision if {
     input.signals.nemo_evaluation.passed == false
     
     decision := {
-        "reason": sprintf("NeMo Guardrails blocked: %s", 
-                         [input.signals.nemo_evaluation.explanation]),
+        "reason": concat("", ["NeMo Guardrails blocked: ", input.signals.nemo_evaluation.explanation]),
         "severity": "HIGH",
         "rule_id": "NEMO-BLOCK-001"
     }

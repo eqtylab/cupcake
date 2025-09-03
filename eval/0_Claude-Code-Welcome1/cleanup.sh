@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🧹 Cleaning up Cupcake evaluation environment"
+echo "Cleaning up Cupcake evaluation environment"
 echo "============================================="
 
 # Remove Claude Code settings
@@ -31,7 +31,7 @@ else
 fi
 
 echo ""
-echo "🎉 Cleanup complete!"
+echo "Cleanup complete!"
 echo ""
 echo "Next steps:"
 echo "1. Run './setup.sh' to reinitialize"

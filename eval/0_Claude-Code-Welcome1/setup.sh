@@ -1,8 +1,17 @@
 #!/bin/bash
 set -e
 
-echo "🧁 Cupcake Evaluation Setup"
+echo "Cupcake Evaluation Setup"
 echo "=========================="
+
+# Check if Rust/Cargo is installed
+if ! command -v cargo &> /dev/null; then
+    echo "❌ Cargo not found in PATH. Please install Rust:"
+    echo "   https://rustup.rs/"
+    exit 1
+else
+    echo "✅ Cargo found: $(cargo --version | head -n1)"
+fi
 
 # Check if OPA is installed
 if ! command -v opa &> /dev/null; then
@@ -10,7 +19,7 @@ if ! command -v opa &> /dev/null; then
     echo "   https://www.openpolicyagent.org/docs/latest/#running-opa"
     exit 1
 else
-    echo "✅ OPA found: $(opa version)"
+    echo "✅ OPA found: $(opa version | head -n1)"
 fi
 
 # Build Cupcake binary

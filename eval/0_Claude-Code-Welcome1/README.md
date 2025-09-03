@@ -2,6 +2,13 @@
 
 This walkthrough demonstrates Cupcake's policy enforcement in action with Claude Code hooks.
 
+## Prerequisites
+
+Before starting, ensure you have:
+- **Rust & Cargo** - [Install Rust](https://rustup.rs/)
+- **OPA (Open Policy Agent)** - [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
+- **Claude Code** - The AI coding assistant
+
 ## Setup
 
 ### 1. Initialize the Environment
@@ -65,7 +72,7 @@ Now, let's see if Claude can remove the blocking policy:
 
 **Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
 
-*[Screenshot placeholder: Claude Code blocked from accessing .cupcake directory]*
+![Claude blocked by rulebook_security_guardrails builtin](../../assets/welcome-block-builtin.png)
 
 ---
 

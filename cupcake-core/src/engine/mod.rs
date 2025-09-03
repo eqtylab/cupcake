@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::{debug, error, info, instrument, trace, warn};
 
-/// Project path resolution following .cupcake/ convention
+/// Project path resolution following .cupcake/ convention with optional global config
 #[derive(Debug, Clone)]
 pub struct ProjectPaths {
     /// Root project directory (contains .cupcake/)
@@ -30,11 +30,24 @@ pub struct ProjectPaths {
     pub actions: PathBuf,
     /// Guidebook file (.cupcake/guidebook.yml)
     pub guidebook: PathBuf,
+    
+    // Global configuration paths (optional - may not exist)
+    /// Global config root directory
+    pub global_root: Option<PathBuf>,
+    /// Global policies directory
+    pub global_policies: Option<PathBuf>,
+    /// Global signals directory
+    pub global_signals: Option<PathBuf>,
+    /// Global actions directory
+    pub global_actions: Option<PathBuf>,
+    /// Global guidebook file
+    pub global_guidebook: Option<PathBuf>,
 }
 
 impl ProjectPaths {
     /// Resolve project paths using convention over configuration
     /// Accepts either project root OR .cupcake/ directory for flexibility
+    /// Also discovers global configuration if present
     pub fn resolve(input_path: impl AsRef<Path>) -> Result<Self> {
         let input = input_path.as_ref().to_path_buf();
         
@@ -55,6 +68,29 @@ impl ProjectPaths {
             (root, cupcake_dir)
         };
         
+        // Discover global configuration (optional - may not exist)
+        let global_config = global_config::GlobalPaths::discover()
+            .unwrap_or_else(|e| {
+                debug!("Failed to discover global config: {}", e);
+                None
+            });
+        
+        // Extract global paths if config exists
+        let (global_root, global_policies, global_signals, global_actions, global_guidebook) = 
+            if let Some(global) = global_config {
+                info!("Global configuration discovered at {:?}", global.root);
+                (
+                    Some(global.root),
+                    Some(global.policies),
+                    Some(global.signals),
+                    Some(global.actions),
+                    Some(global.guidebook),
+                )
+            } else {
+                debug!("No global configuration found - using project config only");
+                (None, None, None, None, None)
+            };
+        
         Ok(ProjectPaths {
             root,
             cupcake_dir: cupcake_dir.clone(),
@@ -62,6 +98,11 @@ impl ProjectPaths {
             signals: cupcake_dir.join("signals"),
             actions: cupcake_dir.join("actions"),
             guidebook: cupcake_dir.join("guidebook.yml"),
+            global_root,
+            global_policies,
+            global_signals,
+            global_actions,
+            global_guidebook,
         })
     }
 }
@@ -76,6 +117,7 @@ pub mod wasm_runtime;
 pub mod guidebook;
 pub mod builtins;
 pub mod trace;
+pub mod global_config;
 
 // Re-export metadata types for public API
 pub use metadata::{RoutingDirective, PolicyMetadata};
@@ -120,7 +162,21 @@ pub struct Engine {
     /// Optional trust verifier for script integrity
     trust_verifier: Option<crate::trust::TrustVerifier>,
     
-    // Removed: No longer need entrypoint mapping in Hybrid Model
+    // Global configuration support (optional - may not exist)
+    /// Global policies routing map
+    global_routing_map: HashMap<String, Vec<PolicyUnit>>,
+    
+    /// Global WASM module (compiled separately)
+    global_wasm_module: Option<Vec<u8>>,
+    
+    /// Global WASM runtime instance
+    global_wasm_runtime: Option<wasm_runtime::WasmRuntime>,
+    
+    /// List of global policies
+    global_policies: Vec<PolicyUnit>,
+    
+    /// Optional global guidebook
+    global_guidebook: Option<guidebook::Guidebook>,
 }
 
 impl Engine {
@@ -134,7 +190,7 @@ impl Engine {
         info!("Project root: {:?}", paths.root);
         info!("Policies directory: {:?}", paths.policies);
         
-        // Create engine instance
+        // Create engine instance with both project and global support
         let mut engine = Self {
             paths,
             routing_map: HashMap::new(),
@@ -143,6 +199,12 @@ impl Engine {
             policies: Vec::new(),
             guidebook: None,
             trust_verifier: None,
+            // Initialize global fields (will be populated if global config exists)
+            global_routing_map: HashMap::new(),
+            global_wasm_module: None,
+            global_wasm_runtime: None,
+            global_policies: Vec::new(),
+            global_guidebook: None,
         };
         
         // Initialize the engine (scan, parse, compile)
@@ -155,13 +217,19 @@ impl Engine {
     async fn initialize(&mut self) -> Result<()> {
         info!("Starting engine initialization...");
         
-        // Step 0: Load guidebook first to get builtin configuration
+        // Step 0A: Initialize global configuration first (if it exists)
+        if self.paths.global_root.is_some() {
+            info!("Global configuration detected - initializing global policies first");
+            self.initialize_global().await?;
+        }
+        
+        // Step 0B: Load project guidebook to get builtin configuration
         self.guidebook = Some(guidebook::Guidebook::load_with_conventions(
             &self.paths.guidebook,
             &self.paths.signals,
             &self.paths.actions,
         ).await?);
-        info!("Guidebook loaded with convention-based discovery");
+        info!("Project guidebook loaded with convention-based discovery");
         
         // Get list of enabled builtins for filtering
         let enabled_builtins = self.guidebook
@@ -222,6 +290,103 @@ impl Engine {
         Ok(())
     }
     
+    /// Initialize global configuration (policies, guidebook, WASM)
+    async fn initialize_global(&mut self) -> Result<()> {
+        info!("Initializing global configuration...");
+        
+        // Verify we have global paths
+        let global_policies_path = self.paths.global_policies.as_ref()
+            .context("Global policies path not set")?;
+        let global_guidebook_path = self.paths.global_guidebook.as_ref()
+            .context("Global guidebook path not set")?;
+        
+        // Load global guidebook
+        if global_guidebook_path.exists() {
+            self.global_guidebook = Some(guidebook::Guidebook::load_with_conventions(
+                global_guidebook_path,
+                self.paths.global_signals.as_ref().unwrap(),
+                self.paths.global_actions.as_ref().unwrap(),
+            ).await?);
+            info!("Global guidebook loaded");
+        }
+        
+        // Get global enabled builtins
+        let global_enabled_builtins = self.global_guidebook
+            .as_ref()
+            .map(|g| g.builtins.enabled_builtins())
+            .unwrap_or_default();
+        
+        // Scan for global policies
+        if global_policies_path.exists() {
+            let global_policy_files = scanner::scan_policies_with_filter(
+                global_policies_path,
+                &global_enabled_builtins
+            ).await?;
+            info!("Found {} global policy files", global_policy_files.len());
+            
+            // Parse global policies
+            for path in global_policy_files {
+                match self.parse_policy(&path).await {
+                    Ok(mut unit) => {
+                        // Transform package name to global namespace
+                        if !unit.package_name.starts_with("cupcake.global.") {
+                            // Replace "cupcake.policies" with "cupcake.global.policies"
+                            unit.package_name = unit.package_name
+                                .replace("cupcake.policies", "cupcake.global.policies")
+                                .replace("cupcake.system", "cupcake.global.system");
+                        }
+                        info!("Successfully parsed global policy: {} from {:?}", unit.package_name, path);
+                        self.global_policies.push(unit);
+                    }
+                    Err(e) => {
+                        error!("Failed to parse global policy at {:?}: {}", path, e);
+                    }
+                }
+            }
+            
+            if !self.global_policies.is_empty() {
+                // Check if we have non-system policies (OPA panics with only system policies)
+                info!("Global policies found: {:?}", self.global_policies.iter().map(|p| &p.package_name).collect::<Vec<_>>());
+                let non_system_count = self.global_policies.iter()
+                    .filter(|p| !p.package_name.ends_with(".system"))
+                    .count();
+                    
+                if non_system_count > 0 {
+                    // Build global routing map
+                    self.build_global_routing_map();
+                    info!("Built global routing map with {} entries", self.global_routing_map.len());
+                    
+                    info!("Found {} global policies ({} non-system) - compiling global WASM module", 
+                        self.global_policies.len(), non_system_count);
+                    
+                    // Compile global policies to WASM
+                    let global_wasm_bytes = compiler::compile_policies_with_namespace(
+                        &self.global_policies,
+                        "cupcake.global.system"
+                    ).await?;
+                    info!("Successfully compiled global WASM module ({} bytes)", global_wasm_bytes.len());
+                    self.global_wasm_module = Some(global_wasm_bytes.clone());
+                    
+                    // Initialize global WASM runtime with global namespace
+                    self.global_wasm_runtime = Some(
+                        wasm_runtime::WasmRuntime::new_with_namespace(&global_wasm_bytes, "cupcake.global.system")?
+                    );
+                    info!("Global WASM runtime initialized with namespace: cupcake.global.system");
+                } else {
+                    info!("Only system policies found in global config - skipping global WASM compilation");
+                }
+            }
+        }
+        
+        info!("Global configuration initialization complete");
+        Ok(())
+    }
+    
+    /// Build routing map for global policies
+    fn build_global_routing_map(&mut self) {
+        Self::build_routing_map_generic(&self.global_policies, &mut self.global_routing_map, "global");
+    }
+    
     /// Parse a single policy file to extract selector and metadata
     async fn parse_policy(&self, path: &Path) -> Result<PolicyUnit> {
         let content = tokio::fs::read_to_string(path)
@@ -243,8 +408,9 @@ impl Engine {
                 metadata::validate_routing_directive(routing_directive, &package_name)
                     .with_context(|| format!("Invalid routing directive in policy {}", package_name))?;
                 routing_directive.clone()
-            } else if package_name.starts_with("cupcake.system") {
+            } else if package_name.ends_with(".system") {
                 // System policies don't need routing - they're aggregation endpoints
+                // This covers both cupcake.system and cupcake.global.system
                 debug!("System policy {} has no routing directive (this is expected)", package_name);
                 RoutingDirective::default()
             } else {
@@ -253,7 +419,7 @@ impl Engine {
             }
         } else {
             // System policies are allowed to have no metadata
-            if package_name.starts_with("cupcake.system") {
+            if package_name.ends_with(".system") {
                 debug!("System policy {} has no metadata block (this is allowed)", package_name);
                 RoutingDirective::default()
             } else {
@@ -272,41 +438,51 @@ impl Engine {
     
     /// Build the routing map from parsed policies
     fn build_routing_map(&mut self) {
-        self.routing_map.clear();
+        Self::build_routing_map_generic(&self.policies, &mut self.routing_map, "project");
+    }
+    
+    /// Generic method to build routing maps for both global and project policies
+    fn build_routing_map_generic(
+        policies: &[PolicyUnit],
+        routing_map: &mut HashMap<String, Vec<PolicyUnit>>,
+        map_type: &str
+    ) {
+        routing_map.clear();
         
-        for policy in &self.policies {
+        for policy in policies {
             // Create all routing keys for this policy from metadata
             let routing_keys = routing::create_all_routing_keys_from_metadata(&policy.routing);
             
             // Add policy to the routing map for each key
             for key in routing_keys {
-                self.routing_map
-                    .entry(key)
+                routing_map
+                    .entry(key.clone())
                     .or_insert_with(Vec::new)
                     .push(policy.clone());
+                debug!("Added {} policy {} to routing key: {}", map_type, policy.package_name, key);
             }
         }
         
         // Handle wildcard routes - also add them to specific tool lookups
         // This allows "PreToolUse:Bash" to find both specific and wildcard policies
-        let wildcard_keys: Vec<String> = self.routing_map.keys()
+        let wildcard_keys: Vec<String> = routing_map.keys()
             .filter(|k| k.ends_with(":*"))
             .cloned()
             .collect();
             
         for wildcard_key in wildcard_keys {
-            if let Some(wildcard_policies) = self.routing_map.get(&wildcard_key).cloned() {
+            if let Some(wildcard_policies) = routing_map.get(&wildcard_key).cloned() {
                 let event_prefix = wildcard_key.strip_suffix(":*").unwrap();
                 
                 // Find all specific tool keys for this event
-                let specific_keys: Vec<String> = self.routing_map.keys()
+                let specific_keys: Vec<String> = routing_map.keys()
                     .filter(|k| k.starts_with(&format!("{}:", event_prefix)) && !k.ends_with(":*"))
                     .cloned()
                     .collect();
                 
                 // Add wildcard policies to each specific tool key
                 for specific_key in specific_keys {
-                    self.routing_map
+                    routing_map
                         .entry(specific_key)
                         .or_insert_with(Vec::new)
                         .extend(wildcard_policies.clone());
@@ -315,7 +491,7 @@ impl Engine {
         }
         
         // Log the routing map for verification
-        for (key, policies) in &self.routing_map {
+        for (key, policies) in routing_map {
             debug!(
                 "Route '{}' -> {} policies: [{}]",
                 key,
@@ -336,6 +512,16 @@ impl Engine {
     /// Get the compiled WASM module (for verification/testing)
     pub fn wasm_module(&self) -> Option<&[u8]> {
         self.wasm_module.as_deref()
+    }
+    
+    /// Get the global routing map (for verification/testing)
+    pub fn global_routing_map(&self) -> &HashMap<String, Vec<PolicyUnit>> {
+        &self.global_routing_map
+    }
+    
+    /// Get the compiled global WASM module (for verification/testing)
+    pub fn global_wasm_module(&self) -> Option<&[u8]> {
+        self.global_wasm_module.as_deref()
     }
     
     /// Find policies that match the given event criteria
@@ -424,6 +610,56 @@ impl Engine {
             
         info!("Evaluating event: {} tool: {:?}", event_name, tool_name);
         
+        // PHASE 1: Evaluate global policies first (if they exist)
+        if self.global_wasm_runtime.is_some() {
+            debug!("Phase 1: Evaluating global policies");
+            let (global_decision, global_decision_set) = self.evaluate_global(input, event_name, tool_name).await?;
+            
+            // Early termination on global blocking decisions
+            match &global_decision {
+                decision::FinalDecision::Halt { reason } => {
+                    info!("Global policy HALT - immediate termination: {}", reason);
+                    // Execute global actions before returning
+                    if let Some(ref global_guidebook) = self.global_guidebook {
+                        info!("Global guidebook found - executing global actions");
+                        self.execute_actions_with_guidebook(&global_decision, &global_decision_set, global_guidebook).await;
+                    } else {
+                        warn!("No global guidebook - cannot execute global actions!");
+                    }
+                    current_span.record("final_decision", "GlobalHalt");
+                    current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+                    return Ok(global_decision);
+                }
+                decision::FinalDecision::Deny { reason } => {
+                    info!("Global policy DENY - immediate termination: {}", reason);
+                    // Execute global actions before returning
+                    if let Some(ref global_guidebook) = self.global_guidebook {
+                        self.execute_actions_with_guidebook(&global_decision, &global_decision_set, global_guidebook).await;
+                    }
+                    current_span.record("final_decision", "GlobalDeny");
+                    current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+                    return Ok(global_decision);
+                }
+                decision::FinalDecision::Block { reason } => {
+                    info!("Global policy BLOCK - immediate termination: {}", reason);
+                    // Execute global actions before returning
+                    if let Some(ref global_guidebook) = self.global_guidebook {
+                        self.execute_actions_with_guidebook(&global_decision, &global_decision_set, global_guidebook).await;
+                    }
+                    current_span.record("final_decision", "GlobalBlock");
+                    current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+                    return Ok(global_decision);
+                }
+                _ => {
+                    debug!("Global policies did not halt/deny/block - proceeding to project evaluation");
+                    // TODO: In the future, preserve Ask/Allow/Context for merging with project decisions
+                }
+            }
+        }
+        
+        // PHASE 2: Evaluate project policies
+        debug!("Phase 2: Evaluating project policies");
+        
         // Step 1: Route - find relevant policies (collect owned PolicyUnits)
         let matched_policies: Vec<PolicyUnit> = self.route_event(event_name, tool_name)
             .into_iter()
@@ -481,6 +717,120 @@ impl Engine {
         );
         
         Ok(final_decision)
+    }
+    
+    /// Evaluate global policies
+    async fn evaluate_global(
+        &self,
+        input: &Value,
+        event_name: &str,
+        tool_name: Option<&str>,
+    ) -> Result<(decision::FinalDecision, decision::DecisionSet)> {
+        // Route through global policies
+        let global_matched: Vec<PolicyUnit> = self.route_global_event(event_name, tool_name)
+            .into_iter()
+            .cloned()
+            .collect();
+        
+        if global_matched.is_empty() {
+            debug!("No global policies matched for this event");
+            return Ok((
+                decision::FinalDecision::Allow { context: vec![] },
+                decision::DecisionSet::default()
+            ));
+        }
+        
+        info!("Found {} matching global policies", global_matched.len());
+        
+        // Gather signals for global policies (using global guidebook if available)
+        let enriched_input = if let Some(ref global_guidebook) = self.global_guidebook {
+            self.gather_signals_with_guidebook(input, &global_matched, global_guidebook).await?
+        } else {
+            input.clone()
+        };
+        
+        // Evaluate using global WASM runtime
+        let global_runtime = self.global_wasm_runtime.as_ref()
+            .context("Global WASM runtime not initialized")?;
+        
+        let global_decision_set = global_runtime.query_decision_set(&enriched_input)?;
+        debug!("Global DecisionSet: {} total decisions", global_decision_set.decision_count());
+        
+        // Synthesize global decision
+        let global_decision = synthesis::SynthesisEngine::synthesize(&global_decision_set)?;
+        info!("Global policy decision: {:?}", global_decision);
+        
+        Ok((global_decision, global_decision_set))
+    }
+    
+    /// Route event through global policies
+    fn route_global_event(&self, event_name: &str, tool_name: Option<&str>) -> Vec<&PolicyUnit> {
+        let key = routing::create_event_key(event_name, tool_name);
+        
+        // First try the specific key
+        let mut result: Vec<&PolicyUnit> = self.global_routing_map
+            .get(&key)
+            .map(|policies| policies.iter().collect())
+            .unwrap_or_default();
+            
+        // If we have a tool name, also check for wildcards
+        if tool_name.is_some() {
+            let wildcard_key = event_name.to_string();
+            if let Some(wildcard_policies) = self.global_routing_map.get(&wildcard_key) {
+                result.extend(wildcard_policies.iter());
+            }
+        }
+        
+        debug!("Routed to {} global policies", result.len());
+        result
+    }
+    
+    /// Gather signals with a specific guidebook
+    async fn gather_signals_with_guidebook(
+        &self,
+        input: &Value,
+        matched_policies: &[PolicyUnit],
+        guidebook: &guidebook::Guidebook,
+    ) -> Result<Value> {
+        // Collect required signals
+        let mut required_signals = std::collections::HashSet::new();
+        for policy in matched_policies {
+            for signal_name in &policy.routing.required_signals {
+                required_signals.insert(signal_name.clone());
+            }
+        }
+        
+        if required_signals.is_empty() {
+            return Ok(input.clone());
+        }
+        
+        let signal_names: Vec<String> = required_signals.into_iter().collect();
+        info!("Gathering {} signals from guidebook", signal_names.len());
+        
+        // Execute signals using the provided guidebook
+        let signal_data = self.execute_signals_from_guidebook(&signal_names, guidebook).await
+            .unwrap_or_else(|e| {
+                warn!("Signal execution failed: {}", e);
+                std::collections::HashMap::new()
+            });
+        
+        // Merge signal data into input
+        let mut enriched_input = input.clone();
+        if let Some(obj) = enriched_input.as_object_mut() {
+            obj.insert("signals".to_string(), serde_json::json!(signal_data));
+        }
+        
+        Ok(enriched_input)
+    }
+    
+    /// Execute signals from a specific guidebook
+    async fn execute_signals_from_guidebook(
+        &self,
+        signal_names: &[String],
+        guidebook: &guidebook::Guidebook,
+    ) -> Result<std::collections::HashMap<String, Value>> {
+        // Use the guidebook's execute_signals method directly
+        guidebook.execute_signals(signal_names).await
     }
     
     /// Evaluate using the Hybrid Model single aggregation entrypoint
@@ -670,32 +1020,54 @@ impl Engine {
     }
     
     /// Execute actions based on the final decision and decision set
-    async fn execute_actions(&self, final_decision: &decision::FinalDecision, decision_set: &decision::DecisionSet) {
-        let Some(guidebook) = &self.guidebook else {
-            debug!("No guidebook available - no actions to execute");
-            return;
+    /// Execute actions with a specific guidebook
+    async fn execute_actions_with_guidebook(
+        &self, 
+        final_decision: &decision::FinalDecision, 
+        decision_set: &decision::DecisionSet,
+        guidebook: &guidebook::Guidebook
+    ) {
+        info!("execute_actions_with_guidebook called with decision: {:?}", final_decision);
+        
+        // Determine working directory based on whether this is a global guidebook
+        // Check if we're using the global guidebook by comparing pointers
+        let is_global = self.global_guidebook.as_ref()
+            .map(|gb| std::ptr::eq(gb as *const _, guidebook as *const _))
+            .unwrap_or(false);
+        
+            
+        let working_dir = if is_global {
+            // For global actions, use global config root if available
+            if let Ok(Some(global_paths)) = global_config::GlobalPaths::discover() {
+                global_paths.root
+            } else {
+                self.paths.root.clone()
+            }
+        } else {
+            self.paths.root.clone()
         };
         
         // Execute actions based on decision type
         match final_decision {
             decision::FinalDecision::Halt { reason } => {
                 info!("Executing actions for HALT decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.halts, guidebook).await;
+                info!("Number of halt decisions in set: {}", decision_set.halts.len());
+                self.execute_rule_specific_actions(&decision_set.halts, guidebook, &working_dir).await;
             },
             decision::FinalDecision::Deny { reason } => {
                 info!("Executing actions for DENY decision: {}", reason);
                 
                 // Execute general denial actions
                 for action in &guidebook.actions.on_any_denial {
-                    self.execute_single_action(action).await;
+                    self.execute_single_action(action, &working_dir).await;
                 }
                 
                 // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions(&decision_set.denials, guidebook).await;
+                self.execute_rule_specific_actions(&decision_set.denials, guidebook, &working_dir).await;
             },
             decision::FinalDecision::Block { reason } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.blocks, guidebook).await;
+                self.execute_rule_specific_actions(&decision_set.blocks, guidebook, &working_dir).await;
             },
             decision::FinalDecision::Ask { .. } => {
                 debug!("ASK decision - no automatic actions");
@@ -708,21 +1080,31 @@ impl Engine {
             },
         }
     }
+
+    /// Execute actions using project guidebook (for backward compatibility)
+    async fn execute_actions(&self, final_decision: &decision::FinalDecision, decision_set: &decision::DecisionSet) {
+        let Some(guidebook) = &self.guidebook else {
+            debug!("No guidebook available - no actions to execute");
+            return;
+        };
+        
+        self.execute_actions_with_guidebook(final_decision, decision_set, guidebook).await;
+    }
     
     /// Execute actions for a specific set of decision objects (by rule ID)
-    async fn execute_rule_specific_actions(&self, decisions: &[decision::DecisionObject], guidebook: &guidebook::Guidebook) {
-        info!("Checking actions for {} decision objects", decisions.len());
+    async fn execute_rule_specific_actions(&self, decisions: &[decision::DecisionObject], guidebook: &guidebook::Guidebook, working_dir: &std::path::PathBuf) {
+        info!("execute_rule_specific_actions: Checking actions for {} decision objects", decisions.len());
         info!("Available action rules: {:?}", guidebook.actions.by_rule_id.keys().collect::<Vec<_>>());
-        
         
         for decision_obj in decisions {
             let rule_id = &decision_obj.rule_id;
             info!("Looking for actions for rule ID: {}", rule_id);
             
             if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
-                info!("Executing {} actions for rule {}", actions.len(), rule_id);
+                info!("Found {} actions for rule {}", actions.len(), rule_id);
                 for action in actions {
-                    self.execute_single_action(action).await;
+                    info!("About to execute action: {}", action.command);
+                    self.execute_single_action(action, working_dir).await;
                 }
             } else {
                 info!("No actions found for rule ID: {}", rule_id);
@@ -731,8 +1113,8 @@ impl Engine {
     }
     
     /// Execute a single action command
-    async fn execute_single_action(&self, action: &guidebook::ActionConfig) {
-        debug!("Executing action: {}", action.command);
+    async fn execute_single_action(&self, action: &guidebook::ActionConfig, working_dir: &std::path::PathBuf) {
+        debug!("Executing action: {} in directory: {:?}", action.command, working_dir);
         
         // Verify trust if enabled
         if let Some(verifier) = &self.trust_verifier {
@@ -743,8 +1125,8 @@ impl Engine {
             }
         }
         
-        // Get the project root as working directory
-        let project_root = self.paths.root.clone();
+        // Use the provided working directory
+        let working_dir = working_dir.clone();
         
         // Execute action asynchronously without blocking
         let command = action.command.clone();
@@ -763,20 +1145,20 @@ impl Engine {
                 // It's a script file, execute directly
                 // Extract the directory from the script path to use as working directory
                 let script_path = std::path::Path::new(&command);
-                let working_dir = script_path.parent().and_then(|p| p.parent()).and_then(|p| p.parent())
-                    .unwrap_or(&project_root);
+                let script_working_dir = script_path.parent().and_then(|p| p.parent()).and_then(|p| p.parent())
+                    .unwrap_or(&working_dir);
                 
                 tokio::process::Command::new(&command)
-                    .current_dir(working_dir)
+                    .current_dir(script_working_dir)
                     .output()
                     .await
             } else {
                 // It's a shell command, use sh -c
-                // Use project root as working directory for consistency
+                // Use the provided working directory
                 let result = tokio::process::Command::new("sh")
                     .arg("-c")
                     .arg(&command)
-                    .current_dir(&project_root)
+                    .current_dir(&working_dir)
                     .output()
                     .await;
                 result

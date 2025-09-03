@@ -63,11 +63,18 @@ fn get_memory_config() -> (u32, Option<u32>) {
 pub struct WasmRuntime {
     engine: Engine,
     module: Module,
+    /// The namespace for this runtime (e.g., "cupcake.system" or "cupcake.global.system")
+    namespace: String,
 }
 
 impl WasmRuntime {
-    /// Create a new runtime from compiled WASM bytes
+    /// Create a new runtime from compiled WASM bytes with default namespace
     pub fn new(wasm_bytes: &[u8]) -> Result<Self> {
+        Self::new_with_namespace(wasm_bytes, "cupcake.system")
+    }
+    
+    /// Create a new runtime from compiled WASM bytes with specific namespace
+    pub fn new_with_namespace(wasm_bytes: &[u8], namespace: &str) -> Result<Self> {
         debug!("Initializing WASM runtime");
         
         // Configure engine with memory limits
@@ -84,6 +91,7 @@ impl WasmRuntime {
         Ok(Self {
             engine,
             module,
+            namespace: namespace.to_string(),
         })
     }
     
@@ -105,7 +113,7 @@ impl WasmRuntime {
         input: &Value,
     ) -> Result<DecisionSet> {
         let start = Instant::now();
-        debug!("Querying DecisionSet from cupcake.system.evaluate entrypoint");
+        debug!("Querying DecisionSet from {}.evaluate entrypoint", self.namespace);
         
         // Use the low-level evaluate_raw function with entrypoint 0 (single entrypoint)
         let result_json = self.evaluate_raw(input, 0)?;

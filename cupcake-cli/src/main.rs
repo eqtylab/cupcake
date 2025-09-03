@@ -50,8 +50,12 @@ enum Command {
         policy_dir: PathBuf,
     },
     
-    /// Initialize a new Cupcake project in the current directory
-    Init,
+    /// Initialize a new Cupcake project
+    Init {
+        /// Initialize global (machine-wide) configuration instead of project
+        #[clap(long)]
+        global: bool,
+    },
     
     /// Manage script trust and integrity verification
     Trust {
@@ -159,8 +163,8 @@ async fn main() -> Result<()> {
         Command::Verify { policy_dir } => {
             verify_command(policy_dir).await
         }
-        Command::Init => {
-            init_command().await
+        Command::Init { global } => {
+            init_command(global).await
         }
         Command::Trust { command } => {
             command.execute().await
@@ -240,48 +244,279 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
 }
 
 async fn verify_command(policy_dir: PathBuf) -> Result<()> {
+    use cupcake_core::engine::global_config::GlobalPaths;
+    
     info!("Verifying Cupcake engine configuration...");
     info!("Policy directory: {:?}", policy_dir);
     
+    // Check for global configuration
+    println!("\n=== Global Configuration ===");
+    match GlobalPaths::discover()? {
+        Some(global_paths) if global_paths.is_initialized() => {
+            println!("✅ Global config found at: {:?}", global_paths.root);
+            
+            // Count global policies
+            if let Ok(entries) = fs::read_dir(&global_paths.policies) {
+                let policy_count = entries
+                    .filter_map(Result::ok)
+                    .filter(|e| {
+                        e.path().extension()
+                            .and_then(|s| s.to_str())
+                            .map(|s| s == "rego")
+                            .unwrap_or(false)
+                    })
+                    .count();
+                println!("   Policies: {} global policies", policy_count);
+            }
+        }
+        Some(global_paths) => {
+            println!("❌ Global config not initialized (location would be: {:?})", global_paths.root);
+            println!("   Run 'cupcake init --global' to initialize");
+        }
+        None => {
+            println!("❌ No global config location available");
+            println!("   Set CUPCAKE_GLOBAL_CONFIG or run 'cupcake init --global'");
+        }
+    }
+    
     // Initialize the engine - MUST succeed or we exit
+    println!("\n=== Project Configuration ===");
     let engine = match engine::Engine::new(&policy_dir).await {
         Ok(e) => {
-            info!("Engine initialized successfully");
+            println!("✅ Engine initialized successfully");
             e
         }
         Err(e) => {
             error!("Fatal: Cupcake engine failed to initialize: {:#}", e);
-            eprintln!("\nError: Could not start the Cupcake engine.");
-            eprintln!("Please ensure the OPA CLI is installed and accessible in your system's PATH.");
-            eprintln!("You can download it from: https://www.openpolicyagent.org/docs/latest/#running-opa");
+            eprintln!("\n❌ Error: Could not start the Cupcake engine.");
+            eprintln!("   Please ensure the OPA CLI is installed and accessible in your system's PATH.");
+            eprintln!("   You can download it from: https://www.openpolicyagent.org/docs/latest/#running-opa");
             std::process::exit(1);
         }
     };
     
-    // Display routing map
-    info!("=== Routing Map ===");
+    // Display routing maps
+    println!("\n=== Project Routing Map ===");
     for (key, policies) in engine.routing_map() {
-        info!("  {} -> {} policies", key, policies.len());
+        println!("  {} -> {} policies", key, policies.len());
         for policy in policies {
-            info!("    - {}", policy.package_name);
+            println!("    - {}", policy.package_name);
         }
     }
     
-    // Check WASM module - it MUST exist
-    if let Some(wasm) = engine.wasm_module() {
-        info!("=== WASM Module ===");
-        info!("  Size: {} bytes", wasm.len());
-        info!("  Compilation: SUCCESS");
-    } else {
-        // This should never happen now - engine initialization would have failed
-        error!("CRITICAL: Engine has no WASM module - this should be impossible");
+    // Display global routing map if it exists
+    if !engine.global_routing_map().is_empty() {
+        println!("\n=== Global Routing Map ===");
+        for (key, policies) in engine.global_routing_map() {
+            println!("  {} -> {} policies", key, policies.len());
+            for policy in policies {
+                println!("    - {}", policy.package_name);
+            }
+        }
     }
     
-    info!("Verification complete!");
+    // Check WASM modules
+    println!("\n=== WASM Compilation ===");
+    if let Some(wasm) = engine.wasm_module() {
+        println!("  Project WASM: {} bytes ✅", wasm.len());
+    } else {
+        // This should never happen now - engine initialization would have failed
+        println!("  Project WASM: MISSING ❌");
+    }
+    
+    if let Some(global_wasm) = engine.global_wasm_module() {
+        println!("  Global WASM:  {} bytes ✅", global_wasm.len());
+    } else {
+        println!("  Global WASM:  Not compiled (no global policies or only system policies)");
+    }
+    
+    println!("\n✅ Verification complete!");
     Ok(())
 }
 
-async fn init_command() -> Result<()> {
+async fn init_command(global: bool) -> Result<()> {
+    if global {
+        // Initialize global configuration
+        init_global_config().await
+    } else {
+        // Initialize project configuration
+        init_project_config().await
+    }
+}
+
+async fn init_global_config() -> Result<()> {
+    use cupcake_core::engine::global_config::GlobalPaths;
+    
+    // Discover or create global config location
+    let global_paths = match GlobalPaths::discover()? {
+        Some(paths) => {
+            // Check if already initialized
+            if paths.is_initialized() {
+                println!("Global Cupcake configuration already initialized at: {:?}", paths.root);
+                println!("To reinitialize, first remove the existing configuration.");
+                return Ok(());
+            }
+            paths
+        }
+        None => {
+            // Create default global config location using the same logic as discovery
+            use directories::ProjectDirs;
+            
+            let config_dir = if let Some(proj_dirs) = ProjectDirs::from("", "", "cupcake") {
+                // Use the project-specific config directory
+                proj_dirs.config_dir().to_path_buf()
+            } else {
+                // Fallback
+                dirs::home_dir()
+                    .context("Could not determine home directory")?
+                    .join(".config")
+                    .join("cupcake")
+            };
+            
+            GlobalPaths {
+                root: config_dir.clone(),
+                policies: config_dir.join("policies"),
+                guidebook: config_dir.join("guidebook.yml"),
+                signals: config_dir.join("signals"),
+                actions: config_dir.join("actions"),
+            }
+        }
+    };
+    
+    info!("Initializing global Cupcake configuration at: {:?}", global_paths.root);
+    
+    // Initialize the directory structure
+    global_paths.initialize()?;
+    
+    // Create system evaluate policy for global namespace
+    let system_dir = global_paths.policies.join("system");
+    fs::create_dir_all(&system_dir)?;
+    
+    fs::write(
+        system_dir.join("evaluate.rego"),
+        r#"# METADATA
+# scope: package
+# custom:
+#   entrypoint: true
+# title: Global System Evaluation Aggregator
+# description: |
+#   This is the global namespace system evaluation policy.
+#   It aggregates decision verbs from all global policies.
+package cupcake.global.system
+
+import rego.v1
+
+# Aggregate all decision verbs from global policies
+halts := collect_verbs("halt")
+denials := collect_verbs("deny")
+blocks := collect_verbs("block")
+asks := collect_verbs("ask")
+allow_overrides := collect_verbs("allow_override")
+add_context := collect_verbs("add_context")
+
+# Main evaluation entrypoint
+evaluate := {
+    "halts": halts,
+    "denials": denials,
+    "blocks": blocks,
+    "asks": asks,
+    "allow_overrides": allow_overrides,
+    "add_context": add_context
+}
+
+# Default implementation returns empty array
+default collect_verbs(_) := []
+
+# Collect all instances of a specific verb from all policies
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.global.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
+}
+"#
+    )?;
+    
+    // Create an example global policy
+    fs::write(
+        global_paths.policies.join("example_global.rego"),
+        r#"# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["UserPromptSubmit"]
+# title: Example Global Policy
+# description: |
+#   This is an example global policy that applies to all Cupcake projects
+#   on this machine. Global policies take absolute precedence over project policies.
+#   
+#   To activate: Uncomment the rules below and customize for your needs.
+package cupcake.global.policies.example
+
+import rego.v1
+
+# Example: Add context to all prompts
+# add_context contains "Global policy monitoring active"
+
+# Example: Deny dangerous operations globally
+# deny contains decision if {
+#     input.hook_event_name == "PreToolUse"
+#     input.tool_name == "Bash"
+#     contains(input.tool_input.command, "rm -rf /")
+#     decision := {
+#         "rule_id": "GLOBAL-SAFETY-001",
+#         "reason": "Dangerous system command blocked by global policy",
+#         "severity": "CRITICAL"
+#     }
+# }
+
+# Example: Halt on specific conditions
+# halt contains decision if {
+#     input.hook_event_name == "UserPromptSubmit"
+#     contains(lower(input.prompt), "malicious")
+#     decision := {
+#         "rule_id": "GLOBAL-SECURITY-001", 
+#         "reason": "Potentially malicious prompt detected",
+#         "severity": "CRITICAL"
+#     }
+# }
+"#
+    )?;
+    
+    // Create minimal guidebook
+    fs::write(
+        global_paths.guidebook.clone(),
+        r#"# Global Cupcake Configuration
+# This configuration applies to ALL Cupcake projects on this machine
+
+# Global signals - available to all global policies
+signals: {}
+
+# Global actions - triggered by global policy decisions  
+actions: {}
+
+# Global builtins - not typically used at global level
+builtins: {}
+"#
+    )?;
+    
+    println!("✅ Initialized global Cupcake configuration");
+    println!("   Location:      {:?}", global_paths.root);
+    println!("   Configuration: {:?}", global_paths.guidebook);
+    println!("   Add policies:  {:?}", global_paths.policies);
+    println!();
+    println!("   Global policies have absolute precedence over project policies.");
+    println!("   Edit example_global.rego to add your machine-wide policies.");
+    
+    Ok(())
+}
+
+async fn init_project_config() -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
     
     // If exists, we're done

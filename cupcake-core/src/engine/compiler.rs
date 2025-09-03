@@ -12,6 +12,14 @@ use super::PolicyUnit;
 
 /// Compile all policies into a single unified WASM module using OPA
 pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
+    compile_policies_with_namespace(policies, "cupcake.system").await
+}
+
+/// Compile policies with a specific namespace for the entrypoint
+pub async fn compile_policies_with_namespace(
+    policies: &[PolicyUnit], 
+    namespace: &str
+) -> Result<Vec<u8>> {
     if policies.is_empty() {
         bail!("No policies to compile");
     }
@@ -62,18 +70,30 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
             tokio::fs::create_dir_all(parent).await?;
         }
         
-        // Copy the policy file to temp dir
-        tokio::fs::copy(&policy.path, &dest_path)
+        // Read the policy content
+        let mut content = tokio::fs::read_to_string(&policy.path)
             .await
-            .context(format!("Failed to copy policy {:?}", policy.path))?;
+            .context(format!("Failed to read policy {:?}", policy.path))?;
         
-        // Debug: Read and print the copied file to verify content
-        let copied_content = tokio::fs::read_to_string(&dest_path).await?;
+        // If this is for global namespace and the package needs transformation
+        if namespace.starts_with("cupcake.global") && !content.contains("package cupcake.global") {
+            // Transform package declarations to global namespace
+            content = content
+                .replace("package cupcake.policies", "package cupcake.global.policies")
+                .replace("package cupcake.system", "package cupcake.global.system");
+            debug!("Transformed policy {} to global namespace", policy.package_name);
+        }
+        
+        // Write the (possibly transformed) content to temp dir
+        tokio::fs::write(&dest_path, &content)
+            .await
+            .context(format!("Failed to write policy {:?}", dest_path))?;
+        
         debug!("Policy {} content preview (first 200 chars): {}", 
             policy.package_name, 
-            &copied_content.chars().take(200).collect::<String>());
+            &content.chars().take(200).collect::<String>());
         
-        debug!("Copied policy {} to temp: {:?}", policy.package_name, dest_path);
+        debug!("Wrote policy {} to temp: {:?}", policy.package_name, dest_path);
     }
     
     // Build the OPA command for Hybrid Model
@@ -85,8 +105,9 @@ pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
     
     // Add the single aggregation entrypoint for the Hybrid Model
     // This entrypoint collects all decision verbs across all policies
-    opa_cmd.arg("-e").arg("cupcake/system/evaluate");
-    debug!("Added single Hybrid Model entrypoint: cupcake/system/evaluate");
+    let entrypoint = format!("{}/evaluate", namespace.replace('.', "/"));
+    opa_cmd.arg("-e").arg(&entrypoint);
+    debug!("Added single Hybrid Model entrypoint: {}", entrypoint);
     
     // Add all policy files
     opa_cmd.arg(temp_path);

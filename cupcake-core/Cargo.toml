@@ -42,6 +42,8 @@ pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
 insta = { workspace = true }
 criterion = { workspace = true }
+env_logger = "0.11"
+log = "0.4"
 
 [features]
 # This feature should ONLY be enabled for testing.

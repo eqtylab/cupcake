@@ -38,27 +38,8 @@ cp ../fixtures/git_workflow.rego .cupcake/policies/
 cp ../fixtures/context_injection.rego .cupcake/policies/
 echo "✅ Example policies copied"
 
-# Enable some builtins for demonstration
-echo "Configuring builtins..."
-# Replace the empty builtins section with our configuration
-sed -i '' '/^builtins:$/,/^$/c\
-builtins:\
-  protected_paths:\
-    enabled: true\
-    paths:\
-      - "/etc/"\
-      - "/System/"\
-      - "~/.ssh/"\
-    message: "System path modification blocked by policy"\
-\
-  git_pre_check:\
-    enabled: true\
-    checks:\
-      - command: "echo Validation passed"\
-        message: "Basic validation check"\
-' .cupcake/guidebook.yml
-
-echo "✅ Builtins configured"
+# Builtins are now pre-configured in the base template
+echo "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)"
 
 # Compile policies to WASM
 echo "Compiling policies to WASM..."

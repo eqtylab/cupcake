@@ -120,25 +120,14 @@ builtins:
   # Run validation before allowing git commits, pushes, or merges. Ensures
   # code quality and prevents broken commits from entering the repository.
   
-  # git_pre_check:
-  #   # enabled: true  # Optional - defaults to true when configured
-  #   checks:
-  #     # Each check must succeed (exit 0) to allow git operation
-  #     - command: "cargo test"
-  #       message: "All tests must pass before committing"
-  #     
-  #     - command: "cargo fmt --check"
-  #       message: "Code must be formatted (run 'cargo fmt')"
-  #     
-  #     - command: "cargo clippy -- -D warnings"
-  #       message: "No clippy warnings allowed"
-  #     
-  #     # Can also run custom scripts
-  #     - command: ".cupcake/scripts/check-secrets.sh"
-  #       message: "No secrets or API keys in commit"
-  #   
-  #   # Optional: only apply to certain operations
-  #   # operations: ["commit", "push"]  # skip for merge
+  git_pre_check:
+    enabled: true
+    checks:
+      - command: "echo Validation passed"
+        message: "Basic validation check"
+        
+    # Optional: only apply to certain operations
+    # operations: ["commit", "push"]  # skip for merge
 
   # ---------------------------------------------------------------------------
   # POST_EDIT_CHECK - Validate files after modification
@@ -183,24 +172,16 @@ builtins:
   # Claude to read and analyze them. Supports glob patterns. Uses a WHITELIST
   # approach for bash commands - only known-safe read operations are allowed.
   
-  # protected_paths:
-  #   message: "This path is read-only and cannot be modified"
-  #   paths:
-  #     # Exact files
-  #     - "production.env"
-  #     - "config/database.yml"
-  #     
-  #     # Directories (everything inside)
-  #     - "src/legacy/"
-  #     - "vendor/"
-  #     
-  #     # Glob patterns
-  #     - "*.secret"
-  #     - "config/*.prod.yml"
-  #     - "**/*.generated.ts"
-  #
-  #   # Note: Read operations (cat, grep, less, etc.) are allowed
-  #   # Write operations (edit, rm, mv, sed -i, etc.) are blocked
+  protected_paths:
+    enabled: true
+    message: "System path modification blocked by policy"
+    paths:
+      - "/etc/"
+      - "/System/"  
+      - "~/.ssh/"
+      
+    # Note: Read operations (cat, grep, less, etc.) are allowed
+    # Write operations (edit, rm, mv, sed -i, etc.) are blocked
 
   # ---------------------------------------------------------------------------
   # RULEBOOK_SECURITY_GUARDRAILS - Cupcake configuration protection
@@ -210,11 +191,11 @@ builtins:
   # BOTH read and write operations. Essential for protecting Cupcake's own
   # configuration and sensitive system files.
   
-  # rulebook_security_guardrails:
-  #   message: "Cupcake configuration files are protected from modification"
-  #   # Protected paths (defaults to [".cupcake/"] if not specified)
-  #   protected_paths:
-  #     - ".cupcake/"
-  #     - ".git/hooks/"
-  #     - "secrets/"
+  rulebook_security_guardrails:
+    message: "Cupcake configuration files are protected from modification"
+    # Protected paths (defaults to [".cupcake/"] if not specified)
+    protected_paths:
+      - ".cupcake/"
+      - ".git/hooks/"
+      # - "secrets/"  # Add your own sensitive directories
 

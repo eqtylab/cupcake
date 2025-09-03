@@ -42,6 +42,18 @@ Start Claude Code in this directory. The policy engine will now intercept and ev
 
 ## Interactive Demo
 
+**Launch Claude**
+
+```bash
+claude
+```
+
+you can use yolo mode yoo:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
 ### Step 1: Test Basic Protection
 
 Ask Claude to run a dangerous command:

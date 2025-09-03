@@ -165,11 +165,12 @@ impl TrustVerifier {
 /// Extension trait for Option<TrustVerifier> to simplify integration
 pub trait TrustVerifierExt {
     /// Verify a script if trust is enabled, otherwise no-op
-    async fn verify_if_enabled(&self, command: &str) -> Result<()>;
+    fn verify_if_enabled(&self, command: &str) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 impl TrustVerifierExt for Option<TrustVerifier> {
-    async fn verify_if_enabled(&self, command: &str) -> Result<()> {
+    fn verify_if_enabled(&self, command: &str) -> impl std::future::Future<Output = Result<()>> + Send {
+        async move {
         match self {
             Some(verifier) => {
                 verifier.verify_script(command).await?;
@@ -180,6 +181,7 @@ impl TrustVerifierExt for Option<TrustVerifier> {
                 debug!("Trust verification skipped (not enabled)");
                 Ok(())
             }
+        }
         }
     }
 }

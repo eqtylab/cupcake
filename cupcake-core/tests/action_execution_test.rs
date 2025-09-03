@@ -76,7 +76,7 @@ deny contains decision if {
     fs::write(policies_dir.join("test_deny.rego"), test_policy).unwrap();
     
     // Initialize engine
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     // Create event that will trigger the deny rule
     let event = json!({
@@ -178,7 +178,7 @@ halt contains decision if {
     
     fs::write(policies_dir.join("test_halt.rego"), halt_policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -258,7 +258,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("test_multi.rego"), multi_policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -343,7 +343,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("test_general.rego"), policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",

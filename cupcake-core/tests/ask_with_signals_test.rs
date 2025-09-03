@@ -108,7 +108,7 @@ echo '{
     
     eprintln!("Test setup complete at: {:?}", project_path);
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",

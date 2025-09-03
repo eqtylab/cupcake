@@ -114,7 +114,7 @@ async fn test_engine_without_trust() -> Result<()> {
     let project = setup_test_project().await?;
     
     // Initialize engine without trust (should work fine)
-    let mut engine = Engine::new(project.path()).await?;
+    let engine = Engine::new(project.path()).await?;
     
     // Create a simple test event
     let event = serde_json::json!({
@@ -167,7 +167,7 @@ async fn test_engine_with_valid_trust() -> Result<()> {
     manifest.save(&cupcake_dir.join(".trust"))?;
     
     // Initialize engine with trust enabled
-    let mut engine = Engine::new(project.path()).await?;
+    let engine = Engine::new(project.path()).await?;
     
     // Create test event that would trigger signal gathering
     let event = serde_json::json!({
@@ -217,7 +217,7 @@ deny contains decision if {
     )?;
     
     // Initialize engine with trust enabled but signal not trusted
-    let mut engine = Engine::new(project.path()).await?;
+    let engine = Engine::new(project.path()).await?;
     
     // Create test event that requires signal
     let event = serde_json::json!({

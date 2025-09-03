@@ -265,13 +265,24 @@ impl Guidebook {
         .context("Signal execution timed out")?
         .context("Failed to execute signal command")?;
         
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Signal '{}' failed: {}", signal_name, stderr);
-        }
-        
         let stdout = String::from_utf8_lossy(&output.stdout);
         let trimmed_output = stdout.trim();
+        
+        // Always include exit code information for validation signals
+        // This allows policies to check if validation failed
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let exit_code = output.status.code().unwrap_or(-1);
+            debug!("Signal '{}' failed with exit code {}", signal_name, exit_code);
+            
+            // Return structured error info for failed commands
+            return Ok(serde_json::json!({
+                "exit_code": exit_code,
+                "output": trimmed_output,
+                "error": stderr.trim(),
+                "success": false
+            }));
+        }
         
         // Try to parse as JSON first, fall back to string if it fails
         match serde_json::from_str::<serde_json::Value>(trimmed_output) {

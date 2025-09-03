@@ -107,7 +107,7 @@ echo '{"passing": false, "coverage": 85.5}'
         fs::set_permissions(&signal_path, perms).unwrap();
     }
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",

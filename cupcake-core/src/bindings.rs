@@ -13,7 +13,6 @@
 use crate::engine::Engine;
 use anyhow::Result;
 use serde_json::Value;
-use std::path::Path;
 use std::sync::Arc;
 
 /// FFI-friendly engine wrapper for foreign language bindings
@@ -135,8 +134,9 @@ impl BindingEngine {
     }
 }
 
-// Thread safety assertions - these will fail compilation if not met
-// This ensures our design is correct for concurrent use
+// Compile-time thread safety verification
+// These assertions ensure BindingEngine can be safely shared between threads.
+// If BindingEngine ever loses Send or Sync, compilation will fail immediately.
 const _: () = {
     fn assert_send<T: Send>() {}
     fn assert_sync<T: Sync>() {}

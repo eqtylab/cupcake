@@ -63,7 +63,7 @@ impl PyPolicyEngine {
     fn evaluate(&self, input: String, py: Python) -> PyResult<String> {
         // CRITICAL: Release the GIL while evaluating
         // Without this, multi-threaded Python apps (like web servers) will freeze
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner.evaluate_sync(&input)
                 .map_err(|e| {
                     if e.contains("Invalid input JSON") {

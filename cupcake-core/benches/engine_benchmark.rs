@@ -12,12 +12,8 @@ fn create_test_policy_dir() -> TempDir {
     
     // Create a realistic policy using new metadata format
     fs::write(temp_dir.path().join("bash_guard.rego"), r#"
-package cupcake.policies.bash_guard
-
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Bash Security Benchmark Policy
 # custom:
 #   severity: HIGH
@@ -25,6 +21,9 @@ import rego.v1
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
+package cupcake.policies.bash_guard
+
+import rego.v1
 
 # Deny dangerous commands
 deny contains decision if {

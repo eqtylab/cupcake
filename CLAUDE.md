@@ -112,6 +112,9 @@ Event Input → Route (O(1) lookup) → Gather Signals → Evaluate (WASM) → S
 ### Test Execution Requirements
 **IMPORTANT**: Tests MUST be run with the `--features deterministic-tests` flag. This is NOT optional - the trust system tests will fail intermittently without it due to non-deterministic HMAC key derivation in production mode. The feature flag ensures deterministic key generation for reliable test execution. Use `cargo t` (alias) or `cargo test --features deterministic-tests`.
 
+### Test Policy Requirements
+When tests use `include_str!` to embed policy files at compile time, changes to those policies require recompilation. Run `cargo clean -p cupcake-core` if policy changes aren't being picked up in tests.
+
 ### Field Name Mismatch
 Claude Code sends events with `hook_event_name` (snake_case) but expects responses with `hookEventName` (camelCase). The engine accepts both formats for compatibility.
 
@@ -146,8 +149,17 @@ Policies follow the new metadata-driven format:
 3. Trust the engine's routing (no redundant checks)
 4. Return structured decision objects with reason, severity, rule_id
 5. Use `concat` instead of `sprintf` (WASM limitation)
+6. The `add_context` verb in Cupcake expects just strings, not objects
 
 See `docs/policies/POLICIES.md` for the complete policy authoring guide.
+
+## Routing and Wildcard Policies
+
+Policies that declare `required_events` without `required_tools` act as wildcards - they match ANY tool for that event. The engine automatically routes both:
+- Specific tool events to their exact matches
+- Tool events to wildcard policies (those with only the event declared)
+
+Example: A policy with `required_events: ["PostToolUse"]` will match all PostToolUse events regardless of tool.
 
 ## Builtin Abstractions
 
@@ -158,3 +170,188 @@ Four working builtins provide common patterns without writing Rego:
 - **post_edit_check** - Runs validation after file edits
 
 Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `examples/base-config.yml` for template.
+
+### Builtin Configuration Notes
+
+1. **Default Enabled**: Builtins default to `enabled: true` when configured. You don't need to explicitly set `enabled: true` - just configuring a builtin enables it.
+
+2. **Signal Auto-Discovery**: Builtin policies automatically get their associated signals injected. The engine detects builtin policies and includes all signals matching their pattern (e.g., `__builtin_post_edit_*` for the `post_edit_check` builtin).
+
+3. **Dynamic Signal Names**: Builtins can use dynamically-named signals based on runtime values (like file extensions). The engine handles signal gathering automatically for enabled builtins.
+
+## Rego v1 Migration Checklist
+
+**CRITICAL**: Cupcake uses OPA v0.70.0+ where Rego v1 syntax is the DEFAULT (no import needed).
+
+### 🚨 Breaking Changes - Silent Failures
+
+#### 1. Object Key Membership (CRITICAL - Silent Bug)
+```rego
+# WRONG - Always returns false in Rego v1 (silent failure!)
+"key" in my_object
+
+# CORRECT - Use object.keys() to get the set of keys
+"key" in object.keys(my_object)
+
+# ALSO CORRECT - For key-value iteration 
+some key, value in my_object
+```
+**Why Critical**: The old syntax compiles but silently returns `false`, making policies ineffective.
+
+#### 2. Import Policy (OPA v0.70.0+)
+```rego
+package cupcake.policies.example
+
+import rego.v1  # OPTIONAL - No-op in OPA v1.0+, but good for compatibility
+
+# Since OPA v1.0, v1 syntax is DEFAULT - no import required
+# Keep import only for backward compatibility with pre-v1.0 OPA
+```
+
+### ✅ Still Valid Syntax
+The `in` operator works correctly for:
+- **Sets**: `"value" in {"a", "b", "c"}`  
+- **Arrays**: `"value" in ["foo", "bar"]`
+- **Iteration**: `some key, value in object` (key-value pairs)
+
+### 🔧 Common Gotchas
+
+#### 3. Decision Verb Syntax  
+```rego
+# MODERN - Use contains with decision verbs
+deny contains decision if { ... }
+halt contains decision if { ... }
+ask contains decision if { ... }
+
+# LEGACY - Still works but prefer modern
+deny[decision] { ... }
+```
+
+#### 4. Ask Decision Fields
+```rego
+decision := {
+    "rule_id": "RULE-ID",
+    "reason": "Why we're asking",      # REQUIRED
+    "question": "What to ask user",    # REQUIRED  
+    "severity": "MEDIUM"
+}
+```
+
+#### 5. String Functions
+```rego
+# PREFERRED - More consistent
+concat(" ", ["hello", "world"])
+
+# WORKS - But can be inconsistent in WASM
+sprintf("%s %s", ["hello", "world"])
+```
+
+### 🧪 Testing & Validation
+
+#### 6. Policy Compilation
+```bash
+# Test policies compile correctly
+opa build -t wasm -e cupcake/system/evaluate examples/policies/
+
+# Validate specific policy syntax
+opa fmt --diff examples/policies/your-policy.rego
+```
+
+#### 7. Audit Commands
+```bash
+# Find potential object membership issues
+rg '".*" in [^o]' --type rego examples/policies/
+rg 'in [^o].*\{' --type rego examples/policies/  
+
+# Check for missing import rego.v1
+rg -L 'import rego\.v1' --type rego examples/policies/
+```
+
+### 🎯 Metadata Best Practices
+
+#### Scope Options and Placement
+```rego
+# CORRECT - Package scope (recommended for Cupcake routing metadata)
+# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.example
+
+# WRONG - Detached metadata (lint error)
+package cupcake.policies.example
+
+# METADATA  <-- Separated from target, won't work!
+# scope: rule
+deny contains decision if { ... }
+
+# CORRECT - Rule scope (immediately before rule)
+# METADATA
+# scope: rule
+# title: Specific Rule Title
+deny contains decision if { ... }
+```
+
+#### Scope Rules
+- **`package`**: Applies to entire package - use for routing metadata ⚠️ **MUST be first in file**
+- **`rule`**: Applies to single rule - must immediately precede the rule
+- **`document`**: Applies to all rules with same name across files
+- **No scope**: Auto-detects based on position (package if before `package`, rule if before rule)
+
+#### ⚠️ Critical Rule: Package Metadata Placement
+```rego
+# METADATA must be THE FIRST THING in the file for scope: package
+# METADATA
+# scope: package
+# ... other metadata ...
+package cupcake.policies.example
+
+# ❌ WRONG - This causes "annotation scope 'package' must be applied to package" error
+package cupcake.policies.example
+# METADATA  
+# scope: package  <-- Too late! Package already declared
+```
+
+### 📋 Migration Checklist
+- [ ] ~~Add `import rego.v1` to all policies~~ (Optional with OPA v1.0+)
+- [ ] Replace `"key" in object` with `"key" in object.keys(object)`
+- [ ] Use modern `contains` syntax for decision verbs (required in v1)
+- [ ] Add `if` keyword before rule bodies (required in v1)
+- [ ] **METADATA PLACEMENT**: `scope: package` metadata must be FIRST in file, before `package` declaration
+- [ ] Ensure ask decisions have both `reason` and `question`
+- [ ] Test policy compilation with `opa build`
+- [ ] Verify no silent failures in tests
+
+**OPA Version**: v0.70.0+ (Rego v1 is default, no import needed)  
+**Metadata Fix**: ✅ All policies use `scope: package` to avoid detached metadata lint errors  
+**Audit Status**: ✅ All Cupcake policies audited and fixed (last check: post-metadata fixes)
+
+## Debugging Best Practices
+
+### Policy Changes in Tests
+When tests use `include_str!()` to embed policy content at compile time, changes to those policies require recompilation:
+```bash
+# Clean and rebuild to pick up policy changes
+cargo clean -p cupcake-core
+cargo test test_name --features deterministic-tests
+```
+
+### Signal Result Format
+Signals that execute commands return structured results when they fail:
+```json
+{
+  "exit_code": 1,
+  "output": "stdout content",
+  "error": "stderr content", 
+  "success": false
+}
+```
+Policies should check `exit_code == 0` to determine success for validation signals.
+
+### Rego Print Statements
+`print()` statements in Rego policies may not show in test output by default. Use `opa test -v` for debugging isolated policy logic outside of the engine.
+
+### Wildcard Policy Routing
+The engine routes events to wildcard policies (those with only `required_events`) even when a specific tool is involved. This was a bug that was fixed - wildcard policies now correctly receive all matching events.

@@ -1,7 +1,6 @@
 use cupcake_core::engine::Engine;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::fs;
-use std::io::Write;
 use tempfile::TempDir;
 use tokio;
 
@@ -209,7 +208,7 @@ echo '{
         }
     }
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     // Test 1: String signal access (git_branch == "main")
     let event1 = json!({
@@ -384,7 +383,7 @@ echo "This is not valid JSON but should still work"
     }
     
     // Initialize engine
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     // Test that invalid JSON is handled gracefully
     let event = json!({

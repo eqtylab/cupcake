@@ -75,7 +75,7 @@ ask contains decision if {
     
     eprintln!("Test policies created at: {:?}", policies_dir);
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",

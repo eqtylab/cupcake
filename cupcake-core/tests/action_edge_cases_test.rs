@@ -103,7 +103,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("edge_test.rego"), edge_policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     // Test Case 1-3: Shell commands
     let event1 = json!({
@@ -226,7 +226,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("fallback_test.rego"), fallback_policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",

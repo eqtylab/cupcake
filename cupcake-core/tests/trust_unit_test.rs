@@ -118,7 +118,7 @@ async fn test_trust_manifest_hmac_verification() -> Result<()> {
     manifest.save(&trust_file)?;
     
     // Load and verify HMAC (HMAC verification happens automatically in load)
-    let loaded_manifest = TrustManifest::load(&trust_file)?;
+    let _loaded_manifest = TrustManifest::load(&trust_file)?;
     
     // Manually corrupt the file and verify detection
     let content = fs::read_to_string(&trust_file)?;

@@ -1,8 +1,6 @@
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tempfile::TempDir;
 use tokio;
 
@@ -74,7 +72,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("async_test.rego"), test_policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -192,7 +190,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("concurrent.rego"), policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -287,7 +285,7 @@ deny contains decision if {
     
     fs::write(policies_dir.join("fail_test.rego"), policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -376,7 +374,7 @@ allow_override contains decision if {
     
     fs::write(policies_dir.join("slow.rego"), policy).unwrap();
     
-    let mut engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path).await.unwrap();
     
     // First evaluation triggers slow action
     let event1 = json!({

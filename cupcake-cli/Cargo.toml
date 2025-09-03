@@ -23,3 +23,6 @@ tracing-subscriber = { workspace = true }
 [[bin]]
 name = "cupcake"
 path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = "3.8"

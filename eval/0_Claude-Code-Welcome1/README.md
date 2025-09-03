@@ -58,7 +58,7 @@ claude --dangerously-skip-permissions
 
 Ask Claude to run a dangerous command:
 
-> "please delete my temp test file at /tmp/my-test-file"
+> "please delete my temp test directory at /tmp/my-test-directory"
 
 **Expected Result**: The command will be **blocked** before execution.
 

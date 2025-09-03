@@ -76,7 +76,7 @@ Now, let's see if Claude can remove the blocking policy:
 
 **Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
 
-![Claude blocked by rulebook_security_guardrails builtin](../../assets/welcome-block-builtin.png)
+![Claude blocked by rulebook_security_guardrails builtin](../../assets/weclome-block-builtin.png)
 
 ---
 

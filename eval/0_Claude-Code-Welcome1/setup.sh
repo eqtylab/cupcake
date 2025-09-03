@@ -60,10 +60,9 @@ echo "Setting up Claude Code hooks integration..."
 mkdir -p .claude
 
 # Create Claude Code settings with direct cargo command (like working demo)
-MANIFEST_PATH="$(realpath ../../Cargo.toml)"
 OPA_DIR="$(dirname "$(which opa)")"
 
-cat > .claude/settings.json << EOF
+cat > .claude/settings.json << 'EOF'
 {
   "hooks": {
     "PreToolUse": [
@@ -72,7 +71,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval",
+            "command": "cargo run --manifest-path $(realpath ../../Cargo.toml) -- eval",
             "timeout": 30,
             "env": {
               "RUST_LOG": "info",
@@ -88,7 +87,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval",
+            "command": "cargo run --manifest-path $(realpath ../../Cargo.toml) -- eval",
             "timeout": 30,
             "env": {
               "RUST_LOG": "info",
@@ -103,7 +102,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval",
+            "command": "cargo run --manifest-path $(realpath ../../Cargo.toml) -- eval",
             "timeout": 30,
             "env": {
               "RUST_LOG": "info",

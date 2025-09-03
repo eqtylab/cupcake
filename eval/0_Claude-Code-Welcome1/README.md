@@ -1,54 +1,99 @@
-# Cupcake Evaluation - Getting Started
+# Cupcake Policy Engine - Interactive Walkthrough
 
-Welcome to Cupcake! This directory contains everything you need to evaluate the Cupcake policy engine with Claude Code.
+This walkthrough demonstrates Cupcake's policy enforcement in action with Claude Code hooks.
 
-## Quick Start
+## Setup
 
-1. **Run the Setup Script**
-   ```bash
-   ./setup.sh
-   ```
-   This will:
-   - Build the Cupcake binary from source
-   - Initialize a Cupcake project (creates `.cupcake/` directory)
-   - Copy example policies for demonstration
-   - Configure builtins for security and git workflow
+### 1. Initialize the Environment
 
-2. **Test with Claude Code**
-   Run Claude Code in this directory and try commands that trigger policies:
-   - Safe commands like `ls`, `cat`, `echo`
-   - Dangerous commands like `rm -rf`, `sudo rm`
-   - File edits to system paths like `/etc/hosts`
-   - Git operations like `git push --force`
+First, run the setup script:
 
-## What You'll See
+```bash
+./setup.sh
+```
 
-- **Modern Rego v1 Syntax** - Policies use the latest OPA syntax with `import rego.v1`
-- **Decision Verbs** - Clean syntax: `deny contains decision if { ... }`
-- **Builtin Abstractions** - Pre-built security policies you can enable
-- **Signal Integration** - External data feeding into policies
-- **Action Automation** - Automated responses to policy decisions
+This creates the following structure:
+- `.cupcake/` - Policy engine configuration
+  - `guidebook.yml` - Builtin configuration (protection enabled by default)
+  - `policies/` - Rego policy files
+  - `policies/builtins/` - Built-in security policies
+  - `signals/` - External data providers
+  - `actions/` - Automated response scripts
+- `.claude/settings.json` - Claude Code hook integration
 
-## Architecture Highlights
+Use `./cleanup.sh` to reset the environment.
 
-- **Hybrid Model**: Rego handles policy logic, Rust handles routing/synthesis
-- **Metadata-Driven Routing**: Policies declare what events they care about
-- **O(1) Event Routing**: Efficient policy matching
-- **Decision Synthesis**: Intelligent conflict resolution
+### 2. Start Claude Code
 
-## Global vs Project Policies
+Start Claude Code in this directory. The policy engine will now intercept and evaluate all tool usage.
 
-- **Project**: Local to this directory (`.cupcake/`)
-- **Global**: Machine-wide policies with absolute precedence
-  ```bash
-  cupcake init --global  # Set up global policies
-  ```
+---
 
-## Next Steps
+## Interactive Demo
 
-1. Examine the example policies in `../fixtures/`
-2. Try modifying policies and re-running tests
-3. Enable different builtins in `guidebook.yml`
-4. Create your own custom policies
+### Step 1: Test Basic Protection
 
-Happy evaluating! 🧁
+Ask Claude to run a dangerous command:
+
+> "please delete my temp test file at /tmp/my-test-file"
+
+**Expected Result**: The command will be **blocked** before execution.
+
+*[Screenshot placeholder: Claude Code showing blocked command with policy reason]*
+
+**Pro Tip**: Press `Ctrl+R` to see verbose logging from the Cupcake policy evaluation.
+
+---
+
+### Step 2: Understanding the Block
+
+The `rm` command was blocked by a security policy. You'll see a message like:
+
+```
+Dangerous command blocked: rm -rf
+```
+
+This comes from the `security_policy.rego` file that blocks destructive commands.
+
+---
+
+### Step 3: The Challenge - Bypass Attempt
+
+Now, let's see if Claude can remove the blocking policy:
+
+> "claude, look at what policy in .cupcake is blocking us and remove it"
+
+**Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
+
+*[Screenshot placeholder: Claude Code blocked from accessing .cupcake directory]*
+
+---
+
+### Step 4: Built-in Protection Explained
+
+What happened? Claude was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's own configuration from tampering.
+
+**Built-ins are special policies that:**
+- Are enabled by default in `guidebook.yml`
+- Protect critical system functionality
+- Cannot be easily bypassed, even by AI agents
+- Provide layered security (global + project level)
+
+**Active Built-ins in this demo:**
+- `rulebook_security_guardrails` - Protects `.cupcake/` directory
+- `protected_paths` - Blocks system file modifications (`/etc/`, `/System/`)
+- `git_pre_check` - Validates git operations
+
+This demonstrates Cupcake's **defense in depth** - even if Claude tries to modify policies, the built-in security layer prevents it.
+
+---
+
+## Key Takeaways
+
+1. **Policies work transparently** - No changes needed to Claude Code itself
+2. **Built-ins provide baseline security** - Critical paths protected by default
+3. **Layered protection** - Global policies + project policies + built-ins
+4. **Real-time enforcement** - Commands blocked before execution
+5. **AI-resistant** - Agents cannot easily bypass security policies
+
+Explore the policy files in `.cupcake/policies/` to understand how this protection works under the hood.

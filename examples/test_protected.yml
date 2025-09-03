@@ -1,0 +1,7 @@
+builtins:
+  protected_paths:
+    enabled: true
+    message: "This file is protected"
+    paths:
+      - "production.env"
+      - "src/legacy/"

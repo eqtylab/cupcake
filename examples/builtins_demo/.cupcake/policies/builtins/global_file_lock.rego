@@ -1,19 +1,19 @@
 # METADATA
 # scope: package
-# title: Never Edit Files - Builtin Policy
+# title: Global File Lock - Builtin Policy
 # authors: ["Cupcake Builtins"]
 # custom:
 #   severity: HIGH
-#   id: BUILTIN-NEVER-EDIT
+#   id: BUILTIN-GLOBAL-FILE-LOCK
 #   routing:
 #     required_events: ["PreToolUse"]
-package cupcake.policies.builtins.never_edit_files
+package cupcake.policies.builtins.global_file_lock
 
 import rego.v1
 
 # Block all file write operations when enabled
 halt contains decision if {
-    # This builtin is active (presence of this policy means it's enabled)
+    # Global file lock is active - prevents all file write operations
     input.hook_event_name == "PreToolUse"
     
     # Check for file editing tools
@@ -24,7 +24,7 @@ halt contains decision if {
     message := get_configured_message
     
     decision := {
-        "rule_id": "BUILTIN-NEVER-EDIT",
+        "rule_id": "BUILTIN-GLOBAL-FILE-LOCK",
         "reason": message,
         "severity": "HIGH"
     }
@@ -36,13 +36,14 @@ halt contains decision if {
     input.tool_name == "Bash"
     
     # Check if command contains file write patterns
-    command := lower(input.params.command)
+    # Fix: Bash tool uses tool_input.command, not params.command
+    command := lower(input.tool_input.command)
     contains_write_pattern(command)
     
     message := get_configured_message
     
     decision := {
-        "rule_id": "BUILTIN-NEVER-EDIT",
+        "rule_id": "BUILTIN-GLOBAL-FILE-LOCK",
         "reason": concat(" ", [message, "(detected file write in bash command)"]),
         "severity": "HIGH"
     }
@@ -68,7 +69,7 @@ contains_write_pattern(cmd) if {
 
 # Get configured message (would come from signal in real implementation)
 get_configured_message := msg if {
-    # In production, this would query a signal like __builtin_never_edit_message
+    # In production, this would query a signal like __builtin_global_file_lock_message
     # For now, use a default message
-    msg := "File editing is disabled by policy"
+    msg := "File editing is disabled globally by policy"
 }

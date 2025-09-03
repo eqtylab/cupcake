@@ -53,6 +53,11 @@ actions:
 # IMPORTANT: Builtins are ENABLED BY DEFAULT when configured. 
 # Simply configuring a builtin (even with just empty settings) enables it.
 # To disable, either remove the configuration or set 'enabled: false'.
+#
+# FILE PROTECTION BUILTINS (Three-Tier System):
+# 1. global_file_lock: Prevents ALL writes session-wide (most restrictive)
+# 2. protected_paths: Makes specific paths read-only (read allowed, write blocked)
+# 3. rulebook_security_guardrails: Total lockdown of paths (no read OR write)
 
 # ============================================================================
 # USAGE NOTES
@@ -99,19 +104,15 @@ builtins:
   #     - file: "docs/current-sprint-goals.md"
 
   # ---------------------------------------------------------------------------
-  # NEVER_EDIT_FILES - Enforce read-only mode
+  # GLOBAL_FILE_LOCK - Session-wide write prevention
   # ---------------------------------------------------------------------------
-  # Completely prevent file modifications. Useful for code review sessions,
-  # learning/exploration, or when working with sensitive codebases.
+  # Completely prevent ALL file modifications for the entire session. Useful for 
+  # code review, learning/exploration, or when you want to ensure zero changes.
+  # This is the most restrictive option - blocks all write operations globally.
   
-  # never_edit_files:
-  #   message: "File editing is disabled. This session is read-only for security."
-  #   # enabled: false  # Uncomment to explicitly disable (rarely needed)
-  #   
-  #   # Optional: exempt certain patterns (future enhancement)
-  #   # exempt_patterns:
-  #   #   - "*.tmp"
-  #   #   - "scratch/*"
+  # global_file_lock:
+  #   message: "File editing is disabled globally by policy"
+  #   # enabled: false  # Uncomment to explicitly disable
 
   # ---------------------------------------------------------------------------
   # GIT_PRE_CHECK - Enforce checks before git operations
@@ -174,4 +175,46 @@ builtins:
   #   #   "src/**/*.test.ts":
   #   #     command: "npm test -- --findRelatedTests"
   #   #     message: "Running related tests"
+
+  # ---------------------------------------------------------------------------
+  # PROTECTED_PATHS - User-defined read-only paths
+  # ---------------------------------------------------------------------------
+  # Declare specific files or directories as read-only while still allowing
+  # Claude to read and analyze them. Supports glob patterns. Uses a WHITELIST
+  # approach for bash commands - only known-safe read operations are allowed.
+  
+  # protected_paths:
+  #   message: "This path is read-only and cannot be modified"
+  #   paths:
+  #     # Exact files
+  #     - "production.env"
+  #     - "config/database.yml"
+  #     
+  #     # Directories (everything inside)
+  #     - "src/legacy/"
+  #     - "vendor/"
+  #     
+  #     # Glob patterns
+  #     - "*.secret"
+  #     - "config/*.prod.yml"
+  #     - "**/*.generated.ts"
+  #
+  #   # Note: Read operations (cat, grep, less, etc.) are allowed
+  #   # Write operations (edit, rm, mv, sed -i, etc.) are blocked
+
+  # ---------------------------------------------------------------------------
+  # RULEBOOK_SECURITY_GUARDRAILS - Cupcake configuration protection
+  # ---------------------------------------------------------------------------
+  # Protects the .cupcake directory and other critical paths from any 
+  # modification or inspection. This is the highest security level - blocks
+  # BOTH read and write operations. Essential for protecting Cupcake's own
+  # configuration and sensitive system files.
+  
+  # rulebook_security_guardrails:
+  #   message: "Cupcake configuration files are protected from modification"
+  #   # Protected paths (defaults to [".cupcake/"] if not specified)
+  #   protected_paths:
+  #     - ".cupcake/"
+  #     - ".git/hooks/"
+  #     - "secrets/"
 

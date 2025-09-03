@@ -66,6 +66,13 @@ fn test_builtin_signal_generation() {
         by_extension,
     });
     
+    // Configure rulebook_security_guardrails
+    config.rulebook_security_guardrails = Some(RulebookSecurityConfig {
+        enabled: true,
+        message: "Test protection message".to_string(),
+        protected_paths: vec![".cupcake/".to_string(), ".config/".to_string()],
+    });
+    
     // Generate signals
     let signals = config.generate_signals();
     
@@ -84,6 +91,11 @@ fn test_builtin_signal_generation() {
     assert!(signals.contains_key("__builtin_post_edit_rs"));
     assert!(signals.contains_key("__builtin_post_edit_py"));
     assert_eq!(signals["__builtin_post_edit_rs"].command, "cargo check");
+    
+    // Verify rulebook_security_guardrails signals
+    assert!(signals.contains_key("__builtin_rulebook_protected_message"));
+    assert!(signals.contains_key("__builtin_rulebook_protected_paths"));
+    assert_eq!(signals["__builtin_rulebook_protected_message"].command, "echo 'Test protection message'");
 }
 
 /// Test that enabled builtins are correctly identified
@@ -92,19 +104,31 @@ fn test_enabled_builtins_list() {
     let mut config = BuiltinsConfig::default();
     assert_eq!(config.enabled_builtins().len(), 0);
     
-    config.never_edit_files = Some(NeverEditConfig {
+    config.global_file_lock = Some(GlobalFileLockConfig {
         enabled: true,
         message: "No edits".to_string(),
     });
-    assert_eq!(config.enabled_builtins(), vec!["never_edit_files"]);
+    assert_eq!(config.enabled_builtins(), vec!["global_file_lock"]);
+    
+    // Test rulebook_security_guardrails
+    config.rulebook_security_guardrails = Some(RulebookSecurityConfig {
+        enabled: true,
+        message: "Protected".to_string(),
+        protected_paths: vec![".cupcake/".to_string()],
+    });
+    let enabled = config.enabled_builtins();
+    assert!(enabled.contains(&"global_file_lock".to_string()));
+    assert!(enabled.contains(&"rulebook_security_guardrails".to_string()));
     
     config.git_pre_check = Some(GitPreCheckConfig {
         enabled: true,
         checks: vec![],
     });
-    assert_eq!(config.enabled_builtins().len(), 2);
-    assert!(config.enabled_builtins().contains(&"never_edit_files".to_string()));
-    assert!(config.enabled_builtins().contains(&"git_pre_check".to_string()));
+    assert_eq!(config.enabled_builtins().len(), 3);
+    let enabled = config.enabled_builtins();
+    assert!(enabled.contains(&"global_file_lock".to_string()));
+    assert!(enabled.contains(&"git_pre_check".to_string()));
+    assert!(enabled.contains(&"rulebook_security_guardrails".to_string()));
 }
 
 /// Integration test: verify policies can access builtin signals
@@ -345,11 +369,11 @@ fn test_builtin_policy_loading() {
     use cupcake_core::engine::builtins::should_load_builtin_policy;
     use std::path::Path;
     
-    let enabled = vec!["never_edit_files".to_string(), "git_pre_check".to_string()];
+    let enabled = vec!["global_file_lock".to_string(), "git_pre_check".to_string()];
     
     // Should load enabled builtins
     assert!(should_load_builtin_policy(
-        Path::new("policies/builtins/never_edit_files.rego"),
+        Path::new("policies/builtins/global_file_lock.rego"),
         &enabled
     ));
     assert!(should_load_builtin_policy(

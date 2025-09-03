@@ -17,9 +17,9 @@ pub struct BuiltinsConfig {
     #[serde(default)]
     pub always_inject_on_prompt: Option<AlwaysInjectConfig>,
     
-    /// Never edit files configuration
-    #[serde(default)]
-    pub never_edit_files: Option<NeverEditConfig>,
+    /// Global file lock configuration (prevents all file writes)
+    #[serde(default, alias = "never_edit_files")]
+    pub global_file_lock: Option<GlobalFileLockConfig>,
     
     /// Git pre-check configuration
     #[serde(default)]
@@ -28,6 +28,14 @@ pub struct BuiltinsConfig {
     /// Post-edit check configuration
     #[serde(default)]
     pub post_edit_check: Option<PostEditCheckConfig>,
+    
+    /// Rulebook security guardrails configuration
+    #[serde(default)]
+    pub rulebook_security_guardrails: Option<RulebookSecurityConfig>,
+    
+    /// Protected paths configuration (user-defined read-only paths)
+    #[serde(default)]
+    pub protected_paths: Option<ProtectedPathsConfig>,
 }
 
 
@@ -43,20 +51,20 @@ pub struct AlwaysInjectConfig {
     pub context: Vec<ContextSource>,
 }
 
-/// Configuration for never_edit_files builtin
+/// Configuration for global_file_lock builtin (formerly never_edit_files)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NeverEditConfig {
+pub struct GlobalFileLockConfig {
     /// Whether this builtin is enabled (defaults to true)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
     
     /// Message to show when blocking edits
-    #[serde(default = "default_never_edit_message")]
+    #[serde(default = "default_global_file_lock_message")]
     pub message: String,
 }
 
-fn default_never_edit_message() -> String {
-    "File editing is disabled by policy".to_string()
+fn default_global_file_lock_message() -> String {
+    "File editing is disabled globally by policy".to_string()
 }
 
 fn default_enabled() -> bool {
@@ -114,6 +122,50 @@ pub enum ContextSource {
         #[serde(default)]
         command: Option<String>,
     },
+}
+
+/// Configuration for rulebook_security_guardrails builtin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RulebookSecurityConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Message to show when blocking operations
+    #[serde(default = "default_rulebook_security_message")]
+    pub message: String,
+    
+    /// Protected paths (defaults to [".cupcake/"])
+    #[serde(default = "default_protected_paths")]
+    pub protected_paths: Vec<String>,
+}
+
+fn default_rulebook_security_message() -> String {
+    "Cupcake configuration files are protected from modification".to_string()
+}
+
+fn default_protected_paths() -> Vec<String> {
+    vec![".cupcake/".to_string()]
+}
+
+/// Configuration for protected_paths builtin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectedPathsConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Message to show when blocking modifications
+    #[serde(default = "default_protected_paths_message")]
+    pub message: String,
+    
+    /// List of paths to protect (supports globs)
+    #[serde(default)]
+    pub paths: Vec<String>,
+}
+
+fn default_protected_paths_message() -> String {
+    "This path is read-only and cannot be modified".to_string()
 }
 
 impl BuiltinsConfig {
@@ -179,6 +231,38 @@ impl BuiltinsConfig {
             }
         }
         
+        // Validate rulebook_security_guardrails
+        if let Some(config) = &self.rulebook_security_guardrails {
+            if config.enabled && config.protected_paths.is_empty() {
+                errors.push("rulebook_security_guardrails: enabled but no protected paths configured".to_string());
+            }
+            
+            for (idx, path) in config.protected_paths.iter().enumerate() {
+                if path.trim().is_empty() {
+                    errors.push(format!(
+                        "rulebook_security_guardrails.protected_paths[{}]: path cannot be empty",
+                        idx
+                    ));
+                }
+            }
+        }
+        
+        // Validate protected_paths
+        if let Some(config) = &self.protected_paths {
+            if config.enabled && config.paths.is_empty() {
+                errors.push("protected_paths: enabled but no paths configured".to_string());
+            }
+            
+            for (idx, path) in config.paths.iter().enumerate() {
+                if path.trim().is_empty() {
+                    errors.push(format!(
+                        "protected_paths.paths[{}]: path cannot be empty",
+                        idx
+                    ));
+                }
+            }
+        }
+        
         if errors.is_empty() {
             Ok(())
         } else {
@@ -189,9 +273,11 @@ impl BuiltinsConfig {
     /// Check if any builtin is enabled
     pub fn any_enabled(&self) -> bool {
         self.always_inject_on_prompt.as_ref().map_or(false, |c| c.enabled)
-            || self.never_edit_files.as_ref().map_or(false, |c| c.enabled)
+            || self.global_file_lock.as_ref().map_or(false, |c| c.enabled)
             || self.git_pre_check.as_ref().map_or(false, |c| c.enabled)
             || self.post_edit_check.as_ref().map_or(false, |c| c.enabled)
+            || self.rulebook_security_guardrails.as_ref().map_or(false, |c| c.enabled)
+            || self.protected_paths.as_ref().map_or(false, |c| c.enabled)
     }
     
     /// Get list of enabled builtin names
@@ -201,14 +287,20 @@ impl BuiltinsConfig {
         if self.always_inject_on_prompt.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("always_inject_on_prompt".to_string());
         }
-        if self.never_edit_files.as_ref().map_or(false, |c| c.enabled) {
-            enabled.push("never_edit_files".to_string());
+        if self.global_file_lock.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("global_file_lock".to_string());
         }
         if self.git_pre_check.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("git_pre_check".to_string());
         }
         if self.post_edit_check.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("post_edit_check".to_string());
+        }
+        if self.rulebook_security_guardrails.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("rulebook_security_guardrails".to_string());
+        }
+        if self.protected_paths.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("protected_paths".to_string());
         }
         
         enabled
@@ -254,6 +346,44 @@ impl BuiltinsConfig {
                         timeout_seconds: 10, // Quick feedback for edit checks
                     });
                 }
+            }
+        }
+        
+        // Generate signals for rulebook_security_guardrails
+        if let Some(config) = &self.rulebook_security_guardrails {
+            if config.enabled {
+                // Create signal for protected message (shell-safe)
+                signals.insert("__builtin_rulebook_protected_message".to_string(), SignalConfig {
+                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
+                    timeout_seconds: 1, // Simple string output
+                });
+                
+                // Create signal for protected paths (as JSON array, shell-safe)
+                let paths_json = serde_json::to_string(&config.protected_paths)
+                    .unwrap_or_else(|_| r#"[".cupcake/"]"#.to_string());
+                signals.insert("__builtin_rulebook_protected_paths".to_string(), SignalConfig {
+                    command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
+                    timeout_seconds: 1, // Simple JSON output
+                });
+            }
+        }
+        
+        // Generate signals for protected_paths
+        if let Some(config) = &self.protected_paths {
+            if config.enabled {
+                // Create signal for protected message (shell-safe)
+                signals.insert("__builtin_protected_paths_message".to_string(), SignalConfig {
+                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
+                    timeout_seconds: 1,
+                });
+                
+                // Create signal for protected paths list (as JSON array, shell-safe)
+                let paths_json = serde_json::to_string(&config.paths)
+                    .unwrap_or_else(|_| r#"[]"#.to_string());
+                signals.insert("__builtin_protected_paths_list".to_string(), SignalConfig {
+                    command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
+                    timeout_seconds: 1,
+                });
             }
         }
         
@@ -338,7 +468,7 @@ always_inject_on_prompt:
   context:
     - "Test context"
 
-never_edit_files:
+global_file_lock:
   enabled: false
   message: "Read-only mode"
 "#;
@@ -346,7 +476,7 @@ never_edit_files:
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
         
         assert!(config.always_inject_on_prompt.as_ref().unwrap().enabled);
-        assert!(!config.never_edit_files.as_ref().unwrap().enabled);
+        assert!(!config.global_file_lock.as_ref().unwrap().enabled);
         assert_eq!(config.enabled_builtins(), vec!["always_inject_on_prompt"]);
     }
     
@@ -434,12 +564,12 @@ git_pre_check:
     #[test]
     fn test_signal_generation() {
         let mut config = BuiltinsConfig::default();
-        config.never_edit_files = Some(NeverEditConfig {
+        config.global_file_lock = Some(GlobalFileLockConfig {
             enabled: true,
             message: "No edits".to_string(),
         });
         
-        // never_edit_files doesn't generate signals
+        // global_file_lock doesn't generate signals
         let signals = config.generate_signals();
         assert_eq!(signals.len(), 0);
         

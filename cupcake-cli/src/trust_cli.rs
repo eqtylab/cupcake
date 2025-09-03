@@ -715,6 +715,7 @@ async fn trust_reset(project_dir: &Path, force: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "deterministic-tests")]
     use tempfile::TempDir;
     
     #[test]
@@ -791,7 +792,7 @@ mod tests {
         std::fs::create_dir_all(trust_file.parent().unwrap()).unwrap();
         
         // Create a manifest
-        let manifest = cupcake_core::trust::TrustManifest::new();
+        let mut manifest = cupcake_core::trust::TrustManifest::new();
         manifest.save(&trust_file).unwrap();
         assert!(trust_file.exists());
         

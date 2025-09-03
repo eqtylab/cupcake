@@ -94,9 +94,11 @@ fn test_init_creates_all_required_files() -> Result<()> {
         "policies/system/evaluate.rego",
         "policies/example.rego",
         "policies/builtins/always_inject_on_prompt.rego",
-        "policies/builtins/never_edit_files.rego",
+        "policies/builtins/global_file_lock.rego",
+        "policies/builtins/protected_paths.rego",
         "policies/builtins/git_pre_check.rego",
         "policies/builtins/post_edit_check.rego",
+        "policies/builtins/rulebook_security_guardrails.rego",
     ];
     
     for file_name in expected_files {
@@ -156,8 +158,8 @@ fn test_guidebook_yml_content() -> Result<()> {
         "guidebook.yml should document always_inject_on_prompt builtin"
     );
     assert!(
-        content.contains("never_edit_files:"),
-        "guidebook.yml should document never_edit_files builtin"
+        content.contains("global_file_lock:"),
+        "guidebook.yml should document global_file_lock builtin"
     );
     assert!(
         content.contains("git_pre_check:"),
@@ -254,16 +256,16 @@ fn test_builtin_policies_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
     let builtins_dir = project_path.join(".cupcake/policies/builtins");
     
-    // Test never_edit_files.rego
-    let never_edit_path = builtins_dir.join("never_edit_files.rego");
-    let content = fs::read_to_string(&never_edit_path)?;
+    // Test global_file_lock.rego
+    let global_lock_path = builtins_dir.join("global_file_lock.rego");
+    let content = fs::read_to_string(&global_lock_path)?;
     assert!(
-        content.contains("package cupcake.policies.builtins.never_edit_files"),
-        "never_edit_files.rego should have correct package"
+        content.contains("package cupcake.policies.builtins.global_file_lock"),
+        "global_file_lock.rego should have correct package"
     );
     assert!(
         content.contains("halt contains decision if"),
-        "never_edit_files.rego should use halt verb"
+        "global_file_lock.rego should use halt verb"
     );
     
     // Test git_pre_check.rego
@@ -296,6 +298,30 @@ fn test_builtin_policies_content() -> Result<()> {
     assert!(
         content.contains("add_context contains"),
         "always_inject_on_prompt.rego should use add_context verb"
+    );
+    
+    // Test protected_paths.rego
+    let protected_path = builtins_dir.join("protected_paths.rego");
+    let content = fs::read_to_string(&protected_path)?;
+    assert!(
+        content.contains("package cupcake.policies.builtins.protected_paths"),
+        "protected_paths.rego should have correct package"
+    );
+    assert!(
+        content.contains("halt contains decision if"),
+        "protected_paths.rego should use halt verb"
+    );
+    
+    // Test rulebook_security_guardrails.rego
+    let rulebook_path = builtins_dir.join("rulebook_security_guardrails.rego");
+    let content = fs::read_to_string(&rulebook_path)?;
+    assert!(
+        content.contains("package cupcake.policies.builtins.rulebook_security_guardrails"),
+        "rulebook_security_guardrails.rego should have correct package"
+    );
+    assert!(
+        content.contains("halt contains decision if"),
+        "rulebook_security_guardrails.rego should use halt verb"
     );
     
     Ok(())
@@ -477,10 +503,11 @@ fn test_correct_number_of_files_created() -> Result<()> {
     
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
     
-    // We should have exactly 7 files
+    // We should have exactly 9 files (guidebook.yml + 8 policies)
+    // Policies: evaluate.rego, example.rego, and 6 builtins
     assert_eq!(
-        file_count, 7,
-        "Should have exactly 7 files (guidebook.yml + 6 policies)"
+        file_count, 9,
+        "Should have exactly 9 files (guidebook.yml + 8 policies)"
     );
     
     // We should have exactly 5 directories (policies, policies/system, policies/builtins, signals, actions)

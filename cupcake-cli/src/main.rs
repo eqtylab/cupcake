@@ -324,10 +324,10 @@ async fn init_command() -> Result<()> {
     .context("Failed to create always_inject_on_prompt.rego")?;
     
     fs::write(
-        ".cupcake/policies/builtins/never_edit_files.rego",
-        NEVER_EDIT_FILES_POLICY
+        ".cupcake/policies/builtins/global_file_lock.rego",
+        GLOBAL_FILE_LOCK_POLICY
     )
-    .context("Failed to create never_edit_files.rego")?;
+    .context("Failed to create global_file_lock.rego")?;
     
     fs::write(
         ".cupcake/policies/builtins/git_pre_check.rego",
@@ -340,6 +340,18 @@ async fn init_command() -> Result<()> {
         POST_EDIT_CHECK_POLICY
     )
     .context("Failed to create post_edit_check.rego")?;
+    
+    fs::write(
+        ".cupcake/policies/builtins/rulebook_security_guardrails.rego",
+        RULEBOOK_SECURITY_POLICY
+    )
+    .context("Failed to create rulebook_security_guardrails.rego")?;
+    
+    fs::write(
+        ".cupcake/policies/builtins/protected_paths.rego",
+        PROTECTED_PATHS_POLICY
+    )
+    .context("Failed to create protected_paths.rego")?;
     
     // Write a simple example policy
     fs::write(
@@ -593,9 +605,11 @@ const GUIDEBOOK_TEMPLATE: &str = include_str!("../../examples/base-config.yml");
 
 // Include authoritative builtin policies from examples
 const ALWAYS_INJECT_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/always_inject_on_prompt.rego");
-const NEVER_EDIT_FILES_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/never_edit_files.rego");
+const GLOBAL_FILE_LOCK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/global_file_lock.rego");
 const GIT_PRE_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/git_pre_check.rego");
 const POST_EDIT_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
+const RULEBOOK_SECURITY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
+const PROTECTED_PATHS_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

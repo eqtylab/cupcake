@@ -26,3 +26,6 @@ path = "src/main.rs"
 
 [dev-dependencies]
 tempfile = "3.8"
+
+[features]
+deterministic-tests = ["cupcake-core/deterministic-tests"]

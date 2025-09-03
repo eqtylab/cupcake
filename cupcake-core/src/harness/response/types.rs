@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// The main response structure for Claude Code hooks
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CupcakeResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "hookSpecificOutput")]
     pub hook_specific_output: Option<HookSpecificOutput>,
 
     #[serde(skip_serializing_if = "Option::is_none")]

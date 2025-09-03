@@ -115,7 +115,7 @@ fn initialize_tracing() {
     
     // Configure the subscriber based on whether tracing is enabled
     if cupcake_trace.is_some() {
-        // JSON output for structured tracing
+        // JSON output for structured tracing - MUST go to stderr
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)
@@ -124,6 +124,7 @@ fn initialize_tracing() {
             .with_thread_names(true)
             .with_file(true)
             .with_line_number(true)
+            .with_writer(std::io::stderr) // Critical: logs to stderr, not stdout
             .init();
         
         // Log that tracing is enabled
@@ -132,10 +133,11 @@ fn initialize_tracing() {
             "Cupcake evaluation tracing enabled"
         );
     } else {
-        // Standard text output
+        // Standard text output - MUST go to stderr
         tracing_subscriber::fmt()
             .with_env_filter(filter)
             .with_target(false)
+            .with_writer(std::io::stderr) // Critical: logs to stderr, not stdout
             .init();
     }
 }
@@ -154,6 +156,7 @@ async fn main() -> Result<()> {
                     tracing_subscriber::fmt()
                         .with_env_filter(EnvFilter::new("debug"))
                         .with_target(false)
+                        .with_writer(std::io::stderr) // Critical: logs to stderr, not stdout
                         .finish()
                 ).ok();
             }

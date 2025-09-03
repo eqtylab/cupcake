@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Critical Claude Code Hook Integration Issues (FIXED)
+
+### JSON Response Format Requirements
+**CRITICAL**: Claude Code hooks require ONLY valid JSON on stdout. Any other output will cause parsing failure and the hook response will be ignored.
+
+**Fixed Issues (2025-09-03)**:
+1. **Field Name Casing**: The response field MUST be `hookSpecificOutput` (camelCase), not `hook_specific_output` (snake_case). Fixed in `cupcake-core/src/harness/response/types.rs`.
+
+2. **Stdout Pollution**: ALL logs, debug output, and banners MUST go to stderr, not stdout. Only the JSON response should go to stdout. Fixed in `cupcake-cli/src/main.rs` by adding `.with_writer(std::io::stderr)` to all tracing subscribers.
+
+Without these fixes, Claude Code will ignore deny decisions and execute dangerous commands despite Cupcake returning a proper deny response.
+
 ## Hook Event Format Requirements
 
 ### Required Common Fields

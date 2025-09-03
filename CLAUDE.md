@@ -332,6 +332,21 @@ package cupcake.policies.example
 **Metadata Fix**: ✅ All policies use `scope: package` to avoid detached metadata lint errors  
 **Audit Status**: ✅ All Cupcake policies audited and fixed (last check: post-metadata fixes)
 
+## Signal Access in Policies
+
+- Signals are accessed via `input.signals.*` NOT `data.*`
+- Example: `input.signals.__builtin_system_protection_paths`
+- Builtin policies auto-discover signals matching their pattern
+- Both project and global builtins support signal auto-discovery
+
+## Global Builtins
+
+- Global policies use namespace `cupcake.global.policies.builtins.*`
+- Compile to separate WASM module with different entrypoint
+- Evaluated in Phase 1 with early termination (halt/deny/block)
+- Signals must be defined in global guidebook.yml
+- Test policies should NOT use `data.*` for signal access
+
 ## Debugging Best Practices
 
 ### Policy Changes in Tests

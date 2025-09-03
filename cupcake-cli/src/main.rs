@@ -488,7 +488,7 @@ import rego.v1
 "#
     )?;
     
-    // Create minimal guidebook
+    // Create guidebook with global builtins enabled by default
     fs::write(
         global_paths.guidebook.clone(),
         r#"# Global Cupcake Configuration
@@ -500,9 +500,44 @@ signals: {}
 # Global actions - triggered by global policy decisions  
 actions: {}
 
-# Global builtins - not typically used at global level
-builtins: {}
+# Global builtins - machine-wide security policies
+builtins:
+  # Protect critical system paths from modification
+  system_protection:
+    enabled: true
+    additional_paths: []  # Add custom protected system paths
+    # message: "Custom message for system protection blocks"
+  
+  # Block reading of credentials and sensitive data
+  sensitive_data_protection:
+    enabled: true
+    additional_patterns: []  # Add custom sensitive file patterns
+  
+  # Block direct execution of cupcake binary
+  cupcake_exec_protection:
+    enabled: true
+    # message: "Custom message for cupcake execution blocks"
 "#
+    )?;
+    
+    // Create builtins directory for global builtin policies
+    let builtins_dir = global_paths.policies.join("builtins");
+    fs::create_dir_all(&builtins_dir)?;
+    
+    // Deploy the three global builtin policies
+    fs::write(
+        builtins_dir.join("system_protection.rego"),
+        GLOBAL_SYSTEM_PROTECTION_POLICY
+    )?;
+    
+    fs::write(
+        builtins_dir.join("sensitive_data_protection.rego"),
+        GLOBAL_SENSITIVE_DATA_POLICY
+    )?;
+    
+    fs::write(
+        builtins_dir.join("cupcake_exec_protection.rego"),
+        GLOBAL_CUPCAKE_EXEC_POLICY
     )?;
     
     println!("✅ Initialized global Cupcake configuration");
@@ -511,7 +546,13 @@ builtins: {}
     println!("   Add policies:  {:?}", global_paths.policies);
     println!();
     println!("   Global policies have absolute precedence over project policies.");
-    println!("   Edit example_global.rego to add your machine-wide policies.");
+    println!("   Three security builtins are enabled by default:");
+    println!("     - system_protection: Blocks critical system path modifications");
+    println!("     - sensitive_data_protection: Blocks credential file reads");
+    println!("     - cupcake_exec_protection: Prevents direct cupcake binary execution");
+    println!();
+    println!("   Edit guidebook.yml to customize or disable builtins.");
+    println!("   Edit example_global.rego to add custom machine-wide policies.");
     
     Ok(())
 }
@@ -845,6 +886,11 @@ const GIT_PRE_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policie
 const POST_EDIT_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
 const RULEBOOK_SECURITY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
 const PROTECTED_PATHS_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
+
+// Global builtin policies embedded in the binary
+const GLOBAL_SYSTEM_PROTECTION_POLICY: &str = include_str!("../../examples/global_builtins/system_protection.rego");
+const GLOBAL_SENSITIVE_DATA_POLICY: &str = include_str!("../../examples/global_builtins/sensitive_data_protection.rego");
+const GLOBAL_CUPCAKE_EXEC_POLICY: &str = include_str!("../../examples/global_builtins/cupcake_exec_protection.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

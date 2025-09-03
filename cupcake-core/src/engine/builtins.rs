@@ -36,6 +36,20 @@ pub struct BuiltinsConfig {
     /// Protected paths configuration (user-defined read-only paths)
     #[serde(default)]
     pub protected_paths: Option<ProtectedPathsConfig>,
+    
+    // Global-only builtins (for machine-wide security)
+    
+    /// System protection configuration - prevents modification of OS paths
+    #[serde(default)]
+    pub system_protection: Option<SystemProtectionConfig>,
+    
+    /// Sensitive data protection - blocks reading credentials/secrets
+    #[serde(default)]
+    pub sensitive_data_protection: Option<SensitiveDataProtectionConfig>,
+    
+    /// Cupcake execution protection - prevents direct binary execution
+    #[serde(default)]
+    pub cupcake_exec_protection: Option<CupcakeExecProtectionConfig>,
 }
 
 
@@ -168,6 +182,68 @@ fn default_protected_paths_message() -> String {
     "This path is read-only and cannot be modified".to_string()
 }
 
+// Global builtin configurations
+
+/// Configuration for system protection builtin (global only)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemProtectionConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Additional custom paths to protect (beyond the defaults)
+    #[serde(default)]
+    pub additional_paths: Vec<String>,
+    
+    /// Custom message for blocked operations
+    #[serde(default = "default_system_protection_message")]
+    pub message: String,
+}
+
+fn default_system_protection_message() -> String {
+    "Access to critical system path blocked".to_string()
+}
+
+/// Configuration for sensitive data protection builtin (global only)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SensitiveDataProtectionConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Additional file patterns to consider sensitive
+    #[serde(default)]
+    pub additional_patterns: Vec<String>,
+    
+    /// Custom message for blocked operations
+    #[serde(default = "default_sensitive_data_message")]
+    pub message: String,
+}
+
+fn default_sensitive_data_message() -> String {
+    "Access to potentially sensitive data blocked".to_string()
+}
+
+/// Configuration for cupcake execution protection builtin (global only)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CupcakeExecProtectionConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Allow specific cupcake commands (e.g., ["version", "help"])
+    #[serde(default)]
+    pub allowed_commands: Vec<String>,
+    
+    /// Custom message for blocked operations
+    #[serde(default = "default_cupcake_exec_message")]
+    pub message: String,
+}
+
+fn default_cupcake_exec_message() -> String {
+    "Direct execution of Cupcake binary is not permitted".to_string()
+}
+
 impl BuiltinsConfig {
     /// Validate configuration and return errors if invalid
     pub fn validate(&self) -> Result<(), Vec<String>> {
@@ -278,6 +354,9 @@ impl BuiltinsConfig {
             || self.post_edit_check.as_ref().map_or(false, |c| c.enabled)
             || self.rulebook_security_guardrails.as_ref().map_or(false, |c| c.enabled)
             || self.protected_paths.as_ref().map_or(false, |c| c.enabled)
+            || self.system_protection.as_ref().map_or(false, |c| c.enabled)
+            || self.sensitive_data_protection.as_ref().map_or(false, |c| c.enabled)
+            || self.cupcake_exec_protection.as_ref().map_or(false, |c| c.enabled)
     }
     
     /// Get list of enabled builtin names
@@ -301,6 +380,15 @@ impl BuiltinsConfig {
         }
         if self.protected_paths.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("protected_paths".to_string());
+        }
+        if self.system_protection.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("system_protection".to_string());
+        }
+        if self.sensitive_data_protection.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("sensitive_data_protection".to_string());
+        }
+        if self.cupcake_exec_protection.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("cupcake_exec_protection".to_string());
         }
         
         enabled
@@ -384,6 +472,63 @@ impl BuiltinsConfig {
                     command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
                     timeout_seconds: 1,
                 });
+            }
+        }
+        
+        // Generate signals for system_protection
+        if let Some(config) = &self.system_protection {
+            if config.enabled {
+                signals.insert("__builtin_system_protection_message".to_string(), SignalConfig {
+                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
+                    timeout_seconds: 1,
+                });
+                
+                if !config.additional_paths.is_empty() {
+                    let paths_json = serde_json::to_string(&config.additional_paths)
+                        .unwrap_or_else(|_| r#"[]"#.to_string());
+                    signals.insert("__builtin_system_protection_paths".to_string(), SignalConfig {
+                        command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
+                        timeout_seconds: 1,
+                    });
+                }
+            }
+        }
+        
+        // Generate signals for sensitive_data_protection
+        if let Some(config) = &self.sensitive_data_protection {
+            if config.enabled {
+                signals.insert("__builtin_sensitive_data_message".to_string(), SignalConfig {
+                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
+                    timeout_seconds: 1,
+                });
+                
+                if !config.additional_patterns.is_empty() {
+                    let patterns_json = serde_json::to_string(&config.additional_patterns)
+                        .unwrap_or_else(|_| r#"[]"#.to_string());
+                    signals.insert("__builtin_sensitive_data_patterns".to_string(), SignalConfig {
+                        command: format!("echo '{}'", patterns_json.replace('\'', "\\'")),
+                        timeout_seconds: 1,
+                    });
+                }
+            }
+        }
+        
+        // Generate signals for cupcake_exec_protection
+        if let Some(config) = &self.cupcake_exec_protection {
+            if config.enabled {
+                signals.insert("__builtin_cupcake_exec_message".to_string(), SignalConfig {
+                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
+                    timeout_seconds: 1,
+                });
+                
+                if !config.allowed_commands.is_empty() {
+                    let allowed_json = serde_json::to_string(&config.allowed_commands)
+                        .unwrap_or_else(|_| r#"[]"#.to_string());
+                    signals.insert("__builtin_cupcake_exec_allowed".to_string(), SignalConfig {
+                        command: format!("echo '{}'", allowed_json.replace('\'', "\\'")),
+                        timeout_seconds: 1,
+                    });
+                }
             }
         }
         

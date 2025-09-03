@@ -800,6 +800,45 @@ impl Engine {
             }
         }
         
+        // ALSO: For builtin policies, automatically include their generated signals
+        // This mirrors the logic in gather_signals() for project builtins
+        for policy in matched_policies {
+            // Check for both global and project builtin namespaces
+            let is_global_builtin = policy.package_name.starts_with("cupcake.global.policies.builtins.");
+            let is_project_builtin = policy.package_name.starts_with("cupcake.policies.builtins.");
+            
+            if is_global_builtin || is_project_builtin {
+                // Extract the builtin name from the package
+                let prefix = if is_global_builtin {
+                    "cupcake.global.policies.builtins."
+                } else {
+                    "cupcake.policies.builtins."
+                };
+                
+                let builtin_name = policy.package_name
+                    .strip_prefix(prefix)
+                    .unwrap_or("");
+                
+                // Add all signals that match this builtin's pattern
+                let signal_prefix = format!("__builtin_{}_", builtin_name);
+                for signal_name in guidebook.signals.keys() {
+                    if signal_name.starts_with(&signal_prefix) {
+                        debug!("Auto-adding signal '{}' for global builtin '{}'", signal_name, builtin_name);
+                        required_signals.insert(signal_name.clone());
+                    }
+                }
+                
+                // Also check for signals without the trailing underscore (like __builtin_system_protection_paths)
+                let signal_prefix_no_underscore = format!("__builtin_{}", builtin_name);
+                for signal_name in guidebook.signals.keys() {
+                    if signal_name.starts_with(&signal_prefix_no_underscore) && !signal_name.starts_with(&signal_prefix) {
+                        debug!("Auto-adding signal '{}' for global builtin '{}'", signal_name, builtin_name);
+                        required_signals.insert(signal_name.clone());
+                    }
+                }
+            }
+        }
+        
         if required_signals.is_empty() {
             return Ok(input.clone());
         }

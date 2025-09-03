@@ -22,6 +22,10 @@ async fn test_global_action_execution_logs() -> Result<()> {
     let global_paths = GlobalPaths::discover()?.unwrap();
     global_paths.initialize()?;
     
+    // Verify system evaluate policy was created
+    let sys_eval = global_paths.policies.join("system").join("evaluate.rego");
+    assert!(sys_eval.exists(), "System evaluate policy not created at {:?}", sys_eval);
+    
     // Create simple global guidebook with inline echo command
     // This will execute but we can't capture output directly
     let guidebook_content = r#"signals: {}
@@ -113,6 +117,10 @@ async fn test_global_action_working_directory_issue() -> Result<()> {
     
     let global_paths = GlobalPaths::discover()?.unwrap();
     global_paths.initialize()?;
+    
+    // Verify system evaluate policy was created
+    let sys_eval2 = global_paths.policies.join("system").join("evaluate.rego");
+    assert!(sys_eval2.exists(), "System evaluate policy not created at {:?}", sys_eval2);
     
     // Create an action that shows its working directory
     let guidebook_content = r#"signals: {}

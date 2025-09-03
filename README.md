@@ -99,10 +99,6 @@ The feature flag ensures deterministic HMAC key generation for reliable test exe
 # Development build
 cargo build
 
-# Release build  
+# Release build
 cargo build --release
 ```
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.

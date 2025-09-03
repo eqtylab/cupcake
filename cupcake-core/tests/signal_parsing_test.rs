@@ -1,7 +1,5 @@
 use cupcake_core::engine::guidebook::{Guidebook, SignalConfig};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use tempfile::TempDir;
 use tokio;
 
 #[tokio::test]
@@ -163,10 +161,19 @@ async fn test_execute_signals_with_failures() {
     
     let results = guidebook.execute_signals(&signal_names).await.unwrap();
     
-    // Should only contain the successful signal
-    assert_eq!(results.len(), 1);
+    // Both signals should be present - failed signals return error details for validation
+    assert_eq!(results.len(), 2);
+    
+    // Good signal returns its output
     assert_eq!(results["good_signal"], Value::String("success".to_string()));
-    assert!(!results.contains_key("bad_signal"));
+    
+    // Bad signal returns structured error information
+    assert!(results.contains_key("bad_signal"));
+    let bad_signal_result = &results["bad_signal"];
+    assert_eq!(bad_signal_result["exit_code"], 1);
+    assert_eq!(bad_signal_result["success"], false);
+    assert_eq!(bad_signal_result["output"], "");  // exit 1 produces no output
+    assert_eq!(bad_signal_result["error"], "");   // exit 1 produces no error message
 }
 
 #[tokio::test]

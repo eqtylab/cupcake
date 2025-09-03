@@ -61,18 +61,6 @@ pub fn derive_trust_key(project_path: &Path) -> Result<[u8; 32]> {
     // Mix in version identifier
     hasher.update(b"CUPCAKE_TRUST_V1");
     
-    // Always use a consistent path representation by converting to string and normalizing
-    let path_str = project_path.to_string_lossy();
-    // On macOS, normalize symlinked paths consistently 
-    let normalized_path_str = if path_str.starts_with("/var/") && !path_str.starts_with("/var/folders/") {
-        path_str.to_string()
-    } else if path_str.starts_with("/var/folders/") {
-        // macOS temp paths - ensure consistent representation
-        path_str.replace("/private/var/folders/", "/var/folders/")
-    } else {
-        path_str.to_string()
-    };
-    
     // In test mode with the specific feature, use only deterministic inputs for reproducible tests
     #[cfg(feature = "deterministic-tests")]
     {
@@ -86,6 +74,18 @@ pub fn derive_trust_key(project_path: &Path) -> Result<[u8; 32]> {
     // In production or standard builds, use system-specific entropy for security
     #[cfg(not(feature = "deterministic-tests"))]
     {
+        // Always use a consistent path representation by converting to string and normalizing
+        let path_str = project_path.to_string_lossy();
+        // On macOS, normalize symlinked paths consistently 
+        let normalized_path_str = if path_str.starts_with("/var/") && !path_str.starts_with("/var/folders/") {
+            path_str.to_string()
+        } else if path_str.starts_with("/var/folders/") {
+            // macOS temp paths - ensure consistent representation
+            path_str.replace("/private/var/folders/", "/var/folders/")
+        } else {
+            path_str.to_string()
+        };
+        
         // Add executable path
         if let Ok(exe_path) = std::env::current_exe() {
             hasher.update(exe_path.to_string_lossy().as_bytes());

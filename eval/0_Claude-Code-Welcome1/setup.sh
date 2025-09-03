@@ -72,8 +72,8 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval",
-            "timeout": 30,
+            "command": "cargo run --release --manifest-path $MANIFEST_PATH -- eval",
+            "timeout": 120,
             "env": {
               "RUST_LOG": "info",
               "PATH": "$OPA_DIR:\$PATH"
@@ -88,8 +88,8 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval",
-            "timeout": 30,
+            "command": "cargo run --release --manifest-path $MANIFEST_PATH -- eval",
+            "timeout": 120,
             "env": {
               "RUST_LOG": "info",
               "PATH": "$OPA_DIR:\$PATH"
@@ -103,8 +103,8 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval",
-            "timeout": 30,
+            "command": "cargo run --release --manifest-path $MANIFEST_PATH -- eval",
+            "timeout": 120,
             "env": {
               "RUST_LOG": "info",
               "PATH": "$OPA_DIR:\$PATH"

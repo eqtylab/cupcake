@@ -67,6 +67,10 @@ cargo bench
 # Run with debug logging
 RUST_LOG=debug cargo run -- [args]
 
+# Enable extensive debugging with policy evaluation tracing
+CUPCAKE_TRACE=eval cargo run -- [args]      # Shows the main policy evaluation pipeline (routing, signals, WASM, synthesis)
+CUPCAKE_TRACE=all cargo test --features deterministic-tests  # Shows everything (all engine components plus lower-level details)
+
 # Compile OPA policies to WASM (from project root)
 opa build -t wasm -e cupcake/system/evaluate examples/policies/
 

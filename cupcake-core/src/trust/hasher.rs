@@ -180,6 +180,14 @@ mod tests {
     use std::io::Write;
     use tempfile::NamedTempFile;
     
+    fn warn_if_missing_deterministic_flag() {
+        #[cfg(not(feature = "deterministic-tests"))]
+        {
+            eprintln!("\n⚠️  WARNING: Trust tests require --features deterministic-tests flag");
+            eprintln!("   Run: cargo test --features deterministic-tests\n");
+        }
+    }
+    
     #[test]
     fn test_hash_string() {
         let hash = hash_string("hello world");
@@ -207,6 +215,7 @@ mod tests {
     
     #[test]
     fn test_hmac_roundtrip() -> Result<()> {
+        warn_if_missing_deterministic_flag();
         let project_path = Path::new("/tmp/test-project");
         let message = b"test message";
         
@@ -224,6 +233,7 @@ mod tests {
     
     #[test]
     fn test_derive_key_deterministic() -> Result<()> {
+        warn_if_missing_deterministic_flag();
         let project_path = Path::new("/tmp/test-project");
         
         let key1 = derive_trust_key(project_path)?;

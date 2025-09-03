@@ -398,6 +398,14 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
     
+    fn warn_if_missing_deterministic_flag() {
+        #[cfg(not(feature = "deterministic-tests"))]
+        {
+            eprintln!("\n⚠️  WARNING: Trust tests require --features deterministic-tests flag");
+            eprintln!("   Run: cargo test --features deterministic-tests\n");
+        }
+    }
+    
     #[test]
     fn test_script_reference_parse_inline() {
         let working_dir = Path::new("/tmp");
@@ -450,6 +458,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_manifest_roundtrip() {
+        warn_if_missing_deterministic_flag();
         let temp_dir = TempDir::new().unwrap();
         let manifest_path = temp_dir.path().join(".cupcake").join(".trust");
         std::fs::create_dir_all(manifest_path.parent().unwrap()).unwrap();

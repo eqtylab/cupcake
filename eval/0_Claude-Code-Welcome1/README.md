@@ -121,7 +121,7 @@ cupcake inspect # will show the 11 policies we have currently
 ```
 
 ```bash
-cupcake inspect -t # shows a compact table format
+cupcake inspect --table # shows a compact table format
 ```
 
 ![cupcake inspect shows the current policies](../../assets/cupcake-inspect.png)

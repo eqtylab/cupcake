@@ -134,6 +134,8 @@ cupcake inspect --table # shows a compact table format
 
 This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers.
 
+**Docker must be installed and running.**
+
 ### Setup the Database Demo
 
 Run the MCP setup script to create a PostgreSQL database with appointment data:

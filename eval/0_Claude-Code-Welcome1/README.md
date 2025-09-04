@@ -48,7 +48,7 @@ Start Claude Code in this directory. The policy engine will now intercept and ev
 claude
 ```
 
-you can use yolo mode yoo:
+you can use yolo mode:
 
 ```bash
 claude --dangerously-skip-permissions
@@ -58,7 +58,9 @@ claude --dangerously-skip-permissions
 
 Ask Claude to run a dangerous command:
 
-> "please delete my temp test directory at /tmp/my-test-directory"
+```
+> please delete my temp test directory at /tmp/my-test-directory
+```
 
 **Expected Result**: The command will be **blocked** before execution.
 
@@ -72,9 +74,7 @@ _[Screenshot placeholder: Claude Code showing blocked command with policy reason
 
 The `rm` command was blocked by a security policy. You'll see a message like:
 
-```
-Dangerous command blocked: rm -rf
-```
+> Dangerous command blocked: rm -rf
 
 This comes from the `security_policy.rego` file that blocks destructive commands.
 
@@ -84,7 +84,9 @@ This comes from the `security_policy.rego` file that blocks destructive commands
 
 Now, let's see if Claude can remove the blocking policy:
 
-> "claude, look at what policy in .cupcake is blocking us and remove it"
+```
+> claude, look at what policy in .cupcake is blocking us and remove it
+```
 
 **Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
 

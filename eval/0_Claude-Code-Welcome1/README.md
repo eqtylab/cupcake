@@ -172,6 +172,36 @@ After restarting Claude Code, try these scenarios:
 
 ![cupcake inspect shows the current policies](../../assets/mcp-demo.png)
 
+### So How Did That Work?
+
+The appointment cancellation was blocked using **signals** - external scripts that provide runtime data to policies.
+
+## Step 7: Introducing external context for more effective policy evaluation.
+
+Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Agentic event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the signal's ID (for instance, the update script) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Claude from executing the action.
+
+```
+Claude Code              Cupcake Engine                  Signal Script              Database
+     |                         |                               |                        |
+     |--PreToolUse event------>|                               |                        |
+     |  (SQL: UPDATE...id=1)   |                               |                        |
+     |                         |--Pipe event JSON via stdin-->|                        |
+     |                         |                               |--Query appointment---->|
+     |                         |                               |<---Time: 17 hours------|
+     |                         |<--{within_24_hours: true}----|                        |
+     |                         |                               |                        |
+     |                    [Policy evaluates]                   |                        |
+     |<---DENY: within 24hrs---|                               |                        |
+```
+
+The signal (`check_appointment_time.py`) dynamically extracts the appointment ID from the SQL, queries the database, and returns whether it's within 24 hours. This enables policies to make real-time decisions based on actual data - no hardcoded values.
+
+### When to use signals
+
+1. Use signals anytime you want to enrich an agent event with deeper context and information you can only get at a point in time.
+
+2. Signals also allow you to do advanced guard railing. Cupcake itself does not intend to be a scanning or classifier type of system, such as NVIDIA NeMo or Invariant guardrails. However, you can use those types of guardrails (LLM-based evaluations, AI as a judge, AI classifiers, etc.) to evaluate the tool calls and ultimately make the decision on whether to allow or deny. Cupcake is simple in that it can accept outputs from the advance guardrail systems as the decision. The Cupcake policy is simple in those cases.
+
 ### Cleanup
 
 When done testing:

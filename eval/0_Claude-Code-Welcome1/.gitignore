@@ -12,3 +12,7 @@ test_results.txt
 # Ignore any compiled policy bundles
 bundle.tar.gz
 policies.wasm
+
+# Ignore MCP setup files
+.mcp.json
+CLAUDE.md

@@ -22,6 +22,10 @@ build-core:
 build-cli:
     cargo build -p cupcake-cli --release
 
+# Install cupcake binary to cargo bin directory
+install: build-cli
+    cargo install --path cupcake-cli --force
+
 # Build Python bindings (requires Python dev headers)
 build-python:
     cd cupcake-py && maturin build --release

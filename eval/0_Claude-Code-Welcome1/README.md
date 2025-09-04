@@ -96,7 +96,7 @@ Now, let's see if Claude can remove the blocking policy:
 
 What happened? Claude was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's own configuration from tampering.
 
-**Built-ins are special policies that:**
+**`Built-ins` are special policies that:**
 
 - Are enabled by default in `guidebook.yml`
 - Protect critical system functionality
@@ -110,6 +110,71 @@ What happened? Claude was blocked by the `rulebook_security_guardrails` builtin,
 - `git_pre_check` - Validates git operations
 
 This demonstrates Cupcake's **defense in depth** - even if Claude tries to modify policies, the built-in security layer prevents it.
+
+### Step 5: Management over rules
+
+Part of the benefit of using a centralized policy enforcement layer is the ability to have a well managed model over rules.
+So far, you've seen two rules in action. Let's see all of the rules cupcake loads at runtime:
+
+```bash
+cupcake inspect # will show the 11 policies we have currently
+```
+
+```bash
+cupcake inspect -t # shows a compact table format
+```
+
+![cupcake inspect shows the current policies](../../assets/cupcake-inspect.png)
+
+---
+
+## Step 6: MCP Database Protection Demo
+
+This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers.
+
+### Setup the Database Demo
+
+Run the MCP setup script to create a PostgreSQL database with appointment data:
+
+```bash
+./mcp_setup.sh
+```
+
+This will:
+
+- Start a PostgreSQL Docker container with appointment data
+- Install a policy that prevents database deletions and last-minute cancellations
+- Configure Claude Code to access the database via MCP
+
+### Test Database Protection
+
+After restarting Claude Code, try these scenarios:
+
+**Allowed Operations:**
+
+```
+> Show me all appointments in the database
+```
+
+**Blocked Operations:**
+
+```
+> Cancel the appointment for Sarah Johnson
+# Blocked - appointment is within 24 hours
+
+> Delete all appointments older than 30 days
+# Blocked - no deletions allowed on production data
+```
+
+![cupcake inspect shows the current policies](../../assets/mcp-demo.png)
+
+### Cleanup
+
+When done testing:
+
+```bash
+./mcp_cleanup.sh
+```
 
 ---
 

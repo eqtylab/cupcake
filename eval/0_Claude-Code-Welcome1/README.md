@@ -141,7 +141,7 @@ This demo shows how Cupcake can protect databases accessed through MCP (Model Co
 Run the MCP setup script to create a PostgreSQL database with appointment data:
 
 ```bash
-./mcp_setup.sh
+./mcp_setup.sh # docker must be running for this to work
 ```
 
 This will:

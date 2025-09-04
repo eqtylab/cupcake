@@ -24,6 +24,26 @@ deny contains decision if {
     }
 }
 
+# Block directory removal commands on temp directories
+deny contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
+    
+    # Check for rmdir or rm -r commands
+    cmd := lower(input.tool_input.command)
+    directory_removal := contains(cmd, "rmdir") or (contains(cmd, "rm ") and contains(cmd, "/tmp/"))
+    directory_removal
+    
+    # Block if targeting /tmp directories
+    contains(cmd, "/tmp/")
+    
+    decision := {
+        "rule_id": "SECURITY-003",
+        "reason": "Directory removal in /tmp is not permitted - please use cleanup scripts",
+        "severity": "HIGH"
+    }
+}
+
 # Block editing system files
 deny contains decision if {
     input.hook_event_name == "PreToolUse"  

@@ -178,7 +178,7 @@ The appointment cancellation was blocked using **signals** - external scripts th
 
 ## Step 7: Introducing external context for more effective policy evaluation.
 
-Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Agentic event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the signal's ID (for instance, the update script) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Claude from executing the action.
+Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Agentic event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the appointment's ID (from the agent tool call parameter) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Claude from executing the action.
 
 ```
 Claude Code              Cupcake Engine                  Signal Script              Database

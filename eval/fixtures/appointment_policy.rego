@@ -6,6 +6,7 @@
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["mcp__postgres__execute_sql"]
+#     required_signals: ["appointment_time_check"]
 package cupcake.policies.appointments
 
 import rego.v1
@@ -21,12 +22,12 @@ deny contains decision if {
     
     decision := {
         "rule_id": "APPT-001",
-        "reason": "Database deletion operations are not permitted",
+        "reason": "Database deletion operations are not permitted for data retention",
         "severity": "CRITICAL"
     }
 }
 
-# Block appointment cancellations within 24 hours (cancelled spelling)
+# Block appointment cancellations within 24 hours using signal data (cancelled spelling)
 deny contains decision if {
     input.hook_event_name == "PreToolUse"
     input.tool_name == "mcp__postgres__execute_sql"
@@ -37,18 +38,19 @@ deny contains decision if {
     contains(sql_command, "appointments")
     contains(sql_command, "cancelled")
     
-    # Check if the appointment is within 24 hours
-    # This is a simplified check - in production you'd parse the SQL more thoroughly
-    contains(sql_command, "where")
+    # Check signal data for appointment time
+    signal_data := input.signals.appointment_time_check
+    signal_data.relevant == true
+    signal_data.within_24_hours == true
     
     decision := {
-        "rule_id": "APPT-002", 
-        "reason": "Cannot cancel appointments within 24 hours of scheduled time. Please contact the patient directly.",
+        "rule_id": "APPT-002",
+        "reason": "Cannot cancel this appointment - it is scheduled within 24 hours. Please contact the patient directly.",
         "severity": "HIGH"
     }
 }
 
-# Block appointment cancellations within 24 hours (canceled spelling)
+# Block appointment cancellations within 24 hours using signal data (canceled spelling)
 deny contains decision if {
     input.hook_event_name == "PreToolUse"
     input.tool_name == "mcp__postgres__execute_sql"
@@ -59,49 +61,14 @@ deny contains decision if {
     contains(sql_command, "appointments")
     contains(sql_command, "canceled")
     
-    # Check if the appointment is within 24 hours
-    # This is a simplified check - in production you'd parse the SQL more thoroughly
-    contains(sql_command, "where")
+    # Check signal data for appointment time
+    signal_data := input.signals.appointment_time_check
+    signal_data.relevant == true
+    signal_data.within_24_hours == true
     
     decision := {
-        "rule_id": "APPT-002", 
-        "reason": "Cannot cancel appointments within 24 hours of scheduled time. Please contact the patient directly.",
+        "rule_id": "APPT-002",
+        "reason": "Cannot cancel this appointment - it is scheduled within 24 hours. Please contact the patient directly.",
         "severity": "HIGH"
-    }
-}
-
-# Block specific appointment ID=1 cancellation (cancelled spelling)
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "update")
-    contains(sql_command, "appointments")
-    regex.match(`id\s*=\s*1\b`, sql_command)
-    contains(sql_command, "cancelled")
-    
-    decision := {
-        "rule_id": "APPT-003",
-        "reason": "Cannot cancel appointment ID 1 - it is scheduled within 24 hours",
-        "severity": "HIGH"  
-    }
-}
-
-# Block specific appointment ID=1 cancellation (canceled spelling)
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "update")
-    contains(sql_command, "appointments")
-    regex.match(`id\s*=\s*1\b`, sql_command)
-    contains(sql_command, "canceled")
-    
-    decision := {
-        "rule_id": "APPT-003",
-        "reason": "Cannot cancel appointment ID 1 - it is scheduled within 24 hours",
-        "severity": "HIGH"  
     }
 }

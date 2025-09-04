@@ -846,8 +846,8 @@ impl Engine {
         let signal_names: Vec<String> = required_signals.into_iter().collect();
         info!("Gathering {} signals from guidebook", signal_names.len());
         
-        // Execute signals using the provided guidebook
-        let signal_data = self.execute_signals_from_guidebook(&signal_names, guidebook).await
+        // Execute signals using the provided guidebook, passing the event data
+        let signal_data = self.execute_signals_from_guidebook(&signal_names, guidebook, input).await
             .unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
                 std::collections::HashMap::new()
@@ -867,9 +867,10 @@ impl Engine {
         &self,
         signal_names: &[String],
         guidebook: &guidebook::Guidebook,
+        event_data: &Value,
     ) -> Result<std::collections::HashMap<String, Value>> {
-        // Use the guidebook's execute_signals method directly
-        guidebook.execute_signals(signal_names).await
+        // Use the guidebook's execute_signals_with_input method to pass event data
+        guidebook.execute_signals_with_input(signal_names, event_data).await
     }
     
     /// Evaluate using the Hybrid Model single aggregation entrypoint
@@ -959,9 +960,9 @@ impl Engine {
         let signal_names: Vec<String> = required_signals.into_iter().collect();
         info!("Gathering {} signals: {:?}", signal_names.len(), signal_names);
         
-        // Execute signals if we have a guidebook
+        // Execute signals if we have a guidebook, passing the event data (input)
         let signal_data = if let Some(guidebook) = &self.guidebook {
-            self.execute_signals_with_trust(&signal_names, guidebook).await.unwrap_or_else(|e| {
+            self.execute_signals_with_trust(&signal_names, guidebook, input).await.unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
                 std::collections::HashMap::<String, serde_json::Value>::new()
             })
@@ -1000,6 +1001,7 @@ impl Engine {
         &self,
         signal_names: &[String],
         guidebook: &guidebook::Guidebook,
+        event_data: &Value,
     ) -> Result<HashMap<String, serde_json::Value>> {
         use futures::future::join_all;
         
@@ -1014,6 +1016,7 @@ impl Engine {
                 let name = name.clone();
                 let trust_verifier = self.trust_verifier.clone();
                 let signal_config = guidebook.get_signal(&name).cloned();
+                let event_data = event_data.clone();
                 
                 async move {
                     // Get the signal config
@@ -1032,8 +1035,8 @@ impl Engine {
                         }
                     }
                     
-                    // Execute the signal (using the existing guidebook method)
-                    let result = guidebook.execute_signal(&name).await;
+                    // Execute the signal with event data
+                    let result = guidebook.execute_signal_with_input(&name, &event_data).await;
                     (name, result)
                 }
             })

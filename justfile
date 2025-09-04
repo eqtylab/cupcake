@@ -24,7 +24,8 @@ build-cli:
 
 # Install cupcake binary to cargo bin directory
 install: build-cli
-    cargo install --path cupcake-cli --force
+    cp target/release/cupcake ~/.cargo/bin/cupcake
+    @echo "✅ Installed cupcake to ~/.cargo/bin/"
 
 # Build Python bindings (requires Python dev headers)
 build-python:

@@ -12,6 +12,17 @@ else
     echo "✅ Docker is running"
 fi
 
+# Check for Python dependencies
+echo "Checking Python dependencies..."
+if ! python3 -c "import psycopg2" 2>/dev/null; then
+    echo "Installing psycopg2-binary for database connection..."
+    pip3 install psycopg2-binary || echo "Warning: Could not install psycopg2-binary"
+fi
+if ! python3 -c "import yaml" 2>/dev/null; then
+    echo "Installing PyYAML for configuration management..."
+    pip3 install pyyaml || echo "Warning: Could not install PyYAML"
+fi
+
 # Pull postgres-mcp Docker image if needed
 echo "Pulling postgres-mcp Docker image..."
 docker pull crystaldba/postgres-mcp || echo "Warning: Could not pull postgres-mcp image"
@@ -91,119 +102,55 @@ EOF
 
 echo "✅ Database setup complete"
 
-# Create appointment policy
-echo "Creating appointment policy..."
-cat > ../fixtures/appointment_policy.rego << 'EOF'
-# METADATA
-# scope: package
-# title: Appointment Database Protection Policy
-# description: Prevents deletion of appointment data and cancellation within 24 hours
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["mcp__postgres__execute_sql"]
-package cupcake.policies.appointments
+# Copy the appointment time check signal
+echo "Installing appointment time check signal..."
+cp ../fixtures/check_appointment_time.py .cupcake/
+chmod +x .cupcake/check_appointment_time.py
 
-import rego.v1
+# Debug what's in the guidebook
+echo "Current guidebook.yml content:"
+cat .cupcake/guidebook.yml
 
-# Block all DELETE operations on the database
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    # Check if the SQL command contains DELETE
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "delete")
-    
-    decision := {
-        "rule_id": "APPT-001",
-        "reason": "Database deletion operations are not permitted",
-        "severity": "CRITICAL"
-    }
+# Add signal configuration to guidebook.yml
+echo "Configuring appointment time signal..."
+# Use Python to properly merge the signal into existing YAML
+python3 << 'EOF'
+import yaml
+
+# Read existing guidebook
+guidebook_path = '.cupcake/guidebook.yml'
+print(f"Reading {guidebook_path}")
+with open(guidebook_path, 'r') as f:
+    content = f.read()
+    print(f"File content: {repr(content[:200])}")  # Show first 200 chars
+    guidebook = yaml.safe_load(content)
+    print(f"Parsed YAML type: {type(guidebook)}")
+    print(f"Parsed YAML value: {guidebook}")
+
+# If guidebook is None (empty or comments only), initialize it
+if guidebook is None:
+    print("Guidebook was None, initializing as empty dict")
+    guidebook = {}
+
+# Fix null values in the guidebook (signals and actions can't be null)
+if 'signals' not in guidebook or guidebook['signals'] is None:
+    guidebook['signals'] = {}
+
+if 'actions' in guidebook and guidebook['actions'] is None:
+    guidebook['actions'] = {}
+
+guidebook['signals']['appointment_time_check'] = {
+    'command': 'python3 .cupcake/check_appointment_time.py'
 }
 
-# Block appointment cancellations within 24 hours (cancelled spelling)
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    # Check if this is an UPDATE to cancel an appointment
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "update")
-    contains(sql_command, "appointments")
-    contains(sql_command, "cancelled")
-    
-    # Check if the appointment is within 24 hours
-    # This is a simplified check - in production you'd parse the SQL more thoroughly
-    contains(sql_command, "where")
-    
-    decision := {
-        "rule_id": "APPT-002", 
-        "reason": "Cannot cancel appointments within 24 hours of scheduled time. Please contact the patient directly.",
-        "severity": "HIGH"
-    }
-}
+# Write back the updated guidebook
+with open(guidebook_path, 'w') as f:
+    yaml.dump(guidebook, f, default_flow_style=False, sort_keys=False)
 
-# Block appointment cancellations within 24 hours (canceled spelling)
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    # Check if this is an UPDATE to cancel an appointment
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "update")
-    contains(sql_command, "appointments")
-    contains(sql_command, "canceled")
-    
-    # Check if the appointment is within 24 hours
-    # This is a simplified check - in production you'd parse the SQL more thoroughly
-    contains(sql_command, "where")
-    
-    decision := {
-        "rule_id": "APPT-002", 
-        "reason": "Cannot cancel appointments within 24 hours of scheduled time. Please contact the patient directly.",
-        "severity": "HIGH"
-    }
-}
-
-# Block specific appointment ID=1 cancellation (cancelled spelling)
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "update")
-    contains(sql_command, "appointments")
-    regex.match(`id\s*=\s*1\b`, sql_command)
-    contains(sql_command, "cancelled")
-    
-    decision := {
-        "rule_id": "APPT-003",
-        "reason": "Cannot cancel appointment ID 1 - it is scheduled within 24 hours",
-        "severity": "HIGH"  
-    }
-}
-
-# Block specific appointment ID=1 cancellation (canceled spelling)
-deny contains decision if {
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "mcp__postgres__execute_sql"
-    
-    sql_command := lower(input.tool_input.sql)
-    contains(sql_command, "update")
-    contains(sql_command, "appointments")
-    regex.match(`id\s*=\s*1\b`, sql_command)
-    contains(sql_command, "canceled")
-    
-    decision := {
-        "rule_id": "APPT-003",
-        "reason": "Cannot cancel appointment ID 1 - it is scheduled within 24 hours",
-        "severity": "HIGH"  
-    }
-}
+print("✅ Signal configuration added to guidebook.yml")
 EOF
 
-# Copy the policy to the project
+# Copy the appointment policy from fixtures
 cp ../fixtures/appointment_policy.rego .cupcake/policies/
 echo "✅ Appointment policy installed"
 

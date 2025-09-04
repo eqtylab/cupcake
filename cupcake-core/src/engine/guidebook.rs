@@ -246,24 +246,49 @@ impl Guidebook {
         actions
     }
     
-    /// Execute a signal and return its output as JSON Value
+    /// Execute a signal and return its output as JSON Value (no event data)
     pub async fn execute_signal(&self, signal_name: &str) -> Result<serde_json::Value> {
+        // Call the version with input, passing empty object for backward compatibility
+        self.execute_signal_with_input(signal_name, &serde_json::json!({})).await
+    }
+    
+    /// Execute a signal with event data passed via stdin
+    pub async fn execute_signal_with_input(&self, signal_name: &str, event_data: &serde_json::Value) -> Result<serde_json::Value> {
         let signal = self.get_signal(signal_name)
             .with_context(|| format!("Signal '{}' not found in guidebook", signal_name))?;
             
         debug!("Executing signal '{}': {}", signal_name, signal.command);
         
-        // Execute with timeout
+        use tokio::process::Command;
+        use tokio::io::AsyncWriteExt;
+        
+        // Spawn the command with stdin piped
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(&signal.command)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .context("Failed to spawn signal command")?;
+        
+        // Always write event data to stdin (signals that don't need it will ignore it)
+        if let Some(mut stdin) = child.stdin.take() {
+            let event_json = serde_json::to_string(event_data)?;
+            debug!("Writing {} bytes of event data to signal stdin", event_json.len());
+            let _ = stdin.write_all(event_json.as_bytes()).await; // Ignore write errors - signal may not read stdin
+            let _ = stdin.flush().await;
+            // Drop stdin to close it
+        }
+        
+        // Wait for the command with timeout
         let output = tokio::time::timeout(
             std::time::Duration::from_secs(signal.timeout_seconds),
-            tokio::process::Command::new("sh")
-                .arg("-c")
-                .arg(&signal.command)
-                .output()
+            child.wait_with_output()
         )
         .await
         .context("Signal execution timed out")?
-        .context("Failed to execute signal command")?;
+        .context("Failed to wait for signal output")?;
         
         let stdout = String::from_utf8_lossy(&output.stdout);
         let trimmed_output = stdout.trim();
@@ -297,21 +322,28 @@ impl Guidebook {
         }
     }
     
-    /// Execute multiple signals concurrently
+    
+    /// Execute multiple signals concurrently (without event data - for backward compatibility)
     pub async fn execute_signals(&self, signal_names: &[String]) -> Result<HashMap<String, serde_json::Value>> {
+        self.execute_signals_with_input(signal_names, &serde_json::json!({})).await
+    }
+    
+    /// Execute multiple signals concurrently with event data
+    pub async fn execute_signals_with_input(&self, signal_names: &[String], event_data: &serde_json::Value) -> Result<HashMap<String, serde_json::Value>> {
         use futures::future::join_all;
         
         if signal_names.is_empty() {
             return Ok(HashMap::new());
         }
         
-        debug!("Executing {} signals concurrently", signal_names.len());
+        debug!("Executing {} signals concurrently with event data", signal_names.len());
         
         let futures: Vec<_> = signal_names.iter()
             .map(|name| {
                 let name = name.clone();
+                let event_data = event_data.clone();
                 async move {
-                    let result = self.execute_signal(&name).await;
+                    let result = self.execute_signal_with_input(&name, &event_data).await;
                     (name, result)
                 }
             })

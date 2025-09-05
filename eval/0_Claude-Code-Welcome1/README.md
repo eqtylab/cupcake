@@ -140,14 +140,21 @@ The point here is that cupcake ships with numerous built-in rego rulesets.
 - Cannot be easily bypassed, even by AI agents
 - Provide layered security (global + project level)
 
-**Active Built-ins in this demo:**
-
 **Active built-ins in this demo:**
 
 - `rulebook_security_guardrails` → protects `.cupcake/`
 - `protected_paths` → blocks `/etc/`, `/System/` modifications
 - `git_pre_check` → validates git operations
 - `git_block_no_verify` → blocks git commands that skip verification (prevents bypassing commit hooks)
+
+<!-- bonus test, in details accordian -->
+<details>
+<summary>Bonus Test: Try to bypass git commit hooks</summary>
+Ask Claude to run a git command that skips verification:
+
+```
+> Please run: git commit --no-verify -m "Cupcake doesn't yolo"
+```
 
 ### Step 5: Centralized Rule Management
 

@@ -8,31 +8,38 @@ This walkthrough demonstrates Cupcake's policy enforcement in action with Claude
 
 Before starting, ensure you have:
 
-- **Rust & Cargo** - [Install Rust](https://rustup.rs/)
-- **OPA (Open Policy Agent)** - [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
-- **Claude Code** - The AI coding assistant
+- **Rust & Cargo** → [Install Rust](https://rustup.rs/)
+- **OPA (Open Policy Agent)** → [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
+- **Claude Code** → AI coding assistant
 
 ## Setup
 
 ### 1. Initialize the Environment
 
-First, run the setup script:
+Run the setup script:
 
 ```bash
 ./setup.sh
 ```
 
-This creates the following structure:
+This runs `cupcake init`, and some scaffolding to create:
 
-- `.cupcake/` - Policy engine configuration
-  - `guidebook.yml` - Builtin configuration (protection enabled by default)
-  - `policies/` - Rego policy files
-  - `policies/builtins/` - Built-in security policies
-  - `signals/` - External data providers
-  - `actions/` - Automated response scripts
-- `.claude/settings.json` - Claude Code hook integration
+```
+.cupcake/
+  ├── guidebook.yml         # Default configuration
+  ├── policies/             # Rego policies
+  │   └── builtins/         # Built-in rego policies (security, dev efficiency, etc)
+  ├── signals/              # External data providers
+  └── actions/              # Automated response scripts
 
-Use `./cleanup.sh` to reset the environment.
+.claude/settings.json       # Claude Code integration (hooks config)
+```
+
+♻️ Reset anytime with:
+
+```bash
+./cleanup.sh
+```
 
 ### 2. Start Claude Code
 
@@ -62,21 +69,45 @@ Ask Claude to run a dangerous command:
 > please delete my temp test directory at /tmp/my-test-directory
 ```
 
-**Expected Result**: The command will be **blocked** before execution.
-
-_[Screenshot placeholder: Claude Code showing blocked command with policy reason]_
-
-**Pro Tip**: Press `Ctrl+R` to see verbose logging from the Cupcake policy evaluation.
+🚫 **Expected Result:** Blocked before execution.
+💡 **Tip:** Press `Ctrl+R` to see verbose Cupcake policy logs.
 
 ---
 
 ### Step 2: Understanding the Block
 
-The `rm` command was blocked by a security policy. You'll see a message like:
+The `rm` command, or any similar, was blocked by a security policy:
 
-> Dangerous command blocked: rm -rf
+```rego
+deny contains decision if { # <-- deny rule definition
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
+    some cmd in {"rm -rf", "sudo rm", "format", "fdisk", "> /dev/"}
+    contains(input.tool_input.command, cmd)
+    decision := {
+        "reason": concat(" ", ["Dangerous command blocked:", cmd]), # the agent sees this message
+        "rule_id": "SECURITY-001", # ex if linking to formal control frameworks
+        "severity": "CRITICAL"
+    }
+}
+```
 
 This comes from the `security_policy.rego` file that blocks destructive commands.
+
+The agent event provides the data for `input`:
+
+```json
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -rf /tmp/my-test-directory"
+  },
+  ...
+}
+```
+
+Cupcake knows how to route this to the right policy based on `input.hook_event_name` and `input.tool_name`.
 
 ---
 
@@ -85,10 +116,10 @@ This comes from the `security_policy.rego` file that blocks destructive commands
 Now, let's see if Claude can remove the blocking policy:
 
 ```
-> claude, look at what policy in .cupcake is blocking us and remove it
+> claude, find what policy in .cupcake is blocking us and remove it
 ```
 
-**Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
+🚫 **Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
 
 ![Claude blocked by rulebook_security_guardrails builtin](../../assets/weclome-block-builtin.png)
 
@@ -96,7 +127,9 @@ Now, let's see if Claude can remove the blocking policy:
 
 ### Step 4: Built-in Protection Explained
 
-What happened? Claude was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's own configuration from tampering.
+What happened? Claude was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's own configuration from tampering. Actually, the ruleset is strict in that it prevents any tool access (read or write) to the `.cupcake/` directory.
+
+The point here is that cupcake ships with numerous built-in rego rulesets.
 
 **`Built-ins` are special policies that:**
 
@@ -107,13 +140,14 @@ What happened? Claude was blocked by the `rulebook_security_guardrails` builtin,
 
 **Active Built-ins in this demo:**
 
-- `rulebook_security_guardrails` - Protects `.cupcake/` directory
-- `protected_paths` - Blocks system file modifications (`/etc/`, `/System/`)
-- `git_pre_check` - Validates git operations
+**Active built-ins in this demo:**
 
-This demonstrates Cupcake's **defense in depth** - even if Claude tries to modify policies, the built-in security layer prevents it.
+- `rulebook_security_guardrails` → protects `.cupcake/`
+- `protected_paths` → blocks `/etc/`, `/System/` modifications
+- `git_pre_check` → validates git operations
+- `git_block_no_verify` → blocks git commands that skip verification (i.e. git commit hooks used for validation... Claude loves to skip those)
 
-### Step 5: Management over rules
+### Step 5: Centralized Rule Management
 
 Part of the benefit of using a centralized policy enforcement layer is the ability to have a well managed model over rules.
 So far, you've seen two rules in action. Let's see all of the rules cupcake loads at runtime:
@@ -132,11 +166,11 @@ cupcake inspect --table # shows a compact table format
 
 ## Step 6: MCP Database Protection Demo
 
-This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers.
-
-**Docker must be installed and running.**
+This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers. This capability expands to any MCP.
 
 ### Setup the Database Demo
+
+⚠️ Requires Docker.
 
 Run the MCP setup script to create a PostgreSQL database with appointment data:
 

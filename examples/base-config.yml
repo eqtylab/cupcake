@@ -166,6 +166,19 @@ builtins:
   #   #     message: "Running related tests"
 
   # ---------------------------------------------------------------------------
+  # GIT_BLOCK_NO_VERIFY - Prevent bypassing git commit hooks
+  # ---------------------------------------------------------------------------
+  # Blocks git commands that use --no-verify flag to bypass pre-commit hooks.
+  # This ensures code quality checks, linting, and security scans always run.
+  
+  git_block_no_verify:
+    enabled: true
+    message: "Git operations with --no-verify are not permitted"
+    # Optional: Add exceptions for specific environments
+    # exceptions:
+    #   - "CI_ENVIRONMENT"
+  
+  # ---------------------------------------------------------------------------
   # PROTECTED_PATHS - User-defined read-only paths
   # ---------------------------------------------------------------------------
   # Declare specific files or directories as read-only while still allowing

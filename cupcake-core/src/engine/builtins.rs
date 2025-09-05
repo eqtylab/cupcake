@@ -37,6 +37,10 @@ pub struct BuiltinsConfig {
     #[serde(default)]
     pub protected_paths: Option<ProtectedPathsConfig>,
     
+    /// Git block no-verify configuration (prevents bypassing commit hooks)
+    #[serde(default)]
+    pub git_block_no_verify: Option<GitBlockNoVerifyConfig>,
+    
     // Global-only builtins (for machine-wide security)
     
     /// System protection configuration - prevents modification of OS paths
@@ -180,6 +184,26 @@ pub struct ProtectedPathsConfig {
 
 fn default_protected_paths_message() -> String {
     "This path is read-only and cannot be modified".to_string()
+}
+
+/// Configuration for git_block_no_verify builtin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitBlockNoVerifyConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Message to show when blocking operations
+    #[serde(default = "default_git_block_no_verify_message")]
+    pub message: String,
+    
+    /// Allow specific exceptions (e.g., for CI environments)
+    #[serde(default)]
+    pub exceptions: Vec<String>,
+}
+
+fn default_git_block_no_verify_message() -> String {
+    "Git operations with --no-verify are not permitted. Commit hooks must run.".to_string()
 }
 
 // Global builtin configurations
@@ -339,6 +363,8 @@ impl BuiltinsConfig {
             }
         }
         
+        // Validate git_block_no_verify (no specific validation needed - it's simple)
+        
         if errors.is_empty() {
             Ok(())
         } else {
@@ -354,6 +380,7 @@ impl BuiltinsConfig {
             || self.post_edit_check.as_ref().map_or(false, |c| c.enabled)
             || self.rulebook_security_guardrails.as_ref().map_or(false, |c| c.enabled)
             || self.protected_paths.as_ref().map_or(false, |c| c.enabled)
+            || self.git_block_no_verify.as_ref().map_or(false, |c| c.enabled)
             || self.system_protection.as_ref().map_or(false, |c| c.enabled)
             || self.sensitive_data_protection.as_ref().map_or(false, |c| c.enabled)
             || self.cupcake_exec_protection.as_ref().map_or(false, |c| c.enabled)
@@ -380,6 +407,9 @@ impl BuiltinsConfig {
         }
         if self.protected_paths.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("protected_paths".to_string());
+        }
+        if self.git_block_no_verify.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("git_block_no_verify".to_string());
         }
         if self.system_protection.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("system_protection".to_string());
@@ -472,6 +502,14 @@ impl BuiltinsConfig {
                     command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
                     timeout_seconds: 1,
                 });
+            }
+        }
+        
+        // Generate signals for git_block_no_verify (if needed)
+        if let Some(config) = &self.git_block_no_verify {
+            if config.enabled {
+                // No signals needed for this simple builtin - it just blocks patterns
+                // But we could add a signal for the message if desired
             }
         }
         

@@ -651,6 +651,12 @@ async fn init_project_config() -> Result<()> {
     )
     .context("Failed to create protected_paths.rego")?;
     
+    fs::write(
+        ".cupcake/policies/builtins/git_block_no_verify.rego",
+        GIT_BLOCK_NO_VERIFY_POLICY
+    )
+    .context("Failed to create git_block_no_verify.rego")?;
+    
     // Write a simple example policy
     fs::write(
         ".cupcake/policies/example.rego",
@@ -1133,6 +1139,7 @@ const GIT_PRE_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policie
 const POST_EDIT_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
 const RULEBOOK_SECURITY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
 const PROTECTED_PATHS_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
+const GIT_BLOCK_NO_VERIFY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/git_block_no_verify.rego");
 
 // Global builtin policies embedded in the binary
 const GLOBAL_SYSTEM_PROTECTION_POLICY: &str = include_str!("../../examples/global_builtins/system_protection.rego");

@@ -147,7 +147,7 @@ The point here is that cupcake ships with numerous built-in rego rulesets.
 - `rulebook_security_guardrails` → protects `.cupcake/`
 - `protected_paths` → blocks `/etc/`, `/System/` modifications
 - `git_pre_check` → validates git operations
-- `git_block_no_verify` → blocks git commands that skip verification (i.e. git commit hooks used for validation... Claude loves to skip those)
+- `git_block_no_verify` → blocks git commands that skip verification (prevents bypassing commit hooks)
 
 ### Step 5: Centralized Rule Management
 
@@ -178,6 +178,12 @@ Run the MCP setup script to create a PostgreSQL database with appointment data:
 
 ```bash
 ./mcp_setup.sh # docker must be running for this to work
+```
+
+♻️ Reset anytime with:
+
+```bash
+./mcp_cleanup.sh
 ```
 
 This will:

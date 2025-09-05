@@ -12,6 +12,8 @@ Before starting, ensure you have:
 - **OPA (Open Policy Agent)** → [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
 - **Claude Code** → AI coding assistant
 
+_These are development requirements. The production software will manage these dependencies._
+
 ## Setup
 
 ### 1. Initialize the Environment

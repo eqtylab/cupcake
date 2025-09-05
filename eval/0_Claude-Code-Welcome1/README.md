@@ -156,6 +156,12 @@ Ask Claude to run a git command that skips verification:
 > Please run: git commit --no-verify -m "Cupcake doesn't yolo"
 ```
 
+🚫 **Expected Result**: Blocked by `git_block_no_verify` built-in policy.
+
+![Claude Claude blocked by git_block_no_verify builtin](../../assets/cupcake-git-no-verify.png)
+
+</details>
+
 ### Step 5: Centralized Rule Management
 
 Part of the benefit of using a centralized policy enforcement layer is the ability to have a well managed model over rules.

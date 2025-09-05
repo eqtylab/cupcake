@@ -150,6 +150,7 @@ The point here is that cupcake ships with numerous built-in rego rulesets.
 <!-- bonus test, in details accordian -->
 <details>
 <summary>Bonus Test: Try to bypass git commit hooks</summary>
+
 Ask Claude to run a git command that skips verification:
 
 ```
@@ -176,6 +177,8 @@ cupcake inspect --table # shows a compact table format
 ```
 
 ![cupcake inspect shows the current policies](../../assets/cupcake-inspect.png)
+
+Later on, we cover how to `verify` and `test` policies.
 
 ---
 

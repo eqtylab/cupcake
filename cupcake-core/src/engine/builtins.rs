@@ -54,6 +54,10 @@ pub struct BuiltinsConfig {
     /// Cupcake execution protection - prevents direct binary execution
     #[serde(default)]
     pub cupcake_exec_protection: Option<CupcakeExecProtectionConfig>,
+    
+    /// Enforce full file read - prevents partial reads of small files
+    #[serde(default)]
+    pub enforce_full_file_read: Option<EnforceFullFileReadConfig>,
 }
 
 
@@ -268,6 +272,30 @@ fn default_cupcake_exec_message() -> String {
     "Direct execution of Cupcake binary is not permitted".to_string()
 }
 
+/// Configuration for enforce_full_file_read builtin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnforceFullFileReadConfig {
+    /// Whether this builtin is enabled (defaults to true)
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    
+    /// Maximum lines threshold - files under this size must be read in full
+    #[serde(default = "default_max_lines")]
+    pub max_lines: usize,
+    
+    /// Message to show when blocking partial reads
+    #[serde(default = "default_enforce_full_read_message")]
+    pub message: String,
+}
+
+fn default_max_lines() -> usize {
+    2000
+}
+
+fn default_enforce_full_read_message() -> String {
+    "Please read the entire file first (files under 2000 lines must be read completely)".to_string()
+}
+
 impl BuiltinsConfig {
     /// Validate configuration and return errors if invalid
     pub fn validate(&self) -> Result<(), Vec<String>> {
@@ -365,6 +393,13 @@ impl BuiltinsConfig {
         
         // Validate git_block_no_verify (no specific validation needed - it's simple)
         
+        // Validate enforce_full_file_read
+        if let Some(config) = &self.enforce_full_file_read {
+            if config.enabled && config.max_lines == 0 {
+                errors.push("enforce_full_file_read: max_lines cannot be 0".to_string());
+            }
+        }
+        
         if errors.is_empty() {
             Ok(())
         } else {
@@ -420,6 +455,9 @@ impl BuiltinsConfig {
         if self.cupcake_exec_protection.as_ref().map_or(false, |c| c.enabled) {
             enabled.push("cupcake_exec_protection".to_string());
         }
+        if self.enforce_full_file_read.as_ref().map_or(false, |c| c.enabled) {
+            enabled.push("enforce_full_file_read".to_string());
+        }
         
         enabled
     }
@@ -428,14 +466,18 @@ impl BuiltinsConfig {
     pub fn generate_signals(&self) -> HashMap<String, SignalConfig> {
         let mut signals = HashMap::new();
         
-        // Generate signals for always_inject_on_prompt
+        // Generate signals for always_inject_on_prompt (only for dynamic sources)
         if let Some(config) = &self.always_inject_on_prompt {
             if config.enabled {
                 for (idx, source) in config.context.iter().enumerate() {
-                    let signal_name = format!("__builtin_prompt_context_{}", idx);
-                    
-                    if let Some(signal) = context_source_to_signal(source) {
-                        signals.insert(signal_name, signal);
+                    // Only generate signals for dynamic sources (commands and files)
+                    // Static strings are now injected directly via builtin_config
+                    if matches!(source, ContextSource::Dynamic { .. }) {
+                        let signal_name = format!("__builtin_prompt_context_{}", idx);
+                        
+                        if let Some(signal) = context_source_to_signal(source) {
+                            signals.insert(signal_name, signal);
+                        }
                     }
                 }
             }
@@ -467,43 +509,9 @@ impl BuiltinsConfig {
             }
         }
         
-        // Generate signals for rulebook_security_guardrails
-        if let Some(config) = &self.rulebook_security_guardrails {
-            if config.enabled {
-                // Create signal for protected message (shell-safe)
-                signals.insert("__builtin_rulebook_protected_message".to_string(), SignalConfig {
-                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
-                    timeout_seconds: 1, // Simple string output
-                });
-                
-                // Create signal for protected paths (as JSON array, shell-safe)
-                let paths_json = serde_json::to_string(&config.protected_paths)
-                    .unwrap_or_else(|_| r#"[".cupcake/"]"#.to_string());
-                signals.insert("__builtin_rulebook_protected_paths".to_string(), SignalConfig {
-                    command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
-                    timeout_seconds: 1, // Simple JSON output
-                });
-            }
-        }
+        // rulebook_security_guardrails: No signals needed - static config injected directly
         
-        // Generate signals for protected_paths
-        if let Some(config) = &self.protected_paths {
-            if config.enabled {
-                // Create signal for protected message (shell-safe)
-                signals.insert("__builtin_protected_paths_message".to_string(), SignalConfig {
-                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
-                    timeout_seconds: 1,
-                });
-                
-                // Create signal for protected paths list (as JSON array, shell-safe)
-                let paths_json = serde_json::to_string(&config.paths)
-                    .unwrap_or_else(|_| r#"[]"#.to_string());
-                signals.insert("__builtin_protected_paths_list".to_string(), SignalConfig {
-                    command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
-                    timeout_seconds: 1,
-                });
-            }
-        }
+        // protected_paths: No signals needed - static config injected directly
         
         // Generate signals for git_block_no_verify (if needed)
         if let Some(config) = &self.git_block_no_verify {
@@ -513,62 +521,13 @@ impl BuiltinsConfig {
             }
         }
         
-        // Generate signals for system_protection
-        if let Some(config) = &self.system_protection {
-            if config.enabled {
-                signals.insert("__builtin_system_protection_message".to_string(), SignalConfig {
-                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
-                    timeout_seconds: 1,
-                });
-                
-                if !config.additional_paths.is_empty() {
-                    let paths_json = serde_json::to_string(&config.additional_paths)
-                        .unwrap_or_else(|_| r#"[]"#.to_string());
-                    signals.insert("__builtin_system_protection_paths".to_string(), SignalConfig {
-                        command: format!("echo '{}'", paths_json.replace('\'', "\\'")),
-                        timeout_seconds: 1,
-                    });
-                }
-            }
-        }
+        // system_protection: No signals needed - static config injected directly
         
-        // Generate signals for sensitive_data_protection
-        if let Some(config) = &self.sensitive_data_protection {
-            if config.enabled {
-                signals.insert("__builtin_sensitive_data_message".to_string(), SignalConfig {
-                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
-                    timeout_seconds: 1,
-                });
-                
-                if !config.additional_patterns.is_empty() {
-                    let patterns_json = serde_json::to_string(&config.additional_patterns)
-                        .unwrap_or_else(|_| r#"[]"#.to_string());
-                    signals.insert("__builtin_sensitive_data_patterns".to_string(), SignalConfig {
-                        command: format!("echo '{}'", patterns_json.replace('\'', "\\'")),
-                        timeout_seconds: 1,
-                    });
-                }
-            }
-        }
+        // sensitive_data_protection: No signals needed - static config injected directly
         
-        // Generate signals for cupcake_exec_protection
-        if let Some(config) = &self.cupcake_exec_protection {
-            if config.enabled {
-                signals.insert("__builtin_cupcake_exec_message".to_string(), SignalConfig {
-                    command: format!("echo '{}'", config.message.replace('\'', "\\'")),
-                    timeout_seconds: 1,
-                });
-                
-                if !config.allowed_commands.is_empty() {
-                    let allowed_json = serde_json::to_string(&config.allowed_commands)
-                        .unwrap_or_else(|_| r#"[]"#.to_string());
-                    signals.insert("__builtin_cupcake_exec_allowed".to_string(), SignalConfig {
-                        command: format!("echo '{}'", allowed_json.replace('\'', "\\'")),
-                        timeout_seconds: 1,
-                    });
-                }
-            }
-        }
+        // cupcake_exec_protection: No signals needed - static config injected directly
+        
+        // enforce_full_file_read: No signals needed - static config injected directly
         
         if !signals.is_empty() {
             info!("Generated {} signals for enabled builtins", signals.len());
@@ -581,15 +540,13 @@ impl BuiltinsConfig {
     }
 }
 
-/// Convert a ContextSource to a SignalConfig
+/// Convert a ContextSource to a SignalConfig (only for dynamic sources)
 fn context_source_to_signal(source: &ContextSource) -> Option<SignalConfig> {
     match source {
-        ContextSource::String(s) => {
-            // Static strings become echo commands that output JSON strings
-            Some(SignalConfig {
-                command: format!("echo '\"{}\"'", s.replace('\'', "\\'")),
-                timeout_seconds: 1,
-            })
+        ContextSource::String(_) => {
+            // Static strings are no longer converted to signals
+            // They're injected directly via builtin_config
+            None
         }
         ContextSource::Dynamic { file, command } => {
             if let Some(cmd) = command {

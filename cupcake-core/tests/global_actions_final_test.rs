@@ -84,7 +84,7 @@ halt contains decision if {
         "prompt": "create-marker"
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Debug: print what decision we got
     eprintln!("Decision received: {:?}", decision);
@@ -189,7 +189,7 @@ deny contains decision if {
         }
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     eprintln!("Deny test - Decision received: {:?}", decision);
     eprintln!("Input was: {:?}", input);
     assert!(matches!(decision, FinalDecision::Deny { .. }), 

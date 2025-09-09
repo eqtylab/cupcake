@@ -221,7 +221,7 @@ echo '{
         "cwd": "/tmp"
     });
     
-    let decision1 = engine.evaluate(&event1).await.unwrap();
+    let decision1 = engine.evaluate(&event1, None).await.unwrap();
     assert!(decision1.is_blocking(), "Should deny dangerous command on main branch");
     if let Some(reason) = decision1.reason() {
         assert!(reason.contains("Cannot run dangerous commands on main branch"));
@@ -238,7 +238,7 @@ echo '{
         "cwd": "/tmp"
     });
     
-    let decision2 = engine.evaluate(&event2).await.unwrap();
+    let decision2 = engine.evaluate(&event2, None).await.unwrap();
     println!("DEBUG: decision2 = {:?}", decision2);
     assert!(decision2.requires_confirmation(), "Should ask for confirmation on deploy with failing tests");
     if let Some(reason) = decision2.reason() {
@@ -257,7 +257,7 @@ echo '{
         "cwd": "/tmp"
     });
     
-    let decision3 = engine.evaluate(&event3).await.unwrap();
+    let decision3 = engine.evaluate(&event3, None).await.unwrap();
     assert!(decision3.is_blocking(), "Should deny release with too many failing tests");
     if let Some(reason) = decision3.reason() {
         assert!(reason.contains("Cannot release with 4 failing tests")); // 4 tests in our mock data
@@ -274,7 +274,7 @@ echo '{
         "cwd": "/tmp"
     });
     
-    let decision4 = engine.evaluate(&event4).await.unwrap();
+    let decision4 = engine.evaluate(&event4, None).await.unwrap();
     assert!(!decision4.is_blocking(), "Should allow safe command");
     
     // Check context injection using both signal types
@@ -396,7 +396,7 @@ echo "This is not valid JSON but should still work"
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     
     // Should allow and include context with the invalid JSON stored as string
     if let cupcake_core::engine::decision::FinalDecision::Allow { context } = decision {

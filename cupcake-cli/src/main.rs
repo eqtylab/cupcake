@@ -3,7 +3,7 @@
 //! Main entry point implementing the CRITICAL_GUIDING_STAR architecture
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
@@ -12,9 +12,10 @@ use tabled::{Table, Tabled, settings::{Style, Modify, object::Rows, Alignment}};
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
-use cupcake_core::{engine, harness, validator};
+use cupcake_core::{engine, harness, validator, debug::DebugCapture};
 
 mod trust_cli;
+mod harness_config;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -56,6 +57,10 @@ enum Command {
         /// Initialize global (machine-wide) configuration instead of project
         #[clap(long)]
         global: bool,
+        
+        /// Configure integration with an agent harness (e.g., 'claude')
+        #[clap(long, value_enum)]
+        harness: Option<HarnessType>,
     },
     
     /// Manage script trust and integrity verification
@@ -89,6 +94,14 @@ enum Command {
         #[clap(short, long)]
         table: bool,
     },
+}
+
+/// Supported agent harness types for integration
+#[derive(Debug, Clone, ValueEnum)]
+enum HarnessType {
+    /// Claude Code (claude.ai/code)
+    Claude,
+    // Future harnesses can be added here
 }
 
 /// Initialize tracing with support for CUPCAKE_TRACE environment variable
@@ -182,8 +195,8 @@ async fn main() -> Result<()> {
         Command::Verify { policy_dir } => {
             verify_command(policy_dir).await
         }
-        Command::Init { global } => {
-            init_command(global).await
+        Command::Init { global, harness } => {
+            init_command(global, harness).await
         }
         Command::Trust { command } => {
             command.execute().await
@@ -236,11 +249,31 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
         obj.insert("hookEventName".to_string(), serde_json::Value::String(event.event_name().to_string()));
     }
     
+    // Create debug capture if enabled via environment variable
+    let mut debug_capture = if std::env::var("CUPCAKE_DEBUG_FILES").is_ok() {
+        // Generate a trace ID for this evaluation
+        let trace_id = cupcake_core::engine::trace::generate_trace_id();
+        Some(DebugCapture::new(hook_event_json.clone(), trace_id))
+    } else {
+        None
+    };
+    
     // Evaluate policies for this hook event
-    let decision = match engine.evaluate(&hook_event_json).await {
+    let decision = match engine.evaluate(&hook_event_json, debug_capture.as_mut()).await {
         Ok(d) => d,
         Err(e) => {
             error!("Policy evaluation failed: {:#}", e);
+            
+            // Capture the error in debug if enabled
+            if let Some(ref mut debug) = debug_capture {
+                debug.add_error(format!("Policy evaluation failed: {:#}", e));
+                
+                // Write the debug file even on error to help troubleshooting
+                if let Err(write_err) = debug.write_if_enabled() {
+                    debug!("Failed to write debug file: {}", write_err);
+                }
+            }
+            
             // On error, return a safe "allow" with no modifications
             // This ensures we don't break Claude Code on engine failures
             println!("{{}}");
@@ -254,8 +287,20 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
     // Format response using ClaudeHarness
     let response = harness::ClaudeHarness::format_response(&event, &decision)?;
     
-    // Output the response to stdout
-    println!("{}", response);
+    // Capture the response in debug if enabled
+    if let Some(ref mut debug) = debug_capture {
+        // The response is already a JSON Value
+        debug.response_to_claude = Some(response.clone());
+        
+        // Write the debug file
+        if let Err(e) = debug.write_if_enabled() {
+            // Log but don't fail on debug write errors
+            debug!("Failed to write debug file: {}", e);
+        }
+    }
+    
+    // Output the response to stdout as JSON string
+    println!("{}", serde_json::to_string(&response)?);
     
     // In strict mode, exit non-zero on blocking decisions
     if strict && (decision.is_halt() || decision.is_blocking()) {
@@ -356,17 +401,17 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
     Ok(())
 }
 
-async fn init_command(global: bool) -> Result<()> {
+async fn init_command(global: bool, harness: Option<HarnessType>) -> Result<()> {
     if global {
         // Initialize global configuration
-        init_global_config().await
+        init_global_config(harness).await
     } else {
         // Initialize project configuration
-        init_project_config().await
+        init_project_config(harness).await
     }
 }
 
-async fn init_global_config() -> Result<()> {
+async fn init_global_config(harness: Option<HarnessType>) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
     
     // Discover or create global config location
@@ -576,17 +621,25 @@ builtins:
     println!("   Edit guidebook.yml to customize or disable builtins.");
     println!("   Edit example_global.rego to add custom machine-wide policies.");
     
+    // Configure harness if specified
+    if let Some(harness_type) = harness {
+        println!();
+        harness_config::configure_harness(harness_type, &global_paths.root, true).await?;
+    }
+    
     Ok(())
 }
 
-async fn init_project_config() -> Result<()> {
+async fn init_project_config(harness: Option<HarnessType>) -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
     
-    // If exists, we're done
-    if cupcake_dir.exists() {
+    // Check if cupcake directory exists
+    let cupcake_exists = cupcake_dir.exists();
+    
+    if cupcake_exists {
         println!("Cupcake project already initialized (.cupcake/ exists)");
-        return Ok(());
-    }
+        // Continue to configure harness if specified
+    } else {
     
     info!("Initializing Cupcake project structure...");
     
@@ -657,6 +710,12 @@ async fn init_project_config() -> Result<()> {
     )
     .context("Failed to create git_block_no_verify.rego")?;
     
+    fs::write(
+        ".cupcake/policies/builtins/enforce_full_file_read.rego",
+        ENFORCE_FULL_FILE_READ_POLICY
+    )
+    .context("Failed to create enforce_full_file_read.rego")?;
+    
     // Write a simple example policy
     fs::write(
         ".cupcake/policies/example.rego",
@@ -664,13 +723,22 @@ async fn init_project_config() -> Result<()> {
     )
     .context("Failed to create example policy file")?;
     
-    println!("✅ Initialized Cupcake project in .cupcake/");
-    println!("   Configuration: .cupcake/guidebook.yml (with examples)");
-    println!("   Add policies:  .cupcake/policies/");
-    println!("   Add signals:   .cupcake/signals/");
-    println!("   Add actions:   .cupcake/actions/");
-    println!();
-    println!("   Edit guidebook.yml to enable builtins and configure your project.");
+        println!("✅ Initialized Cupcake project in .cupcake/");
+        println!("   Configuration: .cupcake/guidebook.yml (with examples)");
+        println!("   Add policies:  .cupcake/policies/");
+        println!("   Add signals:   .cupcake/signals/");
+        println!("   Add actions:   .cupcake/actions/");
+        println!();
+        println!("   Edit guidebook.yml to enable builtins and configure your project.");
+    }
+    
+    // Configure harness if specified (whether cupcake exists or not)
+    if let Some(harness_type) = harness {
+        if cupcake_exists {
+            println!();
+        }
+        harness_config::configure_harness(harness_type, &Path::new(".cupcake"), false).await?;
+    }
     
     Ok(())
 }
@@ -1140,6 +1208,7 @@ const POST_EDIT_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/polic
 const RULEBOOK_SECURITY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
 const PROTECTED_PATHS_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
 const GIT_BLOCK_NO_VERIFY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/git_block_no_verify.rego");
+const ENFORCE_FULL_FILE_READ_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/enforce_full_file_read.rego");
 
 // Global builtin policies embedded in the binary
 const GLOBAL_SYSTEM_PROTECTION_POLICY: &str = include_str!("../../examples/global_builtins/system_protection.rego");

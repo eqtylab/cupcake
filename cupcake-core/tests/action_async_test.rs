@@ -88,7 +88,7 @@ deny contains decision if {
     let eval_start = std::time::Instant::now();
     
     // Evaluate should return quickly, not wait for action
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     
     let eval_duration = eval_start.elapsed();
     
@@ -203,7 +203,7 @@ deny contains decision if {
     });
     
     let start = std::time::Instant::now();
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
     
     // Wait for all actions to complete (should take ~1 second if concurrent, plus overhead)
@@ -300,7 +300,7 @@ deny contains decision if {
     let start = std::time::Instant::now();
     
     // Should not panic or block on action failure
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     
     let duration = start.elapsed();
     
@@ -387,7 +387,7 @@ allow_override contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision1 = engine.evaluate(&event1).await.unwrap();
+    let decision1 = engine.evaluate(&event1, None).await.unwrap();
     assert!(decision1.is_blocking());
     
     // Immediately evaluate another event (while action is running)
@@ -402,7 +402,7 @@ allow_override contains decision if {
     });
     
     let start = std::time::Instant::now();
-    let decision2 = engine.evaluate(&event2).await.unwrap();
+    let decision2 = engine.evaluate(&event2, None).await.unwrap();
     let duration = start.elapsed();
     
     // Second evaluation should complete quickly

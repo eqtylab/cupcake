@@ -84,7 +84,7 @@ halt contains decision if {
     });
     
     eprintln!("Evaluating input to trigger global halt...");
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Verify HALT decision
     eprintln!("Decision received: {:?}", decision);
@@ -190,7 +190,7 @@ allow_override contains decision if {
     });
     
     eprintln!("Evaluating input: {:?}", input);
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Verify BLOCK decision (not Allow from project)
     eprintln!("Block test decision: {:?}", decision);

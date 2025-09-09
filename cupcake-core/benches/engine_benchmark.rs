@@ -132,7 +132,7 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
         // Debug: Test one evaluation before benchmarking
         eprintln!("Testing single evaluation...");
         let test_result = runtime.block_on(async {
-            engine.evaluate(&safe_event).await
+            engine.evaluate(&safe_event, None).await
         });
         match &test_result {
             Ok(decision) => eprintln!("Test evaluation succeeded: {:?}", decision),
@@ -162,7 +162,7 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
         // Debug: Test one evaluation before benchmarking
         eprintln!("Testing deny evaluation with dangerous command...");
         let test_result = runtime.block_on(async {
-            engine.evaluate(&dangerous_event).await
+            engine.evaluate(&dangerous_event, None).await
         });
         match &test_result {
             Ok(decision) => eprintln!("Deny test evaluation result: {:?}", decision),
@@ -204,7 +204,7 @@ fn benchmark_complete_pipeline(c: &mut Criterion) {
                 let event_json = serde_json::to_value(&event).unwrap();
                 
                 // Evaluate
-                let decision = engine.evaluate(&event_json).await.unwrap();
+                let decision = engine.evaluate(&event_json, None).await.unwrap();
                 
                 // Format response
                 let _response = ClaudeHarness::format_response(&event, &decision).unwrap();

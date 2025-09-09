@@ -2,12 +2,22 @@
 
 ## Overview
 
-The `cupcake init` command creates a new Cupcake project structure in the current directory. It sets up the minimal required files and directories following the `.cupcake/` convention.
+The `cupcake init` command creates a new Cupcake project structure in the current directory. It sets up the minimal required files and directories following the `.cupcake/` convention, and can optionally configure integration with agent harnesses like Claude Code.
 
 ## Usage
 
 ```bash
+# Basic initialization
 cupcake init
+
+# Initialize with Claude Code integration
+cupcake init --harness claude
+
+# Initialize global configuration
+cupcake init --global
+
+# Initialize global with Claude Code integration
+cupcake init --global --harness claude
 ```
 
 ## What It Creates
@@ -91,12 +101,29 @@ deny contains decision if {
 }
 ```
 
-## Integration with Claude Code
+## Harness Integration
 
-To use your initialized Cupcake project with Claude Code:
+The `--harness` flag automatically configures integration with agent harnesses:
 
-1. Initialize a Cupcake project in your workspace
-2. Create a `.claude/settings.json` file:
+### Claude Code Integration
+
+When you use `--harness claude`, Cupcake automatically:
+
+1. Creates or updates `.claude/settings.json` with appropriate hooks
+2. Configures four key hook events:
+   - **PreToolUse**: Evaluates all tool uses before execution
+   - **PostToolUse**: Validates file modifications (Edit/Write operations)
+   - **UserPromptSubmit**: Enables prompt validation and context injection
+   - **SessionStart**: Loads project context at session start
+
+3. Uses smart path handling:
+   - Project configs use `$CLAUDE_PROJECT_DIR/.cupcake` for portability
+   - Global configs use absolute paths
+
+### Example Claude Code Configuration
+
+Running `cupcake init --harness claude` generates:
+
 ```json
 {
   "hooks": {
@@ -104,13 +131,42 @@ To use your initialized Cupcake project with Claude Code:
       "matcher": "*",
       "hooks": [{
         "type": "command",
-        "command": "cupcake eval --policy-dir /path/to/your/project"
+        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Edit|MultiEdit|Write",
+      "hooks": [{
+        "type": "command",
+        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "hooks": [{
+        "type": "command",
+        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+      }]
+    }],
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
       }]
     }]
   }
 }
 ```
-3. Claude Code will now evaluate all tool uses against your policies
+
+### Merging with Existing Settings
+
+If `.claude/settings.json` already exists, Cupcake will:
+- Preserve all existing settings (env vars, model preferences, etc.)
+- Merge new hooks without creating duplicates
+- Show a warning message about the merge operation
+
+### Manual Configuration
+
+If automatic configuration fails, Cupcake provides manual instructions. You can also manually configure Claude Code by creating `.claude/settings.json` with the structure shown above
 
 ## Design Principles
 

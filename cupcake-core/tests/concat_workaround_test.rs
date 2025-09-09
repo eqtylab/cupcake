@@ -119,7 +119,7 @@ echo '{"passing": false, "coverage": 85.5}'
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     eprintln!("Concat workaround decision: {:?}", decision);
     
     assert!(

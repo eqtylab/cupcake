@@ -177,20 +177,12 @@ contains_cupcake_modification_pattern(cmd) if {
     contains(cmd, pattern)
 }
 
-# Get configured message (would come from signal in real implementation)
+# Get configured message from builtin config
 get_configured_message := msg if {
-    # Check for signal from Rust configuration
-    msg_signal := input.signals["__builtin_rulebook_protected_message"]
-    is_string(msg_signal)
-    msg := msg_signal
+    # Direct access to builtin config (no signal execution needed)
+    msg := input.builtin_config.rulebook_security_guardrails.message
 } else := msg if {
-    # Check if signal has structured format with message
-    msg_signal := input.signals["__builtin_rulebook_protected_message"]
-    is_object(msg_signal)
-    msg_signal.output != ""
-    msg := msg_signal.output
-} else := msg if {
-    # Default message if no signal configured
+    # Fallback to default if config not present
     msg := "Cupcake configuration files are protected from modification"
 }
 
@@ -222,17 +214,10 @@ get_file_path_from_tool_input := path if {
     path := input.params.pattern
 } else := ""
 
-# Helper: Get list of protected paths from signals (future enhancement)
+# Helper: Get list of protected paths from builtin config
 get_protected_paths := paths if {
-    paths_signal := input.signals["__builtin_rulebook_protected_paths"]
-    is_array(paths_signal)
-    paths := paths_signal
-} else := paths if {
-    # Parse JSON array from signal output
-    paths_signal := input.signals["__builtin_rulebook_protected_paths"]
-    is_object(paths_signal)
-    paths_signal.output != ""
-    paths := json.unmarshal(paths_signal.output)
+    # Direct access to builtin config (no signal execution needed)
+    paths := input.builtin_config.rulebook_security_guardrails.protected_paths
 } else := paths if {
     # Default protected paths
     paths := [".cupcake/"]

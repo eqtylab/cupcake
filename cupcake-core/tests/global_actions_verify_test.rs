@@ -5,13 +5,20 @@ use anyhow::Result;
 use cupcake_core::engine::{Engine, global_config::GlobalPaths, decision::FinalDecision};
 use std::env;
 use std::fs;
+use std::sync::Mutex;
 use tempfile::TempDir;
+
+// Global mutex to ensure tests using CUPCAKE_GLOBAL_CONFIG don't run in parallel
+static GLOBAL_CONFIG_MUTEX: Mutex<()> = Mutex::new(());
 
 mod test_helpers;
 
 /// Test that shows actions ARE being called but are fire-and-forget
 #[tokio::test] 
 async fn test_global_action_execution_logs() -> Result<()> {
+    // Acquire mutex to prevent parallel execution with other global config tests
+    let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();
+    
     // Initialize test logging to capture debug output
     test_helpers::init_test_logging();
     
@@ -77,7 +84,7 @@ halt contains decision if {
     });
     
     println!("\n=== About to evaluate and trigger action ===");
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Verify we got the halt decision
     assert!(matches!(decision, FinalDecision::Halt { .. }));
@@ -109,6 +116,9 @@ halt contains decision if {
 /// Demonstrate that the working directory issue exists
 #[tokio::test]
 async fn test_global_action_working_directory_issue() -> Result<()> {
+    // Acquire mutex to prevent parallel execution with other global config tests
+    let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();
+    
     test_helpers::init_test_logging();
     
     // Setup global config
@@ -177,7 +187,7 @@ deny contains decision if {
     println!("Expected: Global actions should run from global directory");
     println!("Actual: Global actions run from PROJECT directory (bug)");
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     assert!(matches!(decision, FinalDecision::Deny { .. }));
     
     // Wait for action

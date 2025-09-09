@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::{debug, error, info, instrument, trace, warn};
 
+use crate::debug::DebugCapture;
+
 /// Project path resolution following .cupcake/ convention with optional global config
 #[derive(Debug, Clone)]
 pub struct ProjectPaths {
@@ -576,7 +578,7 @@ impl Engine {
     /// Implements the NEW_GUIDING_FINAL.md Hybrid Model evaluation flow
     #[instrument(
         name = "evaluate",
-        skip(self, input),
+        skip(self, input, debug_capture),
         fields(
             trace_id = %trace::generate_trace_id(),
             event_name = tracing::field::Empty,
@@ -587,7 +589,7 @@ impl Engine {
             duration_ms = tracing::field::Empty
         )
     )]
-    pub async fn evaluate(&self, input: &Value) -> Result<decision::FinalDecision> {
+    pub async fn evaluate(&self, input: &Value, mut debug_capture: Option<&mut DebugCapture>) -> Result<decision::FinalDecision> {
         let eval_start = Instant::now();
         
         // Extract event info from input for routing
@@ -666,6 +668,14 @@ impl Engine {
             .cloned()
             .collect();
             
+        // Capture routing results
+        if let Some(ref mut debug) = debug_capture {
+            debug.routed = !matched_policies.is_empty();
+            debug.matched_policies = matched_policies.iter()
+                .map(|p| p.package_name.clone())
+                .collect();
+        }
+            
         if matched_policies.is_empty() {
             info!("No policies matched for this event - allowing");
             current_span.record("matched_policy_count", &0);
@@ -678,7 +688,7 @@ impl Engine {
         info!("Found {} matching policies", matched_policies.len());
         
         // Step 2: Gather Signals - collect all required signals from matched policies
-        let enriched_input = self.gather_signals(input, &matched_policies).await?;
+        let enriched_input = self.gather_signals(input, &matched_policies, debug_capture.as_deref_mut()).await?;
         
         // Debug output for testing
         if let Some(params) = input.get("params") {
@@ -696,13 +706,23 @@ impl Engine {
         debug!("About to evaluate decision set with enriched input");
         let decision_set = self.evaluate_decision_set(&enriched_input).await?;
         
+        // Capture WASM evaluation results
+        if let Some(ref mut debug) = debug_capture {
+            debug.wasm_decision_set = Some(decision_set.clone());
+        }
+        
         // Step 4: Apply Intelligence Layer synthesis
         let final_decision = synthesis::SynthesisEngine::synthesize(&decision_set)?;
         
         info!("Synthesized final decision: {:?}", final_decision);
         
+        // Capture synthesis results
+        if let Some(ref mut debug) = debug_capture {
+            debug.final_decision = Some(final_decision.clone());
+        }
+        
         // Step 5: Execute actions based on decision (async, non-blocking)
-        self.execute_actions(&final_decision, &decision_set).await;
+        self.execute_actions_with_debug(&final_decision, &decision_set, debug_capture.as_deref_mut()).await;
         
         // Record final decision type and duration
         let duration = eval_start.elapsed();
@@ -839,8 +859,23 @@ impl Engine {
             }
         }
         
+        // Always inject builtin config from the provided guidebook
+        let mut enriched_input = input.clone();
+        if let Some(input_obj) = enriched_input.as_object_mut() {
+            let mut builtin_config = serde_json::Map::new();
+            
+            debug!("Injecting builtin configs from guidebook in gather_signals_with_guidebook");
+            Self::inject_builtin_config_from_guidebook(&mut builtin_config, guidebook);
+            
+            if !builtin_config.is_empty() {
+                debug!("Injected {} builtin configurations", builtin_config.len());
+                input_obj.insert("builtin_config".to_string(), serde_json::Value::Object(builtin_config));
+            }
+        }
+        
         if required_signals.is_empty() {
-            return Ok(input.clone());
+            debug!("No signals required - returning with builtin config");
+            return Ok(enriched_input);
         }
         
         let signal_names: Vec<String> = required_signals.into_iter().collect();
@@ -853,8 +888,7 @@ impl Engine {
                 std::collections::HashMap::new()
             });
         
-        // Merge signal data into input
-        let mut enriched_input = input.clone();
+        // Merge signal data into already-enriched input
         if let Some(obj) = enriched_input.as_object_mut() {
             obj.insert("signals".to_string(), serde_json::json!(signal_data));
         }
@@ -892,14 +926,14 @@ impl Engine {
     /// Gather signals required by the matched policies and enrich the input
     #[instrument(
         name = "gather_signals",
-        skip(self, input, matched_policies),
+        skip(self, input, matched_policies, debug_capture),
         fields(
             signal_count = tracing::field::Empty,
             signals_executed = tracing::field::Empty,
             duration_ms = tracing::field::Empty
         )
     )]
-    async fn gather_signals(&self, input: &Value, matched_policies: &[PolicyUnit]) -> Result<Value> {
+    async fn gather_signals(&self, input: &Value, matched_policies: &[PolicyUnit], mut debug_capture: Option<&mut DebugCapture>) -> Result<Value> {
         let start = Instant::now();
         // Collect all unique required signals from matched policies
         let mut required_signals = std::collections::HashSet::new();
@@ -952,28 +986,62 @@ impl Engine {
             }
         }
         
+        // Always inject builtin config, even when no signals are required
+        let mut enriched_input = input.clone();
+        if let Some(input_obj) = enriched_input.as_object_mut() {
+            // Inject builtin configuration directly (no shell execution needed for static values)
+            let mut builtin_config = serde_json::Map::new();
+            
+            // First inject project configs (baseline from project)
+            if let Some(project_guidebook) = &self.guidebook {
+                debug!("Injecting builtin configs from project guidebook");
+                Self::inject_builtin_config_from_guidebook(&mut builtin_config, project_guidebook);
+            }
+            
+            // Then inject global configs (override project - global enforcement takes precedence)
+            if let Some(global_guidebook) = &self.global_guidebook {
+                debug!("Injecting builtin configs from global guidebook (overrides project)");
+                Self::inject_builtin_config_from_guidebook(&mut builtin_config, global_guidebook);
+            }
+            
+            if !builtin_config.is_empty() {
+                debug!("Injected {} builtin configurations total (global + project)", builtin_config.len());
+                // Debug: print the actual builtin_config
+                debug!("Builtin config contents: {:?}", builtin_config);
+                input_obj.insert("builtin_config".to_string(), serde_json::Value::Object(builtin_config));
+            } else {
+                debug!("No builtin configurations to inject");
+            }
+        }
+        
         if required_signals.is_empty() {
-            debug!("No signals required - using original input");
-            return Ok(input.clone());
+            debug!("No signals required - returning with builtin config");
+            return Ok(enriched_input);
         }
         
         let signal_names: Vec<String> = required_signals.into_iter().collect();
         info!("Gathering {} signals: {:?}", signal_names.len(), signal_names);
         
+        // Capture configured signals
+        if let Some(ref mut debug) = debug_capture {
+            debug.signals_configured = signal_names.clone();
+        }
+        
         // Execute signals if we have a guidebook, passing the event data (input)
         let signal_data = if let Some(guidebook) = &self.guidebook {
-            self.execute_signals_with_trust(&signal_names, guidebook, input).await.unwrap_or_else(|e| {
+            let results = self.execute_signals_with_trust_and_debug(&signal_names, guidebook, input, debug_capture.as_deref_mut()).await.unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
                 std::collections::HashMap::<String, serde_json::Value>::new()
-            })
+            });
+            results
         } else {
             debug!("No guidebook available - no signals collected");
             std::collections::HashMap::<String, serde_json::Value>::new()
         };
         
-        // Merge signal data into input
+        // Merge signal data into already-enriched input (which has builtin_config)
         let signal_count = signal_data.len();
-        let mut enriched_input = input.clone();
+        // enriched_input already has builtin_config from above
         if let Some(input_obj) = enriched_input.as_object_mut() {
             input_obj.insert("signals".to_string(), serde_json::to_value(signal_data)?);
         }
@@ -1003,7 +1071,19 @@ impl Engine {
         guidebook: &guidebook::Guidebook,
         event_data: &Value,
     ) -> Result<HashMap<String, serde_json::Value>> {
+        self.execute_signals_with_trust_and_debug(signal_names, guidebook, event_data, None).await
+    }
+    
+    /// Execute signals with trust verification and debug capture
+    async fn execute_signals_with_trust_and_debug(
+        &self,
+        signal_names: &[String],
+        guidebook: &guidebook::Guidebook,
+        event_data: &Value,
+        mut debug_capture: Option<&mut DebugCapture>,
+    ) -> Result<HashMap<String, serde_json::Value>> {
         use futures::future::join_all;
+        use crate::debug::SignalExecution;
         
         if signal_names.is_empty() {
             return Ok(HashMap::new());
@@ -1023,7 +1103,7 @@ impl Engine {
                     let signal = match signal_config {
                         Some(s) => s,
                         None => {
-                            return (name.clone(), Err(anyhow::anyhow!("Signal '{}' not found", name)));
+                            return (name.clone(), Err(anyhow::anyhow!("Signal '{}' not found", name)), None);
                         }
                     };
                     
@@ -1031,13 +1111,24 @@ impl Engine {
                     if let Some(verifier) = &trust_verifier {
                         if let Err(e) = verifier.verify_script(&signal.command).await {
                             // Log trust violation specially (TrustError logs itself on creation)
-                            return (name.clone(), Err(anyhow::anyhow!("Trust verification failed: {}", e)));
+                            return (name.clone(), Err(anyhow::anyhow!("Trust verification failed: {}", e)), None);
                         }
                     }
                     
-                    // Execute the signal with event data
+                    // Execute the signal with event data and measure time
+                    let signal_start = std::time::Instant::now();
                     let result = guidebook.execute_signal_with_input(&name, &event_data).await;
-                    (name, result)
+                    let signal_duration = signal_start.elapsed();
+                    
+                    // Create signal execution record for debug
+                    let signal_execution = SignalExecution {
+                        name: name.clone(),
+                        command: signal.command.clone(),
+                        result: result.as_ref().unwrap_or(&serde_json::Value::Null).clone(),
+                        duration_ms: Some(signal_duration.as_millis()),
+                    };
+                    
+                    (name, result, Some(signal_execution))
                 }
             })
             .collect();
@@ -1045,15 +1136,26 @@ impl Engine {
         let results = join_all(futures).await;
         
         let mut signal_data = HashMap::new();
-        for (name, result) in results {
+        for (name, result, signal_execution) in results {
             match result {
                 Ok(value) => {
                     debug!("Signal '{}' executed successfully", name);
                     signal_data.insert(name, value);
+                    
+                    // Capture signal execution if debug enabled
+                    if let (Some(ref mut debug), Some(execution)) = (&mut debug_capture, signal_execution) {
+                        debug.signals_executed.push(execution);
+                    }
                 }
                 Err(e) => {
                     // Log error but don't fail the whole evaluation
                     error!("Signal '{}' failed: {}", name, e);
+                    
+                    // Still capture failed signal execution for debug
+                    if let (Some(ref mut debug), Some(execution)) = (&mut debug_capture, signal_execution) {
+                        debug.signals_executed.push(execution);
+                        debug.add_error(format!("Signal '{}' failed: {}", name, e));
+                    }
                 }
             }
         }
@@ -1125,12 +1227,111 @@ impl Engine {
 
     /// Execute actions using project guidebook (for backward compatibility)
     async fn execute_actions(&self, final_decision: &decision::FinalDecision, decision_set: &decision::DecisionSet) {
+        self.execute_actions_with_debug(final_decision, decision_set, None).await;
+    }
+    
+    /// Execute actions with debug capture
+    async fn execute_actions_with_debug(&self, final_decision: &decision::FinalDecision, decision_set: &decision::DecisionSet, mut debug_capture: Option<&mut DebugCapture>) {
         let Some(guidebook) = &self.guidebook else {
             debug!("No guidebook available - no actions to execute");
             return;
         };
         
-        self.execute_actions_with_guidebook(final_decision, decision_set, guidebook).await;
+        // Capture configured actions before execution
+        if let Some(ref mut debug) = debug_capture {
+            // Collect actions that would be configured based on the decision
+            let mut configured_actions = Vec::new();
+            
+            match final_decision {
+                decision::FinalDecision::Deny { .. } => {
+                    // General denial actions
+                    for action in &guidebook.actions.on_any_denial {
+                        configured_actions.push(format!("on_any_denial: {}", action.command));
+                    }
+                    
+                    // Rule-specific actions for denials
+                    for decision_obj in &decision_set.denials {
+                        if let Some(actions) = guidebook.actions.by_rule_id.get(&decision_obj.rule_id) {
+                            for action in actions {
+                                configured_actions.push(format!("{}: {}", decision_obj.rule_id, action.command));
+                            }
+                        }
+                    }
+                },
+                decision::FinalDecision::Halt { .. } => {
+                    // Rule-specific actions for halts
+                    for decision_obj in &decision_set.halts {
+                        if let Some(actions) = guidebook.actions.by_rule_id.get(&decision_obj.rule_id) {
+                            for action in actions {
+                                configured_actions.push(format!("{}: {}", decision_obj.rule_id, action.command));
+                            }
+                        }
+                    }
+                },
+                decision::FinalDecision::Block { .. } => {
+                    // Rule-specific actions for blocks
+                    for decision_obj in &decision_set.blocks {
+                        if let Some(actions) = guidebook.actions.by_rule_id.get(&decision_obj.rule_id) {
+                            for action in actions {
+                                configured_actions.push(format!("{}: {}", decision_obj.rule_id, action.command));
+                            }
+                        }
+                    }
+                },
+                _ => {
+                    // No actions for Ask, Allow, AllowOverride
+                }
+            }
+            
+            debug.actions_configured = configured_actions;
+        }
+        
+        self.execute_actions_with_guidebook_and_debug(final_decision, decision_set, guidebook, debug_capture).await;
+    }
+    
+    /// Execute actions with guidebook and debug capture
+    async fn execute_actions_with_guidebook_and_debug(
+        &self, 
+        final_decision: &decision::FinalDecision, 
+        decision_set: &decision::DecisionSet,
+        guidebook: &guidebook::Guidebook,
+        mut debug_capture: Option<&mut DebugCapture>
+    ) {
+        info!("execute_actions_with_guidebook_and_debug called with decision: {:?}", final_decision);
+        
+        let working_dir = &self.paths.root.clone();
+        
+        // Execute actions based on decision type, capturing execution details
+        match final_decision {
+            decision::FinalDecision::Halt { reason } => {
+                info!("Executing actions for HALT decision: {}", reason);
+                self.execute_rule_specific_actions_with_debug(&decision_set.halts, guidebook, working_dir, debug_capture.as_deref_mut()).await;
+            },
+            decision::FinalDecision::Deny { reason } => {
+                info!("Executing actions for DENY decision: {}", reason);
+                
+                // Execute general denial actions
+                for action in &guidebook.actions.on_any_denial {
+                    self.execute_single_action_with_debug(action, working_dir, debug_capture.as_deref_mut()).await;
+                }
+                
+                // Execute rule-specific actions for denials
+                self.execute_rule_specific_actions_with_debug(&decision_set.denials, guidebook, working_dir, debug_capture.as_deref_mut()).await;
+            },
+            decision::FinalDecision::Block { reason } => {
+                info!("Executing actions for BLOCK decision: {}", reason);
+                self.execute_rule_specific_actions_with_debug(&decision_set.blocks, guidebook, working_dir, debug_capture.as_deref_mut()).await;
+            },
+            decision::FinalDecision::Ask { .. } => {
+                debug!("ASK decision - no automatic actions");
+            },
+            decision::FinalDecision::Allow { .. } => {
+                debug!("ALLOW decision - no actions needed");
+            },
+            decision::FinalDecision::AllowOverride { .. } => {
+                debug!("ALLOW_OVERRIDE decision - no actions needed");
+            },
+        }
     }
     
     /// Execute actions for a specific set of decision objects (by rule ID)
@@ -1154,9 +1355,50 @@ impl Engine {
         }
     }
     
+    /// Execute actions for a specific set of decision objects with debug capture
+    async fn execute_rule_specific_actions_with_debug(&self, decisions: &[decision::DecisionObject], guidebook: &guidebook::Guidebook, working_dir: &std::path::PathBuf, mut debug_capture: Option<&mut DebugCapture>) {
+        info!("execute_rule_specific_actions_with_debug: Checking actions for {} decision objects", decisions.len());
+        
+        // Create a list of actions to execute to avoid borrowing issues
+        let mut actions_to_execute = Vec::new();
+        
+        for decision_obj in decisions {
+            let rule_id = &decision_obj.rule_id;
+            
+            if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
+                info!("Found {} actions for rule {}", actions.len(), rule_id);
+                for action in actions {
+                    actions_to_execute.push(action.clone());
+                }
+            }
+        }
+        
+        // Now execute all actions
+        for action in actions_to_execute {
+            info!("About to execute action: {}", action.command);
+            self.execute_single_action_with_debug(&action, working_dir, debug_capture.as_deref_mut()).await;
+        }
+    }
+    
     /// Execute a single action command
     async fn execute_single_action(&self, action: &guidebook::ActionConfig, working_dir: &std::path::PathBuf) {
+        self.execute_single_action_with_debug(action, working_dir, None).await;
+    }
+    
+    /// Execute a single action command with debug capture
+    async fn execute_single_action_with_debug(&self, action: &guidebook::ActionConfig, working_dir: &std::path::PathBuf, mut debug_capture: Option<&mut DebugCapture>) {
         debug!("Executing action: {} in directory: {:?}", action.command, working_dir);
+        
+        // Capture action execution
+        if let Some(ref mut debug) = debug_capture {
+            let action_execution = crate::debug::ActionExecution {
+                name: format!("action_{}", debug.actions_executed.len()),
+                command: action.command.clone(),
+                duration_ms: None,  // Could be captured if we measure execution time
+                exit_code: None,    // Could be captured from command result
+            };
+            debug.actions_executed.push(action_execution);
+        }
         
         // Verify trust if enabled
         if let Some(verifier) = &self.trust_verifier {
@@ -1300,6 +1542,118 @@ impl Engine {
         eprintln!("│                                                         │");
         eprintln!("│ Learn more: cupcake trust --help                       │");
         eprintln!("└─────────────────────────────────────────────────────────┘");
+    }
+    
+    /// Helper method to inject builtin configurations from a guidebook into the builtin_config map
+    /// This allows for consistent builtin config injection across different evaluation paths
+    fn inject_builtin_config_from_guidebook(
+        builtin_config: &mut serde_json::Map<String, serde_json::Value>,
+        guidebook: &guidebook::Guidebook
+    ) {
+        // Add protected_paths config if enabled
+        if let Some(config) = &guidebook.builtins.protected_paths {
+            if config.enabled {
+                debug!("Injecting protected_paths config with message: {}", config.message);
+                builtin_config.insert("protected_paths".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "paths": config.paths,
+                }));
+            }
+        }
+        
+        // Add rulebook_security_guardrails config if enabled
+        if let Some(config) = &guidebook.builtins.rulebook_security_guardrails {
+            if config.enabled {
+                debug!("Injecting rulebook_security_guardrails config");
+                builtin_config.insert("rulebook_security_guardrails".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "protected_paths": config.protected_paths,
+                }));
+            }
+        }
+        
+        // Add enforce_full_file_read config if enabled
+        if let Some(config) = &guidebook.builtins.enforce_full_file_read {
+            if config.enabled {
+                debug!("Injecting enforce_full_file_read config with message: {}", config.message);
+                builtin_config.insert("enforce_full_file_read".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "max_lines": config.max_lines,
+                }));
+            }
+        }
+        
+        // Add global_file_lock config if enabled
+        if let Some(config) = &guidebook.builtins.global_file_lock {
+            if config.enabled {
+                debug!("Injecting global_file_lock config");
+                builtin_config.insert("global_file_lock".to_string(), serde_json::json!({
+                    "message": config.message,
+                }));
+            }
+        }
+        
+        // Add git_block_no_verify config if enabled
+        if let Some(config) = &guidebook.builtins.git_block_no_verify {
+            if config.enabled {
+                debug!("Injecting git_block_no_verify config");
+                builtin_config.insert("git_block_no_verify".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "exceptions": config.exceptions,
+                }));
+            }
+        }
+        
+        // Add system_protection config if enabled
+        if let Some(config) = &guidebook.builtins.system_protection {
+            if config.enabled {
+                debug!("Injecting system_protection config");
+                builtin_config.insert("system_protection".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "additional_paths": config.additional_paths,
+                }));
+            }
+        }
+        
+        // Add sensitive_data_protection config if enabled
+        if let Some(config) = &guidebook.builtins.sensitive_data_protection {
+            if config.enabled {
+                debug!("Injecting sensitive_data_protection config");
+                builtin_config.insert("sensitive_data_protection".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "additional_patterns": config.additional_patterns,
+                }));
+            }
+        }
+        
+        // Add cupcake_exec_protection config if enabled
+        if let Some(config) = &guidebook.builtins.cupcake_exec_protection {
+            if config.enabled {
+                debug!("Injecting cupcake_exec_protection config");
+                builtin_config.insert("cupcake_exec_protection".to_string(), serde_json::json!({
+                    "message": config.message,
+                    "allowed_commands": config.allowed_commands,
+                }));
+            }
+        }
+        
+        // Add always_inject_on_prompt static strings if enabled
+        if let Some(config) = &guidebook.builtins.always_inject_on_prompt {
+            if config.enabled {
+                let mut static_contexts = Vec::new();
+                for source in &config.context {
+                    if let crate::engine::builtins::ContextSource::String(s) = source {
+                        static_contexts.push(s.clone());
+                    }
+                }
+                if !static_contexts.is_empty() {
+                    debug!("Injecting always_inject_on_prompt with {} static contexts", static_contexts.len());
+                    builtin_config.insert("always_inject_on_prompt".to_string(), serde_json::json!({
+                        "static_contexts": static_contexts,
+                    }));
+                }
+            }
+        }
     }
     
 }

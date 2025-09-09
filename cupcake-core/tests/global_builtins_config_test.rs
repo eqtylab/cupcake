@@ -111,6 +111,9 @@ builtins:
     
     #[test]
     fn test_global_builtins_signal_generation() {
+        // After refactoring, global builtins (system_protection, sensitive_data_protection,
+        // cupcake_exec_protection) no longer generate signals. They use builtin_config instead
+        // to avoid unnecessary shell process spawning for static configuration values.
         let yaml_content = r#"
 signals: {}
 actions: {}
@@ -133,14 +136,11 @@ builtins:
         
         let signals = guidebook.builtins.generate_signals();
         
-        // Check system protection signals
-        assert!(signals.contains_key("__builtin_system_protection_paths"));
-        assert!(signals.contains_key("__builtin_system_protection_message"));
+        // These global builtins no longer generate signals - they use builtin_config
+        // This is intentional to avoid spawning shell processes for static values
+        assert!(signals.is_empty(), "Global builtins should not generate signals");
         
-        // Check sensitive data signals
-        assert!(signals.contains_key("__builtin_sensitive_data_patterns"));
-        
-        // Check cupcake exec signals
-        assert!(signals.contains_key("__builtin_cupcake_exec_message"));
+        // The configuration is instead injected directly via builtin_config
+        // during the gather_signals phase in the engine
     }
 }

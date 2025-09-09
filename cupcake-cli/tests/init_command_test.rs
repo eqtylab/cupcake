@@ -387,7 +387,7 @@ async fn test_init_creates_valid_engine_structure() -> Result<()> {
         "prompt": "test"
     });
     
-    let decision = engine.evaluate(&test_input).await?;
+    let decision = engine.evaluate(&test_input, None).await?;
     
     // Should get an Allow decision (no policies should fire on this simple input)
     assert!(matches!(
@@ -503,11 +503,11 @@ fn test_correct_number_of_files_created() -> Result<()> {
     
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
     
-    // We should have exactly 9 files (guidebook.yml + 8 policies)
-    // Policies: evaluate.rego, example.rego, and 6 builtins
+    // We should have exactly 11 files (guidebook.yml + 10 policies)
+    // Policies: evaluate.rego, example.rego, and 8 builtins
     assert_eq!(
-        file_count, 9,
-        "Should have exactly 9 files (guidebook.yml + 8 policies)"
+        file_count, 11,
+        "Should have exactly 11 files (guidebook.yml + 10 policies)"
     );
     
     // We should have exactly 5 directories (policies, policies/system, policies/builtins, signals, actions)

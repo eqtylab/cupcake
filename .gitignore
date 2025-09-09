@@ -1,3 +1,5 @@
+progress_logs
+
 # Rust build artifacts
 /target/
 **/*.rs.bk

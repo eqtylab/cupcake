@@ -179,6 +179,18 @@ builtins:
     #   - "CI_ENVIRONMENT"
   
   # ---------------------------------------------------------------------------
+  # ENFORCE_FULL_FILE_READ - Require complete file reads
+  # ---------------------------------------------------------------------------
+  # Ensures Claude reads entire files (up to a configurable limit) before
+  # processing. Prevents partial reads that might miss important context.
+  # Files larger than max_lines can still use offset/limit parameters.
+  
+  # enforce_full_file_read:
+  #   enabled: true
+  #   max_lines: 2000  # Files under this size must be read completely
+  #   message: "Please read the entire file first (files under 2000 lines must be read completely)"
+
+  # ---------------------------------------------------------------------------
   # PROTECTED_PATHS - User-defined read-only paths
   # ---------------------------------------------------------------------------
   # Declare specific files or directories as read-only while still allowing

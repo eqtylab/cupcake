@@ -51,12 +51,15 @@ venv:
 test-all: test test-python
 
 # Run Rust tests with deterministic-tests feature (REQUIRED)
+# NOTE: Sets CUPCAKE_GLOBAL_CONFIG=/nonexistent to prevent developer's personal
+# global config from interfering with tests
 test *ARGS='':
     #!/usr/bin/env bash
     set -euo pipefail
     
     echo "Running Rust tests with deterministic-tests feature..."
-    if cargo test --workspace --features cupcake-core/deterministic-tests {{ARGS}}; then
+    echo "Note: Disabling global config to ensure test isolation"
+    if CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --workspace --features cupcake-core/deterministic-tests {{ARGS}}; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') | PASS | cargo test --workspace {{ARGS}}" >> test-results.log
         echo "✅ All Rust tests passed"
     else
@@ -67,23 +70,23 @@ test *ARGS='':
 
 # Run only unit tests (fast)
 test-unit:
-    cargo test --workspace --lib --features cupcake-core/deterministic-tests
+    CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --workspace --lib --features cupcake-core/deterministic-tests
 
 # Run only integration tests
 test-integration:
-    cargo test --workspace --test '*' --features cupcake-core/deterministic-tests
+    CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --workspace --test '*' --features cupcake-core/deterministic-tests
 
 # Run specific test by name
 test-one TEST_NAME:
-    cargo test --workspace --features cupcake-core/deterministic-tests {{TEST_NAME}}
+    CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --workspace --features cupcake-core/deterministic-tests {{TEST_NAME}}
 
 # Run tests for core only
 test-core:
-    cargo test -p cupcake-core --features deterministic-tests
+    CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test -p cupcake-core --features deterministic-tests
 
 # Run tests for CLI only  
 test-cli:
-    cargo test -p cupcake-cli
+    CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test -p cupcake-cli
 
 # Run Python tests (auto-builds if needed)
 test-python: venv
@@ -204,4 +207,4 @@ watch:
 
 # Watch and run tests on change
 watch-test:
-    cargo watch -x "test --workspace --features cupcake-core/deterministic-tests"
+    CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo watch -x "test --workspace --features cupcake-core/deterministic-tests"

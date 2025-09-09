@@ -80,7 +80,7 @@ impl BindingEngine {
         // Evaluate using the runtime (blocks until complete)
         let decision = self
             .runtime
-            .block_on(self.inner.evaluate(&input))
+            .block_on(self.inner.evaluate(&input, None))
             .map_err(|e| format!("Core engine evaluation failed: {}", e))?;
         
         // Serialize the decision to JSON
@@ -109,7 +109,7 @@ impl BindingEngine {
         // Evaluate asynchronously
         let decision = self
             .inner
-            .evaluate(&input)
+            .evaluate(&input, None)
             .await
             .map_err(|e| format!("Core engine evaluation failed: {}", e))?;
         

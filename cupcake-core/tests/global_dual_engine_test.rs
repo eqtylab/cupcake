@@ -28,7 +28,7 @@ async fn test_engine_without_global_config() -> Result<()> {
         "prompt": "test"
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Should allow by default
     assert!(matches!(
@@ -76,7 +76,7 @@ add_context contains "Global policy active"
         "prompt": "test"
     });
     
-    let _decision = engine.evaluate(&input).await?;
+    let _decision = engine.evaluate(&input, None).await?;
     
     // Clean up
     env::remove_var("CUPCAKE_GLOBAL_CONFIG");
@@ -130,7 +130,7 @@ test_value := "project"
         "prompt": "test"
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     assert!(matches!(
         decision,
         cupcake_core::engine::decision::FinalDecision::Allow { .. }

@@ -78,18 +78,34 @@ Simple examples:
 
 ### Running Tests
 
-**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag. This is NOT optional - the trust system tests will fail intermittently without it.
+**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag AND with global config disabled. This ensures:
+1. Deterministic HMAC key generation for reliable test execution
+2. No interference from developer's personal Cupcake configuration
 
 ```bash
 # Run all tests (REQUIRED for correct behavior)
-cargo test --features deterministic-tests
+CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --features deterministic-tests
 
-# Or use the configured alias
-cargo t
+# Or use the Just commands (automatically handles both requirements)
+just test              # Run all tests
+just test-unit        # Run unit tests only
+just test-integration # Run integration tests only
+just test-one <name>  # Run specific test
 
-# Run specific tests
-cargo test test_name --features deterministic-tests
+# Alias for quick testing
+cargo t  # Configured alias that includes required flags
 ```
+
+#### Why Global Config Must Be Disabled
+
+If you use Cupcake as a developer, you likely have a global configuration at `~/Library/Application Support/cupcake` (macOS) or `~/.config/cupcake` (Linux). This global config is designed to override project configs for organizational policy enforcement.
+
+However, during testing, this causes issues:
+- Tests expect specific builtin configurations
+- Global configs override the test's project configs
+- Tests fail with unexpected policy decisions
+
+Setting `CUPCAKE_GLOBAL_CONFIG=/nonexistent` ensures tests run in isolation. Global tests that need global configs create their own temporary configurations.
 
 The feature flag ensures deterministic HMAC key generation for reliable test execution. Without it, integration tests will experience race conditions and cryptographic verification failures due to non-deterministic key derivation in production mode.
 

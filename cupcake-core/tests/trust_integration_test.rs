@@ -125,7 +125,7 @@ async fn test_engine_without_trust() -> Result<()> {
     });
     
     // Should evaluate successfully
-    let decision = engine.evaluate(&event).await?;
+    let decision = engine.evaluate(&event, None).await?;
     assert!(matches!(decision, cupcake_core::engine::decision::FinalDecision::Allow { .. }));
     
     Ok(())
@@ -178,7 +178,7 @@ async fn test_engine_with_valid_trust() -> Result<()> {
     });
     
     // Should evaluate successfully with trusted signal
-    let decision = engine.evaluate(&event).await?;
+    let decision = engine.evaluate(&event, None).await?;
     assert!(matches!(decision, cupcake_core::engine::decision::FinalDecision::Allow { .. }));
     
     Ok(())
@@ -228,7 +228,7 @@ deny contains decision if {
     });
     
     // Should still evaluate (signal execution fails but doesn't crash)
-    let decision = engine.evaluate(&event).await?;
+    let decision = engine.evaluate(&event, None).await?;
     
     // The evaluation should succeed but without the signal data
     assert!(matches!(decision, cupcake_core::engine::decision::FinalDecision::Allow { .. }));

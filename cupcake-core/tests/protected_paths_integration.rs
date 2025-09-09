@@ -47,12 +47,12 @@ builtins:
     // Create the engine
     let engine = Engine::new(temp_dir.path()).await?;
     
-    eprintln!("=== Testing protected_paths builtin ===");
-    eprintln!("Config should have protected: production.env, src/legacy/, *.secret");
-    
     // Test 1: BLOCK Write operation on protected file
     let write_event = json!({
         "hook_event_name": "PreToolUse",
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript.md",
+        "cwd": temp_dir.path().to_str().unwrap(),
         "tool_name": "Write",
         "tool_input": {
             "file_path": "production.env",
@@ -60,7 +60,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&write_event).await?;
+    let decision = engine.evaluate(&write_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("protected"), "Should mention protected: {}", reason);
@@ -71,13 +71,16 @@ builtins:
     // Test 2: ALLOW Read operation on protected file
     let read_event = json!({
         "hook_event_name": "PreToolUse",
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript.md",
+        "cwd": temp_dir.path().to_str().unwrap(),
         "tool_name": "Read",
         "tool_input": {
             "file_path": "production.env"
         }
     });
     
-    let decision = engine.evaluate(&read_event).await?;
+    let decision = engine.evaluate(&read_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - reads are allowed
@@ -88,6 +91,9 @@ builtins:
     // Test 3: BLOCK Edit operation on directory contents
     let edit_event = json!({
         "hook_event_name": "PreToolUse",
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript.md",
+        "cwd": temp_dir.path().to_str().unwrap(),
         "tool_name": "Edit",
         "tool_input": {
             "file_path": "src/legacy/old_code.rs",
@@ -96,7 +102,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&edit_event).await?;
+    let decision = engine.evaluate(&edit_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("protected"), "Should mention protected: {}", reason);
@@ -107,6 +113,9 @@ builtins:
     // Test 4: BLOCK write to glob pattern match
     let secret_write = json!({
         "hook_event_name": "PreToolUse",
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript.md",
+        "cwd": temp_dir.path().to_str().unwrap(),
         "tool_name": "Write",
         "tool_input": {
             "file_path": "config.secret",
@@ -114,7 +123,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&secret_write).await?;
+    let decision = engine.evaluate(&secret_write, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("protected"), "Should mention protected: {}", reason);
@@ -125,6 +134,9 @@ builtins:
     // Test 5: ALLOW write to non-protected file
     let normal_write = json!({
         "hook_event_name": "PreToolUse",
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript.md",
+        "cwd": temp_dir.path().to_str().unwrap(),
         "tool_name": "Write",
         "tool_input": {
             "file_path": "src/main.rs",
@@ -132,7 +144,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&normal_write).await?;
+    let decision = engine.evaluate(&normal_write, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - writes to non-protected files are allowed
@@ -185,13 +197,16 @@ builtins:
     for cmd in read_commands {
         let bash_event = json!({
             "hook_event_name": "PreToolUse",
+            "session_id": "test-session",
+            "transcript_path": "/tmp/transcript.md",
+            "cwd": temp_dir.path().to_str().unwrap(),
             "tool_name": "Bash",
             "tool_input": {
                 "command": cmd
             }
         });
         
-        let decision = engine.evaluate(&bash_event).await?;
+        let decision = engine.evaluate(&bash_event, None).await?;
         match decision {
             cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
                 // Good - read commands are allowed
@@ -212,13 +227,16 @@ builtins:
     for cmd in write_commands {
         let bash_event = json!({
             "hook_event_name": "PreToolUse",
+            "session_id": "test-session",
+            "transcript_path": "/tmp/transcript.md",
+            "cwd": temp_dir.path().to_str().unwrap(),
             "tool_name": "Bash",
             "tool_input": {
                 "command": cmd
             }
         });
         
-        let decision = engine.evaluate(&bash_event).await?;
+        let decision = engine.evaluate(&bash_event, None).await?;
         match decision {
             cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
                 assert!(reason.contains("read operations allowed"), 

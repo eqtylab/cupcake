@@ -198,37 +198,19 @@ contains_protected_reference(cmd, protected_path) if {
     contains(cmd, path_without_slash)
 }
 
-# Get configured message from signals
+# Get configured message from builtin config
 get_configured_message := msg if {
-    msg_signal := input.signals["__builtin_protected_paths_message"]
-    is_string(msg_signal)
-    msg := msg_signal
+    # Direct access to builtin config (no signal execution needed)
+    msg := input.builtin_config.protected_paths.message
 } else := msg if {
-    msg_signal := input.signals["__builtin_protected_paths_message"]
-    is_object(msg_signal)
-    msg_signal.output != ""
-    msg := msg_signal.output
-} else := msg if {
+    # Fallback to default if config not present
     msg := "This path is read-only and cannot be modified"
 }
 
-# Get list of protected paths from signals
+# Get list of protected paths from builtin config
 get_protected_paths := paths if {
-    paths_signal := input.signals["__builtin_protected_paths_list"]
-    is_string(paths_signal)
-    # Try to parse as JSON array
-    paths := json.unmarshal(paths_signal)
-} else := paths if {
-    # Signal might already be parsed as array
-    paths_signal := input.signals["__builtin_protected_paths_list"]
-    is_array(paths_signal)
-    paths := paths_signal
-} else := paths if {
-    paths_signal := input.signals["__builtin_protected_paths_list"]
-    is_object(paths_signal)
-    paths_signal.output != ""
-    # Parse the output as JSON array
-    paths := json.unmarshal(paths_signal.output)
+    # Direct access to builtin config (no signal execution needed)
+    paths := input.builtin_config.protected_paths.paths
 } else := paths if {
     # No paths configured - policy inactive
     paths := []

@@ -136,7 +136,7 @@ builtins: {}
             }
         });
         
-        let decision = engine.evaluate(&event).await?;
+        let decision = engine.evaluate(&event, None).await?;
         
         // Debug what decision we got
         eprintln!("Decision for /etc/hosts edit: {:?}", decision);
@@ -177,7 +177,7 @@ builtins: {}
             }
         });
         
-        let decision = engine.evaluate(&event).await?;
+        let decision = engine.evaluate(&event, None).await?;
         
         // Should be DENY decision from global builtin
         assert!(decision.is_blocking(), "Expected blocking decision for .env read");
@@ -214,7 +214,7 @@ builtins: {}
             }
         });
         
-        let decision = engine.evaluate(&event).await?;
+        let decision = engine.evaluate(&event, None).await?;
         
         // Should be HALT decision from global builtin
         assert!(decision.is_halt(), "Expected HALT decision for cupcake execution");
@@ -328,7 +328,7 @@ builtins:
             }
         });
         
-        let decision = engine.evaluate(&event).await?;
+        let decision = engine.evaluate(&event, None).await?;
         
         // Should be ALLOW since builtin is disabled
         assert!(!decision.is_halt(), "Expected no HALT when builtin is disabled");
@@ -462,7 +462,7 @@ builtins:
             }
         });
         
-        let decision = engine.evaluate(&event).await?;
+        let decision = engine.evaluate(&event, None).await?;
         
         // Debug what we got
         eprintln!("Decision for custom path: {:?}", decision);

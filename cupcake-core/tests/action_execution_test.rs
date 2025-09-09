@@ -90,7 +90,7 @@ deny contains decision if {
     });
     
     // Evaluate - this should trigger the action
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     
     // Verify we got a deny decision
     assert!(decision.is_blocking(), "Expected blocking decision");
@@ -190,7 +190,7 @@ halt contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     
     assert!(decision.is_halt(), "Expected halt decision");
     
@@ -270,7 +270,7 @@ deny contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
     
     // Wait for async actions
@@ -355,7 +355,7 @@ deny contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
     
     // Wait for async action

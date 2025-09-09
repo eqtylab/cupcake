@@ -58,7 +58,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&edit_event).await?;
+    let decision = engine.evaluate(&edit_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("Cupcake"), "Should mention Cupcake protection: {}", reason);
@@ -79,7 +79,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&write_event).await?;
+    let decision = engine.evaluate(&write_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("Cupcake") || reason.contains("protected"), 
@@ -100,7 +100,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&bash_event).await?;
+    let decision = engine.evaluate(&bash_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("Cupcake") || reason.contains("protected"), 
@@ -123,7 +123,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&normal_edit).await?;
+    let decision = engine.evaluate(&normal_edit, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - non-.cupcake files are allowed
@@ -183,7 +183,7 @@ builtins:
             }
         });
         
-        let decision = engine.evaluate(&bash_event).await?;
+        let decision = engine.evaluate(&bash_event, None).await?;
         match decision {
             cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
                 assert!(reason.contains("Cupcake") || reason.contains("protected"), 
@@ -237,7 +237,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&read_event).await?;
+    let decision = engine.evaluate(&read_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("protected"), 
@@ -259,7 +259,7 @@ builtins:
         }
     });
     
-    let decision = engine.evaluate(&grep_event).await?;
+    let decision = engine.evaluate(&grep_event, None).await?;
     match decision {
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(reason.contains("protected"), 

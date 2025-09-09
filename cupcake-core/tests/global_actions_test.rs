@@ -97,7 +97,7 @@ halt contains decision if {
         "prompt": "dangerous"
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Debug: Print what decision we actually got
     eprintln!("Global HALT test - Decision received: {:?}", decision);
@@ -203,7 +203,7 @@ deny contains decision if {
         }
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Verify DENY decision
     assert!(matches!(decision, FinalDecision::Deny { .. }));
@@ -323,7 +323,7 @@ allow_override contains decision if {
         "source": "Startup"
     });
     
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // Verify BLOCK decision (and that it terminated early, not allowing project policy)
     assert!(matches!(decision, FinalDecision::Block { .. }));

@@ -116,7 +116,7 @@ deny contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision1 = engine.evaluate(&event1).await.unwrap();
+    let decision1 = engine.evaluate(&event1, None).await.unwrap();
     assert!(decision1.is_blocking(), "Expected blocking decision");
     
     // Wait for async actions to complete
@@ -147,7 +147,7 @@ deny contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision2 = engine.evaluate(&event2).await.unwrap();
+    let decision2 = engine.evaluate(&event2, None).await.unwrap();
     assert!(decision2.is_blocking(), "Expected blocking decision");
     
     // Wait for async action
@@ -238,7 +238,7 @@ deny contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
     
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;

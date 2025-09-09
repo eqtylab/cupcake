@@ -76,10 +76,12 @@ fn test_builtin_signal_generation() {
     // Generate signals
     let signals = config.generate_signals();
     
-    // Verify always_inject signals
-    assert!(signals.contains_key("__builtin_prompt_context_0"));
-    assert!(signals.contains_key("__builtin_prompt_context_1"));
-    assert!(signals.contains_key("__builtin_prompt_context_2"));
+    // Verify always_inject signals - only dynamic sources generate signals now
+    // Static strings are injected directly via builtin_config
+    // Index 0 was a static string (no signal)
+    // Index 1 and 2 are dynamic sources and should generate signals
+    assert!(signals.contains_key("__builtin_prompt_context_1")); // file source
+    assert!(signals.contains_key("__builtin_prompt_context_2")); // command source
     
     // Verify git_pre_check signals
     assert!(signals.contains_key("__builtin_git_check_0"));
@@ -92,10 +94,8 @@ fn test_builtin_signal_generation() {
     assert!(signals.contains_key("__builtin_post_edit_py"));
     assert_eq!(signals["__builtin_post_edit_rs"].command, "cargo check");
     
-    // Verify rulebook_security_guardrails signals
-    assert!(signals.contains_key("__builtin_rulebook_protected_message"));
-    assert!(signals.contains_key("__builtin_rulebook_protected_paths"));
-    assert_eq!(signals["__builtin_rulebook_protected_message"].command, "echo 'Test protection message'");
+    // rulebook_security_guardrails no longer generates signals - uses builtin_config instead
+    // The message and paths are injected directly via builtin_config
 }
 
 /// Test that enabled builtins are correctly identified
@@ -241,7 +241,7 @@ add_context contains context_msg if {
     });
     
     // Evaluate with engine
-    let decision = engine.evaluate(&input).await?;
+    let decision = engine.evaluate(&input, None).await?;
     
     // The engine should have:
     // 1. Executed the __builtin_test_signal
@@ -320,7 +320,7 @@ builtins:
         "tool_response": "File edited successfully"
     });
     
-    let decision_txt = engine.evaluate(&input_txt).await?;
+    let decision_txt = engine.evaluate(&input_txt, None).await?;
     
     // Should add positive context for successful validation
     match decision_txt {
@@ -345,7 +345,7 @@ builtins:
     eprintln!("\n=== TEST 2: .fail file test ===");
     eprintln!("Input: {}", serde_json::to_string_pretty(&input_fail)?);
     
-    let decision_fail = engine.evaluate(&input_fail).await?;
+    let decision_fail = engine.evaluate(&input_fail, None).await?;
     
     eprintln!("Decision for .fail file: {:?}", decision_fail);
     

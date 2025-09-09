@@ -87,7 +87,7 @@ ask contains decision if {
         "cwd": "/tmp"
     });
     
-    let decision = engine.evaluate(&event).await.unwrap();
+    let decision = engine.evaluate(&event, None).await.unwrap();
     eprintln!("Decision: {:?}", decision);
     
     assert!(

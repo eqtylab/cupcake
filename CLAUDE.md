@@ -58,7 +58,7 @@ Only these events support `additionalContext`:
 
 ### Required Tools
 
-- **OPA (Open Policy Agent)**: v0.70.0 or later (for v1.0 Rego syntax support)
+- **OPA (Open Policy Agent)**: v1.71.0 or later (for v1.0 Rego syntax support)
 - **Rust**: 1.75.0 or later (edition 2021)
 - **Cargo**: Latest stable
 
@@ -140,7 +140,19 @@ Event Input → Route (O(1) lookup) → Gather Signals → Evaluate (WASM) → S
 
 ### Test Execution Requirements
 
-**IMPORTANT**: Tests MUST be run with the `--features deterministic-tests` flag. This is NOT optional - the trust system tests will fail intermittently without it due to non-deterministic HMAC key derivation in production mode. The feature flag ensures deterministic key generation for reliable test execution. Use `cargo t` (alias) or `cargo test --features deterministic-tests`.
+**IMPORTANT**: Tests MUST be run with:
+1. The `--features deterministic-tests` flag for deterministic HMAC key generation
+2. `CUPCAKE_GLOBAL_CONFIG=/nonexistent` to prevent developer's global config from interfering
+
+```bash
+# Correct way to run tests
+CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --features deterministic-tests
+
+# Or use the Just commands which handle both automatically
+just test
+```
+
+Without these, tests will fail due to either non-deterministic key derivation or global config override issues.
 
 ### Test Policy Requirements
 
@@ -200,12 +212,19 @@ Example: A policy with `required_events: ["PostToolUse"]` will match all PostToo
 
 ## Builtin Abstractions
 
-Four working builtins provide common patterns without writing Rego:
+Eleven builtins provide common patterns without writing Rego:
 
-- **never_edit_files** - Blocks all file write operations
 - **always_inject_on_prompt** - Adds context to every user prompt
-- **git_pre_check** - Validates before git operations
+- **global_file_lock** - Blocks all file modifications globally
+- **git_pre_check** - Validates before git operations  
 - **post_edit_check** - Runs validation after file edits
+- **rulebook_security_guardrails** - Protects .cupcake files from modification
+- **protected_paths** - Blocks modifications to specified paths
+- **git_block_no_verify** - Prevents --no-verify flag in git commits
+- **system_protection** - Protects system directories from access
+- **sensitive_data_protection** - Blocks access to sensitive files (SSH keys, etc.)
+- **cupcake_exec_protection** - Prevents execution of cupcake commands
+- **enforce_full_file_read** - Enforces reading entire files under configurable line limit
 
 Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `examples/base-config.yml` for template.
 
@@ -213,13 +232,15 @@ Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `examples/b
 
 1. **Default Enabled**: Builtins default to `enabled: true` when configured. You don't need to explicitly set `enabled: true` - just configuring a builtin enables it.
 
-2. **Signal Auto-Discovery**: Builtin policies automatically get their associated signals injected. The engine detects builtin policies and includes all signals matching their pattern (e.g., `__builtin_post_edit_*` for the `post_edit_check` builtin).
+2. **Config Access**: Builtin policies access their configuration via `input.builtin_config.<builtin_name>` directly, NOT through signals. Static configuration values are injected without spawning shell processes.
 
-3. **Dynamic Signal Names**: Builtins can use dynamically-named signals based on runtime values (like file extensions). The engine handles signal gathering automatically for enabled builtins.
+3. **Signal Usage**: Signals are only used for dynamic data gathering (e.g., running validation commands). Static config like messages and paths come through `builtin_config`.
+
+4. **Global Override**: Global builtin configurations override project configurations. This is intentional for organizational policy enforcement.
 
 ## Rego v1 Migration Checklist
 
-**CRITICAL**: Cupcake uses OPA v1.70.0+ where Rego v1 syntax is the DEFAULT (no import needed).
+**CRITICAL**: Cupcake uses OPA v1.71.0+ where Rego v1 syntax is the DEFAULT (no import needed).
 
 ### 🚨 Breaking Changes - Silent Failures
 
@@ -238,7 +259,7 @@ some key, value in my_object
 
 **Why Critical**: The old syntax compiles but silently returns `false`, making policies ineffective.
 
-#### 2. Import Policy (OPA v0.70.0+)
+#### 2. Import Policy (OPA v1.71.0+)
 
 ```rego
 package cupcake.policies.example
@@ -376,7 +397,7 @@ package cupcake.policies.example
 - [ ] Test policy compilation with `opa build`
 - [ ] Verify no silent failures in tests
 
-**OPA Version**: v0.70.0+ (Rego v1 is default, no import needed)  
+**OPA Version**: v1.71.0+ (Rego v1 is default, no import needed)  
 **Metadata Fix**: ✅ All policies use `scope: package` to avoid detached metadata lint errors  
 **Audit Status**: ✅ All Cupcake policies audited and fixed (last check: post-metadata fixes)
 
@@ -396,6 +417,17 @@ package cupcake.policies.example
 - Test policies should NOT use `data.*` for signal access
 
 ## Debugging Best Practices
+
+### Debug File Output
+
+Enable detailed debug capture to `.cupcake/debug/` directory:
+
+```bash
+# Set CUPCAKE_DEBUG_FILES to any value to enable
+CUPCAKE_DEBUG_FILES=1 cupcake eval --policy-dir examples/policies < event.json
+```
+
+This creates human-readable debug files with complete evaluation flow including routing, signals, WASM results, and final decisions.
 
 ### Policy Changes in Tests
 

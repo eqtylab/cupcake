@@ -12,7 +12,7 @@ The engine is intelligent - it discovers policies, understands their requirement
 
 ```bash
 # Install OPA (required for policy compilation)
-brew install opa  # v0.70.0+ for v1.0 Rego syntax
+brew install opa  # v1.71.0+ REQUIRED for v1.0 Rego syntax
 
 # Build Cupcake
 cargo build --release

@@ -4,11 +4,43 @@
 //! "Single entrypoint aggregation with cupcake.system.evaluate"
 
 use anyhow::{bail, Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{debug, error, info};
 
 use super::PolicyUnit;
+
+/// Find the OPA binary, checking bundled location first
+pub fn find_opa_binary() -> PathBuf {
+    // 1. Check if OPA is bundled alongside cupcake binary
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            let bundled_opa = if cfg!(windows) {
+                exe_dir.join("opa.exe")
+            } else {
+                exe_dir.join("opa")
+            };
+            
+            if bundled_opa.exists() {
+                debug!("Using bundled OPA at: {:?}", bundled_opa);
+                return bundled_opa;
+            }
+        }
+    }
+    
+    // 2. Check CUPCAKE_OPA_PATH environment variable
+    if let Ok(opa_path) = std::env::var("CUPCAKE_OPA_PATH") {
+        let path = PathBuf::from(opa_path);
+        if path.exists() {
+            debug!("Using OPA from CUPCAKE_OPA_PATH: {:?}", path);
+            return path;
+        }
+    }
+    
+    // 3. Fall back to system PATH
+    debug!("Using OPA from system PATH");
+    PathBuf::from("opa")
+}
 
 /// Compile all policies into a single unified WASM module using OPA
 pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
@@ -98,7 +130,8 @@ pub async fn compile_policies_with_namespace(
     
     // Build the OPA command for Hybrid Model
     // Single entrypoint: cupcake.system.evaluate
-    let mut opa_cmd = Command::new("opa");
+    let opa_path = find_opa_binary();
+    let mut opa_cmd = Command::new(opa_path);
     opa_cmd.arg("build")
         .arg("-t").arg("wasm")   // Target WASM
         .arg("-O").arg("2");      // Optimization level 2

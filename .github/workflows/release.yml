@@ -63,15 +63,20 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get_version.outputs.version }}
-          release_name: ${{ steps.get_version.outputs.version }}
-          body_path: release_notes.md
-          draft: true
-          prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+        run: |
+          # Create release using GitHub CLI
+          gh release create "${{ steps.get_version.outputs.version }}" \
+            --title "${{ steps.get_version.outputs.version }}" \
+            --notes-file release_notes.md \
+            --draft \
+            ${{ contains(steps.get_version.outputs.version, '-') && '--prerelease' || '' }}
+          
+          # Get the release info for outputs
+          RELEASE_INFO=$(gh api repos/${{ github.repository }}/releases/tags/${{ steps.get_version.outputs.version }})
+          echo "upload_url=$(echo $RELEASE_INFO | jq -r .upload_url | sed 's/{.*}//')" >> $GITHUB_OUTPUT
+          echo "id=$(echo $RELEASE_INFO | jq -r .id)" >> $GITHUB_OUTPUT
 
   # Build matrix for multiple platforms
   build:
@@ -265,24 +270,20 @@ jobs:
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.zip.sha256" >> $env:GITHUB_ENV
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.ARCHIVE_PATH }}
-          asset_name: ${{ env.ARCHIVE_PATH }}
-          asset_content_type: application/octet-stream
+        run: |
+          gh release upload "${{ needs.create-release.outputs.version }}" \
+            "${{ env.ARCHIVE_PATH }}" \
+            --repo ${{ github.repository }}
 
       - name: Upload Checksum
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.CHECKSUM_PATH }}
-          asset_name: ${{ env.CHECKSUM_PATH }}
-          asset_content_type: text/plain
+        run: |
+          gh release upload "${{ needs.create-release.outputs.version }}" \
+            "${{ env.CHECKSUM_PATH }}" \
+            --repo ${{ github.repository }}
 
   # Generate combined checksums file
   checksums:
@@ -315,14 +316,12 @@ jobs:
           cat *.sha256 > SHA256SUMS 2>/dev/null || echo "No checksums found" > SHA256SUMS
 
       - name: Upload Combined Checksums
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: SHA256SUMS
-          asset_name: SHA256SUMS
-          asset_content_type: text/plain
+        run: |
+          gh release upload "${{ needs.create-release.outputs.version }}" \
+            SHA256SUMS \
+            --repo ${{ github.repository }}
 
   # Finalize the release
   finalize:
@@ -331,9 +330,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -X PATCH \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release_id }}" \
-            -d '{"draft": false}'
+          gh release edit "${{ needs.create-release.outputs.version }}" \
+            --draft=false \
+            --repo ${{ github.repository }}

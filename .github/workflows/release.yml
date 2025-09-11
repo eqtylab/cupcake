@@ -27,21 +27,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Get version from tag
         id: get_version
         run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "GITHUB_REF: ${GITHUB_REF}"
-          echo "GITHUB_REF_NAME: ${GITHUB_REF_NAME}"
-          
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.tag }}"
           else
-            # Use GITHUB_REF_NAME which is cleaner (just the tag name without refs/tags/)
-            VERSION="${GITHUB_REF_NAME}"
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}"
@@ -84,7 +77,6 @@ jobs:
           RELEASE_INFO=$(gh api repos/${{ github.repository }}/releases/tags/${{ steps.get_version.outputs.version }})
           echo "upload_url=$(echo $RELEASE_INFO | jq -r .upload_url | sed 's/{.*}//')" >> $GITHUB_OUTPUT
           echo "id=$(echo $RELEASE_INFO | jq -r .id)" >> $GITHUB_OUTPUT
-          echo "version=${{ steps.get_version.outputs.version }}" >> $GITHUB_OUTPUT
 
   # Build matrix for multiple platforms
   build:

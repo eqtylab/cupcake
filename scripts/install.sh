@@ -230,10 +230,10 @@ main() {
     fi
     
     # Verify installation
-    if "$BIN_DIR/$BINARY_NAME" version &> /dev/null; then
+    if "$BIN_DIR/$BINARY_NAME" --version &> /dev/null; then
         success "✓ Cupcake installed successfully!"
         echo ""
-        "$BIN_DIR/$BINARY_NAME" version
+        "$BIN_DIR/$BINARY_NAME" --version
     else
         error "Installation verification failed"
     fi

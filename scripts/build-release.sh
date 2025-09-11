@@ -71,7 +71,8 @@ if [[ "$TARGET" == *"windows"* ]]; then
 fi
 
 # Create release directory structure
-RELEASE_NAME="cupcake-v${VERSION}-${TARGET}"
+# VERSION already includes 'v' prefix if provided
+RELEASE_NAME="cupcake-${VERSION}-${TARGET}"
 RELEASE_DIR="target/release-artifacts/${RELEASE_NAME}"
 mkdir -p "${RELEASE_DIR}/bin"
 
@@ -119,49 +120,64 @@ if [[ -n "$OPA_BINARY" ]]; then
     # Download OPA
     echo "Downloading from ${OPA_URL}..."
     if [[ "$TARGET" == *"windows"* ]]; then
-        curl -L -o "${RELEASE_DIR}/bin/opa.exe" "$OPA_URL" || {
+        # For Windows, OPA_BINARY already includes .exe
+        curl -L -o "${RELEASE_DIR}/bin/${OPA_BINARY}" "$OPA_URL" || {
             echo -e "${YELLOW}Warning: Failed to download OPA${NC}"
         }
-        curl -L -o "${RELEASE_DIR}/bin/opa.exe.sha256" "$OPA_CHECKSUM_URL" 2>/dev/null || true
+        curl -L -o "${RELEASE_DIR}/bin/${OPA_BINARY}.sha256" "$OPA_CHECKSUM_URL" 2>/dev/null || true
         
         # Verify checksum if downloaded
-        if [[ -f "${RELEASE_DIR}/bin/opa.exe.sha256" ]]; then
+        if [[ -f "${RELEASE_DIR}/bin/${OPA_BINARY}.sha256" ]]; then
             cd "${RELEASE_DIR}/bin"
             if [[ "$(uname)" == "Darwin" ]]; then
-                echo "$(cat opa.exe.sha256)  opa.exe" | shasum -a 256 -c || {
+                shasum -a 256 -c "${OPA_BINARY}.sha256" || {
                     echo -e "${RED}OPA checksum verification failed${NC}"
-                    rm -f opa.exe opa.exe.sha256
+                    rm -f "${OPA_BINARY}" "${OPA_BINARY}.sha256"
+                    cd - > /dev/null
+                    exit 1
                 }
             else
-                echo "$(cat opa.exe.sha256)  opa.exe" | sha256sum -c || {
+                sha256sum -c "${OPA_BINARY}.sha256" || {
                     echo -e "${RED}OPA checksum verification failed${NC}"
-                    rm -f opa.exe opa.exe.sha256
+                    rm -f "${OPA_BINARY}" "${OPA_BINARY}.sha256"
+                    cd - > /dev/null
+                    exit 1
                 }
             fi
-            rm -f opa.exe.sha256
+            # Rename to simple opa.exe
+            mv "${OPA_BINARY}" opa.exe
+            rm -f "${OPA_BINARY}.sha256"
             cd - > /dev/null
         fi
     else
-        curl -L -o "${RELEASE_DIR}/bin/opa" "$OPA_URL" || {
+        # Download with original filename for checksum verification
+        curl -L -o "${RELEASE_DIR}/bin/${OPA_BINARY}" "$OPA_URL" || {
             echo -e "${YELLOW}Warning: Failed to download OPA${NC}"
         }
-        curl -L -o "${RELEASE_DIR}/bin/opa.sha256" "$OPA_CHECKSUM_URL" 2>/dev/null || true
+        curl -L -o "${RELEASE_DIR}/bin/${OPA_BINARY}.sha256" "$OPA_CHECKSUM_URL" 2>/dev/null || true
         
         # Verify checksum if downloaded
-        if [[ -f "${RELEASE_DIR}/bin/opa.sha256" ]]; then
+        if [[ -f "${RELEASE_DIR}/bin/${OPA_BINARY}.sha256" ]]; then
             cd "${RELEASE_DIR}/bin"
+            # Verify with original filename
             if [[ "$(uname)" == "Darwin" ]]; then
-                echo "$(cat opa.sha256)  opa" | shasum -a 256 -c || {
+                shasum -a 256 -c "${OPA_BINARY}.sha256" || {
                     echo -e "${RED}OPA checksum verification failed${NC}"
-                    rm -f opa opa.sha256
+                    rm -f "${OPA_BINARY}" "${OPA_BINARY}.sha256"
+                    cd - > /dev/null
+                    exit 1
                 }
             else
-                echo "$(cat opa.sha256)  opa" | sha256sum -c || {
+                sha256sum -c "${OPA_BINARY}.sha256" || {
                     echo -e "${RED}OPA checksum verification failed${NC}"
-                    rm -f opa opa.sha256
+                    rm -f "${OPA_BINARY}" "${OPA_BINARY}.sha256"
+                    cd - > /dev/null
+                    exit 1
                 }
             fi
-            rm -f opa.sha256
+            # Rename to opa after successful verification
+            mv "${OPA_BINARY}" opa
+            rm -f "${OPA_BINARY}.sha256"
             cd - > /dev/null
             chmod +x "${RELEASE_DIR}/bin/opa" 2>/dev/null || true
         fi

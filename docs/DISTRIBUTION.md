@@ -41,10 +41,10 @@ Starting with v0.2.0, Cupcake bundles the Open Policy Agent (OPA) v1.7.1 binary 
 #### Direct Download
 ```bash
 # Universal installer (macOS/Linux)
-curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/cupcake-rewrite/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | sh
 
 # Windows PowerShell
-irm https://raw.githubusercontent.com/eqtylab/cupcake/main/cupcake-rewrite/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.ps1 | iex
 ```
 
 #### GitHub Releases

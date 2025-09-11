@@ -5,8 +5,8 @@
 # verifies checksums, and installs to your PATH.
 #
 # Usage:
-#   irm https://raw.githubusercontent.com/eqtylab/cupcake/main/cupcake-rewrite/scripts/install.ps1 | iex
-#   Invoke-WebRequest -Uri https://raw.githubusercontent.com/eqtylab/cupcake/main/cupcake-rewrite/scripts/install.ps1 | Invoke-Expression
+#   irm https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.ps1 | iex
+#   Invoke-WebRequest -Uri https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.ps1 | Invoke-Expression
 
 [CmdletBinding()]
 param(

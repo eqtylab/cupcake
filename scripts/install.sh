@@ -6,8 +6,8 @@
 # binary from GitHub releases, verifies checksums, and installs to your PATH.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/cupcake-rewrite/scripts/install.sh | sh
-#   wget -qO- https://raw.githubusercontent.com/eqtylab/cupcake/main/cupcake-rewrite/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | sh
+#   wget -qO- https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | sh
 
 set -e
 
@@ -70,7 +70,7 @@ detect_platform() {
             os="apple-darwin"
             ;;
         CYGWIN*|MINGW*|MSYS*)
-            error "Please use the PowerShell installer for Windows: irm https://raw.githubusercontent.com/${GITHUB_REPO}/main/cupcake-rewrite/scripts/install.ps1 | iex"
+            error "Please use the PowerShell installer for Windows: irm https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/install.ps1 | iex"
             ;;
         *)
             error "Unsupported operating system: $(uname -s)"

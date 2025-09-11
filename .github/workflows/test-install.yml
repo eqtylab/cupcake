@@ -71,7 +71,7 @@ jobs:
           rm -rf "$HOME/test-cupcake"
           
           # Test downloading the script and running it
-          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/cupcake-rewrite/scripts/install.sh" | \
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.sh" | \
             CUPCAKE_REPO="${{ github.repository }}" \
             CUPCAKE_INSTALL_DIR="$HOME/test-cupcake-remote" \
             sh
@@ -141,7 +141,7 @@ jobs:
           Remove-Item -Path "$env:USERPROFILE\test-cupcake" -Recurse -Force -ErrorAction SilentlyContinue
           
           # Test downloading and running the script
-          $script = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/${{ github.repository }}/main/cupcake-rewrite/scripts/install.ps1" -UseBasicParsing
+          $script = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.ps1" -UseBasicParsing
           $scriptBlock = [ScriptBlock]::Create($script.Content)
           
           & $scriptBlock `

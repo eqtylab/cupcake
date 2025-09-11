@@ -170,16 +170,19 @@ jobs:
           esac
           
           echo "Downloading OPA ${{ env.OPA_VERSION }} - ${OPA_BINARY}"
-          curl -L -o opa "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}"
-          curl -L -o opa.sha256 "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}.sha256"
+          # Download with original filename for checksum verification
+          curl -L -o "${OPA_BINARY}" "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}"
+          curl -L -o "${OPA_BINARY}.sha256" "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}.sha256"
           
-          # Verify checksum
+          # Verify checksum with original filename
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "$(cat opa.sha256)  opa" | shasum -a 256 -c
+            shasum -a 256 -c "${OPA_BINARY}.sha256"
           else
-            echo "$(cat opa.sha256)  opa" | sha256sum -c
+            sha256sum -c "${OPA_BINARY}.sha256"
           fi
           
+          # Rename to opa after successful verification
+          mv "${OPA_BINARY}" opa
           chmod +x opa
           echo "OPA_BINARY_PATH=$(pwd)/opa" >> $GITHUB_ENV
 

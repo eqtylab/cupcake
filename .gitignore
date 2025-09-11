@@ -76,3 +76,6 @@ env/
 
 # Disabled test files (temporary)
 *.disabled
+
+
+MANUAL_TEST_PROCEDURES.md

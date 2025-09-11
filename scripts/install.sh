@@ -204,29 +204,90 @@ main() {
         chmod +x "$BIN_DIR/opa"
     fi
     
-    # Check if bin directory is in PATH
+    # Add to PATH if not already present
     if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-        warning "$BIN_DIR is not in your PATH"
-        echo ""
-        echo "Add Cupcake to your PATH by adding this to your shell profile:"
-        echo ""
+        info "Adding $BIN_DIR to PATH..."
         
-        # Detect shell and provide appropriate instructions
-        if [[ -n "$ZSH_VERSION" ]]; then
-            echo "  echo 'export PATH=\"$BIN_DIR:\$PATH\"' >> ~/.zshrc"
-            echo "  source ~/.zshrc"
-        elif [[ -n "$BASH_VERSION" ]]; then
-            if [[ -f "$HOME/.bash_profile" ]]; then
-                echo "  echo 'export PATH=\"$BIN_DIR:\$PATH\"' >> ~/.bash_profile"
-                echo "  source ~/.bash_profile"
+        # Detect shell and profile file
+        PROFILE_FILE=""
+        SHELL_NAME=""
+        
+        # Check for Zsh
+        if [[ -n "$ZSH_VERSION" ]] || [[ "$SHELL" == */zsh ]]; then
+            PROFILE_FILE="$HOME/.zshrc"
+            SHELL_NAME="zsh"
+        # Check for Bash
+        elif [[ -n "$BASH_VERSION" ]] || [[ "$SHELL" == */bash ]]; then
+            # On macOS, use .bash_profile; on Linux, prefer .bashrc
+            if [[ "$PLATFORM" == *"apple-darwin" ]]; then
+                PROFILE_FILE="$HOME/.bash_profile"
+            elif [[ -f "$HOME/.bashrc" ]]; then
+                PROFILE_FILE="$HOME/.bashrc"
             else
-                echo "  echo 'export PATH=\"$BIN_DIR:\$PATH\"' >> ~/.bashrc"
-                echo "  source ~/.bashrc"
+                PROFILE_FILE="$HOME/.bash_profile"
             fi
+            SHELL_NAME="bash"
+        # Check for Fish
+        elif [[ "$SHELL" == */fish ]]; then
+            PROFILE_FILE="$HOME/.config/fish/config.fish"
+            SHELL_NAME="fish"
+        # Default fallback
         else
-            echo "  export PATH=\"$BIN_DIR:\$PATH\""
+            # Try to detect from SHELL variable
+            case "$SHELL" in
+                */zsh)
+                    PROFILE_FILE="$HOME/.zshrc"
+                    SHELL_NAME="zsh"
+                    ;;
+                */bash)
+                    PROFILE_FILE="$HOME/.bashrc"
+                    SHELL_NAME="bash"
+                    ;;
+                *)
+                    # Can't auto-detect, provide manual instructions
+                    warning "Could not detect shell profile. Please add this to your shell configuration:"
+                    echo "  export PATH=\"$BIN_DIR:\$PATH\""
+                    echo ""
+                    ;;
+            esac
         fi
-        echo ""
+        
+        # Add to profile if we detected it
+        if [[ -n "$PROFILE_FILE" ]]; then
+            # Create profile file if it doesn't exist
+            if [[ ! -f "$PROFILE_FILE" ]]; then
+                touch "$PROFILE_FILE"
+            fi
+            
+            # Check if PATH export already exists for our bin directory
+            if ! grep -q "$BIN_DIR" "$PROFILE_FILE" 2>/dev/null; then
+                # Add newline if file doesn't end with one
+                [[ -s "$PROFILE_FILE" ]] && [[ $(tail -c1 "$PROFILE_FILE" | wc -l) -eq 0 ]] && echo "" >> "$PROFILE_FILE"
+                
+                # Add PATH export based on shell type
+                if [[ "$SHELL_NAME" == "fish" ]]; then
+                    echo "# Added by Cupcake installer" >> "$PROFILE_FILE"
+                    echo "set -gx PATH \"$BIN_DIR\" \$PATH" >> "$PROFILE_FILE"
+                else
+                    echo "# Added by Cupcake installer" >> "$PROFILE_FILE"
+                    echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$PROFILE_FILE"
+                fi
+                
+                success "✓ Added $BIN_DIR to PATH in $PROFILE_FILE"
+                echo ""
+                info "To use 'cupcake' in your current shell, run:"
+                echo "  source $PROFILE_FILE"
+                echo ""
+                info "Or restart your terminal."
+            else
+                info "$BIN_DIR already in $PROFILE_FILE"
+            fi
+        fi
+        
+        # Also export for current session
+        export PATH="$BIN_DIR:$PATH"
+    else
+        info "Already in PATH: $BIN_DIR"
     fi
     
     # Verify installation

@@ -204,7 +204,7 @@ function Install-Cupcake {
         
         # Verify installation
         Write-Info "Verifying installation..."
-        $testOutput = & $binaryDest version 2>&1
+        $testOutput = & $binaryDest --version 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Installation verification failed"
         }

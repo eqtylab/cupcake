@@ -212,12 +212,12 @@ main() {
         PROFILE_FILE=""
         SHELL_NAME=""
         
-        # Check for Zsh
-        if [[ -n "$ZSH_VERSION" ]] || [[ "$SHELL" == */zsh ]]; then
+        # IMPORTANT: Check $SHELL variable first (user's actual shell)
+        # not the current running shell (which is sh/bash when piped)
+        if [[ "$SHELL" == */zsh ]]; then
             PROFILE_FILE="$HOME/.zshrc"
             SHELL_NAME="zsh"
-        # Check for Bash
-        elif [[ -n "$BASH_VERSION" ]] || [[ "$SHELL" == */bash ]]; then
+        elif [[ "$SHELL" == */bash ]]; then
             # On macOS, use .bash_profile; on Linux, prefer .bashrc
             if [[ "$PLATFORM" == *"apple-darwin" ]]; then
                 PROFILE_FILE="$HOME/.bash_profile"
@@ -227,29 +227,25 @@ main() {
                 PROFILE_FILE="$HOME/.bash_profile"
             fi
             SHELL_NAME="bash"
-        # Check for Fish
         elif [[ "$SHELL" == */fish ]]; then
             PROFILE_FILE="$HOME/.config/fish/config.fish"
             SHELL_NAME="fish"
-        # Default fallback
+        # Fallback: Check VERSION variables only if $SHELL didn't match
+        elif [[ -n "$ZSH_VERSION" ]]; then
+            PROFILE_FILE="$HOME/.zshrc"
+            SHELL_NAME="zsh"
+        elif [[ -n "$BASH_VERSION" ]]; then
+            if [[ "$PLATFORM" == *"apple-darwin" ]]; then
+                PROFILE_FILE="$HOME/.bash_profile"
+            else
+                PROFILE_FILE="$HOME/.bashrc"
+            fi
+            SHELL_NAME="bash"
         else
-            # Try to detect from SHELL variable
-            case "$SHELL" in
-                */zsh)
-                    PROFILE_FILE="$HOME/.zshrc"
-                    SHELL_NAME="zsh"
-                    ;;
-                */bash)
-                    PROFILE_FILE="$HOME/.bashrc"
-                    SHELL_NAME="bash"
-                    ;;
-                *)
-                    # Can't auto-detect, provide manual instructions
-                    warning "Could not detect shell profile. Please add this to your shell configuration:"
-                    echo "  export PATH=\"$BIN_DIR:\$PATH\""
-                    echo ""
-                    ;;
-            esac
+            # Can't detect, provide manual instructions
+            warning "Could not detect shell profile. Please add this to your shell configuration:"
+            echo "  export PATH=\"$BIN_DIR:\$PATH\""
+            echo ""
         fi
         
         # Add to profile if we detected it
@@ -280,14 +276,19 @@ main() {
                 echo ""
                 info "Or restart your terminal."
             else
-                info "$BIN_DIR already in $PROFILE_FILE"
+                info "$BIN_DIR found in $PROFILE_FILE"
+                echo ""
+                warning "PATH configuration exists but may not be active in current shell"
+                info "To activate it now, run:"
+                echo "  source $PROFILE_FILE"
+                echo ""
             fi
         fi
         
         # Also export for current session
         export PATH="$BIN_DIR:$PATH"
     else
-        info "Already in PATH: $BIN_DIR"
+        info "$BIN_DIR is already in your PATH"
     fi
     
     # Verify installation

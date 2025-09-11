@@ -9,6 +9,7 @@ mod tests {
     use std::path::Path;
     use tempfile::TempDir;
     use serde_json::json;
+    use serial_test::serial;
     
     /// Helper to create a test global configuration with test policies
     fn setup_test_global_config(global_dir: &Path) -> Result<()> {
@@ -109,6 +110,7 @@ builtins: {}
     }
     
     #[tokio::test]
+    #[serial]
     async fn test_global_system_protection_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -152,6 +154,7 @@ builtins: {}
     }
     
     #[tokio::test]
+    #[serial]
     async fn test_global_sensitive_data_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -189,6 +192,7 @@ builtins: {}
     }
     
     #[tokio::test]
+    #[serial]
     async fn test_global_cupcake_exec_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -225,7 +229,8 @@ builtins: {}
         Ok(())
     }
     
-    #[tokio::test] 
+    #[tokio::test]
+    #[serial]
     async fn test_global_builtins_disabled() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -340,6 +345,7 @@ builtins:
     }
     
     #[tokio::test]
+    #[serial]
     async fn test_global_builtin_signals() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;

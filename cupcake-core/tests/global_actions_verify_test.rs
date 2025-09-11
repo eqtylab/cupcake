@@ -2,6 +2,7 @@
 //! Works with the fire-and-forget architecture by using debug logs
 
 use anyhow::Result;
+use serial_test::serial;
 use cupcake_core::engine::{Engine, global_config::GlobalPaths, decision::FinalDecision};
 use std::env;
 use std::fs;
@@ -115,6 +116,7 @@ halt contains decision if {
 
 /// Demonstrate that the working directory issue exists
 #[tokio::test]
+#[serial]
 async fn test_global_action_working_directory_issue() -> Result<()> {
     // Acquire mutex to prevent parallel execution with other global config tests
     let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();

@@ -4,6 +4,7 @@
 //! trigger Halt, Deny, or Block decisions.
 
 use anyhow::Result;
+use serial_test::serial;
 use cupcake_core::engine::{Engine, global_config::GlobalPaths, decision::FinalDecision};
 use std::env;
 use std::fs;
@@ -21,6 +22,7 @@ static GLOBAL_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 /// Test that global HALT executes global actions
 #[tokio::test]
+#[serial]
 async fn test_global_halt_executes_actions() -> Result<()> {
     // Serialize access to global config
     let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
@@ -129,6 +131,7 @@ halt contains decision if {
 
 /// Test that global DENY executes global actions
 #[tokio::test]
+#[serial]
 async fn test_global_deny_executes_actions() -> Result<()> {
     // Serialize access to global config
     let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
@@ -230,6 +233,7 @@ deny contains decision if {
 
 /// Test that global BLOCK executes global actions (and terminates early)
 #[tokio::test]
+#[serial]
 async fn test_global_block_executes_actions() -> Result<()> {
     // Serialize access to global config
     let _lock = GLOBAL_TEST_LOCK.lock().unwrap();

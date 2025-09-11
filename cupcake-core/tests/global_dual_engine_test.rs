@@ -1,6 +1,7 @@
 //! Integration tests for dual engine architecture with global config
 
 use anyhow::Result;
+use serial_test::serial;
 use cupcake_core::engine::{Engine, global_config::GlobalPaths};
 use std::env;
 use std::fs;
@@ -10,6 +11,7 @@ mod test_helpers;
 
 /// Test that engine initializes correctly without global config
 #[tokio::test]
+#[serial]
 async fn test_engine_without_global_config() -> Result<()> {
     // Make sure no global config is set
     env::remove_var("CUPCAKE_GLOBAL_CONFIG");
@@ -41,6 +43,7 @@ async fn test_engine_without_global_config() -> Result<()> {
 
 /// Test that engine initializes with both global and project config
 #[tokio::test]
+#[serial]
 async fn test_engine_with_global_config() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
@@ -86,6 +89,7 @@ add_context contains "Global policy active"
 
 /// Test namespace isolation - global and project policies don't interfere
 #[tokio::test]
+#[serial]
 async fn test_namespace_isolation() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;

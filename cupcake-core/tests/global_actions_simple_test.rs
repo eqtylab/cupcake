@@ -3,6 +3,7 @@
 //! This test focuses on verifying the fix works without complex action scripts
 
 use anyhow::Result;
+use serial_test::serial;
 use cupcake_core::engine::{Engine, global_config::GlobalPaths, decision::FinalDecision};
 use std::env;
 use std::fs;
@@ -16,6 +17,7 @@ static GLOBAL_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 /// Test that global HALT with actions doesn't crash and returns correct decision
 #[tokio::test]
+#[serial]
 async fn test_global_halt_with_actions_simple() -> Result<()> {
     // Serialize access to global config
     let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
@@ -103,6 +105,7 @@ halt contains decision if {
 
 /// Test that global BLOCK terminates early (verifies our Block fix)
 #[tokio::test]
+#[serial]
 async fn test_global_block_terminates_early() -> Result<()> {
     // Serialize access to global config
     let _lock = GLOBAL_TEST_LOCK.lock().unwrap();

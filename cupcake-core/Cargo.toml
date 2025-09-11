@@ -44,6 +44,7 @@ insta = { workspace = true }
 criterion = { workspace = true }
 env_logger = "0.11"
 log = "0.4"
+serial_test = "3.1"
 
 [features]
 # This feature should ONLY be enabled for testing.

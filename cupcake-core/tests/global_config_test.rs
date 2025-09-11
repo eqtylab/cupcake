@@ -4,8 +4,10 @@ use anyhow::Result;
 use cupcake_core::engine::global_config::GlobalPaths;
 use std::env;
 use tempfile::TempDir;
+use serial_test::serial;
 
 #[test]
+#[serial]
 fn test_global_config_env_var_discovery() -> Result<()> {
     // Create a temporary directory to act as global config
     let temp_dir = TempDir::new()?;
@@ -28,6 +30,7 @@ fn test_global_config_env_var_discovery() -> Result<()> {
 }
 
 #[test]
+#[serial]
 fn test_global_config_graceful_absence() -> Result<()> {
     // Ensure no env var is set
     env::remove_var("CUPCAKE_GLOBAL_CONFIG");
@@ -47,6 +50,7 @@ fn test_global_config_graceful_absence() -> Result<()> {
 }
 
 #[test]
+#[serial]
 fn test_global_config_initialization() -> Result<()> {
     let temp_dir = TempDir::new()?;
     env::set_var("CUPCAKE_GLOBAL_CONFIG", temp_dir.path().to_str().unwrap());
@@ -84,6 +88,7 @@ fn test_global_config_initialization() -> Result<()> {
 }
 
 #[test]
+#[serial]
 fn test_platform_specific_paths() {
     // This test verifies the platform-specific logic works
     // It doesn't assert specific paths since they vary by platform

@@ -154,7 +154,26 @@ function Install-Cupcake {
         $Version = Get-LatestVersion
     }
     Write-Info "Version: $Version"
-    
+
+    # Send telemetry (fire-and-forget, non-blocking)
+    if (-not $env:CUPCAKE_NO_TELEMETRY) {
+        $timestamp = [DateTimeOffset]::Now.ToUnixTimeSeconds()
+        $telemetryUrl = "https://getcupcake.io/telemetry?v=$Version&p=$platform&m=powershell&t=$timestamp"
+
+        $telemetryJob = {
+            param($url)
+            try {
+                $ProgressPreference = 'SilentlyContinue'
+                Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue | Out-Null
+            }
+            catch {
+                # Silently ignore telemetry errors
+            }
+        }
+
+        Start-Job -ScriptBlock $telemetryJob -ArgumentList $telemetryUrl | Out-Null
+    }
+
     # Create temp directory
     $tempDir = New-TemporaryFile | ForEach-Object { Remove-Item $_; New-Item -ItemType Directory -Path $_ }
     

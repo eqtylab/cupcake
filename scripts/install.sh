@@ -161,7 +161,20 @@ main() {
     # Get version
     VERSION="${CUPCAKE_VERSION:-$(get_latest_version)}"
     info "Installing version: $VERSION"
-    
+
+    # Send telemetry (fire-and-forget, non-blocking)
+    if [[ -z "$CUPCAKE_NO_TELEMETRY" ]]; then
+        (
+            if command -v curl &> /dev/null; then
+                curl -fsSL "https://getcupcake.io/telemetry?v=${VERSION}&p=${PLATFORM}&m=curl&t=$(date +%s)" \
+                    --max-time 2 -o /dev/null 2>&1 &
+            elif command -v wget &> /dev/null; then
+                wget -qO- "https://getcupcake.io/telemetry?v=${VERSION}&p=${PLATFORM}&m=wget&t=$(date +%s)" \
+                    --timeout=2 2>&1 | head -c 0 &
+            fi
+        ) 2>/dev/null &
+    fi
+
     # Create temporary directory
     TMP_DIR=$(mktemp -d)
     trap "rm -rf $TMP_DIR" EXIT

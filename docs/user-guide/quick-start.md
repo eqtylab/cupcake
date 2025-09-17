@@ -6,7 +6,7 @@ Get Cupcake running with your AI agent in just 5 minutes.
 
 ### macOS/Linux
 ```bash
-curl -sSL https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/eqtylab/cupcake/v0.1.6/scripts/install.sh | bash
 ```
 
 ### Verify Installation

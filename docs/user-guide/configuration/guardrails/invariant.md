@@ -6,7 +6,7 @@
 
 ## Overview
 
-Invariant is a comprehensive AI safety platform that provides monitoring, evaluation, and protection for AI systems. By integrating Invariant as a signal, Cupcake can leverage its advanced safety metrics and real-time monitoring capabilities.
+Invariant is a complete AI safety platform that provides monitoring, evaluation, and protection for AI systems. By integrating Invariant as a signal, Cupcake can use its safety metrics and monitoring capabilities.
 
 ## What Invariant Provides
 
@@ -92,15 +92,15 @@ echo "$RESPONSE" | jq '{
 ### Basic Safety Check
 
 ```rego
-package cupcake.policies.safety.invariant
-
-import rego.v1
-
 # METADATA
+# scope: package
 # custom:
 #   routing:
 #     required_events: ["PreToolUse", "PostToolUse"]
 #     required_signals: ["invariant_evaluation"]
+package cupcake.policies.safety.invariant
+
+import rego.v1
 
 # Deny if Invariant safety score is too low
 deny contains decision if {

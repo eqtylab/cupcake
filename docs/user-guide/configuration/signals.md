@@ -9,7 +9,7 @@ Signals enable you to gather additional context that you need within the rule en
 
 Signals have dual-use capability:
 - **Context Gathering**: Fetch real-time state about git branches, test results, deployment status, database connections, etc.
-- **Evaluation Delegation**: Integrate existing industry guardrails (NVIDIA NeMo, Invariant) as signal evaluators, allowing Cupcake to orchestrate specialized safety systems
+- **Evaluation Delegation**: Integrate existing industry guardrails (NVIDIA NeMo, Invariant) as signal evaluators
 
 ## Core Design Principles
 

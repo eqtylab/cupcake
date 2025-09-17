@@ -1,9 +1,5 @@
 # Cupcake Init Harness Integration Specification
 
-**Document Version**: 1.0  
-**Status**: Ready for Implementation  
-**Created**: 2025-09-07  
-
 ## Executive Summary
 
 Add a `--harness` flag to the `cupcake init` command that automatically configures agent harness integrations (initially Claude Code) by creating or updating the appropriate settings files with hook configurations.
@@ -29,7 +25,7 @@ Currently, users must manually create and configure `.claude/settings.json` file
 # Initialize project with Claude Code integration
 cupcake init --harness claude
 
-# Initialize global config with Claude Code integration  
+# Initialize global config with Claude Code integration
 cupcake init --global --harness claude
 
 # Initialize project without harness integration (default)
@@ -55,7 +51,7 @@ enum Command {
         /// Initialize global (machine-wide) configuration instead of project
         #[clap(long)]
         global: bool,
-        
+
         /// Configure integration with an agent harness (e.g., 'claude')
         #[clap(long, value_enum)]
         harness: Option<HarnessType>,
@@ -79,13 +75,13 @@ Create `cupcake-cli/src/harness.rs`:
 pub trait HarnessConfig {
     /// Get the harness name for display
     fn name(&self) -> &str;
-    
+
     /// Get the settings file path relative to project root
     fn settings_path(&self, global: bool) -> PathBuf;
-    
+
     /// Generate the hook configuration JSON
     fn generate_hooks(&self, policy_dir: &Path) -> Result<serde_json::Value>;
-    
+
     /// Merge hooks into existing settings
     fn merge_settings(&self, existing: serde_json::Value, hooks: serde_json::Value) -> Result<serde_json::Value>;
 }
@@ -100,7 +96,7 @@ impl HarnessConfig for ClaudeHarness {
     fn name(&self) -> &str {
         "Claude Code"
     }
-    
+
     fn settings_path(&self, global: bool) -> PathBuf {
         if global {
             dirs::home_dir()
@@ -111,11 +107,11 @@ impl HarnessConfig for ClaudeHarness {
             Path::new(".claude").join("settings.json")
         }
     }
-    
+
     fn generate_hooks(&self, policy_dir: &Path) -> Result<serde_json::Value> {
         // Convert policy_dir to absolute path for the command
         let abs_policy_dir = std::fs::canonicalize(policy_dir)?;
-        
+
         // Determine if we should use global or project policies
         let policy_path = if policy_dir.starts_with(dirs::home_dir().unwrap()) {
             // Global config - use absolute path
@@ -124,7 +120,7 @@ impl HarnessConfig for ClaudeHarness {
             // Project config - use project-relative path with env var
             "$CLAUDE_PROJECT_DIR/.cupcake".to_string()
         };
-        
+
         Ok(json!({
             "hooks": {
                 "PreToolUse": [{
@@ -156,7 +152,7 @@ impl HarnessConfig for ClaudeHarness {
             }
         }))
     }
-    
+
     fn merge_settings(&self, existing: serde_json::Value, new_hooks: serde_json::Value) -> Result<serde_json::Value> {
         // Smart merge logic - see JSON Merge Strategy section
     }
@@ -193,10 +189,10 @@ fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
         .ok_or_else(|| anyhow!("Invalid settings format"))?
         .entry("hooks")
         .or_insert_with(|| json!({}));
-    
+
     let new_hooks = new["hooks"].as_object()
         .ok_or_else(|| anyhow!("Invalid hooks format"))?;
-    
+
     // For each event type in new hooks
     for (event_name, new_matchers) in new_hooks {
         let event_array = hooks
@@ -206,7 +202,7 @@ fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
             .or_insert_with(|| json!([]))
             .as_array_mut()
             .ok_or_else(|| anyhow!("Invalid event array"))?;
-        
+
         // Check if this exact configuration already exists
         for new_matcher in new_matchers.as_array().unwrap() {
             if !contains_matcher(event_array, new_matcher) {
@@ -214,7 +210,7 @@ fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -237,11 +233,11 @@ fn create_settings_file(path: &Path, content: Value) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
+
     // Write with pretty formatting
     let json_str = serde_json::to_string_pretty(&content)?;
     fs::write(path, json_str)?;
-    
+
     Ok(())
 }
 ```
@@ -253,14 +249,14 @@ fn update_settings_file(path: &Path, updater: impl FnOnce(&mut Value) -> Result<
     // Read existing content
     let content = fs::read_to_string(path)?;
     let mut json: Value = serde_json::from_str(&content)?;
-    
+
     // Apply updates
     updater(&mut json)?;
-    
+
     // Write back with pretty formatting
     let json_str = serde_json::to_string_pretty(&json)?;
     fs::write(path, json_str)?;
-    
+
     Ok(())
 }
 ```
@@ -274,7 +270,7 @@ fn update_settings_file(path: &Path, updater: impl FnOnce(&mut Value) -> Result<
 ✅ Configured Claude Code integration in .claude/settings.json
    - Added PreToolUse hook for all tools
    - Added UserPromptSubmit hook for prompt validation
-   
+
    Claude Code will now evaluate all tool uses and prompts against your Cupcake policies.
 ```
 
@@ -291,7 +287,7 @@ fn update_settings_file(path: &Path, updater: impl FnOnce(&mut Value) -> Result<
 ```
 ❌ Failed to configure Claude Code integration:
    Could not write to .claude/settings.json: Permission denied
-   
+
    To manually configure, add this to your .claude/settings.json:
    {
      "hooks": {
@@ -354,20 +350,24 @@ graph TD
 ### Scenarios to Handle
 
 1. **Malformed existing JSON**: If `.claude/settings.json` contains invalid JSON
+
    - Show clear error message with line number if possible
    - Suggest backing up and provide manual configuration instructions
 
 2. **Write permissions**: If unable to write to `.claude/` directory
+
    - Check permissions before attempting write
    - Provide sudo instructions if appropriate
    - Show manual configuration as fallback
 
 3. **Cupcake not in PATH**: When generating hook commands
+
    - Use full path to current cupcake binary
    - Or detect and use cupcake from PATH
    - Warn if neither is available
 
 4. **Relative vs Absolute paths**: Policy directory references
+
    - Always convert to absolute paths in hook commands
    - Handle symlinks correctly with `canonicalize()`
 
@@ -384,7 +384,7 @@ fn configure_harness(harness: HarnessType, policy_dir: &Path) -> Result<()> {
         HarnessType::Claude => {
             let claude = ClaudeHarness;
             let settings_path = claude.settings_path(global);
-            
+
             // Try to configure, fallback to manual instructions
             if let Err(e) = setup_claude_settings(&claude, &settings_path, policy_dir) {
                 eprintln!("⚠️  Could not automatically configure {}: {}", claude.name(), e);

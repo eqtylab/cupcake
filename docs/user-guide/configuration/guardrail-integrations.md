@@ -5,13 +5,13 @@
 
 ## Overview
 
-Cupcake's signal system provides integration with existing industry guardrail systems. Rather than competing with established safety solutions, Cupcake acts as an orchestration layer that can use specialized guardrails through its signal mechanism.
+Cupcake's signal system provides integration with existing industry guardrail systems. Rather than competing with established safety solutions, Cupcake acts as an orchestration layer that can use external guardrails through its signal mechanism.
 
 ## Integration Philosophy
 
 ### Orchestration, Not Competition
 
-Cupcake recognizes that specialized guardrail systems like NVIDIA NeMo Guardrails and Invariant have deep expertise in specific safety domains. Instead of reimplementing their capabilities, Cupcake provides:
+Cupcake recognizes that purpose-built guardrail systems like NVIDIA NeMo Guardrails and Invariant have deep expertise in specific safety domains. Instead of reimplementing their capabilities, Cupcake provides:
 
 1. **Unified Interface**: All guardrails integrate through the same signal pattern
 2. **Simple Policy Integration**: Guardrail results are accessible via standard Rego checks
@@ -52,15 +52,15 @@ echo "$NEMO_RESULT" | jq '{
 In your Rego policies, guardrail evaluations become simple boolean checks:
 
 ```rego
-package cupcake.policies.safety.guardrails
-
-import rego.v1
-
 # METADATA
+# scope: package
 # custom:
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_signals: ["nemo_evaluation", "invariant_evaluation"]
+package cupcake.policies.safety.guardrails
+
+import rego.v1
 
 # Deny if NeMo Guardrails detect unsafe content
 deny contains decision if {
@@ -107,7 +107,7 @@ deny contains decision if {
 
 ## Benefits of This Approach
 
-1. **Best of Both Worlds**: Use specialized guardrails while maintaining Cupcake's flexible policy engine
+1. **Use Dedicated Tools**: Use purpose-built guardrails while maintaining Cupcake's flexible policy engine
 2. **Vendor Agnostic**: Switch or combine guardrails without changing policy structure
 3. **Progressive Enhancement**: Start with basic policies, add guardrails as needed
 4. **Unified Logging**: All guardrail decisions flow through Cupcake's audit system

@@ -1,9 +1,5 @@
 # Debug Logging System - Developer Specification
 
-**Document Version**: 1.0  
-**Status**: Approved for Implementation  
-**Created**: 2024-09-05  
-
 ## Overview
 
 Add comprehensive debug logging to capture the complete lifecycle of every Claude Code event through the Cupcake policy engine, regardless of whether policies match or actions are taken.
@@ -47,7 +43,7 @@ pub struct SignalExecution {
 }
 
 pub struct ActionExecution {
-    pub name: String, 
+    pub name: String,
     pub command: String,
     // Additional timing/exit code info can be captured in the text output
 }
@@ -77,7 +73,7 @@ Raw Event:
 ----- Routing -----
 Matched: Yes (3 policies)
 - cupcake.policies.security_policy
-- cupcake.policies.builtins.rulebook_security_guardrails  
+- cupcake.policies.builtins.rulebook_security_guardrails
 - cupcake.global.policies.system_protection
 
 ----- Signals -----
@@ -130,25 +126,30 @@ Executed:
 ### 3. Integration Points
 
 #### `cupcake-cli/src/main.rs` - Primary capture point
+
 - Initialize `DebugCapture` at start of `eval_command()`
 - Pass capture object through the evaluation pipeline
 - Write debug file at end if `CUPCAKE_DEBUG_FILES` is set
 
 #### `cupcake-core/src/engine/mod.rs` - Engine integration
+
 - Add optional `debug_capture: Option<&mut DebugCapture>` parameter to `evaluate()`
 - Record routing decisions, signal execution, WASM results
 - Pass through to action execution
 
 #### `cupcake-core/src/harness/mod.rs` - Response capture
+
 - Capture the formatted response before returning to Claude
 
 ### 4. Minimal Performance Impact
+
 - All debug operations are gated by `if let Some(debug) = &mut debug_capture`
 - No allocations or processing when debug is disabled
 - File I/O happens once at the end of evaluation
 - Uses existing tracing infrastructure where possible
 
 ### 5. Error Handling
+
 - Debug logging failures should never break evaluation
 - Use `warn!()` if debug file can't be written
 - Continue normal processing even if debug fails
@@ -180,6 +181,7 @@ Executed:
 ## Future Scope (Not Planned)
 
 ### Additional Fields Not in Original Plan
+
 - Session ID tracking
 - Detailed timing breakdowns per phase (routing_duration_ms, signal_duration_ms, etc.)
 - Separate error types (SignalError, ActionError)
@@ -188,6 +190,7 @@ Executed:
 - Working directory tracking for actions
 
 ### Advanced Features
+
 - Web UI for browsing debug files
 - Structured JSON output option
 - Integration with external monitoring systems
@@ -200,4 +203,4 @@ These features could be valuable additions but are not part of the current imple
 
 ---
 
-*This specification serves as the authoritative guide for debug logging system implementation. All implementation decisions should align with the architecture and requirements outlined in this document.*
+_This specification serves as the authoritative guide for debug logging system implementation. All implementation decisions should align with the architecture and requirements outlined in this document._

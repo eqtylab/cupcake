@@ -6,7 +6,7 @@
 
 ## Overview
 
-NVIDIA NeMo Guardrails is a toolkit for adding programmable guardrails to LLM-based conversational systems. By integrating NeMo as a signal, Cupcake can leverage its sophisticated safety checks while maintaining policy flexibility.
+NVIDIA NeMo Guardrails is a toolkit for adding programmable guardrails to LLM-based conversational systems. By integrating NeMo as a signal, Cupcake can use its specialized safety checks while maintaining policy flexibility.
 
 ## What NeMo Guardrails Provides
 
@@ -103,15 +103,15 @@ echo "$RESULT"
 ### Simple Pass/Fail Check
 
 ```rego
-package cupcake.policies.safety.nemo
-
-import rego.v1
-
 # METADATA
+# scope: package
 # custom:
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_signals: ["nemo_evaluation"]
+package cupcake.policies.safety.nemo
+
+import rego.v1
 
 deny contains decision if {
     input.signals.nemo_evaluation.passed == false

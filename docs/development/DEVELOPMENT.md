@@ -70,11 +70,8 @@ Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
 Policies declare their requirements via OPA metadata blocks:
 
 ```rego
-package cupcake.policies.bash_guard
-import rego.v1
-
 # METADATA
-# scope: rule
+# scope: package
 # title: Bash Security Guard
 # authors: ["Security Team"]
 # custom:
@@ -82,6 +79,9 @@ import rego.v1
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
 #     required_signals: ["git_branch"]
+package cupcake.policies.bash_guard
+
+import rego.v1
 
 # Policy rules follow...
 ```

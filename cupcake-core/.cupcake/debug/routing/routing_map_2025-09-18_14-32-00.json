@@ -1,0 +1,61 @@
+{
+  "timestamp": "2025-09-18_14-32-00",
+  "project": {
+    "policy_count": 2,
+    "routing_entries": {
+      "PreToolUse:Bash": [
+        {
+          "package_name": "cupcake.policies.test_pretooluse",
+          "file_path": "/var/folders/8s/x9ypf18955j7w6_zgzqtpclr0000gn/T/.tmpoSAxMc/.cupcake/policies/test_pretooluse.rego",
+          "required_events": [
+            "PreToolUse"
+          ],
+          "required_tools": [
+            "Bash"
+          ],
+          "required_signals": []
+        }
+      ]
+    }
+  },
+  "global": {
+    "policy_count": 3,
+    "routing_entries": {
+      "UserPromptSubmit": [
+        {
+          "package_name": "cupcake.global.policies.example",
+          "file_path": "/Users/ramos/Library/Application Support/cupcake/policies/example_global.rego",
+          "required_events": [
+            "UserPromptSubmit"
+          ],
+          "required_tools": [],
+          "required_signals": []
+        }
+      ],
+      "PreToolUse": [
+        {
+          "package_name": "cupcake.global.policies.builtins.system_protection",
+          "file_path": "/Users/ramos/Library/Application Support/cupcake/policies/builtins/system_protection.rego",
+          "required_events": [
+            "PreToolUse"
+          ],
+          "required_tools": [],
+          "required_signals": []
+        }
+      ]
+    }
+  },
+  "statistics": {
+    "total_routes": 3,
+    "wildcard_routes": 2,
+    "specific_routes": 1,
+    "events_covered": [
+      "UserPromptSubmit",
+      "PreToolUse"
+    ],
+    "tools_covered": [
+      "Bash"
+    ],
+    "average_policies_per_route": 1.0
+  }
+}

@@ -1,0 +1,38 @@
+digraph RoutingMap {
+  rankdir=LR;
+  node [shape=box, style=rounded];
+  edge [fontsize=10];
+
+  label="Cupcake Routing Map - 2025-09-18 14:31:39";
+  fontsize=16;
+
+  subgraph cluster_events {
+    label="Events";
+    style=filled;
+    color=lightgrey;
+    node [shape=ellipse, style=filled, fillcolor=lightyellow];
+    "event_PreToolUse" [label="PreToolUse"];
+  }
+
+  subgraph cluster_tools {
+    label="Tools";
+    style=filled;
+    color=lightgreen;
+    node [shape=diamond, style=filled, fillcolor=lightgreen];
+    "tool_Bash" [label="Bash"];
+  }
+
+  subgraph cluster_policies {
+    label="Policies";
+    style=filled;
+    color=lightblue;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    "policy_cupcake.policies.test_wildcard" [label="test_wildcard"];
+    "policy_cupcake.system" [label="cupcake.system"];
+    "policy_cupcake.policies.test_specific" [label="test_specific"];
+  }
+
+  "event_PreToolUse" -> "tool_Bash";
+  "tool_Bash" -> "policy_cupcake.policies.test_specific";
+  "event_PreToolUse" -> "policy_cupcake.policies.test_wildcard";
+}

@@ -1,0 +1,52 @@
+==================================================
+           CUPCAKE ROUTING MAP DUMP              
+==================================================
+
+Generated: 2025-09-18 14:31:39
+Working Directory: Some("/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/cupcake-core")
+
+STATISTICS:
+  Project Policies: 3
+  Project Routes: 2
+  Global Policies: 3
+  Global Routes: 2
+
+PROJECT ROUTING MAP:
+--------------------
+
+Route: PreToolUse [EVENT-ONLY]
+  Policies (1):
+    1. cupcake.policies.test_wildcard
+       File: /var/folders/8s/x9ypf18955j7w6_zgzqtpclr0000gn/T/.tmppLGvg9/.cupcake/policies/test_wildcard.rego
+       Events: PreToolUse
+
+Route: PreToolUse:Bash [SPECIFIC]
+  Policies (1):
+    1. cupcake.policies.test_specific
+       File: /var/folders/8s/x9ypf18955j7w6_zgzqtpclr0000gn/T/.tmppLGvg9/.cupcake/policies/test_specific.rego
+       Events: PreToolUse
+       Tools: Bash
+
+GLOBAL ROUTING MAP:
+-------------------
+
+Route: PreToolUse [EVENT-ONLY]
+  Policies (1):
+    1. cupcake.global.policies.builtins.system_protection
+       File: /Users/ramos/Library/Application Support/cupcake/policies/builtins/system_protection.rego
+       Events: PreToolUse
+
+Route: UserPromptSubmit [EVENT-ONLY]
+  Policies (1):
+    1. cupcake.global.policies.example
+       File: /Users/ramos/Library/Application Support/cupcake/policies/example_global.rego
+       Events: UserPromptSubmit
+
+WILDCARD ANALYSIS:
+------------------
+  Found 1 wildcard routes:
+    PreToolUse -> 1 policies
+
+==================================================
+              END OF ROUTING MAP DUMP            
+==================================================

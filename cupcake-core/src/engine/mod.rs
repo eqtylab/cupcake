@@ -109,17 +109,27 @@ impl ProjectPaths {
     }
 }
 
+// Core engine modules - discovery and compilation
 pub mod metadata;
 pub mod scanner;
 pub mod compiler;
+
+// Routing system
 pub mod routing;
+pub mod routing_debug;
+
+// Policy evaluation
+pub mod wasm_runtime;
 pub mod decision;
 pub mod synthesis;
-pub mod wasm_runtime;
+
+// Configuration and extensions
 pub mod guidebook;
 pub mod builtins;
-pub mod trace;
 pub mod global_config;
+
+// Diagnostics and debugging
+pub mod trace;
 
 // Re-export metadata types for public API
 pub use metadata::{RoutingDirective, PolicyMetadata};
@@ -287,7 +297,14 @@ impl Engine {
         
         // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
         self.initialize_trust_system().await;
-        
+
+        // Step 7: Dump routing diagnostics if debug mode enabled
+        // This happens after ALL initialization (including global) is complete
+        if let Err(e) = self.dump_routing_diagnostics() {
+            // Don't fail initialization, just warn
+            debug!("Failed to dump routing diagnostics: {}", e);
+        }
+
         info!("Engine initialization complete");
         Ok(())
     }
@@ -471,17 +488,17 @@ impl Engine {
             .filter(|k| k.ends_with(":*"))
             .cloned()
             .collect();
-            
+
         for wildcard_key in wildcard_keys {
             if let Some(wildcard_policies) = routing_map.get(&wildcard_key).cloned() {
                 let event_prefix = wildcard_key.strip_suffix(":*").unwrap();
-                
+
                 // Find all specific tool keys for this event
                 let specific_keys: Vec<String> = routing_map.keys()
                     .filter(|k| k.starts_with(&format!("{}:", event_prefix)) && !k.ends_with(":*"))
                     .cloned()
                     .collect();
-                
+
                 // Add wildcard policies to each specific tool key
                 for specific_key in specific_keys {
                     routing_map
@@ -491,7 +508,37 @@ impl Engine {
                 }
             }
         }
-        
+
+        // Handle event-only policies for tool events (PreToolUse, PostToolUse)
+        // These events ALWAYS have tools, so event-only policies are effectively wildcards
+        const TOOL_EVENTS: &[&str] = &["PreToolUse", "PostToolUse"];
+
+        for tool_event in TOOL_EVENTS {
+            if let Some(event_only_policies) = routing_map.get(*tool_event).cloned() {
+                // Find all specific tool keys for this event
+                let specific_keys: Vec<String> = routing_map.keys()
+                    .filter(|k| k.starts_with(&format!("{}:", tool_event)) && !k.ends_with(":*"))
+                    .cloned()
+                    .collect();
+
+                // Add event-only policies to each specific tool key (they act as wildcards)
+                for specific_key in specific_keys {
+                    routing_map
+                        .entry(specific_key.clone())
+                        .and_modify(|policies| {
+                            // Add event-only policies if not already present
+                            for event_policy in &event_only_policies {
+                                if !policies.iter().any(|p| p.package_name == event_policy.package_name) {
+                                    policies.push(event_policy.clone());
+                                    debug!("Added {} wildcard policy {} to specific key: {}",
+                                           map_type, event_policy.package_name, specific_key);
+                                }
+                            }
+                        });
+                }
+            }
+        }
+
         // Log the routing map for verification
         for (key, policies) in routing_map {
             debug!(
@@ -539,21 +586,12 @@ impl Engine {
     pub fn route_event(&self, event_name: &str, tool_name: Option<&str>) -> Vec<&PolicyUnit> {
         let start = Instant::now();
         let key = routing::create_event_key(event_name, tool_name);
-        
-        // First try the specific key
-        let mut result: Vec<&PolicyUnit> = self.routing_map
+
+        // Simple lookup - wildcard policies are already in the specific tool keys at build time
+        let result: Vec<&PolicyUnit> = self.routing_map
             .get(&key)
             .map(|policies| policies.iter().collect())
             .unwrap_or_default();
-            
-        // If we have a tool name, also check for policies that match the event without tool constraints
-        // (these are treated as wildcards that match any tool)
-        if tool_name.is_some() {
-            let wildcard_key = event_name.to_string();
-            if let Some(wildcard_policies) = self.routing_map.get(&wildcard_key) {
-                result.extend(wildcard_policies.iter());
-            }
-        }
         
         // Record matched policies
         let current_span = tracing::Span::current();

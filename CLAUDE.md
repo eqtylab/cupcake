@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Testing with Claude Code
+
+You can use the claude code cli functionality to test Cupcake behavior locally:
+
+```bash
+CUPCAKE_DEBUG_ROUTING=1 claude -p "hello world" --model haiku # This will create the routing map in .cupcake/debug/
+```
+
 ## Critical Claude Code Hook Integration Issues (FIXED)
 
 ### JSON Response Format Requirements
@@ -141,6 +149,7 @@ Event Input → Route (O(1) lookup) → Gather Signals → Evaluate (WASM) → S
 ### Test Execution Requirements
 
 **IMPORTANT**: Tests MUST be run with:
+
 1. The `--features deterministic-tests` flag for deterministic HMAC key generation
 2. `CUPCAKE_GLOBAL_CONFIG=/nonexistent` to prevent developer's global config from interfering
 
@@ -216,7 +225,7 @@ Eleven builtins provide common patterns without writing Rego:
 
 - **always_inject_on_prompt** - Adds context to every user prompt
 - **global_file_lock** - Blocks all file modifications globally
-- **git_pre_check** - Validates before git operations  
+- **git_pre_check** - Validates before git operations
 - **post_edit_check** - Runs validation after file edits
 - **rulebook_security_guardrails** - Protects .cupcake files from modification
 - **protected_paths** - Blocks modifications to specified paths
@@ -415,6 +424,51 @@ package cupcake.policies.example
 - Evaluated in Phase 1 with early termination (halt/deny/block)
 - Signals must be defined in global guidebook.yml
 - Test policies should NOT use `data.*` for signal access
+
+## Testing Claude Code Integration
+
+### Running Claude in Tests
+
+When testing Cupcake with Claude Code CLI, environment variables must be properly inherited:
+
+```rust
+// WRONG - clears all env vars
+Command::new(claude_path)
+    .env("CUPCAKE_DEBUG_ROUTING", "1")  // Only this var exists
+
+// CORRECT - adds to inherited environment
+Command::new(claude_path)
+    .args(&["-p", "hello world", "--model", "haiku"])
+    .current_dir(test_dir)
+    .env("CUPCAKE_DEBUG_ROUTING", "1")  // Adds to existing env
+```
+
+### Hook Configuration for Tests
+
+For integration tests, configure `.claude/settings.json` with UserPromptSubmit hook:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [{
+      "hooks": [{
+        "type": "command",
+        "command": "cargo run --manifest-path /path/to/Cargo.toml -- eval",
+        "env": {
+          "CUPCAKE_DEBUG_ROUTING": "1",
+          "RUST_LOG": "info"
+        }
+      }]
+    }]
+  }
+}
+```
+
+Key points:
+- UserPromptSubmit always fires on `claude -p "hello world"`
+- Hook env vars apply to the subprocess (cargo/cupcake), not Claude itself
+- Debug files write to `.cupcake/debug/routing/` in the working directory
+- Use `std::thread::sleep(Duration::from_secs(2))` after Claude command to ensure hooks complete
 
 ## Debugging Best Practices
 

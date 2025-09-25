@@ -142,7 +142,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     // Run claude command - inherits env by default, just add debug flag
     let claude_path = "/Users/ramos/.claude/local/claude";
     let output = std::process::Command::new(claude_path)
-        .args(&["-p", "hello world", "--model", "haiku"])
+        .args(&["-p", "hello world", "--model", "sonnet"])
         .current_dir(project_path)
         .env("CUPCAKE_DEBUG_ROUTING", "1")  // This adds to inherited env
         .output()
@@ -520,7 +520,7 @@ deny contains decision if {
     // Run claude command with debug routing env var
     let claude_path = "/Users/ramos/.claude/local/claude";
     let output = std::process::Command::new(claude_path)
-        .args(&["-p", "hello world", "--model", "haiku"])
+        .args(&["-p", "hello world", "--model", "sonnet"])
         .current_dir(temp_dir.path())
         .env("CUPCAKE_DEBUG_ROUTING", "1")
         .output()

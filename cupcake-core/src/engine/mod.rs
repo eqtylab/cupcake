@@ -587,11 +587,25 @@ impl Engine {
         let start = Instant::now();
         let key = routing::create_event_key(event_name, tool_name);
 
-        // Simple lookup - wildcard policies are already in the specific tool keys at build time
-        let result: Vec<&PolicyUnit> = self.routing_map
+        // First try the specific key
+        let mut result: Vec<&PolicyUnit> = self.routing_map
             .get(&key)
             .map(|policies| policies.iter().collect())
             .unwrap_or_default();
+
+        // ALSO check for event-only policies when there's a tool
+        // This handles the case where ONLY wildcard policies exist (nothing to duplicate into)
+        if tool_name.is_some() {
+            let wildcard_key = event_name.to_string();
+            if let Some(wildcard_policies) = self.routing_map.get(&wildcard_key) {
+                // Only add if not already present (avoid duplicates from build-time merging)
+                for policy in wildcard_policies {
+                    if !result.iter().any(|p| p.package_name == policy.package_name) {
+                        result.push(policy);
+                    }
+                }
+            }
+        }
         
         // Record matched policies
         let current_span = tracing::Span::current();

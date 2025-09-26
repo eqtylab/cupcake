@@ -40,7 +40,7 @@ jobs:
           # Verify installation
           if [[ -f "$HOME/test-cupcake/bin/cupcake" ]]; then
             echo "✓ Cupcake binary installed successfully"
-            "$HOME/test-cupcake/bin/cupcake" version
+            "$HOME/test-cupcake/bin/cupcake" --version
           else
             echo "✗ Cupcake binary not found"
             exit 1
@@ -122,7 +122,7 @@ jobs:
           $binaryPath = "$env:USERPROFILE\test-cupcake\bin\cupcake.exe"
           if (Test-Path $binaryPath) {
             Write-Host "✓ Cupcake binary installed successfully" -ForegroundColor Green
-            & $binaryPath version
+            & $binaryPath --version
           } else {
             Write-Host "✗ Cupcake binary not found" -ForegroundColor Red
             exit 1

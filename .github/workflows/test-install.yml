@@ -28,8 +28,8 @@ jobs:
         run: |
           # Set environment variables for testing
           export CUPCAKE_REPO="${{ github.repository }}"
-          # Use v0.1.0 for now, v0.2.0 will be first release with bundled OPA
-          export CUPCAKE_VERSION="v0.1.0"
+          # Use latest published release that has downloadable assets
+          export CUPCAKE_VERSION="v0.1.7"
           # Set flag to skip OPA checks until v0.2.0 is released
           export SKIP_OPA_CHECK="true"
           export CUPCAKE_INSTALL_DIR="$HOME/test-cupcake"
@@ -114,7 +114,7 @@ jobs:
           
           # Run the install script with test parameters
           & .\scripts\install.ps1 `
-            -Version "v0.1.0" `
+            -Version "v0.1.7" `
             -InstallDir "$env:USERPROFILE\test-cupcake" `
             -GithubRepo "${{ github.repository }}"
           
@@ -145,7 +145,7 @@ jobs:
           $scriptBlock = [ScriptBlock]::Create($script.Content)
           
           & $scriptBlock `
-            -Version "v0.1.0" `
+            -Version "v0.1.7" `
             -InstallDir "$env:USERPROFILE\test-cupcake-remote" `
             -GithubRepo "${{ github.repository }}"
           

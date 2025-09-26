@@ -727,24 +727,28 @@ git_pre_check:
         assert!(errors.iter().any(|e| e.contains("should not include dot")));
 
         // Test valid configuration
-        let mut valid_config = BuiltinsConfig::default();
-        valid_config.git_pre_check = Some(GitPreCheckConfig {
-            enabled: true,
-            checks: vec![CheckConfig {
-                command: "cargo test".to_string(),
-                message: "Run tests".to_string(),
-            }],
-        });
+        let valid_config = BuiltinsConfig {
+            git_pre_check: Some(GitPreCheckConfig {
+                enabled: true,
+                checks: vec![CheckConfig {
+                    command: "cargo test".to_string(),
+                    message: "Run tests".to_string(),
+                }],
+            }),
+            ..Default::default()
+        };
         assert!(valid_config.validate().is_ok());
     }
 
     #[test]
     fn test_signal_generation() {
-        let mut config = BuiltinsConfig::default();
-        config.global_file_lock = Some(GlobalFileLockConfig {
-            enabled: true,
-            message: "No edits".to_string(),
-        });
+        let mut config = BuiltinsConfig {
+            global_file_lock: Some(GlobalFileLockConfig {
+                enabled: true,
+                message: "No edits".to_string(),
+            }),
+            ..Default::default()
+        };
 
         // global_file_lock doesn't generate signals
         let signals = config.generate_signals();

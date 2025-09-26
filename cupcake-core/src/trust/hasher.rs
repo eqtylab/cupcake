@@ -64,6 +64,9 @@ pub fn derive_trust_key(project_path: &Path) -> Result<[u8; 32]> {
     // In test mode with the specific feature, use only deterministic inputs for reproducible tests
     #[cfg(feature = "deterministic-tests")]
     {
+        // Silence unused variable warning for test mode
+        let _ = project_path;
+
         // Use fixed project identifier for deterministic testing
         hasher.update(b"TEST_MODE_FIXED_PROJECT");
 

@@ -106,15 +106,14 @@ fn extract_metadata_yaml(content: &str) -> Result<String> {
         }
 
         if in_metadata_block {
-            if trimmed.starts_with('#') {
-                // Remove leading '# ' from comment lines
-                let yaml_line = if trimmed.len() > 2 && trimmed.starts_with("# ") {
-                    &trimmed[2..]
-                } else if trimmed == "#" {
-                    ""
+            if let Some(stripped) = trimmed.strip_prefix('#') {
+                // Remove leading '#' from comment lines, preserving indentation after it
+                let yaml_line = if stripped.starts_with(' ') && stripped.len() > 1 {
+                    &stripped[1..]  // Remove the single space after '#'
+                } else if stripped.is_empty() {
+                    ""  // Line was just '#'
                 } else {
-                    // Line like "#   key: value" - remove '#' and keep indentation
-                    &trimmed[1..]
+                    stripped  // Line like "#key: value" - no space after '#'
                 };
                 yaml_lines.push(yaml_line);
             } else {

@@ -117,11 +117,15 @@ impl Guidebook {
 
             // Merge builtin-generated signals (don't override user-defined)
             for (name, signal) in builtin_signals {
-                if !guidebook.signals.contains_key(&name) {
-                    debug!("Adding builtin-generated signal: {}", name);
-                    guidebook.signals.insert(name, signal);
-                } else {
-                    debug!("Keeping user-defined signal: {} (skipping builtin)", name);
+                use std::collections::hash_map::Entry;
+                match guidebook.signals.entry(name) {
+                    Entry::Vacant(e) => {
+                        debug!("Adding builtin-generated signal: {}", e.key());
+                        e.insert(signal);
+                    }
+                    Entry::Occupied(e) => {
+                        debug!("Keeping user-defined signal: {} (skipping builtin)", e.key());
+                    }
                 }
             }
         }

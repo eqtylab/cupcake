@@ -1283,17 +1283,6 @@ impl Engine {
         Ok(enriched_input)
     }
 
-    /// Execute signals with trust verification
-    async fn execute_signals_with_trust(
-        &self,
-        signal_names: &[String],
-        guidebook: &guidebook::Guidebook,
-        event_data: &Value,
-    ) -> Result<HashMap<String, serde_json::Value>> {
-        self.execute_signals_with_trust_and_debug(signal_names, guidebook, event_data, None)
-            .await
-    }
-
     /// Execute signals with trust verification and debug capture
     async fn execute_signals_with_trust_and_debug(
         &self,
@@ -1471,16 +1460,6 @@ impl Engine {
                 debug!("ALLOW_OVERRIDE decision - no actions needed");
             }
         }
-    }
-
-    /// Execute actions using project guidebook (for backward compatibility)
-    async fn execute_actions(
-        &self,
-        final_decision: &decision::FinalDecision,
-        decision_set: &decision::DecisionSet,
-    ) {
-        self.execute_actions_with_debug(final_decision, decision_set, None)
-            .await;
     }
 
     /// Execute actions with debug capture

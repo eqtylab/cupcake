@@ -255,11 +255,6 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
     // Read the policy.wasm file
     let wasm_path = extract_path.join("policy.wasm");
     if !wasm_path.exists() {
-        // Sometimes it's at /policy.wasm in the tar
-        let alt_wasm_path = extract_path.join("/policy.wasm");
-        if alt_wasm_path.exists() {
-            return Ok(tokio::fs::read(alt_wasm_path).await?);
-        }
         bail!("No policy.wasm found in OPA bundle");
     }
 

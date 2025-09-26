@@ -74,13 +74,16 @@ pub fn derive_trust_key(project_path: &Path) -> Result<[u8; 32]> {
     // In production or standard builds, use system-specific entropy for security
     #[cfg(not(feature = "deterministic-tests"))]
     {
-        // Always use a consistent path representation by converting to string and normalizing
+        // macOS path normalization: /var is symlinked to /private/var
+        // We need consistent paths for HMAC keys regardless of how the OS presents them
+        // Example: /private/var/folders/xyz/temp → /var/folders/xyz/temp
+        // This ensures the same project generates the same key whether accessed via
+        // the symlink (/var) or the real path (/private/var)
         let path_str = project_path.to_string_lossy();
-        // On macOS, normalize symlinked paths consistently 
         let normalized_path_str = if path_str.starts_with("/var/") && !path_str.starts_with("/var/folders/") {
             path_str.to_string()
         } else if path_str.starts_with("/var/folders/") {
-            // macOS temp paths - ensure consistent representation
+            // Handle the specific case of macOS temp directories
             path_str.replace("/private/var/folders/", "/var/folders/")
         } else {
             path_str.to_string()

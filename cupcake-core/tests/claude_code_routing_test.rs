@@ -110,37 +110,62 @@ deny contains decision if {{
     fs::write(policy_file, policy).unwrap();
 }
 
+/// Helper to get Claude CLI path
+fn get_claude_path() -> String {
+    // Try environment variable first (for CI/custom installs)
+    if let Ok(path) = std::env::var("CLAUDE_CLI_PATH") {
+        if std::path::Path::new(&path).exists() {
+            return path;
+        }
+    }
+
+    // Default to HOME-based path
+    let home = std::env::var("HOME")
+        .expect("HOME environment variable not set");
+    let claude_path = format!("{}/.claude/local/claude", home);
+
+    if !std::path::Path::new(&claude_path).exists() {
+        panic!("Claude CLI not found at {}. Set CLAUDE_CLI_PATH env var or install Claude.", claude_path);
+    }
+
+    claude_path
+}
+
 /// Helper to verify routing map contains expected entries
 async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expected_policy: &str) {
     // Create .claude directory
     let claude_dir = project_path.join(".claude");
     fs::create_dir_all(&claude_dir).unwrap();
 
+    // Get the Cargo.toml path dynamically at compile time
+    let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap()  // Go up from cupcake-core to cupcake-rewrite
+        .join("Cargo.toml");
+
     // Create settings.json with UserPromptSubmit hook to trigger on "hello world"
-    let settings = r#"{
-  "hooks": {
+    let settings = format!(r#"{{
+  "hooks": {{
     "UserPromptSubmit": [
-      {
+      {{
         "hooks": [
-          {
+          {{
             "type": "command",
-            "command": "cargo run --manifest-path /Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/Cargo.toml -- eval",
+            "command": "cargo run --manifest-path {} -- eval",
             "timeout": 120,
-            "env": {
+            "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
-              "RUST_LOG": "info",
-              "PATH": "/opt/homebrew/bin:$PATH"
-            }
-          }
+              "RUST_LOG": "info"
+            }}
+          }}
         ]
-      }
+      }}
     ]
-  }
-}"#;
+  }}
+}}"#, cargo_manifest.display());
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 
-    // Run claude command - inherits env by default, just add debug flag
-    let claude_path = "/Users/ramos/.claude/local/claude";
+    // Get claude CLI path
+    let claude_path = get_claude_path();
     let output = std::process::Command::new(claude_path)
         .args(&["-p", "hello world", "--model", "sonnet"])
         .current_dir(project_path)
@@ -359,31 +384,35 @@ async fn test_wildcard_policy_routing() {
     let claude_dir = temp_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).unwrap();
 
-    let settings = r#"{
-  "hooks": {
+    // Get the Cargo.toml path dynamically at compile time
+    let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap()  // Go up from cupcake-core to cupcake-rewrite
+        .join("Cargo.toml");
+
+    let settings = format!(r#"{{
+  "hooks": {{
     "UserPromptSubmit": [
-      {
+      {{
         "hooks": [
-          {
+          {{
             "type": "command",
-            "command": "cargo run --manifest-path /Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/Cargo.toml -- eval",
+            "command": "cargo run --manifest-path {} -- eval",
             "timeout": 120,
-            "env": {
+            "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
-              "RUST_LOG": "info",
-              "PATH": "/opt/homebrew/bin:$PATH"
-            }
-          }
+              "RUST_LOG": "info"
+            }}
+          }}
         ]
-      }
+      }}
     ]
-  }
-}"#;
+  }}
+}}"#, cargo_manifest.display());
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
     eprintln!("[TIMING] Settings written: {:?}", test_start.elapsed());
 
-    // Run claude command with debug routing env var
-    let claude_path = "/Users/ramos/.claude/local/claude";
+    // Get claude CLI path
+    let claude_path = get_claude_path();
     eprintln!("[TIMING] Starting Claude execution with sonnet model...");
     let claude_start = Instant::now();
 
@@ -495,30 +524,34 @@ deny contains decision if {
     let claude_dir = temp_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).unwrap();
 
-    let settings = r#"{
-  "hooks": {
+    // Get the Cargo.toml path dynamically at compile time
+    let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap()  // Go up from cupcake-core to cupcake-rewrite
+        .join("Cargo.toml");
+
+    let settings = format!(r#"{{
+  "hooks": {{
     "UserPromptSubmit": [
-      {
+      {{
         "hooks": [
-          {
+          {{
             "type": "command",
-            "command": "cargo run --manifest-path /Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/Cargo.toml -- eval",
+            "command": "cargo run --manifest-path {} -- eval",
             "timeout": 120,
-            "env": {
+            "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
-              "RUST_LOG": "info",
-              "PATH": "/opt/homebrew/bin:$PATH"
-            }
-          }
+              "RUST_LOG": "info"
+            }}
+          }}
         ]
-      }
+      }}
     ]
-  }
-}"#;
+  }}
+}}"#, cargo_manifest.display());
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 
-    // Run claude command with debug routing env var
-    let claude_path = "/Users/ramos/.claude/local/claude";
+    // Get claude CLI path
+    let claude_path = get_claude_path();
     let output = std::process::Command::new(claude_path)
         .args(&["-p", "hello world", "--model", "sonnet"])
         .current_dir(temp_dir.path())

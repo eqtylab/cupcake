@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, v0.1.0]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Install Claude Code CLI from npm
+          npm install -g @anthropic-ai/claude-code
+
+          # Find where npm installed it and set the env var for tests
+          CLAUDE_PATH=$(which claude)
+          echo "Claude CLI installed at: $CLAUDE_PATH"
+          echo "CLAUDE_CLI_PATH=$CLAUDE_PATH" >> $GITHUB_ENV
+
+      - name: Install Claude CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Install Claude Code CLI from npm
+          npm install -g @anthropic-ai/claude-code
+
+          # Find where npm installed it and set the env var for tests
+          $claudePath = (Get-Command claude -ErrorAction SilentlyContinue).Path
+          if ($claudePath) {
+            Write-Host "Claude CLI installed at: $claudePath"
+            Add-Content -Path $env:GITHUB_ENV -Value "CLAUDE_CLI_PATH=$claudePath"
+          } else {
+            Write-Host "Warning: Claude CLI not found in PATH after npm install"
+          }
+
+      - name: Run ALL tests including Claude integration
+        run: |
+          cargo test --features deterministic-tests
+        env:
+          CUPCAKE_GLOBAL_CONFIG: /nonexistent
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
+
+      - name: Build release
+        run: cargo build --release
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check

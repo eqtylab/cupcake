@@ -239,6 +239,27 @@ cargo test --features deterministic-tests -- --test-threads=1
 
 **Why the feature flag?** The trust system uses HMAC with system entropy in production. Tests need deterministic keys to avoid race conditions. See `src/trust/CLAUDE.md` for details.
 
+## Release Process
+
+Cupcake uses automated GitHub Actions for releases. To create a new release:
+
+1. **Merge to main** - Ensure all changes are merged to the main branch
+2. **Create and push a version tag**:
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag v0.1.8  # Use semantic versioning
+   git push origin v0.1.8
+   ```
+3. **Automated build** - GitHub Actions will:
+   - Build binaries for all platforms (macOS, Linux, Windows)
+   - Bundle OPA v1.7.1 with each platform
+   - Create a draft release with all artifacts
+   - Generate SHA256 checksums
+   - **Automatically publish** the release when builds complete
+
+The release workflow is defined in `.github/workflows/release.yml`. Releases include pre-built binaries with bundled OPA, eliminating external dependencies.
+
 ## Adding a New Policy
 
 1. Create a `.rego` file in your policies directory

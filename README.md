@@ -96,6 +96,10 @@ just test-one <name>  # Run specific test
 cargo t  # Configured alias that includes required flags
 ```
 
+### Releasing
+
+To create a new release, push a version tag: `git tag v0.1.8 && git push origin v0.1.8`. See [Development Guide](./docs/development/DEVELOPMENT.md#release-process) for details.
+
 #### Why Global Config Must Be Disabled
 
 If you use Cupcake as a developer, you likely have a global configuration at `~/Library/Application Support/cupcake` (macOS) or `~/.config/cupcake` (Linux). This global config is designed to override project configs for organizational policy enforcement.

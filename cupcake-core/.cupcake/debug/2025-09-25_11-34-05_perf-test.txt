@@ -1,0 +1,26 @@
+===== Claude Code Event [2025-09-25 11:34:05] [perf-test] =====
+
+Raw Event:
+{
+  "test": "data"
+}
+
+----- Routing -----
+Matched: No
+
+----- Signals -----
+Configured: None
+
+----- WASM Evaluation -----
+No WASM evaluation performed
+
+----- Synthesis -----
+No synthesis performed
+
+----- Response to Claude -----
+No response generated
+
+----- Actions -----
+Configured: None
+
+===== End Event [11:34:05.809] Duration: 0ms =====

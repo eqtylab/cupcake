@@ -97,6 +97,9 @@ cargo bench
 # Run with debug logging
 RUST_LOG=debug cargo run -- [args]
 
+# Create a new release (pushes tag to trigger automated workflow)
+git tag v0.1.8 && git push origin v0.1.8
+
 # Enable extensive debugging with policy evaluation tracing
 CUPCAKE_TRACE=eval cargo run -- [args]      # Shows the main policy evaluation pipeline (routing, signals, WASM, synthesis)
 CUPCAKE_TRACE=all cargo test --features deterministic-tests  # Shows everything (all engine components plus lower-level details)

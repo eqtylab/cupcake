@@ -2,27 +2,26 @@ use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 /// Test that actions execute asynchronously (fire-and-forget)
 #[tokio::test]
 async fn test_action_fire_and_forget() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     // Create .cupcake directory structure
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
-    
+
     // Create markers for timing verification
     let start_marker = temp_dir.path().join("action_started.txt");
     let end_marker = temp_dir.path().join("action_completed.txt");
-    
+
     // Create a slow action that takes 3 seconds (more reliable for testing)
     let slow_action = format!(
         r#"#!/bin/bash
@@ -33,10 +32,10 @@ echo "$(date +%s%N)" > {}
         start_marker.display(),
         end_marker.display()
     );
-    
+
     let action_path = actions_dir.join("ASYNC-001.sh");
     fs::write(&action_path, slow_action).unwrap();
-    
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -44,10 +43,10 @@ echo "$(date +%s%N)" > {}
         perms.set_mode(0o755);
         fs::set_permissions(&action_path, perms).unwrap();
     }
-    
+
     // Create system policy
     create_system_policy(&system_dir);
-    
+
     // Create test policy
     let test_policy = r#"package cupcake.policies.async_test
 
@@ -69,11 +68,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("async_test.rego"), test_policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -83,46 +82,41 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     // Record time before evaluation
     let eval_start = std::time::Instant::now();
-    
+
     // Evaluate should return quickly, not wait for action
     let decision = engine.evaluate(&event, None).await.unwrap();
-    
+
     let eval_duration = eval_start.elapsed();
-    
+
     assert!(decision.is_blocking());
-    
+
     // Evaluation should complete in less than 1 second (action takes 3 seconds)
     assert!(
         eval_duration.as_secs() < 1,
-        "Evaluation took {:?} - should not wait for action",
-        eval_duration
+        "Evaluation took {eval_duration:?} - should not wait for action"
     );
-    
+
     // Wait longer to ensure action has actually started
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-    
+
     // Action should have started but not completed
     assert!(
         start_marker.exists(),
-        "Action did not start within 1000ms. Script path: {:?}",
-        action_path
+        "Action did not start within 1000ms. Script path: {action_path:?}"
     );
     assert!(
         !end_marker.exists(),
         "Action completed too quickly - not running async (action should take 3 seconds)"
     );
-    
+
     // Wait for action to complete (3 second action + buffer)
     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-    
+
     // Now action should be complete
-    assert!(
-        end_marker.exists(),
-        "Action did not complete after waiting"
-    );
+    assert!(end_marker.exists(), "Action did not complete after waiting");
 }
 
 /// Test that multiple actions execute concurrently
@@ -130,18 +124,18 @@ deny contains decision if {
 async fn test_multiple_actions_concurrent() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
-    
+
     // Create markers for multiple actions
     let markers: Vec<_> = (1..=3)
-        .map(|i| temp_dir.path().join(format!("action_{}.txt", i)))
+        .map(|i| temp_dir.path().join(format!("action_{i}.txt")))
         .collect();
-    
+
     // Create guidebook with multiple slow actions
     let mut actions = vec![];
     for (i, marker) in markers.iter().enumerate() {
@@ -151,7 +145,7 @@ async fn test_multiple_actions_concurrent() {
             marker.display()
         ));
     }
-    
+
     let guidebook = format!(
         r#"
 actions:
@@ -161,12 +155,11 @@ actions:
 "#,
         actions.join("\n")
     );
-    
-    
+
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
-    
+
     create_system_policy(&system_dir);
-    
+
     let policy = r#"package cupcake.policies.concurrent
 
 import rego.v1
@@ -187,11 +180,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("concurrent.rego"), policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -201,32 +194,27 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let start = std::time::Instant::now();
     let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
-    
+
     // Wait for all actions to complete (should take ~1 second if concurrent, plus overhead)
     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-    
+
     let duration = start.elapsed();
-    
+
     // All actions should have completed
     for marker in &markers {
-        assert!(
-            marker.exists(),
-            "Action marker {:?} not found",
-            marker
-        );
+        assert!(marker.exists(), "Action marker {marker:?} not found");
     }
-    
-    // If actions ran sequentially, it would take 3+ seconds  
+
+    // If actions ran sequentially, it would take 3+ seconds
     // If concurrent, should complete in ~1-2 seconds plus overhead
     // We allow up to 6 seconds to account for system load
     assert!(
         duration.as_secs() <= 6,
-        "Actions took {:?} - not running concurrently",
-        duration
+        "Actions took {duration:?} - not running concurrently"
     );
 }
 
@@ -235,23 +223,23 @@ deny contains decision if {
 async fn test_action_failure_non_blocking() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
-    
+
     // Create an action that will fail
     let failing_action = r#"#!/bin/bash
 exit 1  # Intentional failure
 "#;
-    
+
     let action_path = actions_dir.join("FAIL-001.sh");
     fs::write(&action_path, failing_action).unwrap();
-    
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -259,9 +247,9 @@ exit 1  # Intentional failure
         perms.set_mode(0o755);
         fs::set_permissions(&action_path, perms).unwrap();
     }
-    
+
     create_system_policy(&system_dir);
-    
+
     let policy = r#"package cupcake.policies.fail_test
 
 import rego.v1
@@ -282,11 +270,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("fail_test.rego"), policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -296,16 +284,16 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let start = std::time::Instant::now();
-    
+
     // Should not panic or block on action failure
     let decision = engine.evaluate(&event, None).await.unwrap();
-    
+
     let duration = start.elapsed();
-    
+
     assert!(decision.is_blocking());
-    
+
     // Should return quickly despite action failure
     assert!(
         duration.as_millis() < 500,
@@ -318,13 +306,13 @@ deny contains decision if {
 async fn test_actions_dont_block_subsequent_evaluations() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
-    
+
     // Create a slow action
     let marker = temp_dir.path().join("slow_action.txt");
     let guidebook = format!(
@@ -336,11 +324,11 @@ actions:
 "#,
         marker.display()
     );
-    
+
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
-    
+
     create_system_policy(&system_dir);
-    
+
     let policy = r#"package cupcake.policies.slow
 
 import rego.v1
@@ -371,11 +359,11 @@ allow_override contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("slow.rego"), policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     // First evaluation triggers slow action
     let event1 = json!({
         "hookEventName": "PreToolUse",
@@ -386,10 +374,10 @@ allow_override contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision1 = engine.evaluate(&event1, None).await.unwrap();
     assert!(decision1.is_blocking());
-    
+
     // Immediately evaluate another event (while action is running)
     let event2 = json!({
         "hookEventName": "PreToolUse",
@@ -400,21 +388,21 @@ allow_override contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let start = std::time::Instant::now();
     let decision2 = engine.evaluate(&event2, None).await.unwrap();
     let duration = start.elapsed();
-    
+
     // Second evaluation should complete quickly
     assert!(
         duration.as_millis() < 500,
         "Second evaluation blocked by first action"
     );
-    
+
     // Verify second decision is correct
     match decision2 {
-        cupcake_core::engine::decision::FinalDecision::AllowOverride { .. } => {},
-        _ => panic!("Expected AllowOverride decision, got {:?}", decision2)
+        cupcake_core::engine::decision::FinalDecision::AllowOverride { .. } => {}
+        _ => panic!("Expected AllowOverride decision, got {decision2:?}"),
     }
 }
 
@@ -449,6 +437,6 @@ collect_verbs(verb_name) := result if {
 
 default collect_verbs(_) := []
 "#;
-    
+
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
 }

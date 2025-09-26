@@ -2,25 +2,24 @@ use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_end_to_end_signal_integration() {
     // Create a temporary test project structure
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     // Create .cupcake directory structure
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
     let actions_dir = cupcake_dir.join("actions");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
-    
+
     // Create system evaluation policy - matching examples/.cupcake/policies/system/evaluate.rego
     let system_policy = r#"package cupcake.system
 
@@ -75,9 +74,9 @@ collect_verbs(verb_name) := result if {
 # Default to empty arrays if no decisions found
 default collect_verbs(_) := []
 "#;
-    
+
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
-    
+
     // Create test policy that uses both string and structured signals
     let test_policy = r#"package cupcake.policies.integration_test
 
@@ -148,14 +147,14 @@ add_context contains context_msg if {
     context_msg := concat("", ["Branch: ", input.signals.git_branch, ", Test Coverage: ", coverage_str, "%"])
 }
 "#;
-    
+
     fs::write(policies_dir.join("integration_test.rego"), test_policy).unwrap();
-    
+
     // Create string signal (git_branch) - outputs JSON string
     let git_branch_signal = r#"#!/bin/bash
 echo '"main"'
 "#;
-    
+
     let git_branch_path = signals_dir.join("git_branch.sh");
     fs::write(&git_branch_path, git_branch_signal).unwrap();
     // Make executable
@@ -166,7 +165,7 @@ echo '"main"'
         perms.set_mode(0o755);
         fs::set_permissions(&git_branch_path, perms).unwrap();
     }
-    
+
     // Create structured signal (test_status) - outputs JSON object
     let test_status_signal = r#"#!/bin/bash
 echo '{
@@ -177,7 +176,7 @@ echo '{
   "environment": "ci"
 }'
 "#;
-    
+
     let test_status_path = signals_dir.join("test_status.sh");
     fs::write(&test_status_path, test_status_signal).unwrap();
     // Make executable
@@ -188,12 +187,14 @@ echo '{
         perms.set_mode(0o755);
         fs::set_permissions(&test_status_path, perms).unwrap();
     }
-    
+
     // Initialize engine with test project
-    eprintln!("=== TEST: Initializing engine with project path: {:?}", project_path);
+    eprintln!(
+        "=== TEST: Initializing engine with project path: {project_path:?}"
+    );
     eprintln!("=== TEST: Policies dir exists: {}", policies_dir.exists());
     eprintln!("=== TEST: System dir exists: {}", system_dir.exists());
-    
+
     // List all .rego files to debug
     eprintln!("=== TEST: Listing all .rego files:");
     for entry in std::fs::read_dir(&policies_dir).unwrap() {
@@ -207,9 +208,9 @@ echo '{
             eprintln!("  - {:?}", entry.path());
         }
     }
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     // Test 1: String signal access (git_branch == "main")
     let event1 = json!({
         "hookEventName": "PreToolUse",
@@ -220,16 +221,19 @@ echo '{
         "session_id": "test-1",
         "cwd": "/tmp"
     });
-    
+
     let decision1 = engine.evaluate(&event1, None).await.unwrap();
-    assert!(decision1.is_blocking(), "Should deny dangerous command on main branch");
+    assert!(
+        decision1.is_blocking(),
+        "Should deny dangerous command on main branch"
+    );
     if let Some(reason) = decision1.reason() {
         assert!(reason.contains("Cannot run dangerous commands on main branch"));
     }
-    
+
     // Test 2: Structured signal access (test_status.passing == false, coverage < 90)
     let event2 = json!({
-        "hookEventName": "PreToolUse", 
+        "hookEventName": "PreToolUse",
         "tool_name": "Bash",
         "tool_input": {
             "command": "deploy --production"
@@ -237,32 +241,38 @@ echo '{
         "session_id": "test-2",
         "cwd": "/tmp"
     });
-    
+
     let decision2 = engine.evaluate(&event2, None).await.unwrap();
-    println!("DEBUG: decision2 = {:?}", decision2);
-    assert!(decision2.requires_confirmation(), "Should ask for confirmation on deploy with failing tests");
+    println!("DEBUG: decision2 = {decision2:?}");
+    assert!(
+        decision2.requires_confirmation(),
+        "Should ask for confirmation on deploy with failing tests"
+    );
     if let Some(reason) = decision2.reason() {
         assert!(reason.contains("Deploy with failing tests"));
         assert!(reason.contains("85%")); // Now shows integer due to WASM concat workaround
     }
-    
+
     // Test 3: Array access from structured signal (failed_tests count > 3)
     let event3 = json!({
         "hookEventName": "PreToolUse",
-        "tool_name": "Bash", 
+        "tool_name": "Bash",
         "tool_input": {
             "command": "release v1.0.0"
         },
         "session_id": "test-3",
         "cwd": "/tmp"
     });
-    
+
     let decision3 = engine.evaluate(&event3, None).await.unwrap();
-    assert!(decision3.is_blocking(), "Should deny release with too many failing tests");
+    assert!(
+        decision3.is_blocking(),
+        "Should deny release with too many failing tests"
+    );
     if let Some(reason) = decision3.reason() {
         assert!(reason.contains("Cannot release with 4 failing tests")); // 4 tests in our mock data
     }
-    
+
     // Test 4: Allow case with context injection
     let event4 = json!({
         "hookEventName": "PreToolUse",
@@ -270,13 +280,13 @@ echo '{
         "tool_input": {
             "command": "ls -la"
         },
-        "session_id": "test-4", 
+        "session_id": "test-4",
         "cwd": "/tmp"
     });
-    
+
     let decision4 = engine.evaluate(&event4, None).await.unwrap();
     assert!(!decision4.is_blocking(), "Should allow safe command");
-    
+
     // Check context injection using both signal types
     if let cupcake_core::engine::decision::FinalDecision::Allow { context } = decision4 {
         let context_str = context.join(" ");
@@ -292,15 +302,15 @@ async fn test_signal_json_parsing_fallback() {
     // Create a temporary test project
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
-    
+
     // Create minimal system policy - matching examples/.cupcake/policies/system/evaluate.rego
     let system_policy = r#"package cupcake.system
 
@@ -343,7 +353,7 @@ collect_verbs(verb_name) := result if {
 default collect_verbs(_) := []
 "#;
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
-    
+
     // Create policy that accesses a signal as string (for invalid JSON fallback test)
     let test_policy = r#"package cupcake.policies.fallback_test
 
@@ -364,14 +374,14 @@ add_context contains context_msg if {
     context_msg := concat("", ["Signal output: ", input.signals.invalid_json_signal])
 }
 "#;
-    
+
     fs::write(policies_dir.join("fallback_test.rego"), test_policy).unwrap();
-    
+
     // Create signal that outputs invalid JSON
     let invalid_signal = r#"#!/bin/bash
 echo "This is not valid JSON but should still work"
 "#;
-    
+
     let signal_path = signals_dir.join("invalid_json_signal.sh");
     fs::write(&signal_path, invalid_signal).unwrap();
     #[cfg(unix)]
@@ -381,10 +391,10 @@ echo "This is not valid JSON but should still work"
         perms.set_mode(0o755);
         fs::set_permissions(&signal_path, perms).unwrap();
     }
-    
+
     // Initialize engine
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     // Test that invalid JSON is handled gracefully
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -395,9 +405,9 @@ echo "This is not valid JSON but should still work"
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
-    
+
     // Should allow and include context with the invalid JSON stored as string
     if let cupcake_core::engine::decision::FinalDecision::Allow { context } = decision {
         let context_str = context.join(" ");

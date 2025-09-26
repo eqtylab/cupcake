@@ -1,5 +1,5 @@
 //! Integration tests for builtin abstractions
-//! 
+//!
 //! These tests verify the complete signal flow:
 //! 1. Builtin configuration generates signals
 //! 2. Signals are executed and results injected
@@ -11,14 +11,13 @@ use cupcake_core::engine::builtins::*;
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::collections::HashMap;
-use std::fs;
 use tempfile::TempDir;
 
 /// Test that builtin configurations generate the expected signals
 #[test]
 fn test_builtin_signal_generation() {
     let mut config = BuiltinsConfig::default();
-    
+
     // Configure always_inject_on_prompt
     config.always_inject_on_prompt = Some(AlwaysInjectConfig {
         enabled: true,
@@ -34,7 +33,7 @@ fn test_builtin_signal_generation() {
             },
         ],
     });
-    
+
     // Configure git_pre_check
     config.git_pre_check = Some(GitPreCheckConfig {
         enabled: true,
@@ -49,51 +48,60 @@ fn test_builtin_signal_generation() {
             },
         ],
     });
-    
+
     // Configure post_edit_check
     let mut by_extension = HashMap::new();
-    by_extension.insert("rs".to_string(), CheckConfig {
-        command: "cargo check".to_string(),
-        message: "Rust code must compile".to_string(),
-    });
-    by_extension.insert("py".to_string(), CheckConfig {
-        command: "python -m py_compile".to_string(),
-        message: "Python syntax must be valid".to_string(),
-    });
-    
+    by_extension.insert(
+        "rs".to_string(),
+        CheckConfig {
+            command: "cargo check".to_string(),
+            message: "Rust code must compile".to_string(),
+        },
+    );
+    by_extension.insert(
+        "py".to_string(),
+        CheckConfig {
+            command: "python -m py_compile".to_string(),
+            message: "Python syntax must be valid".to_string(),
+        },
+    );
+
     config.post_edit_check = Some(PostEditCheckConfig {
         enabled: true,
         by_extension,
     });
-    
+
     // Configure rulebook_security_guardrails
     config.rulebook_security_guardrails = Some(RulebookSecurityConfig {
         enabled: true,
         message: "Test protection message".to_string(),
         protected_paths: vec![".cupcake/".to_string(), ".config/".to_string()],
     });
-    
+
     // Generate signals
     let signals = config.generate_signals();
-    
+
     // Verify always_inject signals - only dynamic sources generate signals now
     // Static strings are injected directly via builtin_config
     // Index 0 was a static string (no signal)
     // Index 1 and 2 are dynamic sources and should generate signals
     assert!(signals.contains_key("__builtin_prompt_context_1")); // file source
     assert!(signals.contains_key("__builtin_prompt_context_2")); // command source
-    
+
     // Verify git_pre_check signals
     assert!(signals.contains_key("__builtin_git_check_0"));
     assert!(signals.contains_key("__builtin_git_check_1"));
     assert_eq!(signals["__builtin_git_check_0"].command, "cargo test");
-    assert_eq!(signals["__builtin_git_check_1"].command, "cargo fmt --check");
-    
+    assert_eq!(
+        signals["__builtin_git_check_1"].command,
+        "cargo fmt --check"
+    );
+
     // Verify post_edit_check signals
     assert!(signals.contains_key("__builtin_post_edit_rs"));
     assert!(signals.contains_key("__builtin_post_edit_py"));
     assert_eq!(signals["__builtin_post_edit_rs"].command, "cargo check");
-    
+
     // rulebook_security_guardrails no longer generates signals - uses builtin_config instead
     // The message and paths are injected directly via builtin_config
 }
@@ -103,13 +111,13 @@ fn test_builtin_signal_generation() {
 fn test_enabled_builtins_list() {
     let mut config = BuiltinsConfig::default();
     assert_eq!(config.enabled_builtins().len(), 0);
-    
+
     config.global_file_lock = Some(GlobalFileLockConfig {
         enabled: true,
         message: "No edits".to_string(),
     });
     assert_eq!(config.enabled_builtins(), vec!["global_file_lock"]);
-    
+
     // Test rulebook_security_guardrails
     config.rulebook_security_guardrails = Some(RulebookSecurityConfig {
         enabled: true,
@@ -119,7 +127,7 @@ fn test_enabled_builtins_list() {
     let enabled = config.enabled_builtins();
     assert!(enabled.contains(&"global_file_lock".to_string()));
     assert!(enabled.contains(&"rulebook_security_guardrails".to_string()));
-    
+
     config.git_pre_check = Some(GitPreCheckConfig {
         enabled: true,
         checks: vec![],
@@ -140,9 +148,9 @@ async fn test_builtin_policy_signal_access() -> Result<()> {
     let cupcake_dir = temp_dir.path().join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    fs::create_dir_all(&policies_dir)?;
-    fs::create_dir_all(&system_dir)?;
-    
+    std::fs::create_dir_all(&policies_dir)?;
+    std::fs::create_dir_all(&system_dir)?;
+
     // Use the authoritative system evaluation policy
     let evaluate_policy = r#"package cupcake.system
 
@@ -196,8 +204,8 @@ collect_verbs(verb_name) := result if {
 
 # Default to empty arrays if no decisions found
 default collect_verbs(_) := []"#;
-    fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
-    
+    std::fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
     // Write a test policy that uses signals
     let test_policy = r#"package cupcake.policies.test_signal_access
 
@@ -219,8 +227,8 @@ add_context contains context_msg if {
     # add_context expects strings, not decision objects
     context_msg := concat(" ", ["Signal value:", test_signal])
 }"#;
-    fs::write(policies_dir.join("test_signal_access.rego"), test_policy)?;
-    
+    std::fs::write(policies_dir.join("test_signal_access.rego"), test_policy)?;
+
     // Create a guidebook with test signal
     let guidebook_path = cupcake_dir.join("guidebook.yml");
     let guidebook_content = r#"signals:
@@ -229,36 +237,39 @@ add_context contains context_msg if {
     timeout_seconds: 1
 
 # No builtins configured - just using manual signals for this test"#;
-    fs::write(&guidebook_path, guidebook_content)?;
-    
+    std::fs::write(&guidebook_path, guidebook_content)?;
+
     // Initialize engine from the temp directory
     let engine = Engine::new(temp_dir.path()).await?;
-    
+
     // Create test input
     let input = json!({
         "hook_event_name": "UserPromptSubmit",
         "prompt": "test prompt"
     });
-    
+
     // Evaluate with engine
     let decision = engine.evaluate(&input, None).await?;
-    
+
     // The engine should have:
     // 1. Executed the __builtin_test_signal
     // 2. Injected result at input.signals.__builtin_test_signal
     // 3. Policy should access it and add context
-    
+
     // Check that we got an Allow decision with context
     match decision {
         cupcake_core::engine::decision::FinalDecision::Allow { context } => {
             assert!(!context.is_empty(), "Should have context");
             let combined = context.join(" ");
-            assert!(combined.contains("test-value-123"), 
-                "Context should contain signal value, got: {}", combined);
+            assert!(
+                combined.contains("test-value-123"),
+                "Context should contain signal value, got: {}",
+                combined
+            );
         }
-        _ => panic!("Expected Allow decision with context, got: {:?}", decision)
+        _ => panic!("Expected Allow decision with context, got: {:?}", decision),
     }
-    
+
     Ok(())
 }
 
@@ -272,17 +283,19 @@ async fn test_post_edit_validation_flow() -> Result<()> {
     let policies_dir = cupcake_dir.join("policies");
     let builtins_dir = policies_dir.join("builtins");
     let system_dir = policies_dir.join("system");
-    fs::create_dir_all(&builtins_dir)?;
-    fs::create_dir_all(&system_dir)?;
-    
+    std::fs::create_dir_all(&builtins_dir)?;
+    std::fs::create_dir_all(&system_dir)?;
+
     // Copy the real post_edit_check policy content directly
-    let post_edit_policy = include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
-    fs::write(builtins_dir.join("post_edit_check.rego"), post_edit_policy)?;
-    
+    let post_edit_policy =
+        include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
+    std::fs::write(builtins_dir.join("post_edit_check.rego"), post_edit_policy)?;
+
     // Use the authoritative system evaluation policy
-    let evaluate_policy = include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
-    fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
-    
+    let evaluate_policy =
+        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+    std::fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
     // Create guidebook with post_edit_check configuration
     let guidebook_path = cupcake_dir.join("guidebook.yml");
     let guidebook_content = r#"
@@ -305,11 +318,11 @@ builtins:
         command: "exit 1"
         message: "This always fails"
 "#;
-    fs::write(&guidebook_path, guidebook_content)?;
-    
+    std::fs::write(&guidebook_path, guidebook_content)?;
+
     // Create engine
     let engine = Engine::new(temp_dir.path()).await?;
-    
+
     // Test 1: Edit a .txt file (should pass validation)
     let input_txt = json!({
         "hook_event_name": "PostToolUse",
@@ -319,20 +332,23 @@ builtins:
         },
         "tool_response": "File edited successfully"
     });
-    
+
     let decision_txt = engine.evaluate(&input_txt, None).await?;
-    
+
     // Should add positive context for successful validation
     match decision_txt {
         cupcake_core::engine::decision::FinalDecision::Allow { context } => {
             assert!(!context.is_empty(), "Should have context");
             let combined = context.join(" ");
-            assert!(combined.contains("✓ Validation passed"), 
-                "Should show validation passed, got: {}", combined);
+            assert!(
+                combined.contains("✓ Validation passed"),
+                "Should show validation passed, got: {}",
+                combined
+            );
         }
-        _ => panic!("Expected Allow decision with context for .txt file")
+        _ => panic!("Expected Allow decision with context for .txt file"),
     }
-    
+
     // Test 2: Edit a .fail file (should fail validation)
     let input_fail = json!({
         "hook_event_name": "PostToolUse",
@@ -341,25 +357,34 @@ builtins:
             "file_path": "test.fail"
         }
     });
-    
+
     eprintln!("\n=== TEST 2: .fail file test ===");
     eprintln!("Input: {}", serde_json::to_string_pretty(&input_fail)?);
-    
+
     let decision_fail = engine.evaluate(&input_fail, None).await?;
-    
+
     eprintln!("Decision for .fail file: {:?}", decision_fail);
-    
+
     // Should ask for user confirmation on failure
     match decision_fail {
         cupcake_core::engine::decision::FinalDecision::Ask { reason } => {
-            assert!(reason.contains("validation failed"), 
-                "Should mention validation failed, got: {}", reason);
-            assert!(reason.contains("Do you want to continue anyway?"),
-                "Should ask to continue, got: {}", reason);
+            assert!(
+                reason.contains("validation failed"),
+                "Should mention validation failed, got: {}",
+                reason
+            );
+            assert!(
+                reason.contains("Do you want to continue anyway?"),
+                "Should ask to continue, got: {}",
+                reason
+            );
         }
-        _ => panic!("Expected Ask decision for failed validation, got: {:?}", decision_fail)
+        _ => panic!(
+            "Expected Ask decision for failed validation, got: {:?}",
+            decision_fail
+        ),
     }
-    
+
     Ok(())
 }
 
@@ -368,9 +393,9 @@ builtins:
 fn test_builtin_policy_loading() {
     use cupcake_core::engine::builtins::should_load_builtin_policy;
     use std::path::Path;
-    
+
     let enabled = vec!["global_file_lock".to_string(), "git_pre_check".to_string()];
-    
+
     // Should load enabled builtins
     assert!(should_load_builtin_policy(
         Path::new("policies/builtins/global_file_lock.rego"),
@@ -380,7 +405,7 @@ fn test_builtin_policy_loading() {
         Path::new("policies/builtins/git_pre_check.rego"),
         &enabled
     ));
-    
+
     // Should NOT load disabled builtins
     assert!(!should_load_builtin_policy(
         Path::new("policies/builtins/post_edit_check.rego"),
@@ -390,7 +415,7 @@ fn test_builtin_policy_loading() {
         Path::new("policies/builtins/always_inject_on_prompt.rego"),
         &enabled
     ));
-    
+
     // Should always load non-builtin policies
     assert!(should_load_builtin_policy(
         Path::new("policies/custom/my_policy.rego"),

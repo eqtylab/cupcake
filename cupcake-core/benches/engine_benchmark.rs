@@ -2,16 +2,18 @@
 //! Target: <50ms for complete evaluation
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use cupcake_rego::engine::Engine;
+use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
 
 fn create_test_policy_dir() -> TempDir {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create a realistic policy using new metadata format
-    fs::write(temp_dir.path().join("bash_guard.rego"), r#"
+    fs::write(
+        temp_dir.path().join("bash_guard.rego"),
+        r#"
 # METADATA
 # scope: package
 # title: Bash Security Benchmark Policy
@@ -48,11 +50,15 @@ deny contains decision if {
 
 # Add context for all bash commands
 add_context contains "Be careful with bash commands"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     // Create the system aggregation policy
     fs::create_dir(temp_dir.path().join("system")).unwrap();
-    fs::write(temp_dir.path().join("system/evaluate.rego"), r#"
+    fs::write(
+        temp_dir.path().join("system/evaluate.rego"),
+        r#"
 package cupcake.system
 
 import rego.v1
@@ -91,17 +97,19 @@ collect_verbs(verb_name) := result if {
 }
 
 default collect_verbs(_) := []
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     temp_dir
 }
 
 fn benchmark_single_evaluation(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    
+
     c.bench_function("single_evaluation_safe", |b| {
         let temp_dir = create_test_policy_dir();
-        
+
         // Debug: Print the policy directory
         eprintln!("Benchmark policy dir: {:?}", temp_dir.path());
         eprintln!("Policy files created:");
@@ -117,9 +125,9 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
                 }
             }
         }
-        
+
         let mut engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
-        
+
         let safe_event = json!({
             "hookEventName": "PreToolUse",
             "tool_name": "Bash",
@@ -128,28 +136,26 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
             "transcript_path": "/tmp/test.txt",
             "cwd": "/tmp"
         });
-        
+
         // Debug: Test one evaluation before benchmarking
         eprintln!("Testing single evaluation...");
-        let test_result = runtime.block_on(async {
-            engine.evaluate(&safe_event, None).await
-        });
+        let test_result = runtime.block_on(async { engine.evaluate(&safe_event, None).await });
         match &test_result {
             Ok(decision) => eprintln!("Test evaluation succeeded: {:?}", decision),
             Err(e) => eprintln!("Test evaluation FAILED: {}", e),
         }
-        
+
         b.iter(|| {
             runtime.block_on(async {
-                let _decision = engine.evaluate(black_box(&safe_event)).await.unwrap();
+                let _decision = engine.evaluate(black_box(&safe_event), None).await.unwrap();
             });
         });
     });
-    
+
     c.bench_function("single_evaluation_deny", |b| {
         let temp_dir = create_test_policy_dir();
         let mut engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
-        
+
         let dangerous_event = json!({
             "hookEventName": "PreToolUse",
             "tool_name": "Bash",
@@ -158,34 +164,32 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
             "transcript_path": "/tmp/test.txt",
             "cwd": "/tmp"
         });
-        
+
         // Debug: Test one evaluation before benchmarking
         eprintln!("Testing deny evaluation with dangerous command...");
-        let test_result = runtime.block_on(async {
-            engine.evaluate(&dangerous_event, None).await
-        });
+        let test_result = runtime.block_on(async { engine.evaluate(&dangerous_event, None).await });
         match &test_result {
             Ok(decision) => eprintln!("Deny test evaluation result: {:?}", decision),
             Err(e) => eprintln!("Deny test evaluation FAILED: {}", e),
         }
-        
+
         b.iter(|| {
             runtime.block_on(async {
-                let _decision = engine.evaluate(black_box(&dangerous_event)).await.unwrap();
+                let _decision = engine.evaluate(black_box(&dangerous_event), None).await.unwrap();
             });
         });
     });
 }
 
 fn benchmark_complete_pipeline(c: &mut Criterion) {
-    use cupcake_rego::harness::ClaudeHarness;
-    
+    use cupcake_core::harness::ClaudeHarness;
+
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    
+
     c.bench_function("complete_pipeline", |b| {
         let temp_dir = create_test_policy_dir();
         let mut engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
-        
+
         let event_str = r#"{
             "hook_event_name": "PreToolUse",
             "tool_name": "Bash",
@@ -194,18 +198,18 @@ fn benchmark_complete_pipeline(c: &mut Criterion) {
             "transcript_path": "/tmp/test.txt",
             "cwd": "/tmp"
         }"#;
-        
+
         b.iter(|| {
             runtime.block_on(async {
                 // Parse event
                 let event = ClaudeHarness::parse_event(black_box(event_str)).unwrap();
-                
+
                 // Convert to JSON for engine
                 let event_json = serde_json::to_value(&event).unwrap();
-                
+
                 // Evaluate
                 let decision = engine.evaluate(&event_json, None).await.unwrap();
-                
+
                 // Format response
                 let _response = ClaudeHarness::format_response(&event, &decision).unwrap();
             });

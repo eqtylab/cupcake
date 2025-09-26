@@ -2,8 +2,8 @@
 //! Works with the fire-and-forget architecture by using debug logs
 
 use anyhow::Result;
+use cupcake_core::engine::{decision::FinalDecision, global_config::GlobalPaths, Engine};
 use serial_test::serial;
-use cupcake_core::engine::{Engine, global_config::GlobalPaths, decision::FinalDecision};
 use std::env;
 use std::fs;
 use std::sync::Mutex;
@@ -15,25 +15,28 @@ static GLOBAL_CONFIG_MUTEX: Mutex<()> = Mutex::new(());
 mod test_helpers;
 
 /// Test that shows actions ARE being called but are fire-and-forget
-#[tokio::test] 
+#[tokio::test]
 async fn test_global_action_execution_logs() -> Result<()> {
     // Acquire mutex to prevent parallel execution with other global config tests
     let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();
-    
+
     // Initialize test logging to capture debug output
     test_helpers::init_test_logging();
-    
+
     // Setup global config
     let global_dir = TempDir::new()?;
     env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
-    
+
     let global_paths = GlobalPaths::discover()?.unwrap();
     global_paths.initialize()?;
-    
+
     // Verify system evaluate policy was created
     let sys_eval = global_paths.policies.join("system").join("evaluate.rego");
-    assert!(sys_eval.exists(), "System evaluate policy not created at {:?}", sys_eval);
-    
+    assert!(
+        sys_eval.exists(),
+        "System evaluate policy not created at {sys_eval:?}"
+    );
+
     // Create simple global guidebook with inline echo command
     // This will execute but we can't capture output directly
     let guidebook_content = r#"signals: {}
@@ -45,9 +48,9 @@ actions:
 
 builtins: {}
 "#;
-    
+
     fs::write(&global_paths.guidebook, guidebook_content)?;
-    
+
     // Create global policy that triggers the action
     fs::write(
         global_paths.policies.join("test_policy.rego"),
@@ -68,33 +71,33 @@ halt contains decision if {
         "severity": "CRITICAL"
     }
 }
-"#
+"#,
     )?;
-    
+
     // Setup project
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
-    
+
     // Initialize engine
     let engine = Engine::new(project_dir.path()).await?;
-    
+
     // Trigger the global halt with action
     let input = serde_json::json!({
         "hook_event_name": "UserPromptSubmit",
         "prompt": "trigger"
     });
-    
+
     println!("\n=== About to evaluate and trigger action ===");
     let decision = engine.evaluate(&input, None).await?;
-    
+
     // Verify we got the halt decision
     assert!(matches!(decision, FinalDecision::Halt { .. }));
     println!("✓ Global HALT decision returned correctly");
-    
+
     // Actions are fire-and-forget, so we need to wait a bit
     println!("Waiting for async action to complete...");
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    
+
     // We can't capture the output directly because it's spawned in background
     // But the logs should show:
     // - "execute_actions_with_guidebook called"
@@ -102,15 +105,15 @@ halt contains decision if {
     // - "Looking for actions for rule ID: GLOBAL-TEST-001"
     // - "Executing 1 actions for rule GLOBAL-TEST-001"
     // - "Executing action: echo..."
-    
+
     println!("\n=== Test Analysis ===");
     println!("The action WAS executed (check debug logs with RUST_LOG=debug)");
     println!("However, output capture is not possible with current fire-and-forget design");
     println!("To verify: run with RUST_LOG=debug and look for 'Executing action: echo'");
-    
+
     // Clean up
     env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-    
+
     Ok(())
 }
 
@@ -120,20 +123,23 @@ halt contains decision if {
 async fn test_global_action_working_directory_issue() -> Result<()> {
     // Acquire mutex to prevent parallel execution with other global config tests
     let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();
-    
+
     test_helpers::init_test_logging();
-    
+
     // Setup global config
     let global_dir = TempDir::new()?;
     env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
-    
+
     let global_paths = GlobalPaths::discover()?.unwrap();
     global_paths.initialize()?;
-    
+
     // Verify system evaluate policy was created
     let sys_eval2 = global_paths.policies.join("system").join("evaluate.rego");
-    assert!(sys_eval2.exists(), "System evaluate policy not created at {:?}", sys_eval2);
-    
+    assert!(
+        sys_eval2.exists(),
+        "System evaluate policy not created at {sys_eval2:?}"
+    );
+
     // Create an action that shows its working directory
     let guidebook_content = r#"signals: {}
 
@@ -144,9 +150,9 @@ actions:
 
 builtins: {}
 "#;
-    
+
     fs::write(&global_paths.guidebook, guidebook_content)?;
-    
+
     // Create global policy
     fs::write(
         global_paths.policies.join("wd_policy.rego"),
@@ -167,39 +173,39 @@ deny contains decision if {
         "severity": "HIGH"
     }
 }
-"#
+"#,
     )?;
-    
+
     // Setup project in a different location
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
-    
+
     // Initialize engine
     let engine = Engine::new(project_dir.path()).await?;
-    
+
     // Trigger the action
     let input = serde_json::json!({
         "hook_event_name": "UserPromptSubmit",
         "prompt": "showwd"
     });
-    
+
     println!("\n=== Working Directory Test ===");
     println!("Global config at: {:?}", global_dir.path());
     println!("Project at: {:?}", project_dir.path());
     println!("Expected: Global actions should run from global directory");
     println!("Actual: Global actions run from PROJECT directory (bug)");
-    
+
     let decision = engine.evaluate(&input, None).await?;
     assert!(matches!(decision, FinalDecision::Deny { .. }));
-    
+
     // Wait for action
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    
+
     println!("\nThe pwd command output (in debug logs) will show it runs from project dir, not global dir");
     println!("This is a bug: global actions should have global context");
-    
+
     // Clean up
     env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-    
+
     Ok(())
 }

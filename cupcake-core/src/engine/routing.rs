@@ -1,9 +1,9 @@
 //! Routing module - Maps events to policy subsets
-//! 
+//!
 //! Implements the NEW_GUIDING_FINAL.md metadata-driven routing:
 //! "Route: Cupcake uses the event data to consult its internal routing map,
 //! instantly identifying the small subset of policy units that are relevant"
-//! 
+//!
 //! Updated for Host-Side Indexing via OPA metadata
 
 use super::RoutingDirective;
@@ -12,7 +12,7 @@ use super::RoutingDirective;
 /// This determines how policies are indexed for fast lookup via Host-Side Indexing
 pub fn create_routing_key_from_metadata(directive: &RoutingDirective) -> Vec<String> {
     let mut keys = Vec::new();
-    
+
     // Generate keys for each event/tool combination
     for event in &directive.required_events {
         if directive.required_tools.is_empty() {
@@ -23,15 +23,15 @@ pub fn create_routing_key_from_metadata(directive: &RoutingDirective) -> Vec<Str
             for tool in &directive.required_tools {
                 if tool == "*" {
                     // Wildcard - matches all tools for this event
-                    keys.push(format!("{}:*", event));
+                    keys.push(format!("{event}:*"));
                 } else {
                     // Specific tool
-                    keys.push(format!("{}:{}", event, tool));
+                    keys.push(format!("{event}:{tool}"));
                 }
             }
         }
     }
-    
+
     keys
 }
 
@@ -44,16 +44,15 @@ pub fn create_all_routing_keys_from_metadata(directive: &RoutingDirective) -> Ve
 /// Create an event key for routing lookup
 pub fn create_event_key(event_name: &str, tool_name: Option<&str>) -> String {
     match tool_name {
-        Some(tool) => format!("{}:{}", event_name, tool),
+        Some(tool) => format!("{event_name}:{tool}"),
         None => event_name.to_string(),
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_create_routing_key_no_tools() {
         let directive = RoutingDirective {
@@ -61,11 +60,11 @@ mod tests {
             required_tools: vec![],
             required_signals: vec![],
         };
-        
+
         let keys = create_routing_key_from_metadata(&directive);
         assert_eq!(keys, vec!["UserPromptSubmit"]);
     }
-    
+
     #[test]
     fn test_create_routing_key_with_tool() {
         let directive = RoutingDirective {
@@ -73,11 +72,11 @@ mod tests {
             required_tools: vec!["Bash".to_string()],
             required_signals: vec![],
         };
-        
+
         let keys = create_routing_key_from_metadata(&directive);
         assert_eq!(keys, vec!["PreToolUse:Bash"]);
     }
-    
+
     #[test]
     fn test_create_routing_key_wildcard() {
         let directive = RoutingDirective {
@@ -85,11 +84,11 @@ mod tests {
             required_tools: vec!["*".to_string()],
             required_signals: vec![],
         };
-        
+
         let keys = create_routing_key_from_metadata(&directive);
         assert_eq!(keys, vec!["PreToolUse:*"]);
     }
-    
+
     #[test]
     fn test_create_all_routing_keys_multiple_tools() {
         let directive = RoutingDirective {
@@ -97,14 +96,14 @@ mod tests {
             required_tools: vec!["Bash".to_string(), "Shell".to_string(), "Exec".to_string()],
             required_signals: vec![],
         };
-        
+
         let keys = create_all_routing_keys_from_metadata(&directive);
         assert_eq!(keys.len(), 3);
         assert!(keys.contains(&"PreToolUse:Bash".to_string()));
         assert!(keys.contains(&"PreToolUse:Shell".to_string()));
         assert!(keys.contains(&"PreToolUse:Exec".to_string()));
     }
-    
+
     #[test]
     fn test_create_routing_keys_multiple_events() {
         let directive = RoutingDirective {
@@ -112,13 +111,12 @@ mod tests {
             required_tools: vec!["Bash".to_string()],
             required_signals: vec![],
         };
-        
+
         let keys = create_all_routing_keys_from_metadata(&directive);
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"PreToolUse:Bash".to_string()));
         assert!(keys.contains(&"PostToolUse:Bash".to_string()));
     }
-    
 }
 
 // Aligns with NEW_GUIDING_FINAL.md:

@@ -1,7 +1,7 @@
 //! Tests for the policy validator
 
-use super::*;
 use super::rules::*;
+use super::*;
 use std::path::PathBuf;
 
 #[cfg(test)]
@@ -9,10 +9,7 @@ mod tests {
     use super::*;
 
     fn create_test_policy(content: &str) -> PolicyContent {
-        PolicyContent::from_content(
-            PathBuf::from("test.rego"),
-            content.to_string(),
-        ).unwrap()
+        PolicyContent::from_content(PathBuf::from("test.rego"), content.to_string()).unwrap()
     }
 
     #[test]
@@ -32,8 +29,11 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = MetadataPlacementRule;
         let issues = rule.check(&policy);
-        
-        assert!(issues.is_empty(), "Should not have issues with correct placement");
+
+        assert!(
+            issues.is_empty(),
+            "Should not have issues with correct placement"
+        );
     }
 
     #[test]
@@ -54,7 +54,7 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = MetadataPlacementRule;
         let issues = rule.check(&policy);
-        
+
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].severity, Severity::Error);
         assert_eq!(issues[0].rule_id, "metadata-placement");
@@ -73,7 +73,7 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = PackageDeclarationRule;
         let issues = rule.check(&policy);
-        
+
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].severity, Severity::Error);
         assert_eq!(issues[0].rule_id, "package-declaration");
@@ -93,12 +93,11 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = ObjectKeyMembershipRule;
         let issues = rule.check(&policy);
-        
+
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].severity, Severity::Warning);
         assert_eq!(issues[0].rule_id, "object-key-membership");
     }
-
 
     #[test]
     fn test_decision_structure_rule() {
@@ -114,7 +113,7 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = DecisionStructureRule;
         let issues = rule.check(&policy);
-        
+
         assert_eq!(issues.len(), 2); // Missing both reason and rule_id
         assert!(issues.iter().any(|i| i.message.contains("reason")));
         assert!(issues.iter().any(|i| i.message.contains("rule_id")));
@@ -144,7 +143,7 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = IncrementalRuleGroupingRule;
         let issues = rule.check(&policy);
-        
+
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].severity, Severity::Warning);
         assert_eq!(issues[0].rule_id, "incremental-rule-grouping");
@@ -165,7 +164,7 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let rule = RoutingMetadataRule;
         let issues = rule.check(&policy);
-        
+
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].severity, Severity::Warning);
         assert_eq!(issues[0].rule_id, "routing-metadata");
@@ -184,8 +183,11 @@ evaluate := {
         let policy = create_test_policy(content);
         let rule = RoutingMetadataRule;
         let issues = rule.check(&policy);
-        
-        assert!(issues.is_empty(), "System policies should not need routing metadata");
+
+        assert!(
+            issues.is_empty(),
+            "System policies should not need routing metadata"
+        );
     }
 
     #[test]
@@ -213,7 +215,7 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let validator = PolicyValidator::new();
         let result = validator.validate_policy(&policy);
-        
+
         assert_eq!(result.error_count, 0);
         assert_eq!(result.warning_count, 0);
     }
@@ -235,9 +237,15 @@ deny contains decision if {
         let policy = create_test_policy(content);
         let validator = PolicyValidator::new();
         let result = validator.validate_policy(&policy);
-        
+
         assert!(result.error_count > 0 || result.warning_count > 0);
-        assert!(result.issues.iter().any(|i| i.rule_id == "metadata-placement"));
-        assert!(result.issues.iter().any(|i| i.rule_id == "object-key-membership"));
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.rule_id == "metadata-placement"));
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.rule_id == "object-key-membership"));
     }
 }

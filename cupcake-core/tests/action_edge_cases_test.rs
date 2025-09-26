@@ -3,30 +3,29 @@ use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use tokio;
 
 /// Test that the new Path::is_file() logic correctly handles various edge cases
 #[tokio::test]
 async fn test_action_execution_edge_cases() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     // Create .cupcake directory structure
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
-    
+
     // Create system policy
     create_system_policy(&system_dir);
-    
+
     // Test markers for verification
     let shell_marker = temp_dir.path().join("shell_executed.txt");
     let relative_marker = temp_dir.path().join("relative_executed.txt");
     let args_marker = temp_dir.path().join("args_executed.txt");
     let python_marker = temp_dir.path().join("python_executed.txt");
-    
+
     // Create guidebook with various command types
     let guidebook = format!(
         r#"
@@ -44,12 +43,12 @@ actions:
       - command: './test_relative.sh'
 "#,
         shell_marker.display(),
-        args_marker.display(), 
+        args_marker.display(),
         python_marker.display()
     );
-    
+
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
-    
+
     // Create a relative script that should be found and executed directly
     let scripts_dir = project_path.join(".");
     let relative_script = format!(
@@ -58,10 +57,10 @@ echo "relative script" > {}
 "#,
         relative_marker.display()
     );
-    
+
     let relative_script_path = scripts_dir.join("test_relative.sh");
     fs::write(&relative_script_path, relative_script).unwrap();
-    
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -69,7 +68,7 @@ echo "relative script" > {}
         perms.set_mode(0o755);
         fs::set_permissions(&relative_script_path, perms).unwrap();
     }
-    
+
     // Create test policy that triggers the actions
     let edge_policy = r#"package cupcake.policies.edge_test
 
@@ -100,11 +99,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("edge_test.rego"), edge_policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     // Test Case 1-3: Shell commands
     let event1 = json!({
         "hookEventName": "PreToolUse",
@@ -115,13 +114,13 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision1 = engine.evaluate(&event1, None).await.unwrap();
     assert!(decision1.is_blocking(), "Expected blocking decision");
-    
+
     // Wait for async actions to complete
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    
+
     // Verify shell commands executed via sh -c
     assert!(
         shell_marker.exists(),
@@ -135,7 +134,7 @@ deny contains decision if {
         python_marker.exists(),
         "Python-style command should have executed via sh -c"
     );
-    
+
     // Test Case 4: Relative script path
     let event2 = json!({
         "hookEventName": "PreToolUse",
@@ -146,30 +145,29 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision2 = engine.evaluate(&event2, None).await.unwrap();
     assert!(decision2.is_blocking(), "Expected blocking decision");
-    
+
     // Wait for async action
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    
+
     // Verify relative script executed directly (not via sh -c)
     assert!(
         relative_marker.exists(),
-        "Relative script should have been resolved and executed directly: {:?}",
-        relative_script_path
+        "Relative script should have been resolved and executed directly: {relative_script_path:?}"
     );
-    
+
     // Verify contents to ensure correct execution
     let shell_content = fs::read_to_string(&shell_marker).unwrap();
     assert!(shell_content.contains("shell command"));
-    
-    let args_content = fs::read_to_string(&args_marker).unwrap(); 
+
+    let args_content = fs::read_to_string(&args_marker).unwrap();
     assert!(args_content.contains("args test"));
-    
+
     let python_content = fs::read_to_string(&python_marker).unwrap();
     assert!(python_content.contains("python test"));
-    
+
     let relative_content = fs::read_to_string(&relative_marker).unwrap();
     assert!(relative_content.contains("relative script"));
 }
@@ -179,16 +177,16 @@ deny contains decision if {
 async fn test_nonexistent_script_fallback() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     create_system_policy(&system_dir);
-    
+
     let fallback_marker = temp_dir.path().join("fallback_executed.txt");
-    
+
     // Create guidebook with a path that looks like a script but doesn't exist
     let guidebook = format!(
         r#"
@@ -200,9 +198,9 @@ actions:
 "#,
         fallback_marker.display()
     );
-    
+
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
-    
+
     let fallback_policy = r#"package cupcake.policies.fallback_test
 
 import rego.v1
@@ -223,11 +221,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("fallback_test.rego"), fallback_policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -237,18 +235,18 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
-    
+
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    
+
     // Should have executed via shell fallback
     assert!(
         fallback_marker.exists(),
         "Non-existent script path should fallback to shell execution"
     );
-    
+
     let content = fs::read_to_string(&fallback_marker).unwrap();
     assert!(content.contains("fallback test"));
 }
@@ -284,6 +282,6 @@ collect_verbs(verb_name) := result if {
 
 default collect_verbs(_) := []
 "#;
-    
+
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
 }

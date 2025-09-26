@@ -1,5 +1,5 @@
 //! Policy Validator - Cupcake-specific Rego policy validation
-//! 
+//!
 //! Validates policies for Cupcake-specific requirements, style, and best practices.
 //! Integrates with existing metadata parser.
 
@@ -12,8 +12,8 @@ pub mod rules;
 #[cfg(test)]
 mod tests;
 
+use crate::engine::metadata::{extract_package_name, parse_metadata};
 use rules::*;
-use crate::engine::metadata::{parse_metadata, extract_package_name};
 
 /// Severity levels for validation issues
 #[derive(Debug, Clone, PartialEq)]
@@ -55,11 +55,10 @@ pub struct PolicyContent {
 pub trait ValidationRule: Send + Sync {
     /// Check policy for issues
     fn check(&self, policy: &PolicyContent) -> Vec<ValidationIssue>;
-    
-    
+
     /// Rule identifier
     fn rule_id(&self) -> &'static str;
-    
+
     /// Rule description
     fn description(&self) -> &'static str;
 }
@@ -93,17 +92,17 @@ impl PolicyContent {
         let content = std::fs::read_to_string(&path)?;
         Self::from_content(path, content)
     }
-    
+
     /// Create PolicyContent from content string
     pub fn from_content(path: PathBuf, content: String) -> Result<Self> {
         let lines = content.lines().map(String::from).collect();
-        
+
         // Parse metadata
         let metadata = parse_metadata(&content)?;
-        
+
         // Extract package name
         let package_name = extract_package_name(&content).ok();
-        
+
         Ok(Self {
             path,
             content,
@@ -112,19 +111,19 @@ impl PolicyContent {
             metadata,
         })
     }
-    
+
     /// Update content and reparse derived fields
     pub fn update_content(&mut self, new_content: String) -> Result<()> {
         self.content = new_content;
         self.lines = self.content.lines().map(String::from).collect();
-        
+
         // Re-parse metadata and package name
         self.metadata = parse_metadata(&self.content)?;
         self.package_name = extract_package_name(&self.content).ok();
-        
+
         Ok(())
     }
-    
+
     /// Write content back to file
     pub fn write_to_file(&self) -> Result<()> {
         std::fs::write(&self.path, &self.content)?;
@@ -138,31 +137,37 @@ impl PolicyValidator {
         let rules: Vec<Box<dyn ValidationRule>> = vec![
             Box::new(MetadataPlacementRule),
             Box::new(PackageDeclarationRule),
-            Box::new(ObjectKeyMembershipRule), 
+            Box::new(ObjectKeyMembershipRule),
             Box::new(DecisionStructureRule),
             Box::new(RoutingMetadataRule),
             Box::new(IncrementalRuleGroupingRule),
         ];
-        
+
         Self { rules }
     }
-    
+
     /// Validate a single policy file
     pub fn validate_policy(&self, policy: &PolicyContent) -> PolicyValidationResult {
         debug!("Validating policy: {:?}", policy.path);
-        
+
         let mut issues = Vec::new();
-        
+
         // Run all validation rules
         for rule in &self.rules {
             let rule_issues = rule.check(policy);
             issues.extend(rule_issues);
         }
-        
+
         // Count issues by severity
-        let error_count = issues.iter().filter(|i| i.severity == Severity::Error).count();
-        let warning_count = issues.iter().filter(|i| i.severity == Severity::Warning).count();
-        
+        let error_count = issues
+            .iter()
+            .filter(|i| i.severity == Severity::Error)
+            .count();
+        let warning_count = issues
+            .iter()
+            .filter(|i| i.severity == Severity::Warning)
+            .count();
+
         PolicyValidationResult {
             path: policy.path.clone(),
             issues,
@@ -170,29 +175,28 @@ impl PolicyValidator {
             warning_count,
         }
     }
-    
+
     /// Validate multiple policy files
     pub fn validate_policies(&self, policies: &[PolicyContent]) -> ValidationResult {
         info!("Validating {} policies", policies.len());
-        
+
         let mut results = Vec::new();
         let mut total_errors = 0;
         let mut total_warnings = 0;
-        
+
         for policy in policies {
             let result = self.validate_policy(policy);
             total_errors += result.error_count;
             total_warnings += result.warning_count;
             results.push(result);
         }
-        
+
         ValidationResult {
             policies: results,
             total_errors,
             total_warnings,
         }
     }
-    
 }
 
 impl Default for PolicyValidator {

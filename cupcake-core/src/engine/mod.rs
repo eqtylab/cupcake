@@ -1,5 +1,5 @@
 //! The Cupcake Engine - Core orchestration module
-//! 
+//!
 //! Implements the NEW_GUIDING_FINAL.md Hybrid Model architecture.
 //! This intelligent engine provides:
 //! - Metadata-driven policy discovery and routing
@@ -32,7 +32,7 @@ pub struct ProjectPaths {
     pub actions: PathBuf,
     /// Guidebook file (.cupcake/guidebook.yml)
     pub guidebook: PathBuf,
-    
+
     // Global configuration paths (optional - may not exist)
     /// Global config root directory
     pub global_root: Option<PathBuf>,
@@ -52,10 +52,11 @@ impl ProjectPaths {
     /// Also discovers global configuration if present
     pub fn resolve(input_path: impl AsRef<Path>) -> Result<Self> {
         let input = input_path.as_ref().to_path_buf();
-        
+
         let (root, cupcake_dir) = if input.file_name() == Some(std::ffi::OsStr::new(".cupcake")) {
             // Input is .cupcake/ directory
-            let root = input.parent()
+            let root = input
+                .parent()
                 .ok_or_else(|| anyhow!(".cupcake directory has no parent"))?
                 .to_path_buf();
             (root, input)
@@ -69,16 +70,15 @@ impl ProjectPaths {
             let cupcake_dir = root.join(".cupcake");
             (root, cupcake_dir)
         };
-        
+
         // Discover global configuration (optional - may not exist)
-        let global_config = global_config::GlobalPaths::discover()
-            .unwrap_or_else(|e| {
-                debug!("Failed to discover global config: {}", e);
-                None
-            });
-        
+        let global_config = global_config::GlobalPaths::discover().unwrap_or_else(|e| {
+            debug!("Failed to discover global config: {}", e);
+            None
+        });
+
         // Extract global paths if config exists
-        let (global_root, global_policies, global_signals, global_actions, global_guidebook) = 
+        let (global_root, global_policies, global_signals, global_actions, global_guidebook) =
             if let Some(global) = global_config {
                 info!("Global configuration discovered at {:?}", global.root);
                 (
@@ -92,7 +92,7 @@ impl ProjectPaths {
                 debug!("No global configuration found - using project config only");
                 (None, None, None, None, None)
             };
-        
+
         Ok(ProjectPaths {
             root,
             cupcake_dir: cupcake_dir.clone(),
@@ -110,29 +110,29 @@ impl ProjectPaths {
 }
 
 // Core engine modules - discovery and compilation
+pub mod compiler;
 pub mod metadata;
 pub mod scanner;
-pub mod compiler;
 
 // Routing system
 pub mod routing;
 pub mod routing_debug;
 
 // Policy evaluation
-pub mod wasm_runtime;
 pub mod decision;
 pub mod synthesis;
+pub mod wasm_runtime;
 
 // Configuration and extensions
-pub mod guidebook;
 pub mod builtins;
 pub mod global_config;
+pub mod guidebook;
 
 // Diagnostics and debugging
 pub mod trace;
 
 // Re-export metadata types for public API
-pub use metadata::{RoutingDirective, PolicyMetadata};
+pub use metadata::{PolicyMetadata, RoutingDirective};
 
 /// Represents a discovered policy unit with its metadata
 /// Updated for NEW_GUIDING_FINAL.md metadata-driven routing
@@ -140,13 +140,13 @@ pub use metadata::{RoutingDirective, PolicyMetadata};
 pub struct PolicyUnit {
     /// Path to the .rego file
     pub path: PathBuf,
-    
+
     /// The package name extracted from the policy
     pub package_name: String,
-    
+
     /// The routing directive from OPA metadata
     pub routing: RoutingDirective,
-    
+
     /// Complete metadata for this policy (optional)
     pub metadata: Option<PolicyMetadata>,
 }
@@ -155,38 +155,38 @@ pub struct PolicyUnit {
 pub struct Engine {
     /// Project paths following .cupcake/ convention
     paths: ProjectPaths,
-    
+
     /// In-memory routing map: event criteria -> policy packages
     routing_map: HashMap<String, Vec<PolicyUnit>>,
-    
+
     /// Compiled WASM module (stored as bytes)
     wasm_module: Option<Vec<u8>>,
-    
+
     /// WASM runtime instance
     wasm_runtime: Option<wasm_runtime::WasmRuntime>,
-    
+
     /// List of all discovered policies
     policies: Vec<PolicyUnit>,
-    
+
     /// Optional guidebook for signals and actions
     guidebook: Option<guidebook::Guidebook>,
-    
+
     /// Optional trust verifier for script integrity
     trust_verifier: Option<crate::trust::TrustVerifier>,
-    
+
     // Global configuration support (optional - may not exist)
     /// Global policies routing map
     global_routing_map: HashMap<String, Vec<PolicyUnit>>,
-    
+
     /// Global WASM module (compiled separately)
     global_wasm_module: Option<Vec<u8>>,
-    
+
     /// Global WASM runtime instance
     global_wasm_runtime: Option<wasm_runtime::WasmRuntime>,
-    
+
     /// List of global policies
     global_policies: Vec<PolicyUnit>,
-    
+
     /// Optional global guidebook
     global_guidebook: Option<guidebook::Guidebook>,
 }
@@ -197,11 +197,11 @@ impl Engine {
     /// This is the primary public API - simple and clean
     pub async fn new(project_path: impl AsRef<Path>) -> Result<Self> {
         let paths = ProjectPaths::resolve(project_path)?;
-        
+
         info!("Initializing Cupcake Engine");
         info!("Project root: {:?}", paths.root);
         info!("Policies directory: {:?}", paths.policies);
-        
+
         // Create engine instance with both project and global support
         let mut engine = Self {
             paths,
@@ -218,54 +218,58 @@ impl Engine {
             global_policies: Vec::new(),
             global_guidebook: None,
         };
-        
+
         // Initialize the engine (scan, parse, compile)
         engine.initialize().await?;
-        
+
         Ok(engine)
     }
-    
+
     /// Initialize the engine by scanning, parsing, and compiling policies
     async fn initialize(&mut self) -> Result<()> {
         info!("Starting engine initialization...");
-        
+
         // Step 0A: Initialize global configuration first (if it exists)
         if self.paths.global_root.is_some() {
             info!("Global configuration detected - initializing global policies first");
             self.initialize_global().await?;
         }
-        
+
         // Step 0B: Load project guidebook to get builtin configuration
-        self.guidebook = Some(guidebook::Guidebook::load_with_conventions(
-            &self.paths.guidebook,
-            &self.paths.signals,
-            &self.paths.actions,
-        ).await?);
+        self.guidebook = Some(
+            guidebook::Guidebook::load_with_conventions(
+                &self.paths.guidebook,
+                &self.paths.signals,
+                &self.paths.actions,
+            )
+            .await?,
+        );
         info!("Project guidebook loaded with convention-based discovery");
-        
+
         // Get list of enabled builtins for filtering
-        let enabled_builtins = self.guidebook
+        let enabled_builtins = self
+            .guidebook
             .as_ref()
             .map(|g| g.builtins.enabled_builtins())
             .unwrap_or_default();
-        
+
         if !enabled_builtins.is_empty() {
             info!("Enabled builtins: {:?}", enabled_builtins);
         }
-        
+
         // Step 1: Scan for .rego files in policies directory with builtin filtering
-        let policy_files = scanner::scan_policies_with_filter(
-            &self.paths.policies,
-            &enabled_builtins
-        ).await?;
+        let policy_files =
+            scanner::scan_policies_with_filter(&self.paths.policies, &enabled_builtins).await?;
         info!("Found {} policy files", policy_files.len());
-        
-        
+
         // Step 2: Parse selectors and build policy units
         for path in policy_files {
             match self.parse_policy(&path).await {
                 Ok(unit) => {
-                    info!("Successfully parsed policy: {} from {:?}", unit.package_name, path);
+                    info!(
+                        "Successfully parsed policy: {} from {:?}",
+                        unit.package_name, path
+                    );
                     self.policies.push(unit);
                 }
                 Err(e) => {
@@ -274,27 +278,30 @@ impl Engine {
                 }
             }
         }
-        
+
         if self.policies.is_empty() {
             warn!("No valid policies found in directory");
             return Ok(());
         }
-        
+
         // Step 3: Build routing map
         self.build_routing_map();
         info!("Built routing map with {} entries", self.routing_map.len());
-        
+
         // No entrypoint mapping needed - Hybrid Model uses single aggregation entrypoint
-        
+
         // Step 4: Compile unified WASM module - MANDATORY
         let wasm_bytes = compiler::compile_policies(&self.policies).await?;
-        info!("Successfully compiled unified WASM module ({} bytes)", wasm_bytes.len());
+        info!(
+            "Successfully compiled unified WASM module ({} bytes)",
+            wasm_bytes.len()
+        );
         self.wasm_module = Some(wasm_bytes.clone());
-        
+
         // Step 5: Initialize WASM runtime
         self.wasm_runtime = Some(wasm_runtime::WasmRuntime::new(&wasm_bytes)?);
         info!("WASM runtime initialized");
-        
+
         // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
         self.initialize_trust_system().await;
 
@@ -308,41 +315,50 @@ impl Engine {
         info!("Engine initialization complete");
         Ok(())
     }
-    
+
     /// Initialize global configuration (policies, guidebook, WASM)
     async fn initialize_global(&mut self) -> Result<()> {
         info!("Initializing global configuration...");
-        
+
         // Verify we have global paths
-        let global_policies_path = self.paths.global_policies.as_ref()
+        let global_policies_path = self
+            .paths
+            .global_policies
+            .as_ref()
             .context("Global policies path not set")?;
-        let global_guidebook_path = self.paths.global_guidebook.as_ref()
+        let global_guidebook_path = self
+            .paths
+            .global_guidebook
+            .as_ref()
             .context("Global guidebook path not set")?;
-        
+
         // Load global guidebook
         if global_guidebook_path.exists() {
-            self.global_guidebook = Some(guidebook::Guidebook::load_with_conventions(
-                global_guidebook_path,
-                self.paths.global_signals.as_ref().unwrap(),
-                self.paths.global_actions.as_ref().unwrap(),
-            ).await?);
+            self.global_guidebook = Some(
+                guidebook::Guidebook::load_with_conventions(
+                    global_guidebook_path,
+                    self.paths.global_signals.as_ref().unwrap(),
+                    self.paths.global_actions.as_ref().unwrap(),
+                )
+                .await?,
+            );
             info!("Global guidebook loaded");
         }
-        
+
         // Get global enabled builtins
-        let global_enabled_builtins = self.global_guidebook
+        let global_enabled_builtins = self
+            .global_guidebook
             .as_ref()
             .map(|g| g.builtins.enabled_builtins())
             .unwrap_or_default();
-        
+
         // Scan for global policies
         if global_policies_path.exists() {
-            let global_policy_files = scanner::scan_policies_with_filter(
-                global_policies_path,
-                &global_enabled_builtins
-            ).await?;
+            let global_policy_files =
+                scanner::scan_policies_with_filter(global_policies_path, &global_enabled_builtins)
+                    .await?;
             info!("Found {} global policy files", global_policy_files.len());
-            
+
             // Parse global policies
             for path in global_policy_files {
                 match self.parse_policy(&path).await {
@@ -350,11 +366,15 @@ impl Engine {
                         // Transform package name to global namespace
                         if !unit.package_name.starts_with("cupcake.global.") {
                             // Replace "cupcake.policies" with "cupcake.global.policies"
-                            unit.package_name = unit.package_name
+                            unit.package_name = unit
+                                .package_name
                                 .replace("cupcake.policies", "cupcake.global.policies")
                                 .replace("cupcake.system", "cupcake.global.system");
                         }
-                        info!("Successfully parsed global policy: {} from {:?}", unit.package_name, path);
+                        info!(
+                            "Successfully parsed global policy: {} from {:?}",
+                            unit.package_name, path
+                        );
                         self.global_policies.push(unit);
                     }
                     Err(e) => {
@@ -362,91 +382,128 @@ impl Engine {
                     }
                 }
             }
-            
+
             if !self.global_policies.is_empty() {
                 // Check if we have non-system policies (OPA panics with only system policies)
-                info!("Global policies found: {:?}", self.global_policies.iter().map(|p| &p.package_name).collect::<Vec<_>>());
-                let non_system_count = self.global_policies.iter()
+                info!(
+                    "Global policies found: {:?}",
+                    self.global_policies
+                        .iter()
+                        .map(|p| &p.package_name)
+                        .collect::<Vec<_>>()
+                );
+                let non_system_count = self
+                    .global_policies
+                    .iter()
                     .filter(|p| !p.package_name.ends_with(".system"))
                     .count();
-                    
+
                 if non_system_count > 0 {
                     // Build global routing map
                     self.build_global_routing_map();
-                    info!("Built global routing map with {} entries", self.global_routing_map.len());
-                    
-                    info!("Found {} global policies ({} non-system) - compiling global WASM module", 
-                        self.global_policies.len(), non_system_count);
-                    
+                    info!(
+                        "Built global routing map with {} entries",
+                        self.global_routing_map.len()
+                    );
+
+                    info!(
+                        "Found {} global policies ({} non-system) - compiling global WASM module",
+                        self.global_policies.len(),
+                        non_system_count
+                    );
+
                     // Compile global policies to WASM
                     let global_wasm_bytes = compiler::compile_policies_with_namespace(
                         &self.global_policies,
-                        "cupcake.global.system"
-                    ).await?;
-                    info!("Successfully compiled global WASM module ({} bytes)", global_wasm_bytes.len());
-                    self.global_wasm_module = Some(global_wasm_bytes.clone());
-                    
-                    // Initialize global WASM runtime with global namespace
-                    self.global_wasm_runtime = Some(
-                        wasm_runtime::WasmRuntime::new_with_namespace(&global_wasm_bytes, "cupcake.global.system")?
+                        "cupcake.global.system",
+                    )
+                    .await?;
+                    info!(
+                        "Successfully compiled global WASM module ({} bytes)",
+                        global_wasm_bytes.len()
                     );
+                    self.global_wasm_module = Some(global_wasm_bytes.clone());
+
+                    // Initialize global WASM runtime with global namespace
+                    self.global_wasm_runtime = Some(wasm_runtime::WasmRuntime::new_with_namespace(
+                        &global_wasm_bytes,
+                        "cupcake.global.system",
+                    )?);
                     info!("Global WASM runtime initialized with namespace: cupcake.global.system");
                 } else {
                     info!("Only system policies found in global config - skipping global WASM compilation");
                 }
             }
         }
-        
+
         info!("Global configuration initialization complete");
         Ok(())
     }
-    
+
     /// Build routing map for global policies
     fn build_global_routing_map(&mut self) {
-        Self::build_routing_map_generic(&self.global_policies, &mut self.global_routing_map, "global");
+        Self::build_routing_map_generic(
+            &self.global_policies,
+            &mut self.global_routing_map,
+            "global",
+        );
     }
-    
+
     /// Parse a single policy file to extract selector and metadata
     async fn parse_policy(&self, path: &Path) -> Result<PolicyUnit> {
         let content = tokio::fs::read_to_string(path)
             .await
             .context("Failed to read policy file")?;
-        
+
         // Extract package name
-        let package_name = metadata::extract_package_name(&content)
-            .context("Failed to extract package name")?;
-        
+        let package_name =
+            metadata::extract_package_name(&content).context("Failed to extract package name")?;
+
         // Parse OPA metadata
-        let policy_metadata = metadata::parse_metadata(&content)
-            .context("Failed to parse OPA metadata")?;
-        
+        let policy_metadata =
+            metadata::parse_metadata(&content).context("Failed to parse OPA metadata")?;
+
         // Extract routing directive - system policies don't need routing
         let routing = if let Some(ref meta) = policy_metadata {
             if let Some(ref routing_directive) = meta.custom.routing {
                 // Validate the routing directive
                 metadata::validate_routing_directive(routing_directive, &package_name)
-                    .with_context(|| format!("Invalid routing directive in policy {}", package_name))?;
+                    .with_context(|| {
+                        format!("Invalid routing directive in policy {package_name}")
+                    })?;
                 routing_directive.clone()
             } else if package_name.ends_with(".system") {
                 // System policies don't need routing - they're aggregation endpoints
                 // This covers both cupcake.system and cupcake.global.system
-                debug!("System policy {} has no routing directive (this is expected)", package_name);
+                debug!(
+                    "System policy {} has no routing directive (this is expected)",
+                    package_name
+                );
                 RoutingDirective::default()
             } else {
-                warn!("Policy {} has no routing directive in metadata - will not be routed", package_name);
+                warn!(
+                    "Policy {} has no routing directive in metadata - will not be routed",
+                    package_name
+                );
                 return Err(anyhow::anyhow!("Policy missing routing directive"));
             }
         } else {
             // System policies are allowed to have no metadata
             if package_name.ends_with(".system") {
-                debug!("System policy {} has no metadata block (this is allowed)", package_name);
+                debug!(
+                    "System policy {} has no metadata block (this is allowed)",
+                    package_name
+                );
                 RoutingDirective::default()
             } else {
-                warn!("Policy {} has no metadata block - will not be routed", package_name);
+                warn!(
+                    "Policy {} has no metadata block - will not be routed",
+                    package_name
+                );
                 return Err(anyhow::anyhow!("Policy missing metadata"));
             }
         };
-        
+
         Ok(PolicyUnit {
             path: path.to_path_buf(),
             package_name,
@@ -454,37 +511,41 @@ impl Engine {
             metadata: policy_metadata,
         })
     }
-    
+
     /// Build the routing map from parsed policies
     fn build_routing_map(&mut self) {
         Self::build_routing_map_generic(&self.policies, &mut self.routing_map, "project");
     }
-    
+
     /// Generic method to build routing maps for both global and project policies
     fn build_routing_map_generic(
         policies: &[PolicyUnit],
         routing_map: &mut HashMap<String, Vec<PolicyUnit>>,
-        map_type: &str
+        map_type: &str,
     ) {
         routing_map.clear();
-        
+
         for policy in policies {
             // Create all routing keys for this policy from metadata
             let routing_keys = routing::create_all_routing_keys_from_metadata(&policy.routing);
-            
+
             // Add policy to the routing map for each key
             for key in routing_keys {
                 routing_map
                     .entry(key.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(policy.clone());
-                debug!("Added {} policy {} to routing key: {}", map_type, policy.package_name, key);
+                debug!(
+                    "Added {} policy {} to routing key: {}",
+                    map_type, policy.package_name, key
+                );
             }
         }
-        
+
         // Handle wildcard routes - also add them to specific tool lookups
         // This allows "PreToolUse:Bash" to find both specific and wildcard policies
-        let wildcard_keys: Vec<String> = routing_map.keys()
+        let wildcard_keys: Vec<String> = routing_map
+            .keys()
             .filter(|k| k.ends_with(":*"))
             .cloned()
             .collect();
@@ -494,8 +555,9 @@ impl Engine {
                 let event_prefix = wildcard_key.strip_suffix(":*").unwrap();
 
                 // Find all specific tool keys for this event
-                let specific_keys: Vec<String> = routing_map.keys()
-                    .filter(|k| k.starts_with(&format!("{}:", event_prefix)) && !k.ends_with(":*"))
+                let specific_keys: Vec<String> = routing_map
+                    .keys()
+                    .filter(|k| k.starts_with(&format!("{event_prefix}:")) && !k.ends_with(":*"))
                     .cloned()
                     .collect();
 
@@ -503,7 +565,7 @@ impl Engine {
                 for specific_key in specific_keys {
                     routing_map
                         .entry(specific_key)
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .extend(wildcard_policies.clone());
                 }
             }
@@ -516,8 +578,9 @@ impl Engine {
         for tool_event in TOOL_EVENTS {
             if let Some(event_only_policies) = routing_map.get(*tool_event).cloned() {
                 // Find all specific tool keys for this event
-                let specific_keys: Vec<String> = routing_map.keys()
-                    .filter(|k| k.starts_with(&format!("{}:", tool_event)) && !k.ends_with(":*"))
+                let specific_keys: Vec<String> = routing_map
+                    .keys()
+                    .filter(|k| k.starts_with(&format!("{tool_event}:")) && !k.ends_with(":*"))
                     .cloned()
                     .collect();
 
@@ -528,10 +591,15 @@ impl Engine {
                         .and_modify(|policies| {
                             // Add event-only policies if not already present
                             for event_policy in &event_only_policies {
-                                if !policies.iter().any(|p| p.package_name == event_policy.package_name) {
+                                if !policies
+                                    .iter()
+                                    .any(|p| p.package_name == event_policy.package_name)
+                                {
                                     policies.push(event_policy.clone());
-                                    debug!("Added {} wildcard policy {} to specific key: {}",
-                                           map_type, event_policy.package_name, specific_key);
+                                    debug!(
+                                        "Added {} wildcard policy {} to specific key: {}",
+                                        map_type, event_policy.package_name, specific_key
+                                    );
                                 }
                             }
                         });
@@ -545,34 +613,35 @@ impl Engine {
                 "Route '{}' -> {} policies: [{}]",
                 key,
                 policies.len(),
-                policies.iter()
+                policies
+                    .iter()
                     .map(|p| p.package_name.as_str())
                     .collect::<Vec<_>>()
                     .join(", ")
             );
         }
     }
-    
+
     /// Get the routing map (for verification/testing)
     pub fn routing_map(&self) -> &HashMap<String, Vec<PolicyUnit>> {
         &self.routing_map
     }
-    
+
     /// Get the compiled WASM module (for verification/testing)
     pub fn wasm_module(&self) -> Option<&[u8]> {
         self.wasm_module.as_deref()
     }
-    
+
     /// Get the global routing map (for verification/testing)
     pub fn global_routing_map(&self) -> &HashMap<String, Vec<PolicyUnit>> {
         &self.global_routing_map
     }
-    
+
     /// Get the compiled global WASM module (for verification/testing)
     pub fn global_wasm_module(&self) -> Option<&[u8]> {
         self.global_wasm_module.as_deref()
     }
-    
+
     /// Find policies that match the given event criteria
     #[instrument(
         name = "route_event",
@@ -588,7 +657,8 @@ impl Engine {
         let key = routing::create_event_key(event_name, tool_name);
 
         // First try the specific key
-        let mut result: Vec<&PolicyUnit> = self.routing_map
+        let mut result: Vec<&PolicyUnit> = self
+            .routing_map
             .get(&key)
             .map(|policies| policies.iter().collect())
             .unwrap_or_default();
@@ -606,26 +676,24 @@ impl Engine {
                 }
             }
         }
-        
+
         // Record matched policies
         let current_span = tracing::Span::current();
-        current_span.record("matched_count", &result.len());
+        current_span.record("matched_count", result.len());
         if !result.is_empty() {
-            let policy_names: Vec<&str> = result.iter()
-                .map(|p| p.package_name.as_str())
-                .collect();
-            current_span.record("policy_names", &format!("{:?}", policy_names).as_str());
+            let policy_names: Vec<&str> = result.iter().map(|p| p.package_name.as_str()).collect();
+            current_span.record("policy_names", format!("{policy_names:?}").as_str());
         }
-        
+
         trace!(
             duration_us = start.elapsed().as_micros(),
             matched = result.len(),
             "Policy routing complete"
         );
-        
+
         result
     }
-    
+
     /// Evaluate policies for a hook event - THE MAIN PUBLIC API
     /// Implements the NEW_GUIDING_FINAL.md Hybrid Model evaluation flow
     #[instrument(
@@ -641,34 +709,39 @@ impl Engine {
             duration_ms = tracing::field::Empty
         )
     )]
-    pub async fn evaluate(&self, input: &Value, mut debug_capture: Option<&mut DebugCapture>) -> Result<decision::FinalDecision> {
+    pub async fn evaluate(
+        &self,
+        input: &Value,
+        mut debug_capture: Option<&mut DebugCapture>,
+    ) -> Result<decision::FinalDecision> {
         let eval_start = Instant::now();
-        
+
         // Extract event info from input for routing
         // Try both camelCase and snake_case for compatibility
-        let event_name = input.get("hookEventName")
+        let event_name = input
+            .get("hookEventName")
             .or_else(|| input.get("hook_event_name"))
             .and_then(|v| v.as_str())
             .context("Missing hookEventName/hook_event_name in input")?;
-            
-        let tool_name = input.get("tool_name")
-            .and_then(|v| v.as_str());
-            
+
+        let tool_name = input.get("tool_name").and_then(|v| v.as_str());
+
         // Set span fields
         let current_span = tracing::Span::current();
-        current_span.record("event_name", &event_name);
-        current_span.record("tool_name", &tool_name);
+        current_span.record("event_name", event_name);
+        current_span.record("tool_name", tool_name);
         if let Some(session_id) = trace::extract_session_id(input) {
-            current_span.record("session_id", &session_id.as_str());
+            current_span.record("session_id", session_id.as_str());
         }
-            
+
         info!("Evaluating event: {} tool: {:?}", event_name, tool_name);
-        
+
         // PHASE 1: Evaluate global policies first (if they exist)
         if self.global_wasm_runtime.is_some() {
             debug!("Phase 1: Evaluating global policies");
-            let (global_decision, global_decision_set) = self.evaluate_global(input, event_name, tool_name).await?;
-            
+            let (global_decision, global_decision_set) =
+                self.evaluate_global(input, event_name, tool_name).await?;
+
             // Early termination on global blocking decisions
             match &global_decision {
                 decision::FinalDecision::Halt { reason } => {
@@ -676,32 +749,47 @@ impl Engine {
                     // Execute global actions before returning
                     if let Some(ref global_guidebook) = self.global_guidebook {
                         info!("Global guidebook found - executing global actions");
-                        self.execute_actions_with_guidebook(&global_decision, &global_decision_set, global_guidebook).await;
+                        self.execute_actions_with_guidebook(
+                            &global_decision,
+                            &global_decision_set,
+                            global_guidebook,
+                        )
+                        .await;
                     } else {
                         warn!("No global guidebook - cannot execute global actions!");
                     }
                     current_span.record("final_decision", "GlobalHalt");
-                    current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+                    current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
                 decision::FinalDecision::Deny { reason } => {
                     info!("Global policy DENY - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_guidebook) = self.global_guidebook {
-                        self.execute_actions_with_guidebook(&global_decision, &global_decision_set, global_guidebook).await;
+                        self.execute_actions_with_guidebook(
+                            &global_decision,
+                            &global_decision_set,
+                            global_guidebook,
+                        )
+                        .await;
                     }
                     current_span.record("final_decision", "GlobalDeny");
-                    current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+                    current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
                 decision::FinalDecision::Block { reason } => {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_guidebook) = self.global_guidebook {
-                        self.execute_actions_with_guidebook(&global_decision, &global_decision_set, global_guidebook).await;
+                        self.execute_actions_with_guidebook(
+                            &global_decision,
+                            &global_decision_set,
+                            global_guidebook,
+                        )
+                        .await;
                     }
                     current_span.record("final_decision", "GlobalBlock");
-                    current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+                    current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
                 _ => {
@@ -710,87 +798,99 @@ impl Engine {
                 }
             }
         }
-        
+
         // PHASE 2: Evaluate project policies
         debug!("Phase 2: Evaluating project policies");
-        
+
         // Step 1: Route - find relevant policies (collect owned PolicyUnits)
-        let matched_policies: Vec<PolicyUnit> = self.route_event(event_name, tool_name)
+        let matched_policies: Vec<PolicyUnit> = self
+            .route_event(event_name, tool_name)
             .into_iter()
             .cloned()
             .collect();
-            
+
         // Capture routing results
         if let Some(ref mut debug) = debug_capture {
             debug.routed = !matched_policies.is_empty();
-            debug.matched_policies = matched_policies.iter()
+            debug.matched_policies = matched_policies
+                .iter()
                 .map(|p| p.package_name.clone())
                 .collect();
         }
-            
+
         if matched_policies.is_empty() {
             info!("No policies matched for this event - allowing");
-            current_span.record("matched_policy_count", &0);
+            current_span.record("matched_policy_count", 0);
             current_span.record("final_decision", "Allow");
-            current_span.record("duration_ms", &eval_start.elapsed().as_millis());
+            current_span.record("duration_ms", eval_start.elapsed().as_millis());
             return Ok(decision::FinalDecision::Allow { context: vec![] });
         }
-        
-        current_span.record("matched_policy_count", &matched_policies.len());
+
+        current_span.record("matched_policy_count", matched_policies.len());
         info!("Found {} matching policies", matched_policies.len());
-        
+
         // Step 2: Gather Signals - collect all required signals from matched policies
-        let enriched_input = self.gather_signals(input, &matched_policies, debug_capture.as_deref_mut()).await?;
-        
+        let enriched_input = self
+            .gather_signals(input, &matched_policies, debug_capture.as_deref_mut())
+            .await?;
+
         // Debug output for testing
         if let Some(params) = input.get("params") {
             if let Some(file_path) = params.get("file_path") {
                 if let Some(path_str) = file_path.as_str() {
                     if path_str.ends_with(".fail") {
-                        eprintln!("DEBUG: Enriched input for .fail file: {}", 
-                            serde_json::to_string_pretty(&enriched_input).unwrap_or_else(|_| "failed to serialize".to_string()));
+                        eprintln!(
+                            "DEBUG: Enriched input for .fail file: {}",
+                            serde_json::to_string_pretty(&enriched_input)
+                                .unwrap_or_else(|_| "failed to serialize".to_string())
+                        );
                     }
                 }
             }
         }
-        
+
         // Step 3: Evaluate using single aggregation entrypoint with enriched input
         debug!("About to evaluate decision set with enriched input");
         let decision_set = self.evaluate_decision_set(&enriched_input).await?;
-        
+
         // Capture WASM evaluation results
         if let Some(ref mut debug) = debug_capture {
             debug.wasm_decision_set = Some(decision_set.clone());
         }
-        
+
         // Step 4: Apply Intelligence Layer synthesis
         let final_decision = synthesis::SynthesisEngine::synthesize(&decision_set)?;
-        
+
         info!("Synthesized final decision: {:?}", final_decision);
-        
+
         // Capture synthesis results
         if let Some(ref mut debug) = debug_capture {
             debug.final_decision = Some(final_decision.clone());
         }
-        
+
         // Step 5: Execute actions based on decision (async, non-blocking)
-        self.execute_actions_with_debug(&final_decision, &decision_set, debug_capture.as_deref_mut()).await;
-        
+        self.execute_actions_with_debug(
+            &final_decision,
+            &decision_set,
+            debug_capture.as_deref_mut(),
+        )
+        .await;
+
         // Record final decision type and duration
         let duration = eval_start.elapsed();
         let current_span = tracing::Span::current();
-        current_span.record("final_decision", &format!("{:?}", final_decision).as_str());
-        current_span.record("duration_ms", &duration.as_millis());
-        
+        current_span.record("final_decision", format!("{final_decision:?}").as_str());
+        current_span.record("duration_ms", duration.as_millis());
+
         trace!(
             decision = ?final_decision,
             duration_ms = duration.as_millis(),
             "Evaluation complete"
         );
-        
+
         Ok(final_decision)
     }
-    
+
     /// Evaluate global policies
     async fn evaluate_global(
         &self,
@@ -799,52 +899,60 @@ impl Engine {
         tool_name: Option<&str>,
     ) -> Result<(decision::FinalDecision, decision::DecisionSet)> {
         // Route through global policies
-        let global_matched: Vec<PolicyUnit> = self.route_global_event(event_name, tool_name)
+        let global_matched: Vec<PolicyUnit> = self
+            .route_global_event(event_name, tool_name)
             .into_iter()
             .cloned()
             .collect();
-        
+
         if global_matched.is_empty() {
             debug!("No global policies matched for this event");
             return Ok((
                 decision::FinalDecision::Allow { context: vec![] },
-                decision::DecisionSet::default()
+                decision::DecisionSet::default(),
             ));
         }
-        
+
         info!("Found {} matching global policies", global_matched.len());
-        
+
         // Gather signals for global policies (using global guidebook if available)
         let enriched_input = if let Some(ref global_guidebook) = self.global_guidebook {
-            self.gather_signals_with_guidebook(input, &global_matched, global_guidebook).await?
+            self.gather_signals_with_guidebook(input, &global_matched, global_guidebook)
+                .await?
         } else {
             input.clone()
         };
-        
+
         // Evaluate using global WASM runtime
-        let global_runtime = self.global_wasm_runtime.as_ref()
+        let global_runtime = self
+            .global_wasm_runtime
+            .as_ref()
             .context("Global WASM runtime not initialized")?;
-        
+
         let global_decision_set = global_runtime.query_decision_set(&enriched_input)?;
-        debug!("Global DecisionSet: {} total decisions", global_decision_set.decision_count());
-        
+        debug!(
+            "Global DecisionSet: {} total decisions",
+            global_decision_set.decision_count()
+        );
+
         // Synthesize global decision
         let global_decision = synthesis::SynthesisEngine::synthesize(&global_decision_set)?;
         info!("Global policy decision: {:?}", global_decision);
-        
+
         Ok((global_decision, global_decision_set))
     }
-    
+
     /// Route event through global policies
     fn route_global_event(&self, event_name: &str, tool_name: Option<&str>) -> Vec<&PolicyUnit> {
         let key = routing::create_event_key(event_name, tool_name);
-        
+
         // First try the specific key
-        let mut result: Vec<&PolicyUnit> = self.global_routing_map
+        let mut result: Vec<&PolicyUnit> = self
+            .global_routing_map
             .get(&key)
             .map(|policies| policies.iter().collect())
             .unwrap_or_default();
-            
+
         // If we have a tool name, also check for wildcards
         if tool_name.is_some() {
             let wildcard_key = event_name.to_string();
@@ -852,11 +960,11 @@ impl Engine {
                 result.extend(wildcard_policies.iter());
             }
         }
-        
+
         debug!("Routed to {} global policies", result.len());
         result
     }
-    
+
     /// Gather signals with a specific guidebook
     async fn gather_signals_with_guidebook(
         &self,
@@ -871,14 +979,18 @@ impl Engine {
                 required_signals.insert(signal_name.clone());
             }
         }
-        
+
         // ALSO: For builtin policies, automatically include their generated signals
         // This mirrors the logic in gather_signals() for project builtins
         for policy in matched_policies {
             // Check for both global and project builtin namespaces
-            let is_global_builtin = policy.package_name.starts_with("cupcake.global.policies.builtins.");
-            let is_project_builtin = policy.package_name.starts_with("cupcake.policies.builtins.");
-            
+            let is_global_builtin = policy
+                .package_name
+                .starts_with("cupcake.global.policies.builtins.");
+            let is_project_builtin = policy
+                .package_name
+                .starts_with("cupcake.policies.builtins.");
+
             if is_global_builtin || is_project_builtin {
                 // Extract the builtin name from the package
                 let prefix = if is_global_builtin {
@@ -886,68 +998,79 @@ impl Engine {
                 } else {
                     "cupcake.policies.builtins."
                 };
-                
-                let builtin_name = policy.package_name
-                    .strip_prefix(prefix)
-                    .unwrap_or("");
-                
+
+                let builtin_name = policy.package_name.strip_prefix(prefix).unwrap_or("");
+
                 // Add all signals that match this builtin's pattern
-                let signal_prefix = format!("__builtin_{}_", builtin_name);
+                let signal_prefix = format!("__builtin_{builtin_name}_");
                 for signal_name in guidebook.signals.keys() {
                     if signal_name.starts_with(&signal_prefix) {
-                        debug!("Auto-adding signal '{}' for global builtin '{}'", signal_name, builtin_name);
+                        debug!(
+                            "Auto-adding signal '{}' for global builtin '{}'",
+                            signal_name, builtin_name
+                        );
                         required_signals.insert(signal_name.clone());
                     }
                 }
-                
+
                 // Also check for signals without the trailing underscore (like __builtin_system_protection_paths)
-                let signal_prefix_no_underscore = format!("__builtin_{}", builtin_name);
+                let signal_prefix_no_underscore = format!("__builtin_{builtin_name}");
                 for signal_name in guidebook.signals.keys() {
-                    if signal_name.starts_with(&signal_prefix_no_underscore) && !signal_name.starts_with(&signal_prefix) {
-                        debug!("Auto-adding signal '{}' for global builtin '{}'", signal_name, builtin_name);
+                    if signal_name.starts_with(&signal_prefix_no_underscore)
+                        && !signal_name.starts_with(&signal_prefix)
+                    {
+                        debug!(
+                            "Auto-adding signal '{}' for global builtin '{}'",
+                            signal_name, builtin_name
+                        );
                         required_signals.insert(signal_name.clone());
                     }
                 }
             }
         }
-        
+
         // Always inject builtin config from the provided guidebook
         let mut enriched_input = input.clone();
         if let Some(input_obj) = enriched_input.as_object_mut() {
             let mut builtin_config = serde_json::Map::new();
-            
+
             debug!("Injecting builtin configs from guidebook in gather_signals_with_guidebook");
             Self::inject_builtin_config_from_guidebook(&mut builtin_config, guidebook);
-            
+
             if !builtin_config.is_empty() {
                 debug!("Injected {} builtin configurations", builtin_config.len());
-                input_obj.insert("builtin_config".to_string(), serde_json::Value::Object(builtin_config));
+                input_obj.insert(
+                    "builtin_config".to_string(),
+                    serde_json::Value::Object(builtin_config),
+                );
             }
         }
-        
+
         if required_signals.is_empty() {
             debug!("No signals required - returning with builtin config");
             return Ok(enriched_input);
         }
-        
+
         let signal_names: Vec<String> = required_signals.into_iter().collect();
         info!("Gathering {} signals from guidebook", signal_names.len());
-        
+
         // Execute signals using the provided guidebook, passing the event data
-        let signal_data = self.execute_signals_from_guidebook(&signal_names, guidebook, input).await
+        let signal_data = self
+            .execute_signals_from_guidebook(&signal_names, guidebook, input)
+            .await
             .unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
                 std::collections::HashMap::new()
             });
-        
+
         // Merge signal data into already-enriched input
         if let Some(obj) = enriched_input.as_object_mut() {
             obj.insert("signals".to_string(), serde_json::json!(signal_data));
         }
-        
+
         Ok(enriched_input)
     }
-    
+
     /// Execute signals from a specific guidebook
     async fn execute_signals_from_guidebook(
         &self,
@@ -956,25 +1079,35 @@ impl Engine {
         event_data: &Value,
     ) -> Result<std::collections::HashMap<String, Value>> {
         // Use the guidebook's execute_signals_with_input method to pass event data
-        guidebook.execute_signals_with_input(signal_names, event_data).await
+        guidebook
+            .execute_signals_with_input(signal_names, event_data)
+            .await
     }
-    
+
     /// Evaluate using the Hybrid Model single aggregation entrypoint
     async fn evaluate_decision_set(&self, input: &Value) -> Result<decision::DecisionSet> {
-        let runtime = self.wasm_runtime.as_ref()
+        let runtime = self
+            .wasm_runtime
+            .as_ref()
             .context("WASM runtime not initialized")?;
-        
+
         debug!("Evaluating using single cupcake.system.evaluate entrypoint");
-        
+
         // Query the single aggregation entrypoint
         let decision_set = runtime.query_decision_set(input)?;
-        
-        debug!("Raw DecisionSet from WASM: {} total decisions", decision_set.decision_count());
-        debug!("DecisionSet summary: {}", synthesis::SynthesisEngine::summarize_decision_set(&decision_set));
-        
+
+        debug!(
+            "Raw DecisionSet from WASM: {} total decisions",
+            decision_set.decision_count()
+        );
+        debug!(
+            "DecisionSet summary: {}",
+            synthesis::SynthesisEngine::summarize_decision_set(&decision_set)
+        );
+
         Ok(decision_set)
     }
-    
+
     /// Gather signals required by the matched policies and enrich the input
     #[instrument(
         name = "gather_signals",
@@ -985,7 +1118,12 @@ impl Engine {
             duration_ms = tracing::field::Empty
         )
     )]
-    async fn gather_signals(&self, input: &Value, matched_policies: &[PolicyUnit], mut debug_capture: Option<&mut DebugCapture>) -> Result<Value> {
+    async fn gather_signals(
+        &self,
+        input: &Value,
+        matched_policies: &[PolicyUnit],
+        mut debug_capture: Option<&mut DebugCapture>,
+    ) -> Result<Value> {
         let start = Instant::now();
         // Collect all unique required signals from matched policies
         let mut required_signals = std::collections::HashSet::new();
@@ -994,17 +1132,21 @@ impl Engine {
                 required_signals.insert(signal_name.clone());
             }
         }
-        
+
         // ALSO: For builtin policies, automatically include their generated signals
         // This is needed because builtin policies can't statically declare dynamic signals
         if let Some(guidebook) = &self.guidebook {
             for policy in matched_policies {
-                if policy.package_name.starts_with("cupcake.policies.builtins.") {
+                if policy
+                    .package_name
+                    .starts_with("cupcake.policies.builtins.")
+                {
                     // This is a builtin policy - add signals that match its pattern
-                    let builtin_name = policy.package_name
+                    let builtin_name = policy
+                        .package_name
                         .strip_prefix("cupcake.policies.builtins.")
                         .unwrap_or("");
-                    
+
                     // Special handling for post_edit_check - only add the signal for the actual file extension
                     if builtin_name == "post_edit_check" {
                         // Extract file extension from input if available
@@ -1013,11 +1155,16 @@ impl Engine {
                                 if let Some(path_str) = file_path.as_str() {
                                     if let Some(extension) = std::path::Path::new(path_str)
                                         .extension()
-                                        .and_then(|e| e.to_str()) {
+                                        .and_then(|e| e.to_str())
+                                    {
                                         // Only add the signal for this specific extension
-                                        let signal_name = format!("__builtin_post_edit_{}", extension);
+                                        let signal_name =
+                                            format!("__builtin_post_edit_{extension}");
                                         if guidebook.signals.contains_key(&signal_name) {
-                                            debug!("Auto-adding signal '{}' for file extension '{}'", signal_name, extension);
+                                            debug!(
+                                                "Auto-adding signal '{}' for file extension '{}'",
+                                                signal_name, extension
+                                            );
                                             required_signals.insert(signal_name);
                                         }
                                     }
@@ -1026,10 +1173,13 @@ impl Engine {
                         }
                     } else {
                         // For other builtins, add all matching signals
-                        let signal_prefix = format!("__builtin_{}_", builtin_name);
+                        let signal_prefix = format!("__builtin_{builtin_name}_");
                         for signal_name in guidebook.signals.keys() {
                             if signal_name.starts_with(&signal_prefix) {
-                                debug!("Auto-adding signal '{}' for builtin '{}'", signal_name, builtin_name);
+                                debug!(
+                                    "Auto-adding signal '{}' for builtin '{}'",
+                                    signal_name, builtin_name
+                                );
                                 required_signals.insert(signal_name.clone());
                             }
                         }
@@ -1037,85 +1187,102 @@ impl Engine {
                 }
             }
         }
-        
+
         // Always inject builtin config, even when no signals are required
         let mut enriched_input = input.clone();
         if let Some(input_obj) = enriched_input.as_object_mut() {
             // Inject builtin configuration directly (no shell execution needed for static values)
             let mut builtin_config = serde_json::Map::new();
-            
+
             // First inject project configs (baseline from project)
             if let Some(project_guidebook) = &self.guidebook {
                 debug!("Injecting builtin configs from project guidebook");
                 Self::inject_builtin_config_from_guidebook(&mut builtin_config, project_guidebook);
             }
-            
+
             // Then inject global configs (override project - global enforcement takes precedence)
             if let Some(global_guidebook) = &self.global_guidebook {
                 debug!("Injecting builtin configs from global guidebook (overrides project)");
                 Self::inject_builtin_config_from_guidebook(&mut builtin_config, global_guidebook);
             }
-            
+
             if !builtin_config.is_empty() {
-                debug!("Injected {} builtin configurations total (global + project)", builtin_config.len());
+                debug!(
+                    "Injected {} builtin configurations total (global + project)",
+                    builtin_config.len()
+                );
                 // Debug: print the actual builtin_config
                 debug!("Builtin config contents: {:?}", builtin_config);
-                input_obj.insert("builtin_config".to_string(), serde_json::Value::Object(builtin_config));
+                input_obj.insert(
+                    "builtin_config".to_string(),
+                    serde_json::Value::Object(builtin_config),
+                );
             } else {
                 debug!("No builtin configurations to inject");
             }
         }
-        
+
         if required_signals.is_empty() {
             debug!("No signals required - returning with builtin config");
             return Ok(enriched_input);
         }
-        
+
         let signal_names: Vec<String> = required_signals.into_iter().collect();
-        info!("Gathering {} signals: {:?}", signal_names.len(), signal_names);
-        
+        info!(
+            "Gathering {} signals: {:?}",
+            signal_names.len(),
+            signal_names
+        );
+
         // Capture configured signals
         if let Some(ref mut debug) = debug_capture {
             debug.signals_configured = signal_names.clone();
         }
-        
+
         // Execute signals if we have a guidebook, passing the event data (input)
         let signal_data = if let Some(guidebook) = &self.guidebook {
-            let results = self.execute_signals_with_trust_and_debug(&signal_names, guidebook, input, debug_capture.as_deref_mut()).await.unwrap_or_else(|e| {
-                warn!("Signal execution failed: {}", e);
-                std::collections::HashMap::<String, serde_json::Value>::new()
-            });
+            let results = self
+                .execute_signals_with_trust_and_debug(
+                    &signal_names,
+                    guidebook,
+                    input,
+                    debug_capture.as_deref_mut(),
+                )
+                .await
+                .unwrap_or_else(|e| {
+                    warn!("Signal execution failed: {}", e);
+                    std::collections::HashMap::<String, serde_json::Value>::new()
+                });
             results
         } else {
             debug!("No guidebook available - no signals collected");
             std::collections::HashMap::<String, serde_json::Value>::new()
         };
-        
+
         // Merge signal data into already-enriched input (which has builtin_config)
         let signal_count = signal_data.len();
         // enriched_input already has builtin_config from above
         if let Some(input_obj) = enriched_input.as_object_mut() {
             input_obj.insert("signals".to_string(), serde_json::to_value(signal_data)?);
         }
-        
-        
+
         // Record span fields
         let duration = start.elapsed();
         let current_span = tracing::Span::current();
-        current_span.record("signal_count", &signal_count);
-        current_span.record("signals_executed", &signal_names.join(",").as_str());
-        current_span.record("duration_ms", &duration.as_millis());
-        
+        current_span.record("signal_count", signal_count);
+        current_span.record("signals_executed", signal_names.join(",").as_str());
+        current_span.record("duration_ms", duration.as_millis());
+
         debug!("Input enriched with {} signal values", signal_count);
         trace!(
             signal_count = signal_count,
             duration_ms = duration.as_millis(),
             "Signal gathering complete"
         );
-        
+
         Ok(enriched_input)
     }
-    
+
     /// Execute signals with trust verification
     async fn execute_signals_with_trust(
         &self,
@@ -1123,9 +1290,10 @@ impl Engine {
         guidebook: &guidebook::Guidebook,
         event_data: &Value,
     ) -> Result<HashMap<String, serde_json::Value>> {
-        self.execute_signals_with_trust_and_debug(signal_names, guidebook, event_data, None).await
+        self.execute_signals_with_trust_and_debug(signal_names, guidebook, event_data, None)
+            .await
     }
-    
+
     /// Execute signals with trust verification and debug capture
     async fn execute_signals_with_trust_and_debug(
         &self,
@@ -1134,44 +1302,58 @@ impl Engine {
         event_data: &Value,
         mut debug_capture: Option<&mut DebugCapture>,
     ) -> Result<HashMap<String, serde_json::Value>> {
-        use futures::future::join_all;
         use crate::debug::SignalExecution;
-        
+        use futures::future::join_all;
+
         if signal_names.is_empty() {
             return Ok(HashMap::new());
         }
-        
-        debug!("Executing {} signals with trust verification", signal_names.len());
-        
-        let futures: Vec<_> = signal_names.iter()
+
+        debug!(
+            "Executing {} signals with trust verification",
+            signal_names.len()
+        );
+
+        let futures: Vec<_> = signal_names
+            .iter()
             .map(|name| {
                 let name = name.clone();
                 let trust_verifier = self.trust_verifier.clone();
                 let signal_config = guidebook.get_signal(&name).cloned();
                 let event_data = event_data.clone();
-                
+
                 async move {
                     // Get the signal config
                     let signal = match signal_config {
                         Some(s) => s,
                         None => {
-                            return (name.clone(), Err(anyhow::anyhow!("Signal '{}' not found", name)), None);
+                            return (
+                                name.clone(),
+                                Err(anyhow::anyhow!("Signal '{}' not found", name)),
+                                None,
+                            );
                         }
                     };
-                    
+
                     // Verify trust if enabled
                     if let Some(verifier) = &trust_verifier {
                         if let Err(e) = verifier.verify_script(&signal.command).await {
                             // Log trust violation specially (TrustError logs itself on creation)
-                            return (name.clone(), Err(anyhow::anyhow!("Trust verification failed: {}", e)), None);
+                            return (
+                                name.clone(),
+                                Err(anyhow::anyhow!("Trust verification failed: {}", e)),
+                                None,
+                            );
                         }
                     }
-                    
+
                     // Execute the signal with event data and measure time
                     let signal_start = std::time::Instant::now();
-                    let result = guidebook.execute_signal_with_input(&name, &event_data).await;
+                    let result = guidebook
+                        .execute_signal_with_input(&name, &event_data)
+                        .await;
                     let signal_duration = signal_start.elapsed();
-                    
+
                     // Create signal execution record for debug
                     let signal_execution = SignalExecution {
                         name: name.clone(),
@@ -1179,59 +1361,67 @@ impl Engine {
                         result: result.as_ref().unwrap_or(&serde_json::Value::Null).clone(),
                         duration_ms: Some(signal_duration.as_millis()),
                     };
-                    
+
                     (name, result, Some(signal_execution))
                 }
             })
             .collect();
-        
+
         let results = join_all(futures).await;
-        
+
         let mut signal_data = HashMap::new();
         for (name, result, signal_execution) in results {
             match result {
                 Ok(value) => {
                     debug!("Signal '{}' executed successfully", name);
                     signal_data.insert(name, value);
-                    
+
                     // Capture signal execution if debug enabled
-                    if let (Some(ref mut debug), Some(execution)) = (&mut debug_capture, signal_execution) {
+                    if let (Some(ref mut debug), Some(execution)) =
+                        (&mut debug_capture, signal_execution)
+                    {
                         debug.signals_executed.push(execution);
                     }
                 }
                 Err(e) => {
                     // Log error but don't fail the whole evaluation
                     error!("Signal '{}' failed: {}", name, e);
-                    
+
                     // Still capture failed signal execution for debug
-                    if let (Some(ref mut debug), Some(execution)) = (&mut debug_capture, signal_execution) {
+                    if let (Some(ref mut debug), Some(execution)) =
+                        (&mut debug_capture, signal_execution)
+                    {
                         debug.signals_executed.push(execution);
-                        debug.add_error(format!("Signal '{}' failed: {}", name, e));
+                        debug.add_error(format!("Signal '{name}' failed: {e}"));
                     }
                 }
             }
         }
-        
+
         Ok(signal_data)
     }
-    
+
     /// Execute actions based on the final decision and decision set
     /// Execute actions with a specific guidebook
     async fn execute_actions_with_guidebook(
-        &self, 
-        final_decision: &decision::FinalDecision, 
+        &self,
+        final_decision: &decision::FinalDecision,
         decision_set: &decision::DecisionSet,
-        guidebook: &guidebook::Guidebook
+        guidebook: &guidebook::Guidebook,
     ) {
-        info!("execute_actions_with_guidebook called with decision: {:?}", final_decision);
-        
+        info!(
+            "execute_actions_with_guidebook called with decision: {:?}",
+            final_decision
+        );
+
         // Determine working directory based on whether this is a global guidebook
         // Check if we're using the global guidebook by comparing pointers
-        let is_global = self.global_guidebook.as_ref()
+        let is_global = self
+            .global_guidebook
+            .as_ref()
             .map(|gb| std::ptr::eq(gb as *const _, guidebook as *const _))
             .unwrap_or(false);
-        
-            
+
         let working_dir = if is_global {
             // For global actions, use global config root if available
             if let Ok(Some(global_paths)) = global_config::GlobalPaths::discover() {
@@ -1242,159 +1432,227 @@ impl Engine {
         } else {
             self.paths.root.clone()
         };
-        
+
         // Execute actions based on decision type
         match final_decision {
             decision::FinalDecision::Halt { reason } => {
                 info!("Executing actions for HALT decision: {}", reason);
-                info!("Number of halt decisions in set: {}", decision_set.halts.len());
-                self.execute_rule_specific_actions(&decision_set.halts, guidebook, &working_dir).await;
-            },
+                info!(
+                    "Number of halt decisions in set: {}",
+                    decision_set.halts.len()
+                );
+                self.execute_rule_specific_actions(&decision_set.halts, guidebook, &working_dir)
+                    .await;
+            }
             decision::FinalDecision::Deny { reason } => {
                 info!("Executing actions for DENY decision: {}", reason);
-                
+
                 // Execute general denial actions
                 for action in &guidebook.actions.on_any_denial {
                     self.execute_single_action(action, &working_dir).await;
                 }
-                
+
                 // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions(&decision_set.denials, guidebook, &working_dir).await;
-            },
+                self.execute_rule_specific_actions(&decision_set.denials, guidebook, &working_dir)
+                    .await;
+            }
             decision::FinalDecision::Block { reason } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.blocks, guidebook, &working_dir).await;
-            },
+                self.execute_rule_specific_actions(&decision_set.blocks, guidebook, &working_dir)
+                    .await;
+            }
             decision::FinalDecision::Ask { .. } => {
                 debug!("ASK decision - no automatic actions");
-            },
+            }
             decision::FinalDecision::Allow { .. } => {
                 debug!("ALLOW decision - no actions needed");
-            },
+            }
             decision::FinalDecision::AllowOverride { .. } => {
                 debug!("ALLOW_OVERRIDE decision - no actions needed");
-            },
+            }
         }
     }
 
     /// Execute actions using project guidebook (for backward compatibility)
-    async fn execute_actions(&self, final_decision: &decision::FinalDecision, decision_set: &decision::DecisionSet) {
-        self.execute_actions_with_debug(final_decision, decision_set, None).await;
+    async fn execute_actions(
+        &self,
+        final_decision: &decision::FinalDecision,
+        decision_set: &decision::DecisionSet,
+    ) {
+        self.execute_actions_with_debug(final_decision, decision_set, None)
+            .await;
     }
-    
+
     /// Execute actions with debug capture
-    async fn execute_actions_with_debug(&self, final_decision: &decision::FinalDecision, decision_set: &decision::DecisionSet, mut debug_capture: Option<&mut DebugCapture>) {
+    async fn execute_actions_with_debug(
+        &self,
+        final_decision: &decision::FinalDecision,
+        decision_set: &decision::DecisionSet,
+        mut debug_capture: Option<&mut DebugCapture>,
+    ) {
         let Some(guidebook) = &self.guidebook else {
             debug!("No guidebook available - no actions to execute");
             return;
         };
-        
+
         // Capture configured actions before execution
         if let Some(ref mut debug) = debug_capture {
             // Collect actions that would be configured based on the decision
             let mut configured_actions = Vec::new();
-            
+
             match final_decision {
                 decision::FinalDecision::Deny { .. } => {
                     // General denial actions
                     for action in &guidebook.actions.on_any_denial {
                         configured_actions.push(format!("on_any_denial: {}", action.command));
                     }
-                    
+
                     // Rule-specific actions for denials
                     for decision_obj in &decision_set.denials {
-                        if let Some(actions) = guidebook.actions.by_rule_id.get(&decision_obj.rule_id) {
+                        if let Some(actions) =
+                            guidebook.actions.by_rule_id.get(&decision_obj.rule_id)
+                        {
                             for action in actions {
-                                configured_actions.push(format!("{}: {}", decision_obj.rule_id, action.command));
+                                configured_actions
+                                    .push(format!("{}: {}", decision_obj.rule_id, action.command));
                             }
                         }
                     }
-                },
+                }
                 decision::FinalDecision::Halt { .. } => {
                     // Rule-specific actions for halts
                     for decision_obj in &decision_set.halts {
-                        if let Some(actions) = guidebook.actions.by_rule_id.get(&decision_obj.rule_id) {
+                        if let Some(actions) =
+                            guidebook.actions.by_rule_id.get(&decision_obj.rule_id)
+                        {
                             for action in actions {
-                                configured_actions.push(format!("{}: {}", decision_obj.rule_id, action.command));
+                                configured_actions
+                                    .push(format!("{}: {}", decision_obj.rule_id, action.command));
                             }
                         }
                     }
-                },
+                }
                 decision::FinalDecision::Block { .. } => {
                     // Rule-specific actions for blocks
                     for decision_obj in &decision_set.blocks {
-                        if let Some(actions) = guidebook.actions.by_rule_id.get(&decision_obj.rule_id) {
+                        if let Some(actions) =
+                            guidebook.actions.by_rule_id.get(&decision_obj.rule_id)
+                        {
                             for action in actions {
-                                configured_actions.push(format!("{}: {}", decision_obj.rule_id, action.command));
+                                configured_actions
+                                    .push(format!("{}: {}", decision_obj.rule_id, action.command));
                             }
                         }
                     }
-                },
+                }
                 _ => {
                     // No actions for Ask, Allow, AllowOverride
                 }
             }
-            
+
             debug.actions_configured = configured_actions;
         }
-        
-        self.execute_actions_with_guidebook_and_debug(final_decision, decision_set, guidebook, debug_capture).await;
+
+        self.execute_actions_with_guidebook_and_debug(
+            final_decision,
+            decision_set,
+            guidebook,
+            debug_capture,
+        )
+        .await;
     }
-    
+
     /// Execute actions with guidebook and debug capture
     async fn execute_actions_with_guidebook_and_debug(
-        &self, 
-        final_decision: &decision::FinalDecision, 
+        &self,
+        final_decision: &decision::FinalDecision,
         decision_set: &decision::DecisionSet,
         guidebook: &guidebook::Guidebook,
-        mut debug_capture: Option<&mut DebugCapture>
+        mut debug_capture: Option<&mut DebugCapture>,
     ) {
-        info!("execute_actions_with_guidebook_and_debug called with decision: {:?}", final_decision);
-        
+        info!(
+            "execute_actions_with_guidebook_and_debug called with decision: {:?}",
+            final_decision
+        );
+
         let working_dir = &self.paths.root.clone();
-        
+
         // Execute actions based on decision type, capturing execution details
         match final_decision {
             decision::FinalDecision::Halt { reason } => {
                 info!("Executing actions for HALT decision: {}", reason);
-                self.execute_rule_specific_actions_with_debug(&decision_set.halts, guidebook, working_dir, debug_capture.as_deref_mut()).await;
-            },
+                self.execute_rule_specific_actions_with_debug(
+                    &decision_set.halts,
+                    guidebook,
+                    working_dir,
+                    debug_capture.as_deref_mut(),
+                )
+                .await;
+            }
             decision::FinalDecision::Deny { reason } => {
                 info!("Executing actions for DENY decision: {}", reason);
-                
+
                 // Execute general denial actions
                 for action in &guidebook.actions.on_any_denial {
-                    self.execute_single_action_with_debug(action, working_dir, debug_capture.as_deref_mut()).await;
+                    self.execute_single_action_with_debug(
+                        action,
+                        working_dir,
+                        debug_capture.as_deref_mut(),
+                    )
+                    .await;
                 }
-                
+
                 // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions_with_debug(&decision_set.denials, guidebook, working_dir, debug_capture.as_deref_mut()).await;
-            },
+                self.execute_rule_specific_actions_with_debug(
+                    &decision_set.denials,
+                    guidebook,
+                    working_dir,
+                    debug_capture.as_deref_mut(),
+                )
+                .await;
+            }
             decision::FinalDecision::Block { reason } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions_with_debug(&decision_set.blocks, guidebook, working_dir, debug_capture.as_deref_mut()).await;
-            },
+                self.execute_rule_specific_actions_with_debug(
+                    &decision_set.blocks,
+                    guidebook,
+                    working_dir,
+                    debug_capture,
+                )
+                .await;
+            }
             decision::FinalDecision::Ask { .. } => {
                 debug!("ASK decision - no automatic actions");
-            },
+            }
             decision::FinalDecision::Allow { .. } => {
                 debug!("ALLOW decision - no actions needed");
-            },
+            }
             decision::FinalDecision::AllowOverride { .. } => {
                 debug!("ALLOW_OVERRIDE decision - no actions needed");
-            },
+            }
         }
     }
-    
+
     /// Execute actions for a specific set of decision objects (by rule ID)
-    async fn execute_rule_specific_actions(&self, decisions: &[decision::DecisionObject], guidebook: &guidebook::Guidebook, working_dir: &std::path::PathBuf) {
-        info!("execute_rule_specific_actions: Checking actions for {} decision objects", decisions.len());
-        info!("Available action rules: {:?}", guidebook.actions.by_rule_id.keys().collect::<Vec<_>>());
-        
+    async fn execute_rule_specific_actions(
+        &self,
+        decisions: &[decision::DecisionObject],
+        guidebook: &guidebook::Guidebook,
+        working_dir: &std::path::PathBuf,
+    ) {
+        info!(
+            "execute_rule_specific_actions: Checking actions for {} decision objects",
+            decisions.len()
+        );
+        info!(
+            "Available action rules: {:?}",
+            guidebook.actions.by_rule_id.keys().collect::<Vec<_>>()
+        );
+
         for decision_obj in decisions {
             let rule_id = &decision_obj.rule_id;
             info!("Looking for actions for rule ID: {}", rule_id);
-            
+
             if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
                 info!("Found {} actions for rule {}", actions.len(), rule_id);
                 for action in actions {
@@ -1406,17 +1664,26 @@ impl Engine {
             }
         }
     }
-    
+
     /// Execute actions for a specific set of decision objects with debug capture
-    async fn execute_rule_specific_actions_with_debug(&self, decisions: &[decision::DecisionObject], guidebook: &guidebook::Guidebook, working_dir: &std::path::PathBuf, mut debug_capture: Option<&mut DebugCapture>) {
-        info!("execute_rule_specific_actions_with_debug: Checking actions for {} decision objects", decisions.len());
-        
+    async fn execute_rule_specific_actions_with_debug(
+        &self,
+        decisions: &[decision::DecisionObject],
+        guidebook: &guidebook::Guidebook,
+        working_dir: &std::path::PathBuf,
+        mut debug_capture: Option<&mut DebugCapture>,
+    ) {
+        info!(
+            "execute_rule_specific_actions_with_debug: Checking actions for {} decision objects",
+            decisions.len()
+        );
+
         // Create a list of actions to execute to avoid borrowing issues
         let mut actions_to_execute = Vec::new();
-        
+
         for decision_obj in decisions {
             let rule_id = &decision_obj.rule_id;
-            
+
             if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
                 info!("Found {} actions for rule {}", actions.len(), rule_id);
                 for action in actions {
@@ -1424,34 +1691,52 @@ impl Engine {
                 }
             }
         }
-        
+
         // Now execute all actions
         for action in actions_to_execute {
             info!("About to execute action: {}", action.command);
-            self.execute_single_action_with_debug(&action, working_dir, debug_capture.as_deref_mut()).await;
+            self.execute_single_action_with_debug(
+                &action,
+                working_dir,
+                debug_capture.as_deref_mut(),
+            )
+            .await;
         }
     }
-    
+
     /// Execute a single action command
-    async fn execute_single_action(&self, action: &guidebook::ActionConfig, working_dir: &std::path::PathBuf) {
-        self.execute_single_action_with_debug(action, working_dir, None).await;
+    async fn execute_single_action(
+        &self,
+        action: &guidebook::ActionConfig,
+        working_dir: &std::path::PathBuf,
+    ) {
+        self.execute_single_action_with_debug(action, working_dir, None)
+            .await;
     }
-    
+
     /// Execute a single action command with debug capture
-    async fn execute_single_action_with_debug(&self, action: &guidebook::ActionConfig, working_dir: &std::path::PathBuf, mut debug_capture: Option<&mut DebugCapture>) {
-        debug!("Executing action: {} in directory: {:?}", action.command, working_dir);
-        
+    async fn execute_single_action_with_debug(
+        &self,
+        action: &guidebook::ActionConfig,
+        working_dir: &std::path::PathBuf,
+        mut debug_capture: Option<&mut DebugCapture>,
+    ) {
+        debug!(
+            "Executing action: {} in directory: {:?}",
+            action.command, working_dir
+        );
+
         // Capture action execution
         if let Some(ref mut debug) = debug_capture {
             let action_execution = crate::debug::ActionExecution {
                 name: format!("action_{}", debug.actions_executed.len()),
                 command: action.command.clone(),
-                duration_ms: None,  // Could be captured if we measure execution time
-                exit_code: None,    // Could be captured from command result
+                duration_ms: None, // Could be captured if we measure execution time
+                exit_code: None,   // Could be captured from command result
             };
             debug.actions_executed.push(action_execution);
         }
-        
+
         // Verify trust if enabled
         if let Some(verifier) = &self.trust_verifier {
             if let Err(e) = verifier.verify_script(&action.command).await {
@@ -1460,30 +1745,32 @@ impl Engine {
                 return; // Don't execute untrusted action
             }
         }
-        
+
         // Use the provided working directory
         let working_dir = working_dir.clone();
-        
+
         // Execute action asynchronously without blocking
         let command = action.command.clone();
         tokio::spawn(async move {
-            
             // Determine if this is a script file or a shell command
             // A script file starts with / or ./ and doesn't contain shell operators
-            let is_script = (command.starts_with('/') || command.starts_with("./")) 
-                && !command.contains("&&") 
-                && !command.contains("||") 
+            let is_script = (command.starts_with('/') || command.starts_with("./"))
+                && !command.contains("&&")
+                && !command.contains("||")
                 && !command.contains(';')
                 && !command.contains('|')
                 && !command.contains('>');
-                
+
             let result = if is_script {
                 // It's a script file, execute directly
                 // Extract the directory from the script path to use as working directory
                 let script_path = std::path::Path::new(&command);
-                let script_working_dir = script_path.parent().and_then(|p| p.parent()).and_then(|p| p.parent())
+                let script_working_dir = script_path
+                    .parent()
+                    .and_then(|p| p.parent())
+                    .and_then(|p| p.parent())
                     .unwrap_or(&working_dir);
-                
+
                 tokio::process::Command::new(&command)
                     .current_dir(script_working_dir)
                     .output()
@@ -1499,7 +1786,7 @@ impl Engine {
                     .await;
                 result
             };
-                
+
             match result {
                 Ok(output) => {
                     if output.status.success() {
@@ -1507,30 +1794,33 @@ impl Engine {
                     } else {
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         let stdout = String::from_utf8_lossy(&output.stdout);
-                        warn!("Action failed: {} - stderr: {} stdout: {}", command, stderr, stdout);
+                        warn!(
+                            "Action failed: {} - stderr: {} stdout: {}",
+                            command, stderr, stdout
+                        );
                     }
-                },
+                }
                 Err(e) => {
                     error!("Failed to execute action: {} - {}", command, e);
                 }
             }
         });
-        
+
         // Give the runtime a chance to start the spawned task
         tokio::task::yield_now().await;
     }
-    
+
     /// Initialize the trust system, respecting the mode setting
     async fn initialize_trust_system(&mut self) {
         let trust_path = self.paths.root.join(".cupcake").join(".trust");
-        
+
         // First check if trust manifest exists
         if !trust_path.exists() {
             info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
             self.show_trust_startup_notification();
             return;
         }
-        
+
         // Load manifest to check mode
         match crate::trust::TrustManifest::load(&trust_path) {
             Ok(manifest) => {
@@ -1550,7 +1840,9 @@ impl Engine {
                     }
                 } else {
                     // Trust exists but is disabled
-                    info!("Trust mode DISABLED by user - scripts will execute without verification");
+                    info!(
+                        "Trust mode DISABLED by user - scripts will execute without verification"
+                    );
                     self.show_trust_disabled_notification();
                     // Explicitly set verifier to None
                     self.trust_verifier = None;
@@ -1569,7 +1861,7 @@ impl Engine {
             }
         }
     }
-    
+
     /// Show notification when trust is disabled by user
     fn show_trust_disabled_notification(&self) {
         eprintln!("┌─────────────────────────────────────────────────────────┐");
@@ -1582,7 +1874,7 @@ impl Engine {
         eprintln!("└─────────────────────────────────────────────────────────┘");
         eprintln!();
     }
-    
+
     /// Show startup notification about trust mode when it's not enabled
     fn show_trust_startup_notification(&self) {
         eprintln!("┌─────────────────────────────────────────────────────────┐");
@@ -1595,100 +1887,130 @@ impl Engine {
         eprintln!("│ Learn more: cupcake trust --help                       │");
         eprintln!("└─────────────────────────────────────────────────────────┘");
     }
-    
+
     /// Helper method to inject builtin configurations from a guidebook into the builtin_config map
     /// This allows for consistent builtin config injection across different evaluation paths
     fn inject_builtin_config_from_guidebook(
         builtin_config: &mut serde_json::Map<String, serde_json::Value>,
-        guidebook: &guidebook::Guidebook
+        guidebook: &guidebook::Guidebook,
     ) {
         // Add protected_paths config if enabled
         if let Some(config) = &guidebook.builtins.protected_paths {
             if config.enabled {
-                debug!("Injecting protected_paths config with message: {}", config.message);
-                builtin_config.insert("protected_paths".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "paths": config.paths,
-                }));
+                debug!(
+                    "Injecting protected_paths config with message: {}",
+                    config.message
+                );
+                builtin_config.insert(
+                    "protected_paths".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "paths": config.paths,
+                    }),
+                );
             }
         }
-        
+
         // Add rulebook_security_guardrails config if enabled
         if let Some(config) = &guidebook.builtins.rulebook_security_guardrails {
             if config.enabled {
                 debug!("Injecting rulebook_security_guardrails config");
-                builtin_config.insert("rulebook_security_guardrails".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "protected_paths": config.protected_paths,
-                }));
+                builtin_config.insert(
+                    "rulebook_security_guardrails".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "protected_paths": config.protected_paths,
+                    }),
+                );
             }
         }
-        
+
         // Add enforce_full_file_read config if enabled
         if let Some(config) = &guidebook.builtins.enforce_full_file_read {
             if config.enabled {
-                debug!("Injecting enforce_full_file_read config with message: {}", config.message);
-                builtin_config.insert("enforce_full_file_read".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "max_lines": config.max_lines,
-                }));
+                debug!(
+                    "Injecting enforce_full_file_read config with message: {}",
+                    config.message
+                );
+                builtin_config.insert(
+                    "enforce_full_file_read".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "max_lines": config.max_lines,
+                    }),
+                );
             }
         }
-        
+
         // Add global_file_lock config if enabled
         if let Some(config) = &guidebook.builtins.global_file_lock {
             if config.enabled {
                 debug!("Injecting global_file_lock config");
-                builtin_config.insert("global_file_lock".to_string(), serde_json::json!({
-                    "message": config.message,
-                }));
+                builtin_config.insert(
+                    "global_file_lock".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                    }),
+                );
             }
         }
-        
+
         // Add git_block_no_verify config if enabled
         if let Some(config) = &guidebook.builtins.git_block_no_verify {
             if config.enabled {
                 debug!("Injecting git_block_no_verify config");
-                builtin_config.insert("git_block_no_verify".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "exceptions": config.exceptions,
-                }));
+                builtin_config.insert(
+                    "git_block_no_verify".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "exceptions": config.exceptions,
+                    }),
+                );
             }
         }
-        
+
         // Add system_protection config if enabled
         if let Some(config) = &guidebook.builtins.system_protection {
             if config.enabled {
                 debug!("Injecting system_protection config");
-                builtin_config.insert("system_protection".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "additional_paths": config.additional_paths,
-                }));
+                builtin_config.insert(
+                    "system_protection".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "additional_paths": config.additional_paths,
+                    }),
+                );
             }
         }
-        
+
         // Add sensitive_data_protection config if enabled
         if let Some(config) = &guidebook.builtins.sensitive_data_protection {
             if config.enabled {
                 debug!("Injecting sensitive_data_protection config");
-                builtin_config.insert("sensitive_data_protection".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "additional_patterns": config.additional_patterns,
-                }));
+                builtin_config.insert(
+                    "sensitive_data_protection".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "additional_patterns": config.additional_patterns,
+                    }),
+                );
             }
         }
-        
+
         // Add cupcake_exec_protection config if enabled
         if let Some(config) = &guidebook.builtins.cupcake_exec_protection {
             if config.enabled {
                 debug!("Injecting cupcake_exec_protection config");
-                builtin_config.insert("cupcake_exec_protection".to_string(), serde_json::json!({
-                    "message": config.message,
-                    "allowed_commands": config.allowed_commands,
-                }));
+                builtin_config.insert(
+                    "cupcake_exec_protection".to_string(),
+                    serde_json::json!({
+                        "message": config.message,
+                        "allowed_commands": config.allowed_commands,
+                    }),
+                );
             }
         }
-        
+
         // Add always_inject_on_prompt static strings if enabled
         if let Some(config) = &guidebook.builtins.always_inject_on_prompt {
             if config.enabled {
@@ -1699,15 +2021,20 @@ impl Engine {
                     }
                 }
                 if !static_contexts.is_empty() {
-                    debug!("Injecting always_inject_on_prompt with {} static contexts", static_contexts.len());
-                    builtin_config.insert("always_inject_on_prompt".to_string(), serde_json::json!({
-                        "static_contexts": static_contexts,
-                    }));
+                    debug!(
+                        "Injecting always_inject_on_prompt with {} static contexts",
+                        static_contexts.len()
+                    );
+                    builtin_config.insert(
+                        "always_inject_on_prompt".to_string(),
+                        serde_json::json!({
+                            "static_contexts": static_contexts,
+                        }),
+                    );
                 }
             }
         }
     }
-    
 }
 
 // Aligns with NEW_GUIDING_FINAL.md:

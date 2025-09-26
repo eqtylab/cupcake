@@ -1,5 +1,5 @@
 //! Agent harness configuration for automated integration setup
-//! 
+//!
 //! Provides trait-based architecture for configuring various agent harnesses
 //! (Claude Code, Cursor, etc.) with Cupcake policy evaluation.
 
@@ -12,13 +12,13 @@ use std::path::{Path, PathBuf};
 pub trait HarnessConfig {
     /// Get the harness name for display
     fn name(&self) -> &str;
-    
+
     /// Get the settings file path relative to project root or user home
     fn settings_path(&self, global: bool) -> PathBuf;
-    
+
     /// Generate the hook configuration JSON for this harness
     fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value>;
-    
+
     /// Merge hooks into existing settings without destroying other configuration
     fn merge_settings(&self, existing: Value, new_hooks: Value) -> Result<Value>;
 }
@@ -30,7 +30,7 @@ impl HarnessConfig for ClaudeHarness {
     fn name(&self) -> &str {
         "Claude Code"
     }
-    
+
     fn settings_path(&self, global: bool) -> PathBuf {
         if global {
             dirs::home_dir()
@@ -41,19 +41,19 @@ impl HarnessConfig for ClaudeHarness {
             Path::new(".claude").join("settings.json")
         }
     }
-    
+
     fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
         // Determine the policy path to use in commands
         let policy_path = if global {
             // Global config - use absolute path
-            let abs_path = fs::canonicalize(policy_dir)
-                .unwrap_or_else(|_| policy_dir.to_path_buf());
+            let abs_path =
+                fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
             abs_path.display().to_string()
         } else {
             // Project config - use environment variable for portability
             "$CLAUDE_PROJECT_DIR/.cupcake".to_string()
         };
-        
+
         Ok(json!({
             "hooks": {
                 "PreToolUse": [{
@@ -85,7 +85,7 @@ impl HarnessConfig for ClaudeHarness {
             }
         }))
     }
-    
+
     fn merge_settings(&self, mut existing: Value, new_hooks: Value) -> Result<Value> {
         merge_hooks(&mut existing, new_hooks)?;
         Ok(existing)
@@ -98,23 +98,23 @@ fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
     if !existing.is_object() {
         *existing = json!({});
     }
-    
+
     // Get or create hooks object
     let hooks = existing
         .as_object_mut()
         .ok_or_else(|| anyhow!("Invalid settings format"))?
         .entry("hooks")
         .or_insert_with(|| json!({}));
-    
+
     // Ensure hooks is an object
     if !hooks.is_object() {
         *hooks = json!({});
     }
-    
+
     let new_hooks = new["hooks"]
         .as_object()
         .ok_or_else(|| anyhow!("Invalid hooks format"))?;
-    
+
     // For each event type in new hooks
     for (event_name, new_matchers) in new_hooks {
         let event_array = hooks
@@ -122,16 +122,16 @@ fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
             .unwrap()
             .entry(event_name)
             .or_insert_with(|| json!([]));
-        
+
         // Ensure it's an array
         if !event_array.is_array() {
             *event_array = json!([]);
         }
-        
+
         let event_array = event_array
             .as_array_mut()
             .ok_or_else(|| anyhow!("Invalid event array"))?;
-        
+
         // Check if this exact configuration already exists
         if let Some(new_matcher_array) = new_matchers.as_array() {
             for new_matcher in new_matcher_array {
@@ -141,7 +141,7 @@ fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -150,11 +150,11 @@ fn contains_matcher(array: &[Value], matcher: &Value) -> bool {
     array.iter().any(|existing| {
         // Check if matcher patterns are the same
         let same_matcher = existing.get("matcher") == matcher.get("matcher");
-        
+
         // Check if hook commands are the same
         let existing_hooks = existing.get("hooks").and_then(|h| h.as_array());
         let new_hooks = matcher.get("hooks").and_then(|h| h.as_array());
-        
+
         if let (Some(existing_hooks), Some(new_hooks)) = (existing_hooks, new_hooks) {
             // Check if any new hook command already exists
             let has_duplicate = new_hooks.iter().any(|new_hook| {
@@ -163,7 +163,7 @@ fn contains_matcher(array: &[Value], matcher: &Value) -> bool {
                     existing_hook.get("command") == new_hook.get("command")
                 })
             });
-            
+
             same_matcher && has_duplicate
         } else {
             false
@@ -178,21 +178,29 @@ pub async fn configure_harness(
     global: bool,
 ) -> Result<()> {
     use super::HarnessType;
-    
+
     match harness_type {
         HarnessType::Claude => {
             let harness = ClaudeHarness;
             let settings_path = harness.settings_path(global);
-            
+
             // Try to configure, fallback to manual instructions on error
-            if let Err(e) = setup_harness_settings(&harness, &settings_path, policy_dir, global).await {
-                eprintln!("⚠️  Could not automatically configure {}: {}", harness.name(), e);
+            if let Err(e) =
+                setup_harness_settings(&harness, &settings_path, policy_dir, global).await
+            {
+                eprintln!(
+                    "⚠️  Could not automatically configure {}: {}",
+                    harness.name(),
+                    e
+                );
                 print_manual_instructions(&harness, policy_dir, global);
                 // Don't fail the entire init - just warn
             } else {
-                println!("✅ Configured {} integration in {}", 
-                    harness.name(), 
-                    settings_path.display());
+                println!(
+                    "✅ Configured {} integration in {}",
+                    harness.name(),
+                    settings_path.display()
+                );
                 println!("   - Added PreToolUse hook for all tools");
                 println!("   - Added PostToolUse hook for file modifications");
                 println!("   - Added UserPromptSubmit hook for prompt validation");
@@ -203,7 +211,7 @@ pub async fn configure_harness(
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -218,31 +226,31 @@ async fn setup_harness_settings(
     if let Some(parent) = settings_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
+
     // Generate hook configuration
     let new_hooks = harness.generate_hooks(policy_dir, global)?;
-    
+
     // Check if settings file exists
     let final_settings = if settings_path.exists() {
         // Read existing settings
         let content = fs::read_to_string(settings_path)?;
         let existing: Value = serde_json::from_str(&content)
             .map_err(|e| anyhow!("Invalid JSON in existing settings: {}", e))?;
-        
+
         println!("⚠️  Found existing {}", settings_path.display());
         println!("   Merging Cupcake hooks into existing configuration...");
-        
+
         // Merge hooks
         harness.merge_settings(existing, new_hooks)?
     } else {
         // Create new settings with just hooks
         new_hooks
     };
-    
+
     // Write settings with pretty formatting
     let json_str = serde_json::to_string_pretty(&final_settings)?;
     fs::write(settings_path, json_str)?;
-    
+
     Ok(())
 }
 
@@ -253,10 +261,12 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     } else {
         "$CLAUDE_PROJECT_DIR/.cupcake".to_string()
     };
-    
+
     eprintln!();
-    eprintln!("   To manually configure, add this to your {}:", 
-        harness.settings_path(global).display());
+    eprintln!(
+        "   To manually configure, add this to your {}:",
+        harness.settings_path(global).display()
+    );
     eprintln!();
     eprintln!("   {{");
     eprintln!("     \"hooks\": {{");
@@ -264,7 +274,9 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     eprintln!("         \"matcher\": \"*\",");
     eprintln!("         \"hooks\": [{{");
     eprintln!("           \"type\": \"command\",");
-    eprintln!("           \"command\": \"cupcake eval --policy-dir {}\"", policy_path);
+    eprintln!(
+        "           \"command\": \"cupcake eval --policy-dir {policy_path}\""
+    );
     eprintln!("         }}]");
     eprintln!("       }}]");
     eprintln!("     }}");
@@ -275,7 +287,7 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_merge_empty_settings() {
         let mut existing = json!({});
@@ -290,11 +302,11 @@ mod tests {
                 }]
             }
         });
-        
+
         merge_hooks(&mut existing, new.clone()).unwrap();
         assert_eq!(existing["hooks"]["PreToolUse"][0]["matcher"], "*");
     }
-    
+
     #[test]
     fn test_merge_preserves_existing() {
         let mut existing = json!({
@@ -309,7 +321,7 @@ mod tests {
                 }]
             }
         });
-        
+
         let new = json!({
             "hooks": {
                 "PreToolUse": [{
@@ -321,17 +333,17 @@ mod tests {
                 }]
             }
         });
-        
+
         merge_hooks(&mut existing, new).unwrap();
-        
+
         // Existing settings preserved
         assert_eq!(existing["env"]["FOO"], "bar");
         assert_eq!(existing["hooks"]["PostToolUse"][0]["matcher"], "Write");
-        
+
         // New hooks added
         assert_eq!(existing["hooks"]["PreToolUse"][0]["matcher"], "*");
     }
-    
+
     #[test]
     fn test_duplicate_detection() {
         let mut existing = json!({
@@ -345,7 +357,7 @@ mod tests {
                 }]
             }
         });
-        
+
         let new = json!({
             "hooks": {
                 "PreToolUse": [{
@@ -357,9 +369,9 @@ mod tests {
                 }]
             }
         });
-        
+
         merge_hooks(&mut existing, new).unwrap();
-        
+
         // Should not duplicate
         assert_eq!(existing["hooks"]["PreToolUse"].as_array().unwrap().len(), 1);
     }

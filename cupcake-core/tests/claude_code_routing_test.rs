@@ -7,7 +7,6 @@ fn setup_test_dir(_event_name: &str) -> TempDir {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
-
     // Create .cupcake directory structure
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
@@ -77,12 +76,11 @@ fn write_test_policy(
 # scope: package
 # custom:
 #   routing:
-#     required_events: {:?}"#,
-        required_events
+#     required_events: {required_events:?}"#
     );
 
     if let Some(tools) = required_tools {
-        metadata.push_str(&format!("\n#     required_tools: {:?}", tools));
+        metadata.push_str(&format!("\n#     required_tools: {tools:?}"));
     }
 
     let policy = format!(
@@ -106,7 +104,7 @@ deny contains decision if {{
         required_events[0].to_uppercase()
     );
 
-    let policy_file = policies_dir.join(format!("{}.rego", package_name));
+    let policy_file = policies_dir.join(format!("{package_name}.rego"));
     fs::write(policy_file, policy).unwrap();
 }
 
@@ -120,12 +118,13 @@ fn get_claude_path() -> String {
     }
 
     // Default to HOME-based path
-    let home = std::env::var("HOME")
-        .expect("HOME environment variable not set");
-    let claude_path = format!("{}/.claude/local/claude", home);
+    let home = std::env::var("HOME").expect("HOME environment variable not set");
+    let claude_path = format!("{home}/.claude/local/claude");
 
     if !std::path::Path::new(&claude_path).exists() {
-        panic!("Claude CLI not found at {}. Set CLAUDE_CLI_PATH env var or install Claude.", claude_path);
+        panic!(
+            "Claude CLI not found at {claude_path}. Set CLAUDE_CLI_PATH env var or install Claude."
+        );
     }
 
     claude_path
@@ -139,11 +138,13 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 
     // Get the Cargo.toml path dynamically at compile time
     let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()  // Go up from cupcake-core to cupcake-rewrite
+        .parent()
+        .unwrap() // Go up from cupcake-core to cupcake-rewrite
         .join("Cargo.toml");
 
     // Create settings.json with UserPromptSubmit hook to trigger on "hello world"
-    let settings = format!(r#"{{
+    let settings = format!(
+        r#"{{
   "hooks": {{
     "UserPromptSubmit": [
       {{
@@ -161,15 +162,17 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
       }}
     ]
   }}
-}}"#, cargo_manifest.display());
+}}"#,
+        cargo_manifest.display()
+    );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 
     // Get claude CLI path
     let claude_path = get_claude_path();
     let output = std::process::Command::new(claude_path)
-        .args(&["-p", "hello world", "--model", "sonnet"])
+        .args(["-p", "hello world", "--model", "sonnet"])
         .current_dir(project_path)
-        .env("CUPCAKE_DEBUG_ROUTING", "1")  // This adds to inherited env
+        .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
         .output()
         .expect("Failed to execute claude command");
 
@@ -201,7 +204,10 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         })
         .collect::<Vec<_>>();
 
-    assert!(!entries.is_empty(), "Should have generated routing map JSON");
+    assert!(
+        !entries.is_empty(),
+        "Should have generated routing map JSON"
+    );
 
     let json_path = entries[0].path();
     let json_content = fs::read_to_string(&json_path).unwrap();
@@ -213,7 +219,13 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         routing_entries.get(expected_key).is_some(),
         "Expected routing key '{}' not found in map. Available keys: {}",
         expected_key,
-        routing_entries.as_object().unwrap().keys().cloned().collect::<Vec<_>>().join(", ")
+        routing_entries
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ")
     );
 
     // Verify the policy is mapped to that key
@@ -224,11 +236,8 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         .collect();
 
     assert!(
-        policy_names.contains(&format!("cupcake.policies.{}", expected_policy)),
-        "Expected policy 'cupcake.policies.{}' not found in routing for key '{}'. Found: {:?}",
-        expected_policy,
-        expected_key,
-        policy_names
+        policy_names.contains(&format!("cupcake.policies.{expected_policy}")),
+        "Expected policy 'cupcake.policies.{expected_policy}' not found in routing for key '{expected_key}'. Found: {policy_names:?}"
     );
 }
 
@@ -312,12 +321,7 @@ async fn test_stop_routing() {
     let temp_dir = setup_test_dir("stop");
     let policies_dir = temp_dir.path().join(".cupcake/policies");
 
-    write_test_policy(
-        &policies_dir,
-        "test_stop",
-        vec!["Stop"],
-        None,
-    );
+    write_test_policy(&policies_dir, "test_stop", vec!["Stop"], None);
 
     verify_routing(temp_dir.path(), "Stop", "test_stop").await;
 }
@@ -342,12 +346,7 @@ async fn test_precompact_routing() {
     let temp_dir = setup_test_dir("precompact");
     let policies_dir = temp_dir.path().join(".cupcake/policies");
 
-    write_test_policy(
-        &policies_dir,
-        "test_precompact",
-        vec!["PreCompact"],
-        None,
-    );
+    write_test_policy(&policies_dir, "test_precompact", vec!["PreCompact"], None);
 
     verify_routing(temp_dir.path(), "PreCompact", "test_precompact").await;
 }
@@ -368,7 +367,7 @@ async fn test_wildcard_policy_routing() {
         &policies_dir,
         "test_wildcard",
         vec!["PreToolUse"],
-        Some(vec![]),  // Empty tools = wildcard
+        Some(vec![]), // Empty tools = wildcard
     );
 
     // Also create a specific tool policy to test coexistence
@@ -386,10 +385,12 @@ async fn test_wildcard_policy_routing() {
 
     // Get the Cargo.toml path dynamically at compile time
     let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()  // Go up from cupcake-core to cupcake-rewrite
+        .parent()
+        .unwrap() // Go up from cupcake-core to cupcake-rewrite
         .join("Cargo.toml");
 
-    let settings = format!(r#"{{
+    let settings = format!(
+        r#"{{
   "hooks": {{
     "UserPromptSubmit": [
       {{
@@ -407,7 +408,9 @@ async fn test_wildcard_policy_routing() {
       }}
     ]
   }}
-}}"#, cargo_manifest.display());
+}}"#,
+        cargo_manifest.display()
+    );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
     eprintln!("[TIMING] Settings written: {:?}", test_start.elapsed());
 
@@ -417,14 +420,17 @@ async fn test_wildcard_policy_routing() {
     let claude_start = Instant::now();
 
     let output = std::process::Command::new(claude_path)
-        .args(&["-p", "hello world", "--model", "sonnet"])  // Changed to sonnet
+        .args(["-p", "hello world", "--model", "sonnet"]) // Changed to sonnet
         .current_dir(temp_dir.path())
         .env("CUPCAKE_DEBUG_ROUTING", "1")
         .output()
         .expect("Failed to execute claude command");
 
-    eprintln!("[TIMING] Claude execution complete: {:?} (total: {:?})",
-             claude_start.elapsed(), test_start.elapsed());
+    eprintln!(
+        "[TIMING] Claude execution complete: {:?} (total: {:?})",
+        claude_start.elapsed(),
+        test_start.elapsed()
+    );
 
     if !output.status.success() {
         panic!(
@@ -457,8 +463,11 @@ async fn test_wildcard_policy_routing() {
     let json_content = fs::read_to_string(&json_path).unwrap();
     let routing_data: Value = serde_json::from_str(&json_content).unwrap();
 
-    eprintln!("[TIMING] Debug files read: {:?} (total: {:?})",
-             read_start.elapsed(), test_start.elapsed());
+    eprintln!(
+        "[TIMING] Debug files read: {:?} (total: {:?})",
+        read_start.elapsed(),
+        test_start.elapsed()
+    );
 
     let routing_entries = &routing_data["project"]["routing_entries"];
 
@@ -467,10 +476,13 @@ async fn test_wildcard_policy_routing() {
     let assert_start = Instant::now();
 
     let pretooluse_policies = routing_entries["PreToolUse"].as_array().unwrap();
-    let wildcard_found = pretooluse_policies.iter().any(|p| {
-        p["package_name"].as_str().unwrap() == "cupcake.policies.test_wildcard"
-    });
-    assert!(wildcard_found, "Wildcard policy should appear in PreToolUse key");
+    let wildcard_found = pretooluse_policies
+        .iter()
+        .any(|p| p["package_name"].as_str().unwrap() == "cupcake.policies.test_wildcard");
+    assert!(
+        wildcard_found,
+        "Wildcard policy should appear in PreToolUse key"
+    );
 
     // Verify both policies appear in specific tool key
     let bash_policies = routing_entries["PreToolUse:Bash"].as_array().unwrap();
@@ -489,7 +501,10 @@ async fn test_wildcard_policy_routing() {
     );
 
     eprintln!("[TIMING] Assertions complete: {:?}", assert_start.elapsed());
-    eprintln!("[TIMING] Test complete - Total time: {:?}", test_start.elapsed());
+    eprintln!(
+        "[TIMING] Test complete - Total time: {:?}",
+        test_start.elapsed()
+    );
 }
 
 #[tokio::test]
@@ -526,10 +541,12 @@ deny contains decision if {
 
     // Get the Cargo.toml path dynamically at compile time
     let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()  // Go up from cupcake-core to cupcake-rewrite
+        .parent()
+        .unwrap() // Go up from cupcake-core to cupcake-rewrite
         .join("Cargo.toml");
 
-    let settings = format!(r#"{{
+    let settings = format!(
+        r#"{{
   "hooks": {{
     "UserPromptSubmit": [
       {{
@@ -547,13 +564,15 @@ deny contains decision if {
       }}
     ]
   }}
-}}"#, cargo_manifest.display());
+}}"#,
+        cargo_manifest.display()
+    );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 
     // Get claude CLI path
     let claude_path = get_claude_path();
     let output = std::process::Command::new(claude_path)
-        .args(&["-p", "hello world", "--model", "sonnet"])
+        .args(["-p", "hello world", "--model", "sonnet"])
         .current_dir(temp_dir.path())
         .env("CUPCAKE_DEBUG_ROUTING", "1")
         .output()
@@ -591,11 +610,12 @@ deny contains decision if {
 
     // Verify policy appears in both routing keys
     for key in &["PreToolUse:Edit", "PostToolUse:Edit"] {
-        let policies = routing_entries[key].as_array()
-            .expect(&format!("Key {} should exist", key));
-        let found = policies.iter().any(|p| {
-            p["package_name"].as_str().unwrap() == "cupcake.policies.test_multi"
-        });
-        assert!(found, "Multi-event policy should appear in {} key", key);
+        let policies = routing_entries[key]
+            .as_array()
+            .unwrap_or_else(|| panic!("Key {key} should exist"));
+        let found = policies
+            .iter()
+            .any(|p| p["package_name"].as_str().unwrap() == "cupcake.policies.test_multi");
+        assert!(found, "Multi-event policy should appear in {key} key");
     }
 }

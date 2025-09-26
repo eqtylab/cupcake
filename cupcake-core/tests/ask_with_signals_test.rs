@@ -2,21 +2,20 @@ use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_ask_with_signals() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
-    
+
     // System policy
     let system_policy = r#"package cupcake.system
 
@@ -47,9 +46,9 @@ collect_verbs(verb_name) := result if {
 
 default collect_verbs(_) := []
 "#;
-    
+
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
-    
+
     // Test policy with the EXACT ASK rule from the failing test
     let test_policy = r#"package cupcake.policies.test_signals
 
@@ -81,9 +80,9 @@ ask contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("test_signals.rego"), test_policy).unwrap();
-    
+
     // Create test_status signal
     let signal_script = r#"#!/bin/bash
 echo '{
@@ -94,10 +93,10 @@ echo '{
   "environment": "ci"
 }'
 "#;
-    
+
     let signal_path = signals_dir.join("test_status.sh");
     fs::write(&signal_path, signal_script).unwrap();
-    
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -105,11 +104,11 @@ echo '{
         perms.set_mode(0o755);
         fs::set_permissions(&signal_path, perms).unwrap();
     }
-    
-    eprintln!("Test setup complete at: {:?}", project_path);
-    
+
+    eprintln!("Test setup complete at: {project_path:?}");
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -119,13 +118,12 @@ echo '{
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
-    eprintln!("Decision: {:?}", decision);
-    
+    eprintln!("Decision: {decision:?}");
+
     assert!(
-        decision.requires_confirmation(), 
-        "Expected ASK decision but got: {:?}", 
-        decision
+        decision.requires_confirmation(),
+        "Expected ASK decision but got: {decision:?}"
     );
 }

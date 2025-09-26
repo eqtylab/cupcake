@@ -10,12 +10,12 @@ use tempfile::TempDir;
 async fn setup_test_project() -> Result<TempDir> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
-    
+
     // Create directories
     fs::create_dir_all(cupcake_dir.join("policies/system"))?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
     fs::create_dir_all(cupcake_dir.join("actions"))?;
-    
+
     // Create system evaluate policy that matches the authoritative example
     fs::write(
         cupcake_dir.join("policies/system/evaluate.rego"),
@@ -73,7 +73,7 @@ collect_verbs(verb_name) := result if {
 default collect_verbs(_) := []
 "#,
     )?;
-    
+
     // Create a simple test policy
     fs::write(
         cupcake_dir.join("policies/test.rego"),
@@ -95,7 +95,7 @@ deny contains decision if {
 }
 "#,
     )?;
-    
+
     // Create guidebook with test signal
     fs::write(
         cupcake_dir.join("guidebook.yml"),
@@ -105,17 +105,17 @@ deny contains decision if {
     timeout_seconds: 2
 "#,
     )?;
-    
+
     Ok(temp_dir)
 }
 
 #[tokio::test]
 async fn test_engine_without_trust() -> Result<()> {
     let project = setup_test_project().await?;
-    
+
     // Initialize engine without trust (should work fine)
     let engine = Engine::new(project.path()).await?;
-    
+
     // Create a simple test event
     let event = serde_json::json!({
         "hookEventName": "TestEvent",
@@ -123,22 +123,25 @@ async fn test_engine_without_trust() -> Result<()> {
         "cwd": project.path().to_str().unwrap(),
         "dangerous": false
     });
-    
+
     // Should evaluate successfully
     let decision = engine.evaluate(&event, None).await?;
-    assert!(matches!(decision, cupcake_core::engine::decision::FinalDecision::Allow { .. }));
-    
+    assert!(matches!(
+        decision,
+        cupcake_core::engine::decision::FinalDecision::Allow { .. }
+    ));
+
     Ok(())
 }
 
 #[tokio::test]
 async fn test_engine_with_trust_no_manifest() -> Result<()> {
     let project = setup_test_project().await?;
-    
+
     // Engine should initialize fine even without trust manifest
     // (trust is optional)
     let _engine = Engine::new(project.path()).await?;
-    
+
     Ok(())
 }
 
@@ -146,10 +149,10 @@ async fn test_engine_with_trust_no_manifest() -> Result<()> {
 async fn test_engine_with_valid_trust() -> Result<()> {
     let project = setup_test_project().await?;
     let cupcake_dir = project.path().join(".cupcake");
-    
+
     // Create a trust manifest
     let mut manifest = TrustManifest::new();
-    
+
     // Add the test signal to trust
     let signal_entry = cupcake_core::trust::manifest::ScriptEntry {
         script_type: "inline".to_string(),
@@ -162,13 +165,13 @@ async fn test_engine_with_valid_trust() -> Result<()> {
         args: None,
     };
     manifest.add_script("signals", "test_signal", signal_entry);
-    
+
     // Save the manifest
     manifest.save(&cupcake_dir.join(".trust"))?;
-    
+
     // Initialize engine with trust enabled
     let engine = Engine::new(project.path()).await?;
-    
+
     // Create test event that would trigger signal gathering
     let event = serde_json::json!({
         "hookEventName": "TestEvent",
@@ -176,11 +179,14 @@ async fn test_engine_with_valid_trust() -> Result<()> {
         "cwd": project.path().to_str().unwrap(),
         "dangerous": false
     });
-    
+
     // Should evaluate successfully with trusted signal
     let decision = engine.evaluate(&event, None).await?;
-    assert!(matches!(decision, cupcake_core::engine::decision::FinalDecision::Allow { .. }));
-    
+    assert!(matches!(
+        decision,
+        cupcake_core::engine::decision::FinalDecision::Allow { .. }
+    ));
+
     Ok(())
 }
 
@@ -188,11 +194,11 @@ async fn test_engine_with_valid_trust() -> Result<()> {
 async fn test_engine_with_untrusted_signal() -> Result<()> {
     let project = setup_test_project().await?;
     let cupcake_dir = project.path().join(".cupcake");
-    
+
     // Create an empty trust manifest (no scripts trusted)
     let mut manifest = TrustManifest::new();
     manifest.save(&cupcake_dir.join(".trust"))?;
-    
+
     // Modify the test policy to require a signal
     fs::write(
         cupcake_dir.join("policies/test_with_signal.rego"),
@@ -215,10 +221,10 @@ deny contains decision if {
 }
 "#,
     )?;
-    
+
     // Initialize engine with trust enabled but signal not trusted
     let engine = Engine::new(project.path()).await?;
-    
+
     // Create test event that requires signal
     let event = serde_json::json!({
         "hookEventName": "TestEvent",
@@ -226,13 +232,16 @@ deny contains decision if {
         "cwd": project.path().to_str().unwrap(),
         "dangerous": false
     });
-    
+
     // Should still evaluate (signal execution fails but doesn't crash)
     let decision = engine.evaluate(&event, None).await?;
-    
+
     // The evaluation should succeed but without the signal data
-    assert!(matches!(decision, cupcake_core::engine::decision::FinalDecision::Allow { .. }));
-    
+    assert!(matches!(
+        decision,
+        cupcake_core::engine::decision::FinalDecision::Allow { .. }
+    ));
+
     Ok(())
 }
 
@@ -240,31 +249,31 @@ deny contains decision if {
 async fn test_trust_verifier_lifecycle() -> Result<()> {
     let project = setup_test_project().await?;
     let cupcake_dir = project.path().join(".cupcake");
-    
+
     // Start without trust
     {
         let _engine = Engine::new(project.path()).await?;
         // Should succeed without trust
     }
-    
+
     // Add trust manifest
     let mut manifest = TrustManifest::new();
     manifest.save(&cupcake_dir.join(".trust"))?;
-    
+
     // Now with trust
     {
         let _engine = Engine::new(project.path()).await?;
         // Should succeed with trust
     }
-    
+
     // Remove trust manifest
     fs::remove_file(cupcake_dir.join(".trust"))?;
-    
+
     // Back to no trust
     {
         let _engine = Engine::new(project.path()).await?;
         // Should still succeed
     }
-    
+
     Ok(())
 }

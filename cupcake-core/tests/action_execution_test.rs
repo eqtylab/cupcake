@@ -3,26 +3,25 @@ use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use tokio;
 
 /// Test that actions execute when a deny decision is triggered
 #[tokio::test]
 async fn test_action_execution_on_deny() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     // Create .cupcake directory structure
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
-    
+
     // Create a marker file that the action will write to
     let action_marker = temp_dir.path().join("action_executed.txt");
-    
+
     // Create action script for DENY-001 rule
     let action_script = format!(
         r#"#!/bin/bash
@@ -34,10 +33,10 @@ date >> {}
         action_marker.display(),
         action_marker.display()
     );
-    
+
     let action_path = actions_dir.join("DENY-001.sh");
     fs::write(&action_path, action_script).unwrap();
-    
+
     // Make action executable
     #[cfg(unix)]
     {
@@ -46,10 +45,10 @@ date >> {}
         perms.set_mode(0o755);
         fs::set_permissions(&action_path, perms).unwrap();
     }
-    
+
     // Create system evaluation policy
     create_system_policy(&system_dir);
-    
+
     // Create test policy that denies specific commands
     let test_policy = r#"package cupcake.policies.test_deny
 
@@ -72,12 +71,12 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("test_deny.rego"), test_policy).unwrap();
-    
+
     // Initialize engine
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     // Create event that will trigger the deny rule
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -88,27 +87,26 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     // Evaluate - this should trigger the action
     let decision = engine.evaluate(&event, None).await.unwrap();
-    
+
     // Verify we got a deny decision
     assert!(decision.is_blocking(), "Expected blocking decision");
-    
+
     // Wait for the async action to complete
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    
+
     // Verify the action executed by checking the marker file
     assert!(
         action_marker.exists(),
         "Action marker file not created - action did not execute"
     );
-    
+
     let marker_content = fs::read_to_string(&action_marker).unwrap();
     assert!(
         marker_content.contains("Action executed for DENY-001"),
-        "Action output incorrect: {}",
-        marker_content
+        "Action output incorrect: {marker_content}"
     );
 }
 
@@ -117,19 +115,19 @@ deny contains decision if {
 async fn test_action_execution_on_halt() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     // Setup directories
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
-    
+
     // Create action marker
     let halt_marker = temp_dir.path().join("halt_triggered.txt");
-    
+
     // Create action for HALT-001
     let halt_action = format!(
         r#"#!/bin/bash
@@ -139,10 +137,10 @@ echo "Timestamp: $(date)" >> {}
         halt_marker.display(),
         halt_marker.display()
     );
-    
+
     let action_path = actions_dir.join("HALT-001.sh");
     fs::write(&action_path, halt_action).unwrap();
-    
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -150,9 +148,9 @@ echo "Timestamp: $(date)" >> {}
         perms.set_mode(0o755);
         fs::set_permissions(&action_path, perms).unwrap();
     }
-    
+
     create_system_policy(&system_dir);
-    
+
     // Create policy with halt rule
     let halt_policy = r#"package cupcake.policies.test_halt
 
@@ -175,11 +173,11 @@ halt contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("test_halt.rego"), halt_policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -189,19 +187,16 @@ halt contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
-    
+
     assert!(decision.is_halt(), "Expected halt decision");
-    
+
     // Wait for async action
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    
-    assert!(
-        halt_marker.exists(),
-        "Halt action did not execute"
-    );
-    
+
+    assert!(halt_marker.exists(), "Halt action did not execute");
+
     let content = fs::read_to_string(&halt_marker).unwrap();
     assert!(content.contains("EMERGENCY HALT ACTION TRIGGERED"));
 }
@@ -211,30 +206,34 @@ halt contains decision if {
 async fn test_multiple_actions_per_rule() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
-    
+
     // Create guidebook with multiple actions for one rule
     let marker1 = temp_dir.path().join("cupcake_test_action1.txt");
     let marker2 = temp_dir.path().join("cupcake_test_action2.txt");
-    let guidebook = format!(r#"
+    let guidebook = format!(
+        r#"
 actions:
   by_rule_id:
     MULTI-001:
       - command: 'echo "First action" > {}'
       - command: 'echo "Second action" > {}'
-"#, marker1.display(), marker2.display());
-    
+"#,
+        marker1.display(),
+        marker2.display()
+    );
+
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
-    
+
     create_system_policy(&system_dir);
-    
+
     let multi_policy = r#"package cupcake.policies.test_multi
 
 import rego.v1
@@ -255,11 +254,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("test_multi.rego"), multi_policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -269,25 +268,19 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
-    
+
     // Wait for async actions
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    
+
     // Verify both actions executed
     let marker1 = temp_dir.path().join("cupcake_test_action1.txt");
     let marker2 = temp_dir.path().join("cupcake_test_action2.txt");
-    assert!(
-        marker1.exists(),
-        "First action did not execute"
-    );
-    assert!(
-        marker2.exists(),
-        "Second action did not execute"
-    );
-    
+    assert!(marker1.exists(), "First action did not execute");
+    assert!(marker2.exists(), "Second action did not execute");
+
     // No cleanup needed - TempDir handles it
 }
 
@@ -296,15 +289,15 @@ deny contains decision if {
 async fn test_on_any_denial_actions() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
-    
+
     let general_marker = temp_dir.path().join("any_denial.txt");
-    
+
     // Create guidebook with on_any_denial action
     let guidebook = format!(
         r#"
@@ -314,11 +307,11 @@ actions:
 "#,
         general_marker.display()
     );
-    
+
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
-    
+
     create_system_policy(&system_dir);
-    
+
     // Policy with a different rule ID
     let policy = r#"package cupcake.policies.test_general
 
@@ -340,11 +333,11 @@ deny contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("test_general.rego"), policy).unwrap();
-    
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -354,13 +347,13 @@ deny contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
     assert!(decision.is_blocking());
-    
+
     // Wait for async action
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    
+
     assert!(
         general_marker.exists(),
         "General denial action did not execute"
@@ -398,6 +391,6 @@ collect_verbs(verb_name) := result if {
 
 default collect_verbs(_) := []
 "#;
-    
+
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
 }

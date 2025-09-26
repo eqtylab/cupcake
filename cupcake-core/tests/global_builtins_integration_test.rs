@@ -5,26 +5,26 @@ mod test_helpers;
 mod tests {
     use anyhow::Result;
     use cupcake_core::engine::Engine;
+    use serde_json::json;
+    use serial_test::serial;
     use std::fs;
     use std::path::Path;
     use tempfile::TempDir;
-    use serde_json::json;
-    use serial_test::serial;
-    
+
     /// Helper to create a test global configuration with test policies
     fn setup_test_global_config(global_dir: &Path) -> Result<()> {
         let policies_dir = global_dir.join("policies");
         let system_dir = policies_dir.join("system");
-        
+
         fs::create_dir_all(&policies_dir)?;
         fs::create_dir_all(&system_dir)?;
-        
+
         // Use the same fixture that works in other global tests
         fs::write(
             system_dir.join("evaluate.rego"),
-            include_str!("fixtures/global_system_evaluate.rego")
+            include_str!("fixtures/global_system_evaluate.rego"),
         )?;
-        
+
         // Create test policies (not in builtins directory to avoid filtering)
         fs::write(
             policies_dir.join("test_system_protection.rego"),
@@ -46,9 +46,9 @@ halt contains decision if {
         "reason": "Test: System file blocked",
         "severity": "CRITICAL"
     }
-}"#
+}"#,
         )?;
-        
+
         fs::write(
             policies_dir.join("test_sensitive_data.rego"),
             r#"# METADATA
@@ -69,9 +69,9 @@ deny contains decision if {
         "reason": "Test: Sensitive file blocked",
         "severity": "HIGH"
     }
-}"#
+}"#,
         )?;
-        
+
         fs::write(
             policies_dir.join("test_cupcake_exec.rego"),
             r#"# METADATA
@@ -92,9 +92,9 @@ halt contains decision if {
         "reason": "Test: Cupcake execution blocked",
         "severity": "CRITICAL"
     }
-}"#
+}"#,
         )?;
-        
+
         // Create guidebook with builtins enabled
         // Note: The global builtins aren't in "builtins" subdirectory in tests,
         // so we need to ensure they're not filtered out
@@ -103,30 +103,30 @@ halt contains decision if {
             r#"signals: {}
 actions: {}
 builtins: {}
-"#
+"#,
         )?;
-        
+
         Ok(())
     }
-    
+
     #[tokio::test]
     #[serial]
     async fn test_global_system_protection_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
-        
+
         // Setup global config
         setup_test_global_config(global_temp.path())?;
-        
+
         // Setup project using test helper
         crate::test_helpers::create_test_project(project_temp.path())?;
-        
+
         // Set global config env var
         std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-        
+
         // Create engine (pass project root, not policies directory)
         let engine = Engine::new(project_temp.path()).await?;
-        
+
         // Test system protection blocks /etc/hosts edit
         let event = json!({
             "hook_event_name": "PreToolUse",
@@ -137,40 +137,43 @@ builtins: {}
                 "new_string": "malicious"
             }
         });
-        
+
         let decision = engine.evaluate(&event, None).await?;
-        
+
         // Debug what decision we got
-        eprintln!("Decision for /etc/hosts edit: {:?}", decision);
+        eprintln!("Decision for /etc/hosts edit: {decision:?}");
         eprintln!("Decision reason: {:?}", decision.reason());
-        
+
         // Should be HALT decision from global builtin
-        assert!(decision.is_halt(), "Expected HALT decision for /etc/hosts edit, got: {:?}", decision);
+        assert!(
+            decision.is_halt(),
+            "Expected HALT decision for /etc/hosts edit, got: {decision:?}"
+        );
         assert_eq!(decision.reason(), Some("Test: System file blocked"));
-        
+
         // Cleanup
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
-    
+
     #[tokio::test]
     #[serial]
     async fn test_global_sensitive_data_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
-        
+
         // Setup global config
         setup_test_global_config(global_temp.path())?;
-        
+
         // Setup project using test helper
         crate::test_helpers::create_test_project(project_temp.path())?;
-        
+
         // Set global config env var
         std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-        
+
         // Create engine (pass project root, not policies directory)
         let engine = Engine::new(project_temp.path()).await?;
-        
+
         // Test sensitive data blocks .env read
         let event = json!({
             "hook_event_name": "PreToolUse",
@@ -179,36 +182,39 @@ builtins: {}
                 "file_path": "/home/user/.env"
             }
         });
-        
+
         let decision = engine.evaluate(&event, None).await?;
-        
+
         // Should be DENY decision from global builtin
-        assert!(decision.is_blocking(), "Expected blocking decision for .env read");
+        assert!(
+            decision.is_blocking(),
+            "Expected blocking decision for .env read"
+        );
         assert_eq!(decision.reason(), Some("Test: Sensitive file blocked"));
-        
+
         // Cleanup
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
-    
+
     #[tokio::test]
     #[serial]
     async fn test_global_cupcake_exec_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
-        
+
         // Setup global config
         setup_test_global_config(global_temp.path())?;
-        
+
         // Setup project using test helper
         crate::test_helpers::create_test_project(project_temp.path())?;
-        
+
         // Set global config env var
         std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-        
+
         // Create engine (pass project root, not policies directory)
         let engine = Engine::new(project_temp.path()).await?;
-        
+
         // Test cupcake execution blocks
         let event = json!({
             "hook_event_name": "PreToolUse",
@@ -217,32 +223,35 @@ builtins: {}
                 "command": "cupcake init --global"
             }
         });
-        
+
         let decision = engine.evaluate(&event, None).await?;
-        
+
         // Should be HALT decision from global builtin
-        assert!(decision.is_halt(), "Expected HALT decision for cupcake execution");
+        assert!(
+            decision.is_halt(),
+            "Expected HALT decision for cupcake execution"
+        );
         assert_eq!(decision.reason(), Some("Test: Cupcake execution blocked"));
-        
+
         // Cleanup
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
-    
+
     #[tokio::test]
     #[serial]
     async fn test_global_builtins_disabled() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
-        
+
         // Setup global config with builtins disabled
         let policies_dir = global_temp.path().join("policies");
         let builtins_dir = policies_dir.join("builtins");
         let system_dir = policies_dir.join("system");
-        
+
         fs::create_dir_all(&builtins_dir)?;
         fs::create_dir_all(&system_dir)?;
-        
+
         // Create global system evaluate policy
         fs::write(
             system_dir.join("evaluate.rego"),
@@ -277,9 +286,9 @@ collect_verbs(verb_name) := result if {
         some decision in verb_set
     ]
     result := all_decisions
-}"#
+}"#,
         )?;
-        
+
         // Create builtin policies (they exist but are disabled)
         fs::write(
             builtins_dir.join("system_protection.rego"),
@@ -295,9 +304,9 @@ halt contains decision if {
         "reason": "Should not fire when disabled",
         "severity": "CRITICAL"
     }
-}"#
+}"#,
         )?;
-        
+
         // Create guidebook with builtins DISABLED
         fs::write(
             global_temp.path().join("guidebook.yml"),
@@ -310,18 +319,18 @@ builtins:
     enabled: false
   cupcake_exec_protection:
     enabled: false
-"#
+"#,
         )?;
-        
+
         // Setup project using test helper
         crate::test_helpers::create_test_project(project_temp.path())?;
-        
+
         // Set global config env var
         std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-        
+
         // Create engine (pass project root, not policies directory)
         let engine = Engine::new(project_temp.path()).await?;
-        
+
         // Test that disabled builtin does NOT fire
         let event = json!({
             "hook_event_name": "PreToolUse",
@@ -332,32 +341,35 @@ builtins:
                 "new_string": "malicious"
             }
         });
-        
+
         let decision = engine.evaluate(&event, None).await?;
-        
+
         // Should be ALLOW since builtin is disabled
-        assert!(!decision.is_halt(), "Expected no HALT when builtin is disabled");
+        assert!(
+            !decision.is_halt(),
+            "Expected no HALT when builtin is disabled"
+        );
         assert_ne!(decision.reason(), Some("Should not fire when disabled"));
-        
+
         // Cleanup
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
-    
+
     #[tokio::test]
     #[serial]
     async fn test_global_builtin_signals() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
-        
+
         // Setup global config
         let policies_dir = global_temp.path().join("policies");
         let builtins_dir = policies_dir.join("builtins");
         let system_dir = policies_dir.join("system");
-        
+
         fs::create_dir_all(&builtins_dir)?;
         fs::create_dir_all(&system_dir)?;
-        
+
         // Create global system evaluate policy
         fs::write(
             system_dir.join("evaluate.rego"),
@@ -392,9 +404,9 @@ collect_verbs(verb_name) := result if {
         some decision in verb_set
     ]
     result := all_decisions
-}"#
+}"#,
         )?;
-        
+
         // Create builtin that uses signals - signals come through input.signals, not data!
         fs::write(
             builtins_dir.join("system_protection.rego"),
@@ -424,9 +436,9 @@ halt contains decision if {
         "reason": message,
         "severity": "CRITICAL"
     }
-}"#
+}"#,
         )?;
-        
+
         // Create guidebook with additional paths AND the generated signals
         // The signals must be present for the builtin to work!
         fs::write(
@@ -445,18 +457,18 @@ builtins:
     additional_paths: 
       - "/custom/protected/path"
     message: "Custom block message from signal"
-"#
+"#,
         )?;
-        
+
         // Setup project using test helper
         crate::test_helpers::create_test_project(project_temp.path())?;
-        
+
         // Set global config env var
         std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-        
+
         // Create engine (pass project root, not policies directory)
         let engine = Engine::new(project_temp.path()).await?;
-        
+
         // Test that builtin uses signal for additional path
         let event = json!({
             "hook_event_name": "PreToolUse",
@@ -467,18 +479,21 @@ builtins:
                 "new_string": "malicious"
             }
         });
-        
+
         let decision = engine.evaluate(&event, None).await?;
-        
+
         // Debug what we got
-        eprintln!("Decision for custom path: {:?}", decision);
+        eprintln!("Decision for custom path: {decision:?}");
         eprintln!("Is halt? {}", decision.is_halt());
         eprintln!("Reason: {:?}", decision.reason());
-        
+
         // Should be HALT with custom message
-        assert!(decision.is_halt(), "Expected HALT for custom protected path, got: {:?}", decision);
+        assert!(
+            decision.is_halt(),
+            "Expected HALT for custom protected path, got: {decision:?}"
+        );
         assert_eq!(decision.reason(), Some("Custom block message from signal"));
-        
+
         // Cleanup
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())

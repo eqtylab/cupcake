@@ -19,10 +19,7 @@ impl ClaudeHarness {
     }
 
     /// Format the response for this specific harness
-    pub fn format_response(
-        event: &ClaudeCodeEvent,
-        decision: &FinalDecision,
-    ) -> Result<Value> {
+    pub fn format_response(event: &ClaudeCodeEvent, decision: &FinalDecision) -> Result<Value> {
         // 1. Convert our new FinalDecision into the old EngineDecision format
         //    that the response builders expect.
         let engine_decision = Self::adapt_decision(decision);
@@ -80,7 +77,7 @@ impl ClaudeHarness {
                 } else {
                     Some(context.clone())
                 }
-            },
+            }
             // All other decision types don't carry additional context
             // The reason is already captured in the EngineDecision
             _ => None,

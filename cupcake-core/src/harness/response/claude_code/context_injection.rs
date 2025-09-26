@@ -1,6 +1,4 @@
-use crate::harness::response::types::{
-    CupcakeResponse, EngineDecision, HookSpecificOutput,
-};
+use crate::harness::response::types::{CupcakeResponse, EngineDecision, HookSpecificOutput};
 
 /// Builder for context injection hook responses
 ///

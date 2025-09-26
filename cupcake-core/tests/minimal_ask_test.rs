@@ -2,19 +2,18 @@ use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_minimal_ask_rule() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
     let system_dir = policies_dir.join("system");
-    
+
     fs::create_dir_all(&system_dir).unwrap();
-    
+
     // Use the exact same system policy as examples directory
     let system_policy = r#"package cupcake.system
 
@@ -45,9 +44,9 @@ collect_verbs(verb_name) := result if {
 
 default collect_verbs(_) := []
 "#;
-    
+
     fs::write(system_dir.join("evaluate.rego"), system_policy).unwrap();
-    
+
     // Minimal test policy that always asks
     let test_policy = r#"package cupcake.policies.minimal
 
@@ -70,13 +69,13 @@ ask contains decision if {
     }
 }
 "#;
-    
+
     fs::write(policies_dir.join("minimal.rego"), test_policy).unwrap();
-    
-    eprintln!("Test policies created at: {:?}", policies_dir);
-    
+
+    eprintln!("Test policies created at: {policies_dir:?}");
+
     let engine = Engine::new(&project_path).await.unwrap();
-    
+
     let event = json!({
         "hookEventName": "PreToolUse",
         "tool_name": "Bash",
@@ -86,13 +85,12 @@ ask contains decision if {
         "session_id": "test",
         "cwd": "/tmp"
     });
-    
+
     let decision = engine.evaluate(&event, None).await.unwrap();
-    eprintln!("Decision: {:?}", decision);
-    
+    eprintln!("Decision: {decision:?}");
+
     assert!(
-        decision.requires_confirmation(), 
-        "Expected ASK decision but got: {:?}", 
-        decision
+        decision.requires_confirmation(),
+        "Expected ASK decision but got: {decision:?}"
     );
 }

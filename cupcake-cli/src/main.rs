@@ -8,14 +8,17 @@ use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use tabled::{Table, Tabled, settings::{Style, Modify, object::Rows, Alignment}};
+use tabled::{
+    settings::{object::Rows, Alignment, Modify, Style},
+    Table, Tabled,
+};
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
-use cupcake_core::{engine, harness, validator, debug::DebugCapture};
+use cupcake_core::{debug::DebugCapture, engine, harness, validator};
 
-mod trust_cli;
 mod harness_config;
+mod trust_cli;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -35,23 +38,23 @@ enum Command {
         /// Directory containing policy files
         #[clap(long, default_value = "./policies")]
         policy_dir: PathBuf,
-        
+
         /// Enable debug output
         #[clap(long)]
         debug: bool,
-        
+
         /// Strict mode (exit non-zero on deny)
         #[clap(long)]
         strict: bool,
     },
-    
+
     /// Verify the engine configuration and policies
     Verify {
         /// Directory containing policy files
         #[clap(long, default_value = "./policies")]
         policy_dir: PathBuf,
     },
-    
+
     /// Initialize a new Cupcake project
     Init {
         /// Initialize global (machine-wide) configuration instead of project
@@ -66,34 +69,34 @@ enum Command {
         #[clap(long, value_delimiter = ',')]
         builtins: Option<Vec<String>>,
     },
-    
+
     /// Manage script trust and integrity verification
     Trust {
         #[clap(subcommand)]
         command: trust_cli::TrustCommand,
     },
-    
+
     /// Validate policies for Cupcake requirements and best practices
     Validate {
         /// Directory containing policy files
         #[clap(long, default_value = ".cupcake/policies")]
         policy_dir: PathBuf,
-        
+
         /// Output results as JSON
         #[clap(long)]
         json: bool,
     },
-    
+
     /// Inspect policies to show metadata and routing information
     Inspect {
         /// Directory containing policy files
         #[clap(long, default_value = ".cupcake/policies")]
         policy_dir: PathBuf,
-        
+
         /// Output results as JSON
         #[clap(long, conflicts_with = "table")]
         json: bool,
-        
+
         /// Display results in a compact table format
         #[clap(short, long)]
         table: bool,
@@ -109,24 +112,23 @@ enum HarnessType {
 }
 
 /// Initialize tracing with support for CUPCAKE_TRACE environment variable
-/// 
+///
 /// Supports two environment variables:
 /// - RUST_LOG: Standard Rust logging levels (info, debug, trace, etc.)
 /// - CUPCAKE_TRACE: Specialized evaluation tracing (eval, signals, wasm, etc.)
-/// 
+///
 /// When CUPCAKE_TRACE is set, enables JSON output for structured tracing.
 fn initialize_tracing() {
     // Check for CUPCAKE_TRACE environment variable
     let cupcake_trace = env::var("CUPCAKE_TRACE").ok();
-    
+
     // Build the env filter based on RUST_LOG and CUPCAKE_TRACE
-    let mut filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
-    
+    let mut filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     // If CUPCAKE_TRACE is set, add trace-level logging for specific modules
     if let Some(trace_config) = &cupcake_trace {
         let trace_modules: Vec<&str> = trace_config.split(',').collect();
-        
+
         // Enable trace level for requested modules
         for module in trace_modules {
             let directive = match module.trim() {
@@ -138,14 +140,14 @@ fn initialize_tracing() {
                 "all" => "cupcake_core=trace",
                 _ => continue,
             };
-            
+
             // Parse and add the directive
             if let Ok(parsed) = directive.parse() {
                 filter = filter.add_directive(parsed);
             }
         }
     }
-    
+
     // Configure the subscriber based on whether tracing is enabled
     if cupcake_trace.is_some() {
         // JSON output for structured tracing - MUST go to stderr
@@ -159,7 +161,7 @@ fn initialize_tracing() {
             .with_line_number(true)
             .with_writer(std::io::stderr) // Critical: logs to stderr, not stdout
             .init();
-        
+
         // Log that tracing is enabled
         tracing::info!(
             cupcake_trace = ?cupcake_trace,
@@ -179,44 +181,50 @@ fn initialize_tracing() {
 async fn main() -> Result<()> {
     // Initialize tracing with enhanced support for CUPCAKE_TRACE
     initialize_tracing();
-    
+
     let cli = Cli::parse();
-    
+
     match cli.command {
-        Command::Eval { policy_dir, debug, strict } => {
+        Command::Eval {
+            policy_dir,
+            debug,
+            strict,
+        } => {
             if debug {
                 tracing::subscriber::set_global_default(
                     tracing_subscriber::fmt()
                         .with_env_filter(EnvFilter::new("debug"))
                         .with_target(false)
                         .with_writer(std::io::stderr) // Critical: logs to stderr, not stdout
-                        .finish()
-                ).ok();
+                        .finish(),
+                )
+                .ok();
             }
-            
+
             eval_command(policy_dir, strict).await
         }
-        Command::Verify { policy_dir } => {
-            verify_command(policy_dir).await
-        }
-        Command::Init { global, harness, builtins } => {
-            init_command(global, harness, builtins).await
-        }
-        Command::Trust { command } => {
-            command.execute().await
-        }
-        Command::Validate { policy_dir, json } => {
-            validate_command(policy_dir, json).await
-        }
-        Command::Inspect { policy_dir, json, table } => {
-            inspect_command(policy_dir, json, table).await
-        }
+        Command::Verify { policy_dir } => verify_command(policy_dir).await,
+        Command::Init {
+            global,
+            harness,
+            builtins,
+        } => init_command(global, harness, builtins).await,
+        Command::Trust { command } => command.execute().await,
+        Command::Validate { policy_dir, json } => validate_command(policy_dir, json).await,
+        Command::Inspect {
+            policy_dir,
+            json,
+            table,
+        } => inspect_command(policy_dir, json, table).await,
     }
 }
 
 async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
-    debug!("Initializing Cupcake engine with policies from: {:?}", policy_dir);
-    
+    debug!(
+        "Initializing Cupcake engine with policies from: {:?}",
+        policy_dir
+    );
+
     // Initialize the engine - MUST succeed or we exit
     let engine = match engine::Engine::new(&policy_dir).await {
         Ok(e) => {
@@ -226,33 +234,38 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
         Err(e) => {
             error!("Fatal: Cupcake engine failed to initialize: {:#}", e);
             eprintln!("\nError: Could not start the Cupcake engine.");
-            eprintln!("Please ensure the OPA CLI is installed and accessible in your system's PATH.");
+            eprintln!(
+                "Please ensure the OPA CLI is installed and accessible in your system's PATH."
+            );
             eprintln!("You can download it from: https://www.openpolicyagent.org/docs/latest/#running-opa");
             std::process::exit(1);
         }
     };
-    
+
     // Read hook event from stdin
     let mut buffer = String::new();
     io::stdin()
         .read_to_string(&mut buffer)
         .context("Failed to read hook event from stdin")?;
-    
+
     // Parse the Claude Code event using the harness
     let event = harness::ClaudeHarness::parse_event(&buffer)
         .context("Failed to parse Claude Code event")?;
-    
+
     debug!("Processing {} hook event", event.event_name());
-    
+
     // Convert to JSON Value for the engine
     let mut hook_event_json = serde_json::to_value(&event)?;
-    
+
     // Add hookEventName field for the engine
     // The engine expects camelCase but ClaudeCodeEvent uses snake_case
     if let Some(obj) = hook_event_json.as_object_mut() {
-        obj.insert("hookEventName".to_string(), serde_json::Value::String(event.event_name().to_string()));
+        obj.insert(
+            "hookEventName".to_string(),
+            serde_json::Value::String(event.event_name().to_string()),
+        );
     }
-    
+
     // Create debug capture if enabled via environment variable
     let mut debug_capture = if std::env::var("CUPCAKE_DEBUG_FILES").is_ok() {
         // Generate a trace ID for this evaluation
@@ -261,23 +274,26 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
     } else {
         None
     };
-    
+
     // Evaluate policies for this hook event
-    let decision = match engine.evaluate(&hook_event_json, debug_capture.as_mut()).await {
+    let decision = match engine
+        .evaluate(&hook_event_json, debug_capture.as_mut())
+        .await
+    {
         Ok(d) => d,
         Err(e) => {
             error!("Policy evaluation failed: {:#}", e);
-            
+
             // Capture the error in debug if enabled
             if let Some(ref mut debug) = debug_capture {
-                debug.add_error(format!("Policy evaluation failed: {:#}", e));
-                
+                debug.add_error(format!("Policy evaluation failed: {e:#}"));
+
                 // Write the debug file even on error to help troubleshooting
                 if let Err(write_err) = debug.write_if_enabled() {
                     debug!("Failed to write debug file: {}", write_err);
                 }
             }
-            
+
             // On error, return a safe "allow" with no modifications
             // This ensures we don't break Claude Code on engine failures
             println!("{{}}");
@@ -287,61 +303,65 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
             return Ok(());
         }
     };
-    
+
     // Format response using ClaudeHarness
     let response = harness::ClaudeHarness::format_response(&event, &decision)?;
-    
+
     // Capture the response in debug if enabled
     if let Some(ref mut debug) = debug_capture {
         // The response is already a JSON Value
         debug.response_to_claude = Some(response.clone());
-        
+
         // Write the debug file
         if let Err(e) = debug.write_if_enabled() {
             // Log but don't fail on debug write errors
             debug!("Failed to write debug file: {}", e);
         }
     }
-    
+
     // Output the response to stdout as JSON string
     println!("{}", serde_json::to_string(&response)?);
-    
+
     // In strict mode, exit non-zero on blocking decisions
     if strict && (decision.is_halt() || decision.is_blocking()) {
         std::process::exit(1);
     }
-    
+
     Ok(())
 }
 
 async fn verify_command(policy_dir: PathBuf) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
-    
+
     info!("Verifying Cupcake engine configuration...");
     info!("Policy directory: {:?}", policy_dir);
-    
+
     // Check for global configuration
     println!("\n=== Global Configuration ===");
     match GlobalPaths::discover()? {
         Some(global_paths) if global_paths.is_initialized() => {
             println!("✅ Global config found at: {:?}", global_paths.root);
-            
+
             // Count global policies
             if let Ok(entries) = fs::read_dir(&global_paths.policies) {
                 let policy_count = entries
                     .filter_map(Result::ok)
                     .filter(|e| {
-                        e.path().extension()
+                        e.path()
+                            .extension()
                             .and_then(|s| s.to_str())
                             .map(|s| s == "rego")
                             .unwrap_or(false)
                     })
                     .count();
-                println!("   Policies: {} global policies", policy_count);
+                println!("   Policies: {policy_count} global policies");
             }
         }
         Some(global_paths) => {
-            println!("❌ Global config not initialized (location would be: {:?})", global_paths.root);
+            println!(
+                "❌ Global config not initialized (location would be: {:?})",
+                global_paths.root
+            );
             println!("   Run 'cupcake init --global' to initialize");
         }
         None => {
@@ -349,7 +369,7 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
             println!("   Set CUPCAKE_GLOBAL_CONFIG or run 'cupcake init --global'");
         }
     }
-    
+
     // Initialize the engine - MUST succeed or we exit
     println!("\n=== Project Configuration ===");
     let engine = match engine::Engine::new(&policy_dir).await {
@@ -360,12 +380,14 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
         Err(e) => {
             error!("Fatal: Cupcake engine failed to initialize: {:#}", e);
             eprintln!("\n❌ Error: Could not start the Cupcake engine.");
-            eprintln!("   Please ensure the OPA CLI is installed and accessible in your system's PATH.");
+            eprintln!(
+                "   Please ensure the OPA CLI is installed and accessible in your system's PATH."
+            );
             eprintln!("   You can download it from: https://www.openpolicyagent.org/docs/latest/#running-opa");
             std::process::exit(1);
         }
     };
-    
+
     // Display routing maps
     println!("\n=== Project Routing Map ===");
     for (key, policies) in engine.routing_map() {
@@ -374,7 +396,7 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
             println!("    - {}", policy.package_name);
         }
     }
-    
+
     // Display global routing map if it exists
     if !engine.global_routing_map().is_empty() {
         println!("\n=== Global Routing Map ===");
@@ -385,7 +407,7 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
             }
         }
     }
-    
+
     // Check WASM modules
     println!("\n=== WASM Compilation ===");
     if let Some(wasm) = engine.wasm_module() {
@@ -394,13 +416,13 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
         // This should never happen now - engine initialization would have failed
         println!("  Project WASM: MISSING ❌");
     }
-    
+
     if let Some(global_wasm) = engine.global_wasm_module() {
         println!("  Global WASM:  {} bytes ✅", global_wasm.len());
     } else {
         println!("  Global WASM:  Not compiled (no global policies or only system policies)");
     }
-    
+
     println!("\n✅ Verification complete!");
     Ok(())
 }
@@ -461,8 +483,8 @@ fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<Strin
     let mut current_builtin: Option<String> = None;
     let mut indent_level = 0;
 
-    for i in 0..lines.len() {
-        let line = lines[i].clone();
+    for (i, line) in lines.clone().iter().enumerate() {
+        let line = line.clone();
         let trimmed = line.trim();
 
         // Check if we're entering the builtins section
@@ -477,7 +499,7 @@ fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<Strin
 
         // Check for builtin names in comments
         for builtin_name in enabled_builtins {
-            let inline_pattern = format!("{}:", builtin_name);
+            let inline_pattern = format!("{builtin_name}:");
 
             // Look for the builtin in a comment
             if trimmed.starts_with('#') && trimmed.contains(&inline_pattern) {
@@ -494,8 +516,11 @@ fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<Strin
             if let Some(ref current) = current_builtin {
                 if current == builtin_name {
                     // Check if we've moved to a different builtin or ended the section
-                    if trimmed.starts_with("# -----") ||
-                       (trimmed.starts_with('#') && trimmed.ends_with(':') && !trimmed.contains(builtin_name)) {
+                    if trimmed.starts_with("# -----")
+                        || (trimmed.starts_with('#')
+                            && trimmed.ends_with(':')
+                            && !trimmed.contains(builtin_name))
+                    {
                         current_builtin = None;
                         continue;
                     }
@@ -507,9 +532,11 @@ fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<Strin
                         if current_indent >= indent_level && current_indent <= indent_level + 4 {
                             // Remove the comment marker
                             if let Some(pos) = line_copy.find("# ") {
-                                lines[i] = format!("{}{}", &line_copy[..pos], &line_copy[pos + 2..]);
+                                lines[i] =
+                                    format!("{}{}", &line_copy[..pos], &line_copy[pos + 2..]);
                             } else if let Some(pos) = line_copy.find("#") {
-                                lines[i] = format!("{}{}", &line_copy[..pos], &line_copy[pos + 1..]);
+                                lines[i] =
+                                    format!("{}{}", &line_copy[..pos], &line_copy[pos + 1..]);
                             }
                         }
                     }
@@ -527,35 +554,32 @@ fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<Strin
 /// Add sensible default configurations for builtins that need them
 fn add_default_builtin_configs(mut content: String, enabled_builtins: &[String]) -> Result<String> {
     // For git_pre_check, ensure there's at least one check
-    if enabled_builtins.contains(&"git_pre_check".to_string()) {
-        if !content.contains("checks:") || content.contains("checks: []") {
+    if enabled_builtins.contains(&"git_pre_check".to_string())
+        && (!content.contains("checks:") || content.contains("checks: []")) {
             // Replace empty checks with a default
             content = content.replace(
                 "git_pre_check:\n    enabled: true",
                 "git_pre_check:\n    enabled: true\n    checks:\n      - command: \"echo 'Validation passed'\"\n        message: \"Basic validation check\""
             );
         }
-    }
 
     // For protected_paths, add default paths if none exist
-    if enabled_builtins.contains(&"protected_paths".to_string()) {
-        if !content.contains("paths:") || content.contains("paths: []") {
+    if enabled_builtins.contains(&"protected_paths".to_string())
+        && (!content.contains("paths:") || content.contains("paths: []")) {
             content = content.replace(
                 "protected_paths:\n    enabled: true",
                 "protected_paths:\n    enabled: true\n    message: \"System path modification blocked by policy\"\n    paths:\n      - \"/etc/\"\n      - \"/System/\"\n      - \"~/.ssh/\""
             );
         }
-    }
 
     // For post_edit_check, add basic extension checks if none exist
-    if enabled_builtins.contains(&"post_edit_check".to_string()) {
-        if !content.contains("by_extension:") || content.contains("by_extension: {}") {
+    if enabled_builtins.contains(&"post_edit_check".to_string())
+        && (!content.contains("by_extension:") || content.contains("by_extension: {}")) {
             content = content.replace(
                 "post_edit_check:",
                 "post_edit_check:\n    by_extension:\n      \"py\":\n        command: \"python -m py_compile\"\n        message: \"Python syntax validation\"\n      \"rs\":\n        command: \"cargo check --message-format short 2>/dev/null || echo 'Rust check not available'\"\n        message: \"Rust compilation check\""
             );
         }
-    }
 
     Ok(content)
 }
@@ -573,7 +597,8 @@ fn generate_global_guidebook(enabled_builtins: Option<&[String]>) -> String {
         .map(|b| b.to_vec())
         .unwrap_or(default_builtins);
 
-    let mut guidebook = String::from(r#"# Global Cupcake Configuration
+    let mut guidebook = String::from(
+        r#"# Global Cupcake Configuration
 # This configuration applies to ALL Cupcake projects on this machine
 
 # Global signals - available to all global policies
@@ -583,38 +608,45 @@ signals: {}
 actions: {}
 
 # Global builtins - machine-wide security policies
-builtins:"#);
+builtins:"#,
+    );
 
     // Add each enabled builtin
     for builtin in &builtins_to_enable {
         match builtin.as_str() {
             "system_protection" => {
-                guidebook.push_str(r#"
+                guidebook.push_str(
+                    r#"
   # Protect critical system paths from modification
   system_protection:
     enabled: true
     additional_paths: []  # Add custom protected system paths
-    # message: "Custom message for system protection blocks""#);
+    # message: "Custom message for system protection blocks""#,
+                );
             }
             "sensitive_data_protection" => {
-                guidebook.push_str(r#"
+                guidebook.push_str(
+                    r#"
 
   # Block reading of credentials and sensitive data
   sensitive_data_protection:
     enabled: true
-    additional_patterns: []  # Add custom sensitive file patterns"#);
+    additional_patterns: []  # Add custom sensitive file patterns"#,
+                );
             }
             "cupcake_exec_protection" => {
-                guidebook.push_str(r#"
+                guidebook.push_str(
+                    r#"
 
   # Block direct execution of cupcake binary
   cupcake_exec_protection:
     enabled: true
-    # message: "Custom message for cupcake execution blocks""#);
+    # message: "Custom message for cupcake execution blocks""#,
+                );
             }
             _ => {
                 // This shouldn't happen due to validation, but handle gracefully
-                eprintln!("Warning: Unknown global builtin '{}' - skipping", builtin);
+                eprintln!("Warning: Unknown global builtin '{builtin}' - skipping");
             }
         }
     }
@@ -623,7 +655,11 @@ builtins:"#);
     guidebook
 }
 
-async fn init_command(global: bool, harness: Option<HarnessType>, builtins: Option<Vec<String>>) -> Result<()> {
+async fn init_command(
+    global: bool,
+    harness: Option<HarnessType>,
+    builtins: Option<Vec<String>>,
+) -> Result<()> {
     // Validate builtin names if provided
     if let Some(ref builtin_list) = builtins {
         validate_builtin_names(builtin_list, global)?;
@@ -638,15 +674,21 @@ async fn init_command(global: bool, harness: Option<HarnessType>, builtins: Opti
     }
 }
 
-async fn init_global_config(harness: Option<HarnessType>, builtins: Option<Vec<String>>) -> Result<()> {
+async fn init_global_config(
+    harness: Option<HarnessType>,
+    builtins: Option<Vec<String>>,
+) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
-    
+
     // Discover or create global config location
     let global_paths = match GlobalPaths::discover()? {
         Some(paths) => {
             // Check if already initialized
             if paths.is_initialized() {
-                println!("Global Cupcake configuration already initialized at: {:?}", paths.root);
+                println!(
+                    "Global Cupcake configuration already initialized at: {:?}",
+                    paths.root
+                );
                 println!("To reinitialize, first remove the existing configuration.");
                 return Ok(());
             }
@@ -655,7 +697,7 @@ async fn init_global_config(harness: Option<HarnessType>, builtins: Option<Vec<S
         None => {
             // Create default global config location using the same logic as discovery
             use directories::ProjectDirs;
-            
+
             let config_dir = if let Some(proj_dirs) = ProjectDirs::from("", "", "cupcake") {
                 // Use the project-specific config directory
                 proj_dirs.config_dir().to_path_buf()
@@ -666,7 +708,7 @@ async fn init_global_config(harness: Option<HarnessType>, builtins: Option<Vec<S
                     .join(".config")
                     .join("cupcake")
             };
-            
+
             GlobalPaths {
                 root: config_dir.clone(),
                 policies: config_dir.join("policies"),
@@ -676,16 +718,19 @@ async fn init_global_config(harness: Option<HarnessType>, builtins: Option<Vec<S
             }
         }
     };
-    
-    info!("Initializing global Cupcake configuration at: {:?}", global_paths.root);
-    
+
+    info!(
+        "Initializing global Cupcake configuration at: {:?}",
+        global_paths.root
+    );
+
     // Initialize the directory structure
     global_paths.initialize()?;
-    
+
     // Create system evaluate policy for global namespace
     let system_dir = global_paths.policies.join("system");
     fs::create_dir_all(&system_dir)?;
-    
+
     fs::write(
         system_dir.join("evaluate.rego"),
         r#"# METADATA
@@ -733,9 +778,9 @@ collect_verbs(verb_name) := result if {
     ]
     result := all_decisions
 }
-"#
+"#,
     )?;
-    
+
     // Create an example global policy
     fs::write(
         global_paths.policies.join("example_global.rego"),
@@ -779,33 +824,33 @@ import rego.v1
 #         "severity": "CRITICAL"
 #     }
 # }
-"#
+"#,
     )?;
-    
+
     // Create guidebook with specified or default global builtins
     let guidebook_content = generate_global_guidebook(builtins.as_deref());
     fs::write(global_paths.guidebook.clone(), guidebook_content)?;
-    
+
     // Create builtins directory for global builtin policies
     let builtins_dir = global_paths.policies.join("builtins");
     fs::create_dir_all(&builtins_dir)?;
-    
+
     // Deploy the three global builtin policies
     fs::write(
         builtins_dir.join("system_protection.rego"),
-        GLOBAL_SYSTEM_PROTECTION_POLICY
+        GLOBAL_SYSTEM_PROTECTION_POLICY,
     )?;
-    
+
     fs::write(
         builtins_dir.join("sensitive_data_protection.rego"),
-        GLOBAL_SENSITIVE_DATA_POLICY
+        GLOBAL_SENSITIVE_DATA_POLICY,
     )?;
-    
+
     fs::write(
         builtins_dir.join("cupcake_exec_protection.rego"),
-        GLOBAL_CUPCAKE_EXEC_POLICY
+        GLOBAL_CUPCAKE_EXEC_POLICY,
     )?;
-    
+
     println!("✅ Initialized global Cupcake configuration");
     println!("   Location:      {:?}", global_paths.root);
     println!("   Configuration: {:?}", global_paths.guidebook);
@@ -817,7 +862,7 @@ import rego.v1
     if let Some(ref builtin_list) = builtins {
         println!("   Enabled builtins:");
         for builtin in builtin_list {
-            println!("     - {}", builtin);
+            println!("     - {builtin}");
         }
     } else {
         // Default global builtins were enabled
@@ -830,115 +875,111 @@ import rego.v1
     println!();
     println!("   Edit guidebook.yml to customize or disable builtins.");
     println!("   Edit example_global.rego to add custom machine-wide policies.");
-    
+
     // Configure harness if specified
     if let Some(harness_type) = harness {
         println!();
         harness_config::configure_harness(harness_type, &global_paths.root, true).await?;
     }
-    
+
     Ok(())
 }
 
-async fn init_project_config(harness: Option<HarnessType>, builtins: Option<Vec<String>>) -> Result<()> {
+async fn init_project_config(
+    harness: Option<HarnessType>,
+    builtins: Option<Vec<String>>,
+) -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
-    
+
     // Check if cupcake directory exists
     let cupcake_exists = cupcake_dir.exists();
-    
+
     if cupcake_exists {
         println!("Cupcake project already initialized (.cupcake/ exists)");
         // Continue to configure harness if specified
     } else {
-    
-    info!("Initializing Cupcake project structure...");
-    
-    // Create directories
-    fs::create_dir_all(".cupcake/policies/system")
-        .context("Failed to create .cupcake/policies/system directory")?;
-    fs::create_dir_all(".cupcake/policies/builtins")
-        .context("Failed to create .cupcake/policies/builtins directory")?;
-    fs::create_dir_all(".cupcake/signals")
-        .context("Failed to create .cupcake/signals directory")?;
-    fs::create_dir_all(".cupcake/actions")
-        .context("Failed to create .cupcake/actions directory")?;
-    
-    // Write guidebook.yml - either with enabled builtins or commented template
-    let guidebook_content = if let Some(ref builtin_list) = builtins {
-        generate_guidebook_with_builtins(builtin_list)?
-    } else {
-        GUIDEBOOK_TEMPLATE.to_string()
-    };
+        info!("Initializing Cupcake project structure...");
 
-    fs::write(
-        ".cupcake/guidebook.yml",
-        guidebook_content
-    )
-    .context("Failed to create guidebook.yml file")?;
-    
-    // Write the authoritative system evaluate policy
-    fs::write(
-        ".cupcake/policies/system/evaluate.rego",
-        SYSTEM_EVALUATE_TEMPLATE
-    )
-    .context("Failed to create system evaluate.rego file")?;
-    
-    // Write all builtin policies
-    fs::write(
-        ".cupcake/policies/builtins/always_inject_on_prompt.rego",
-        ALWAYS_INJECT_POLICY
-    )
-    .context("Failed to create always_inject_on_prompt.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/global_file_lock.rego",
-        GLOBAL_FILE_LOCK_POLICY
-    )
-    .context("Failed to create global_file_lock.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/git_pre_check.rego",
-        GIT_PRE_CHECK_POLICY
-    )
-    .context("Failed to create git_pre_check.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/post_edit_check.rego",
-        POST_EDIT_CHECK_POLICY
-    )
-    .context("Failed to create post_edit_check.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/rulebook_security_guardrails.rego",
-        RULEBOOK_SECURITY_POLICY
-    )
-    .context("Failed to create rulebook_security_guardrails.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/protected_paths.rego",
-        PROTECTED_PATHS_POLICY
-    )
-    .context("Failed to create protected_paths.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/git_block_no_verify.rego",
-        GIT_BLOCK_NO_VERIFY_POLICY
-    )
-    .context("Failed to create git_block_no_verify.rego")?;
-    
-    fs::write(
-        ".cupcake/policies/builtins/enforce_full_file_read.rego",
-        ENFORCE_FULL_FILE_READ_POLICY
-    )
-    .context("Failed to create enforce_full_file_read.rego")?;
-    
-    // Write a simple example policy
-    fs::write(
-        ".cupcake/policies/example.rego",
-        EXAMPLE_POLICY_TEMPLATE
-    )
-    .context("Failed to create example policy file")?;
-    
+        // Create directories
+        fs::create_dir_all(".cupcake/policies/system")
+            .context("Failed to create .cupcake/policies/system directory")?;
+        fs::create_dir_all(".cupcake/policies/builtins")
+            .context("Failed to create .cupcake/policies/builtins directory")?;
+        fs::create_dir_all(".cupcake/signals")
+            .context("Failed to create .cupcake/signals directory")?;
+        fs::create_dir_all(".cupcake/actions")
+            .context("Failed to create .cupcake/actions directory")?;
+
+        // Write guidebook.yml - either with enabled builtins or commented template
+        let guidebook_content = if let Some(ref builtin_list) = builtins {
+            generate_guidebook_with_builtins(builtin_list)?
+        } else {
+            GUIDEBOOK_TEMPLATE.to_string()
+        };
+
+        fs::write(".cupcake/guidebook.yml", guidebook_content)
+            .context("Failed to create guidebook.yml file")?;
+
+        // Write the authoritative system evaluate policy
+        fs::write(
+            ".cupcake/policies/system/evaluate.rego",
+            SYSTEM_EVALUATE_TEMPLATE,
+        )
+        .context("Failed to create system evaluate.rego file")?;
+
+        // Write all builtin policies
+        fs::write(
+            ".cupcake/policies/builtins/always_inject_on_prompt.rego",
+            ALWAYS_INJECT_POLICY,
+        )
+        .context("Failed to create always_inject_on_prompt.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/global_file_lock.rego",
+            GLOBAL_FILE_LOCK_POLICY,
+        )
+        .context("Failed to create global_file_lock.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/git_pre_check.rego",
+            GIT_PRE_CHECK_POLICY,
+        )
+        .context("Failed to create git_pre_check.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/post_edit_check.rego",
+            POST_EDIT_CHECK_POLICY,
+        )
+        .context("Failed to create post_edit_check.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/rulebook_security_guardrails.rego",
+            RULEBOOK_SECURITY_POLICY,
+        )
+        .context("Failed to create rulebook_security_guardrails.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/protected_paths.rego",
+            PROTECTED_PATHS_POLICY,
+        )
+        .context("Failed to create protected_paths.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/git_block_no_verify.rego",
+            GIT_BLOCK_NO_VERIFY_POLICY,
+        )
+        .context("Failed to create git_block_no_verify.rego")?;
+
+        fs::write(
+            ".cupcake/policies/builtins/enforce_full_file_read.rego",
+            ENFORCE_FULL_FILE_READ_POLICY,
+        )
+        .context("Failed to create enforce_full_file_read.rego")?;
+
+        // Write a simple example policy
+        fs::write(".cupcake/policies/example.rego", EXAMPLE_POLICY_TEMPLATE)
+            .context("Failed to create example policy file")?;
+
         println!("✅ Initialized Cupcake project in .cupcake/");
         println!("   Configuration: .cupcake/guidebook.yml (with examples)");
         println!("   Add policies:  .cupcake/policies/");
@@ -951,7 +992,7 @@ async fn init_project_config(harness: Option<HarnessType>, builtins: Option<Vec<
             if !builtin_list.is_empty() {
                 println!("   Enabled builtins:");
                 for builtin in builtin_list {
-                    println!("     - {}", builtin);
+                    println!("     - {builtin}");
                 }
                 println!();
             }
@@ -959,55 +1000,54 @@ async fn init_project_config(harness: Option<HarnessType>, builtins: Option<Vec<
 
         println!("   Edit guidebook.yml to enable builtins and configure your project.");
     }
-    
+
     // Configure harness if specified (whether cupcake exists or not)
     if let Some(harness_type) = harness {
         if cupcake_exists {
             println!();
         }
-        harness_config::configure_harness(harness_type, &Path::new(".cupcake"), false).await?;
+        harness_config::configure_harness(harness_type, Path::new(".cupcake"), false).await?;
     }
-    
+
     Ok(())
 }
 
 async fn validate_command(policy_dir: PathBuf, json: bool) -> Result<()> {
     info!("Validating policies in directory: {:?}", policy_dir);
-    
+
     if !policy_dir.exists() {
-        eprintln!("Error: Policy directory does not exist: {:?}", policy_dir);
+        eprintln!("Error: Policy directory does not exist: {policy_dir:?}");
         std::process::exit(1);
     }
-    
+
     // Find all .rego files recursively
     let mut policy_files = Vec::new();
     find_rego_files(&policy_dir, &mut policy_files)?;
-    
+
     if policy_files.is_empty() {
-        eprintln!("No .rego files found in {:?}", policy_dir);
+        eprintln!("No .rego files found in {policy_dir:?}");
         return Ok(());
     }
-    
+
     info!("Found {} policy files", policy_files.len());
-    
+
     // Load all policies
     let mut policies = Vec::new();
     for path in policy_files {
         match validator::PolicyContent::from_file(&path) {
             Ok(policy) => policies.push(policy),
             Err(e) => {
-                eprintln!("Warning: Failed to load policy {:?}: {}", path, e);
+                eprintln!("Warning: Failed to load policy {path:?}: {e}");
             }
         }
     }
-    
+
     // Create validator
     let validator = validator::PolicyValidator::new();
-    
+
     // Validate policies
     let result = validator.validate_policies(&policies);
-    
-    
+
     // Output results
     if json {
         let json_output = serde_json::json!({
@@ -1035,12 +1075,12 @@ async fn validate_command(policy_dir: PathBuf, json: bool) -> Result<()> {
         // Human-readable output
         print_validation_results(&result);
     }
-    
+
     // Exit with error code if there were errors
     if result.total_errors > 0 {
         std::process::exit(1);
     }
-    
+
     Ok(())
 }
 
@@ -1048,7 +1088,7 @@ fn find_rego_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext == "rego" {
@@ -1059,28 +1099,34 @@ fn find_rego_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
             find_rego_files(&path, files)?;
         }
     }
-    
+
     Ok(())
 }
 
 fn print_validation_results(result: &validator::ValidationResult) {
     use validator::Severity;
-    
+
     for policy_result in &result.policies {
         if policy_result.issues.is_empty() {
             println!("✓ {}", policy_result.path.display());
         } else {
             // Group by severity
-            let errors: Vec<_> = policy_result.issues.iter()
-                .filter(|i| i.severity == Severity::Error).collect();
-            let warnings: Vec<_> = policy_result.issues.iter()
-                .filter(|i| i.severity == Severity::Warning).collect();
-            
+            let errors: Vec<_> = policy_result
+                .issues
+                .iter()
+                .filter(|i| i.severity == Severity::Error)
+                .collect();
+            let warnings: Vec<_> = policy_result
+                .issues
+                .iter()
+                .filter(|i| i.severity == Severity::Warning)
+                .collect();
+
             if !errors.is_empty() {
                 println!("✗ {}", policy_result.path.display());
                 for issue in errors {
                     let line_info = if let Some(line) = issue.line {
-                        format!(" (line {})", line)
+                        format!(" (line {line})")
                     } else {
                         String::new()
                     };
@@ -1089,10 +1135,10 @@ fn print_validation_results(result: &validator::ValidationResult) {
             } else {
                 println!("⚠ {}", policy_result.path.display());
             }
-            
+
             for issue in warnings {
                 let line_info = if let Some(line) = issue.line {
-                    format!(" (line {})", line)
+                    format!(" (line {line})")
                 } else {
                     String::new()
                 };
@@ -1100,14 +1146,18 @@ fn print_validation_results(result: &validator::ValidationResult) {
             }
         }
     }
-    
+
     // Summary
     println!();
     if result.total_errors == 0 && result.total_warnings == 0 {
         println!("✅ All policies passed validation!");
     } else {
-        println!("{} errors, {} warnings in {} files", 
-                result.total_errors, result.total_warnings, result.policies.len());
+        println!(
+            "{} errors, {} warnings in {} files",
+            result.total_errors,
+            result.total_warnings,
+            result.policies.len()
+        );
     }
 }
 
@@ -1128,30 +1178,30 @@ struct PolicyTableRow {
 
 async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result<()> {
     info!("Inspecting policies in directory: {:?}", policy_dir);
-    
+
     if !policy_dir.exists() {
-        eprintln!("Error: Policy directory does not exist: {:?}", policy_dir);
+        eprintln!("Error: Policy directory does not exist: {policy_dir:?}");
         std::process::exit(1);
     }
-    
+
     // Find all .rego files recursively
     let mut policy_files = Vec::new();
     find_rego_files(&policy_dir, &mut policy_files)?;
-    
+
     if policy_files.is_empty() {
-        eprintln!("No .rego files found in {:?}", policy_dir);
+        eprintln!("No .rego files found in {policy_dir:?}");
         return Ok(());
     }
-    
+
     info!("Found {} policy files", policy_files.len());
-    
+
     // Collect policy metadata
     let mut policies_metadata = Vec::new();
-    
+
     for path in &policy_files {
-        let content = fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read policy file: {:?}", path))?;
-        
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read policy file: {path:?}"))?;
+
         // Parse metadata using the engine's metadata parser
         let metadata = match engine::metadata::parse_metadata(&content) {
             Ok(Some(meta)) => meta,
@@ -1166,18 +1216,19 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
                 }
             }
         };
-        
+
         // Extract package name
-        let package_name = content.lines()
+        let package_name = content
+            .lines()
             .find(|line| line.trim().starts_with("package "))
             .map(|line| line.trim_start_matches("package ").trim().to_string())
             .unwrap_or_else(|| "unknown".to_string());
-        
+
         // Check if it's a builtin
         let is_builtin = path.components().any(|c| c.as_os_str() == "builtins");
-        
+
         let routing = metadata.custom.routing.as_ref();
-        
+
         policies_metadata.push(serde_json::json!({
             "path": path.display().to_string(),
             "package": package_name,
@@ -1195,7 +1246,7 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
             }
         }));
     }
-    
+
     if json {
         // Output as JSON
         let output = serde_json::json!({
@@ -1206,27 +1257,30 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
     } else if table {
         // Output as table
         let mut table_rows = Vec::new();
-        
+
         for policy in &policies_metadata {
-            let package = policy.get("package")
+            let package = policy
+                .get("package")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
-            
+
             // Shorten package name if too long
             let package_short = if package.starts_with("cupcake.") {
                 package.trim_start_matches("cupcake.").to_string()
             } else {
                 package.to_string()
             };
-            
-            let is_builtin = policy.get("is_builtin")
+
+            let is_builtin = policy
+                .get("is_builtin")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
-            
+
             let policy_type = if is_builtin { "builtin" } else { "custom" }.to_string();
-            
+
             // Get routing info
-            let events = policy.get("routing")
+            let events = policy
+                .get("routing")
                 .and_then(|r| r.get("required_events"))
                 .and_then(|v| v.as_array())
                 .map(|arr| {
@@ -1236,8 +1290,9 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
                         .join(", ")
                 })
                 .unwrap_or_else(|| "-".to_string());
-            
-            let tools = policy.get("routing")
+
+            let tools = policy
+                .get("routing")
                 .and_then(|r| r.get("required_tools"))
                 .and_then(|v| v.as_array())
                 .map(|arr| {
@@ -1247,19 +1302,20 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
                         .join(", ")
                 })
                 .unwrap_or_else(|| "-".to_string());
-            
+
             // Get title, truncate if too long
-            let title = policy.get("metadata")
+            let title = policy
+                .get("metadata")
                 .and_then(|m| m.get("title"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("-");
-            
+
             let title_truncated = if title.len() > 40 {
                 format!("{}...", &title[..37])
             } else {
                 title.to_string()
             };
-            
+
             table_rows.push(PolicyTableRow {
                 package: package_short,
                 events,
@@ -1268,71 +1324,83 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
                 policy_type,
             });
         }
-        
+
         if !table_rows.is_empty() {
             let table = Table::new(&table_rows)
                 .with(Style::rounded())
                 .with(Modify::new(Rows::first()).with(Alignment::center()))
                 .to_string();
-            
+
             println!("Found {} policies\n", policies_metadata.len());
-            println!("{}", table);
+            println!("{table}");
         } else {
             println!("No policies found.");
         }
     } else {
         // Output as human-readable format
         println!("Found {} policies\n", policies_metadata.len());
-        
+
         for policy in &policies_metadata {
-            let path = policy.get("path").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let package = policy.get("package").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let is_builtin = policy.get("is_builtin").and_then(|v| v.as_bool()).unwrap_or(false);
-            
-            println!("Policy: {}", path);
-            println!("  Package: {}", package);
+            let path = policy
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let package = policy
+                .get("package")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let is_builtin = policy
+                .get("is_builtin")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            println!("Policy: {path}");
+            println!("  Package: {package}");
             if is_builtin {
                 println!("  Type: Builtin");
             }
-            
+
             if let Some(routing) = policy.get("routing") {
                 if let Some(events) = routing.get("required_events").and_then(|v| v.as_array()) {
                     if !events.is_empty() {
-                        let events_str: Vec<String> = events.iter()
+                        let events_str: Vec<String> = events
+                            .iter()
                             .filter_map(|e| e.as_str().map(String::from))
                             .collect();
                         println!("  Required Events: {}", events_str.join(", "));
                     }
                 }
-                
+
                 if let Some(tools) = routing.get("required_tools").and_then(|v| v.as_array()) {
                     if !tools.is_empty() {
-                        let tools_str: Vec<String> = tools.iter()
+                        let tools_str: Vec<String> = tools
+                            .iter()
                             .filter_map(|t| t.as_str().map(String::from))
                             .collect();
                         println!("  Required Tools: {}", tools_str.join(", "));
                     }
                 }
             }
-            
+
             if let Some(metadata) = policy.get("metadata") {
                 if let Some(title) = metadata.get("title").and_then(|v| v.as_str()) {
-                    println!("  Title: {}", title);
+                    println!("  Title: {title}");
                 }
                 if let Some(authors) = metadata.get("authors").and_then(|v| v.as_array()) {
                     if !authors.is_empty() {
-                        let authors_str: Vec<String> = authors.iter()
+                        let authors_str: Vec<String> = authors
+                            .iter()
                             .filter_map(|a| a.as_str().map(String::from))
                             .collect();
                         println!("  Authors: {}", authors_str.join(", "));
                     }
                 }
             }
-            
+
             println!();
         }
     }
-    
+
     Ok(())
 }
 
@@ -1429,19 +1497,30 @@ deny contains decision if {
 const GUIDEBOOK_TEMPLATE: &str = include_str!("../../examples/base-config.yml");
 
 // Include authoritative builtin policies from examples
-const ALWAYS_INJECT_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/always_inject_on_prompt.rego");
-const GLOBAL_FILE_LOCK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/global_file_lock.rego");
-const GIT_PRE_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/git_pre_check.rego");
-const POST_EDIT_CHECK_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
-const RULEBOOK_SECURITY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
-const PROTECTED_PATHS_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
-const GIT_BLOCK_NO_VERIFY_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/git_block_no_verify.rego");
-const ENFORCE_FULL_FILE_READ_POLICY: &str = include_str!("../../examples/.cupcake/policies/builtins/enforce_full_file_read.rego");
+const ALWAYS_INJECT_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/always_inject_on_prompt.rego");
+const GLOBAL_FILE_LOCK_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/global_file_lock.rego");
+const GIT_PRE_CHECK_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/git_pre_check.rego");
+const POST_EDIT_CHECK_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
+const RULEBOOK_SECURITY_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
+const PROTECTED_PATHS_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
+const GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/git_block_no_verify.rego");
+const ENFORCE_FULL_FILE_READ_POLICY: &str =
+    include_str!("../../examples/.cupcake/policies/builtins/enforce_full_file_read.rego");
 
 // Global builtin policies embedded in the binary
-const GLOBAL_SYSTEM_PROTECTION_POLICY: &str = include_str!("../../examples/global_builtins/system_protection.rego");
-const GLOBAL_SENSITIVE_DATA_POLICY: &str = include_str!("../../examples/global_builtins/sensitive_data_protection.rego");
-const GLOBAL_CUPCAKE_EXEC_POLICY: &str = include_str!("../../examples/global_builtins/cupcake_exec_protection.rego");
+const GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
+    include_str!("../../examples/global_builtins/system_protection.rego");
+const GLOBAL_SENSITIVE_DATA_POLICY: &str =
+    include_str!("../../examples/global_builtins/sensitive_data_protection.rego");
+const GLOBAL_CUPCAKE_EXEC_POLICY: &str =
+    include_str!("../../examples/global_builtins/cupcake_exec_protection.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

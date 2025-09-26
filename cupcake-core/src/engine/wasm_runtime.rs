@@ -1,5 +1,5 @@
 //! WASM Runtime - Executes compiled Rego policies using the Hybrid Model
-//! 
+//!
 //! Implements the NEW_GUIDING_FINAL.md single entrypoint evaluation.
 //! Queries the cupcake.system.evaluate aggregation endpoint and returns DecisionSet.
 
@@ -7,8 +7,8 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use std::env;
 use std::time::Instant;
-use wasmtime::*;
 use tracing::{debug, instrument, trace, warn};
+use wasmtime::*;
 
 use super::decision::DecisionSet;
 
@@ -19,7 +19,9 @@ use super::decision::DecisionSet;
 fn parse_memory_string(s: &str) -> Result<u64> {
     let s_lower = s.to_lowercase();
     let (num_str, unit) = s_lower.trim().split_at(
-        s_lower.find(|c: char| !c.is_digit(10) && c != '.').unwrap_or_else(|| s_lower.len()),
+        s_lower
+            .find(|c: char| !c.is_ascii_digit() && c != '.')
+            .unwrap_or(s_lower.len()),
     );
     let num: f64 = num_str.trim().parse()?;
     let multiplier = match unit.trim() {
@@ -43,15 +45,22 @@ fn get_memory_config() -> (u32, Option<u32>) {
     const DEFAULT_MAX_MEMORY: &str = "10MB";
     const ABSOLUTE_MAX_MEMORY: &str = "100MB";
 
-    let max_memory_str = env::var("CUPCAKE_WASM_MAX_MEMORY").unwrap_or_else(|_| DEFAULT_MAX_MEMORY.to_string());
+    let max_memory_str =
+        env::var("CUPCAKE_WASM_MAX_MEMORY").unwrap_or_else(|_| DEFAULT_MAX_MEMORY.to_string());
     let mut max_memory_bytes = parse_memory_string(&max_memory_str).unwrap_or_else(|e| {
-        warn!("Invalid CUPCAKE_WASM_MAX_MEMORY value '{}': {}. Using default '{}'.", max_memory_str, e, DEFAULT_MAX_MEMORY);
+        warn!(
+            "Invalid CUPCAKE_WASM_MAX_MEMORY value '{}': {}. Using default '{}'.",
+            max_memory_str, e, DEFAULT_MAX_MEMORY
+        );
         parse_memory_string(DEFAULT_MAX_MEMORY).unwrap()
     });
 
     let absolute_max_bytes = parse_memory_string(ABSOLUTE_MAX_MEMORY).unwrap();
     if max_memory_bytes > absolute_max_bytes {
-        warn!("Requested max memory ({}) exceeds the absolute maximum ({}). Capping at {}.", max_memory_str, ABSOLUTE_MAX_MEMORY, ABSOLUTE_MAX_MEMORY);
+        warn!(
+            "Requested max memory ({}) exceeds the absolute maximum ({}). Capping at {}.",
+            max_memory_str, ABSOLUTE_MAX_MEMORY, ABSOLUTE_MAX_MEMORY
+        );
         max_memory_bytes = absolute_max_bytes;
     }
 
@@ -72,29 +81,29 @@ impl WasmRuntime {
     pub fn new(wasm_bytes: &[u8]) -> Result<Self> {
         Self::new_with_namespace(wasm_bytes, "cupcake.system")
     }
-    
+
     /// Create a new runtime from compiled WASM bytes with specific namespace
     pub fn new_with_namespace(wasm_bytes: &[u8], namespace: &str) -> Result<Self> {
         debug!("Initializing WASM runtime");
-        
+
         // Configure engine with memory limits
         let mut config = Config::new();
         config.wasm_multi_memory(true);
         config.wasm_multi_value(true);
-        
+
         let engine = Engine::new(&config)?;
-        let module = Module::from_binary(&engine, wasm_bytes)
-            .context("Failed to load WASM module")?;
-        
+        let module =
+            Module::from_binary(&engine, wasm_bytes).context("Failed to load WASM module")?;
+
         debug!("WASM module loaded successfully");
-        
+
         Ok(Self {
             engine,
             module,
             namespace: namespace.to_string(),
         })
     }
-    
+
     /// Query the aggregated decision set from cupcake.system.evaluate
     /// This is the single entrypoint defined in the Hybrid Model
     /// Thread-safe: creates fresh Store per evaluation
@@ -108,112 +117,139 @@ impl WasmRuntime {
             evaluation_time_ms = tracing::field::Empty
         )
     )]
-    pub fn query_decision_set(
-        &self,
-        input: &Value,
-    ) -> Result<DecisionSet> {
+    pub fn query_decision_set(&self, input: &Value) -> Result<DecisionSet> {
         let start = Instant::now();
-        debug!("Querying DecisionSet from {}.evaluate entrypoint", self.namespace);
-        
+        debug!(
+            "Querying DecisionSet from {}.evaluate entrypoint",
+            self.namespace
+        );
+
         // Use the low-level evaluate_raw function with entrypoint 0 (single entrypoint)
         let result_json = self.evaluate_raw(input, 0)?;
-        
+
         debug!("Raw WASM result JSON: {}", result_json);
-        
+
         // Parse the raw JSON result
-        let result_value: Value = serde_json::from_str(&result_json)
-            .context("Failed to parse result JSON")?;
-        
+        let result_value: Value =
+            serde_json::from_str(&result_json).context("Failed to parse result JSON")?;
+
         // Extract the decision set from the result
         let decision_set = self.extract_decision_set_from_result(&result_value)?;
-        
+
         let elapsed = start.elapsed();
-        
+
         // Record span fields
         let current_span = tracing::Span::current();
-        current_span.record("output_size_bytes", &result_json.len());
-        current_span.record("decision_count", &decision_set.decision_count());
-        current_span.record("evaluation_time_ms", &elapsed.as_millis());
-        
+        current_span.record("output_size_bytes", result_json.len());
+        current_span.record("decision_count", decision_set.decision_count());
+        current_span.record("evaluation_time_ms", elapsed.as_millis());
+
         debug!("Decision set evaluation completed in {:?}", elapsed);
         trace!(
             decisions = decision_set.decision_count(),
             duration_ms = elapsed.as_millis(),
             "WASM evaluation complete"
         );
-        
+
         Ok(decision_set)
     }
-    
+
     /// Low-level function that interacts with the OPA WASM ABI
     /// Takes an input JSON value and returns the raw JSON string from the policy
     fn evaluate_raw(&self, input: &Value, entrypoint_id: i32) -> Result<String> {
         let mut store = Store::new(&self.engine, ());
         let mut linker = Linker::new(&self.engine);
-        
+
         // Use the robust, configurable memory logic
         let (initial_pages, max_pages) = get_memory_config();
         let memory_ty = MemoryType::new(initial_pages, max_pages);
         let memory = Memory::new(&mut store, memory_ty)?;
         linker.define(&mut store, "env", "memory", memory)?;
-        
+
         // Provide the required OPA host functions
         linker.func_wrap("env", "opa_abort", |_: Caller<'_, ()>, addr: i32| {
             tracing::error!(addr, "OPA policy aborted execution.");
         })?;
         linker.func_wrap("env", "opa_println", |_: Caller<'_, ()>, _: i32| {})?;
-        linker.func_wrap("env", "opa_builtin0", |_: Caller<'_, ()>, _: i32, _: i32| -> i32 { 0 })?;
-        linker.func_wrap("env", "opa_builtin1", |_: Caller<'_, ()>, _: i32, _: i32, _: i32| -> i32 { 0 })?;
-        linker.func_wrap("env", "opa_builtin2", |_: Caller<'_, ()>, _: i32, _: i32, _: i32, _: i32| -> i32 { 0 })?;
-        linker.func_wrap("env", "opa_builtin3", |_: Caller<'_, ()>, _: i32, _: i32, _: i32, _: i32, _: i32| -> i32 { 0 })?;
-        linker.func_wrap("env", "opa_builtin4", |_: Caller<'_, ()>, _: i32, _: i32, _: i32, _: i32, _: i32, _: i32| -> i32 { 0 })?;
-        
+        linker.func_wrap(
+            "env",
+            "opa_builtin0",
+            |_: Caller<'_, ()>, _: i32, _: i32| -> i32 { 0 },
+        )?;
+        linker.func_wrap(
+            "env",
+            "opa_builtin1",
+            |_: Caller<'_, ()>, _: i32, _: i32, _: i32| -> i32 { 0 },
+        )?;
+        linker.func_wrap(
+            "env",
+            "opa_builtin2",
+            |_: Caller<'_, ()>, _: i32, _: i32, _: i32, _: i32| -> i32 { 0 },
+        )?;
+        linker.func_wrap(
+            "env",
+            "opa_builtin3",
+            |_: Caller<'_, ()>, _: i32, _: i32, _: i32, _: i32, _: i32| -> i32 { 0 },
+        )?;
+        linker.func_wrap(
+            "env",
+            "opa_builtin4",
+            |_: Caller<'_, ()>, _: i32, _: i32, _: i32, _: i32, _: i32, _: i32| -> i32 { 0 },
+        )?;
+
         let instance = linker.instantiate(&mut store, &self.module)?;
-        
+
         // Get the tools exported by the WASM module
-        let memory = instance.get_memory(&mut store, "memory")
+        let memory = instance
+            .get_memory(&mut store, "memory")
             .context("`memory` export not found")?;
         let opa_malloc = instance.get_typed_func::<i32, i32>(&mut store, "opa_malloc")?;
-        let opa_heap_ptr_get = instance.get_typed_func::<(), i32>(&mut store, "opa_heap_ptr_get")?;
-        let opa_eval = instance.get_typed_func::<(i32, i32, i32, i32, i32, i32, i32), i32>(&mut store, "opa_eval")?;
-        
+        let opa_heap_ptr_get =
+            instance.get_typed_func::<(), i32>(&mut store, "opa_heap_ptr_get")?;
+        let opa_eval = instance
+            .get_typed_func::<(i32, i32, i32, i32, i32, i32, i32), i32>(&mut store, "opa_eval")?;
+
         let input_json = serde_json::to_string(input)?;
         debug!("WASM input JSON: {}", input_json);
         let input_bytes = input_json.as_bytes();
-        
+
         let input_ptr = opa_malloc.call(&mut store, input_bytes.len() as i32)?;
         memory.write(&mut store, input_ptr as usize, input_bytes)?;
-        
+
         let heap_ptr_before = opa_heap_ptr_get.call(&mut store, ())?;
-        
+
         let result_ptr = opa_eval.call(
             &mut store,
-            (0, entrypoint_id, 0, input_ptr, input_bytes.len() as i32, heap_ptr_before, 0),
+            (
+                0,
+                entrypoint_id,
+                0,
+                input_ptr,
+                input_bytes.len() as i32,
+                heap_ptr_before,
+                0,
+            ),
         )?;
-        
+
         read_string_from_memory(&memory, &mut store, result_ptr)
     }
-    
-    
+
     /// Extract the decision set from the WASM result
-    fn extract_decision_set_from_result(
-        &self,
-        result: &Value,
-    ) -> Result<DecisionSet> {
+    fn extract_decision_set_from_result(&self, result: &Value) -> Result<DecisionSet> {
         debug!("Extracting DecisionSet from cupcake.system.evaluate result");
         debug!("Raw result structure: {:?}", result);
-        
+
         // The OPA eval result format can be either:
         // 1. An array with a single object: [{"result": <decision_set>}]
         // 2. Direct decision set object: {"denials": [...], "halts": [...]}
-        
+
         let decision_value = if let Some(result_array) = result.as_array() {
             if result_array.is_empty() {
                 // No result means undefined - return empty decision set
                 debug!("Empty result array, returning default DecisionSet");
                 return Ok(DecisionSet::default());
             }
-            
+
             // Check if it's wrapped in {"result": <decision_set>}
             let first_element = &result_array[0];
             if let Some(wrapper) = first_element.as_object() {
@@ -233,20 +269,31 @@ impl WasmRuntime {
             debug!("Found direct decision set format");
             result
         };
-        
+
         // Parse the result as a DecisionSet
-        debug!("Attempting to parse decision_value: {}", 
-            serde_json::to_string_pretty(decision_value).unwrap_or_default());
-            
+        debug!(
+            "Attempting to parse decision_value: {}",
+            serde_json::to_string_pretty(decision_value).unwrap_or_default()
+        );
+
         let decision_set: DecisionSet = serde_json::from_value(decision_value.clone())
             .with_context(|| {
-                format!("Failed to parse DecisionSet. Raw value: {}", 
-                    serde_json::to_string_pretty(decision_value).unwrap_or_default())
+                format!(
+                    "Failed to parse DecisionSet. Raw value: {}",
+                    serde_json::to_string_pretty(decision_value).unwrap_or_default()
+                )
             })?;
-            
-        debug!("Successfully extracted DecisionSet with {} total decisions", decision_set.decision_count());
-        debug!("DecisionSet details - denials: {}, halts: {}, blocks: {}", 
-            decision_set.denials.len(), decision_set.halts.len(), decision_set.blocks.len());
+
+        debug!(
+            "Successfully extracted DecisionSet with {} total decisions",
+            decision_set.decision_count()
+        );
+        debug!(
+            "DecisionSet details - denials: {}, halts: {}, blocks: {}",
+            decision_set.denials.len(),
+            decision_set.halts.len(),
+            decision_set.blocks.len()
+        );
         Ok(decision_set)
     }
 }

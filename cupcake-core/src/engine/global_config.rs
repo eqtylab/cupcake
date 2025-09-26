@@ -1,5 +1,5 @@
 //! Global Configuration Discovery Module
-//! 
+//!
 //! Provides cross-platform discovery and management of machine-wide Cupcake configurations.
 //! Global policies take absolute precedence over project-specific policies.
 
@@ -24,17 +24,20 @@ pub struct GlobalPaths {
 
 impl GlobalPaths {
     /// Discover global configuration paths using platform conventions
-    /// 
+    ///
     /// Resolution order:
     /// 1. Environment variable: CUPCAKE_GLOBAL_CONFIG
     /// 2. Platform-specific user config directory
     /// 3. None if config directory doesn't exist (graceful absence)
     pub fn discover() -> Result<Option<Self>> {
         trace!("Discovering global configuration paths");
-        
+
         // First check environment variable override
         if let Ok(env_path) = std::env::var("CUPCAKE_GLOBAL_CONFIG") {
-            debug!("Using CUPCAKE_GLOBAL_CONFIG environment variable: {}", env_path);
+            debug!(
+                "Using CUPCAKE_GLOBAL_CONFIG environment variable: {}",
+                env_path
+            );
             let root = PathBuf::from(env_path);
             if root.exists() {
                 return Ok(Some(Self::from_root(root)?));
@@ -43,21 +46,21 @@ impl GlobalPaths {
                 return Ok(None);
             }
         }
-        
+
         // Use platform-specific config directory
         let config_dir = Self::get_platform_config_dir()?;
         let cupcake_global_dir = config_dir.join("cupcake");
-        
+
         // Check if global config exists - graceful absence
         if !cupcake_global_dir.exists() {
             debug!("No global configuration found at {:?}", cupcake_global_dir);
             return Ok(None);
         }
-        
+
         info!("Found global configuration at {:?}", cupcake_global_dir);
         Ok(Some(Self::from_root(cupcake_global_dir)?))
     }
-    
+
     /// Create GlobalPaths from a root directory
     fn from_root(root: PathBuf) -> Result<Self> {
         // Verify root exists
@@ -67,7 +70,7 @@ impl GlobalPaths {
                 root
             ));
         }
-        
+
         Ok(GlobalPaths {
             policies: root.join("policies"),
             guidebook: root.join("guidebook.yml"),
@@ -76,12 +79,12 @@ impl GlobalPaths {
             root,
         })
     }
-    
+
     /// Get the platform-specific config directory
     fn get_platform_config_dir() -> Result<PathBuf> {
         // Use the directories crate for cross-platform support
         use directories::ProjectDirs;
-        
+
         // Get the config directory for the current platform
         // On Linux: ~/.config/
         // On macOS: ~/Library/Application Support/
@@ -93,7 +96,7 @@ impl GlobalPaths {
                 return Ok(parent.to_path_buf());
             }
         }
-        
+
         // Fallback to home directory approach
         #[cfg(unix)]
         {
@@ -101,32 +104,33 @@ impl GlobalPaths {
                 return Ok(PathBuf::from(home).join(".config"));
             }
         }
-        
+
         #[cfg(windows)]
         {
             if let Ok(appdata) = std::env::var("APPDATA") {
                 return Ok(PathBuf::from(appdata));
             }
         }
-        
-        Err(anyhow::anyhow!("Could not determine platform config directory"))
+
+        Err(anyhow::anyhow!(
+            "Could not determine platform config directory"
+        ))
     }
-    
+
     /// Check if the global configuration is properly initialized
     pub fn is_initialized(&self) -> bool {
-        self.policies.exists() && 
-        self.guidebook.exists() &&
-        self.signals.exists() &&
-        self.actions.exists()
+        self.policies.exists()
+            && self.guidebook.exists()
+            && self.signals.exists()
+            && self.actions.exists()
     }
-    
+
     /// Initialize a new global configuration directory structure
     pub fn initialize(&self) -> Result<()> {
         info!("Initializing global configuration at {:?}", self.root);
-        
+
         // Create directory structure
-        std::fs::create_dir_all(&self.root)
-            .context("Failed to create global config root")?;
+        std::fs::create_dir_all(&self.root).context("Failed to create global config root")?;
         std::fs::create_dir_all(&self.policies)
             .context("Failed to create global policies directory")?;
         std::fs::create_dir_all(self.policies.join("system"))
@@ -135,7 +139,7 @@ impl GlobalPaths {
             .context("Failed to create global signals directory")?;
         std::fs::create_dir_all(&self.actions)
             .context("Failed to create global actions directory")?;
-        
+
         // Create minimal guidebook if it doesn't exist
         if !self.guidebook.exists() {
             let guidebook_content = r#"# Global Cupcake Configuration
@@ -153,7 +157,7 @@ builtins: {}
             std::fs::write(&self.guidebook, guidebook_content)
                 .context("Failed to create global guidebook.yml")?;
         }
-        
+
         // Create the global system evaluate policy
         let evaluate_policy_path = self.policies.join("system").join("evaluate.rego");
         if !evaluate_policy_path.exists() {
@@ -199,7 +203,7 @@ collect_verbs(verb_name) := result if {
             std::fs::write(&evaluate_policy_path, evaluate_content)
                 .context("Failed to create global evaluate.rego")?;
         }
-        
+
         Ok(())
     }
 }
@@ -208,67 +212,67 @@ collect_verbs(verb_name) := result if {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    
+
     #[test]
     fn test_from_root() {
         let temp_dir = TempDir::new().unwrap();
         let root = temp_dir.path().to_path_buf();
-        
+
         let global_paths = GlobalPaths::from_root(root.clone()).unwrap();
-        
+
         assert_eq!(global_paths.root, root);
         assert_eq!(global_paths.policies, root.join("policies"));
         assert_eq!(global_paths.guidebook, root.join("guidebook.yml"));
         assert_eq!(global_paths.signals, root.join("signals"));
         assert_eq!(global_paths.actions, root.join("actions"));
     }
-    
+
     #[test]
     fn test_from_root_nonexistent() {
         let result = GlobalPaths::from_root(PathBuf::from("/nonexistent/path"));
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_discover_with_env_var() {
         let temp_dir = TempDir::new().unwrap();
         let root = temp_dir.path().to_path_buf();
-        
+
         std::env::set_var("CUPCAKE_GLOBAL_CONFIG", root.to_str().unwrap());
-        
+
         let result = GlobalPaths::discover().unwrap();
         assert!(result.is_some());
-        
+
         let global_paths = result.unwrap();
         assert_eq!(global_paths.root, root);
-        
+
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
     }
-    
+
     #[test]
     fn test_discover_graceful_absence() {
         // Remove any env var
         std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-        
+
         // Discovery should return None when no global config exists
         let result = GlobalPaths::discover().unwrap();
-        
+
         // This might be Some if developer has global config installed
         // but that's okay - we're testing that it doesn't error
         assert!(result.is_none() || result.is_some());
     }
-    
+
     #[test]
     fn test_is_initialized() {
         let temp_dir = TempDir::new().unwrap();
         let global_paths = GlobalPaths::from_root(temp_dir.path().to_path_buf()).unwrap();
-        
+
         // Not initialized yet
         assert!(!global_paths.is_initialized());
-        
+
         // Initialize
         global_paths.initialize().unwrap();
-        
+
         // Now should be initialized
         assert!(global_paths.is_initialized());
         assert!(global_paths.policies.exists());
@@ -276,33 +280,37 @@ mod tests {
         assert!(global_paths.signals.exists());
         assert!(global_paths.actions.exists());
     }
-    
+
     #[test]
     fn test_initialize_creates_structure() {
         let temp_dir = TempDir::new().unwrap();
         let global_paths = GlobalPaths::from_root(temp_dir.path().to_path_buf()).unwrap();
-        
+
         global_paths.initialize().unwrap();
-        
+
         // Check all directories exist
         assert!(global_paths.root.exists());
         assert!(global_paths.policies.exists());
         assert!(global_paths.policies.join("system").exists());
         assert!(global_paths.signals.exists());
         assert!(global_paths.actions.exists());
-        
+
         // Check files exist
         assert!(global_paths.guidebook.exists());
-        assert!(global_paths.policies.join("system").join("evaluate.rego").exists());
-        
+        assert!(global_paths
+            .policies
+            .join("system")
+            .join("evaluate.rego")
+            .exists());
+
         // Verify guidebook content
         let guidebook_content = std::fs::read_to_string(&global_paths.guidebook).unwrap();
         assert!(guidebook_content.contains("Global Cupcake Configuration"));
-        
+
         // Verify evaluate.rego content
-        let evaluate_content = std::fs::read_to_string(
-            global_paths.policies.join("system").join("evaluate.rego")
-        ).unwrap();
+        let evaluate_content =
+            std::fs::read_to_string(global_paths.policies.join("system").join("evaluate.rego"))
+                .unwrap();
         assert!(evaluate_content.contains("package cupcake.global.system"));
         assert!(evaluate_content.contains("Global System Aggregation Policy"));
     }

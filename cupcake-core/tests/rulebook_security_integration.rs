@@ -69,11 +69,10 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("Cupcake"),
-                "Should mention Cupcake protection: {}",
-                reason
+                "Should mention Cupcake protection: {reason}"
             );
         }
-        _ => panic!("Expected Halt for .cupcake file edit, got: {:?}", decision),
+        _ => panic!("Expected Halt for .cupcake file edit, got: {decision:?}"),
     }
 
     // Test 2: Block Write operation on .cupcake/guidebook.yml
@@ -94,11 +93,10 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("Cupcake") || reason.contains("protected"),
-                "Should mention protection: {}",
-                reason
+                "Should mention protection: {reason}"
             );
         }
-        _ => panic!("Expected Halt for .cupcake file write, got: {:?}", decision),
+        _ => panic!("Expected Halt for .cupcake file write, got: {decision:?}"),
     }
 
     // Test 3: Block bash rm command targeting .cupcake/
@@ -118,13 +116,11 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("Cupcake") || reason.contains("protected"),
-                "Should mention protection: {}",
-                reason
+                "Should mention protection: {reason}"
             );
         }
         _ => panic!(
-            "Expected Halt for bash command targeting .cupcake, got: {:?}",
-            decision
+            "Expected Halt for bash command targeting .cupcake, got: {decision:?}"
         ),
     }
 
@@ -147,7 +143,7 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - non-.cupcake files are allowed
         }
-        _ => panic!("Expected Allow for non-.cupcake file, got: {:?}", decision),
+        _ => panic!("Expected Allow for non-.cupcake file, got: {decision:?}"),
     }
 
     Ok(())
@@ -212,12 +208,10 @@ builtins:
             cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
                 assert!(
                     reason.contains("Cupcake") || reason.contains("protected"),
-                    "Command '{}' should be blocked with protection message: {}",
-                    cmd,
-                    reason
+                    "Command '{cmd}' should be blocked with protection message: {reason}"
                 );
             }
-            _ => panic!("Expected Halt for command '{}', got: {:?}", cmd, decision),
+            _ => panic!("Expected Halt for command '{cmd}', got: {decision:?}"),
         }
     }
 
@@ -275,11 +269,10 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("protected"),
-                "Should block read with protection message: {}",
-                reason
+                "Should block read with protection message: {reason}"
             );
         }
-        _ => panic!("Expected Halt for .cupcake read, got: {:?}", decision),
+        _ => panic!("Expected Halt for .cupcake read, got: {decision:?}"),
     }
 
     // Test that Grep is also blocked
@@ -300,11 +293,10 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("protected"),
-                "Should block grep with protection message: {}",
-                reason
+                "Should block grep with protection message: {reason}"
             );
         }
-        _ => panic!("Expected Halt for .cupcake grep, got: {:?}", decision),
+        _ => panic!("Expected Halt for .cupcake grep, got: {decision:?}"),
     }
 
     Ok(())

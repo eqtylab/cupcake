@@ -6,8 +6,10 @@ use std::path::Path;
 use std::sync::Once;
 
 /// Initialize logging for tests (only once per test run)
+#[allow(dead_code)]
 static INIT: Once = Once::new();
 
+#[allow(dead_code)]
 pub fn init_test_logging() {
     INIT.call_once(|| {
         // Use tracing subscriber for tests since the engine uses tracing
@@ -55,6 +57,7 @@ pub fn create_test_project(project_path: &Path) -> Result<()> {
 }
 
 /// Create global configuration structure for testing
+#[allow(dead_code)]
 pub fn create_test_global_config(global_path: &Path) -> Result<()> {
     let policies_dir = global_path.join("policies");
     let system_dir = policies_dir.join("system");

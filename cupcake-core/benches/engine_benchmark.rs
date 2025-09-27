@@ -113,20 +113,16 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
         // Debug: Print the policy directory
         eprintln!("Benchmark policy dir: {:?}", temp_dir.path());
         eprintln!("Policy files created:");
-        for entry in std::fs::read_dir(temp_dir.path()).unwrap() {
-            if let Ok(e) = entry {
+        for e in std::fs::read_dir(temp_dir.path()).unwrap().flatten() {
+            eprintln!("  - {}", e.path().display());
+        }
+        if let Ok(system_dir) = std::fs::read_dir(temp_dir.path().join("system")) {
+            for e in system_dir.flatten() {
                 eprintln!("  - {}", e.path().display());
             }
         }
-        if let Ok(system_dir) = std::fs::read_dir(temp_dir.path().join("system")) {
-            for entry in system_dir {
-                if let Ok(e) = entry {
-                    eprintln!("  - {}", e.path().display());
-                }
-            }
-        }
 
-        let mut engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
+        let engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
 
         let safe_event = json!({
             "hookEventName": "PreToolUse",
@@ -141,8 +137,8 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
         eprintln!("Testing single evaluation...");
         let test_result = runtime.block_on(async { engine.evaluate(&safe_event, None).await });
         match &test_result {
-            Ok(decision) => eprintln!("Test evaluation succeeded: {:?}", decision),
-            Err(e) => eprintln!("Test evaluation FAILED: {}", e),
+            Ok(decision) => eprintln!("Test evaluation succeeded: {decision:?}"),
+            Err(e) => eprintln!("Test evaluation FAILED: {e}"),
         }
 
         b.iter(|| {
@@ -154,7 +150,7 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
 
     c.bench_function("single_evaluation_deny", |b| {
         let temp_dir = create_test_policy_dir();
-        let mut engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
+        let engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
 
         let dangerous_event = json!({
             "hookEventName": "PreToolUse",
@@ -169,8 +165,8 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
         eprintln!("Testing deny evaluation with dangerous command...");
         let test_result = runtime.block_on(async { engine.evaluate(&dangerous_event, None).await });
         match &test_result {
-            Ok(decision) => eprintln!("Deny test evaluation result: {:?}", decision),
-            Err(e) => eprintln!("Deny test evaluation FAILED: {}", e),
+            Ok(decision) => eprintln!("Deny test evaluation result: {decision:?}"),
+            Err(e) => eprintln!("Deny test evaluation FAILED: {e}"),
         }
 
         b.iter(|| {
@@ -188,7 +184,7 @@ fn benchmark_complete_pipeline(c: &mut Criterion) {
 
     c.bench_function("complete_pipeline", |b| {
         let temp_dir = create_test_policy_dir();
-        let mut engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
+        let engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
 
         let event_str = r#"{
             "hook_event_name": "PreToolUse",

@@ -1,7 +1,7 @@
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use tempfile::TempDir;
 
 /// Test that actions execute when a deny decision is triggered
@@ -361,7 +361,7 @@ deny contains decision if {
 }
 
 // Helper function to create the system evaluation policy
-fn create_system_policy(system_dir: &PathBuf) {
+fn create_system_policy(system_dir: &Path) {
     let system_policy = r#"package cupcake.system
 
 import rego.v1

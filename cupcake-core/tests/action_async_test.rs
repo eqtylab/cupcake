@@ -407,7 +407,7 @@ allow_override contains decision if {
 }
 
 // Helper function
-fn create_system_policy(system_dir: &std::path::PathBuf) {
+fn create_system_policy(system_dir: &std::path::Path) {
     let system_policy = r#"package cupcake.system
 
 import rego.v1

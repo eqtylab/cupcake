@@ -16,40 +16,7 @@ use tempfile::TempDir;
 /// Test that builtin configurations generate the expected signals
 #[test]
 fn test_builtin_signal_generation() {
-    let mut config = BuiltinsConfig::default();
-
-    // Configure always_inject_on_prompt
-    config.always_inject_on_prompt = Some(AlwaysInjectConfig {
-        enabled: true,
-        context: vec![
-            ContextSource::String("Test context".to_string()),
-            ContextSource::Dynamic {
-                file: Some("/tmp/test.txt".to_string()),
-                command: None,
-            },
-            ContextSource::Dynamic {
-                file: None,
-                command: Some("echo 'dynamic'".to_string()),
-            },
-        ],
-    });
-
-    // Configure git_pre_check
-    config.git_pre_check = Some(GitPreCheckConfig {
-        enabled: true,
-        checks: vec![
-            CheckConfig {
-                command: "cargo test".to_string(),
-                message: "Tests must pass".to_string(),
-            },
-            CheckConfig {
-                command: "cargo fmt --check".to_string(),
-                message: "Code must be formatted".to_string(),
-            },
-        ],
-    });
-
-    // Configure post_edit_check
+    // Build the by_extension map for post_edit_check
     let mut by_extension = HashMap::new();
     by_extension.insert(
         "rs".to_string(),
@@ -66,17 +33,46 @@ fn test_builtin_signal_generation() {
         },
     );
 
-    config.post_edit_check = Some(PostEditCheckConfig {
-        enabled: true,
-        by_extension,
-    });
-
-    // Configure rulebook_security_guardrails
-    config.rulebook_security_guardrails = Some(RulebookSecurityConfig {
-        enabled: true,
-        message: "Test protection message".to_string(),
-        protected_paths: vec![".cupcake/".to_string(), ".config/".to_string()],
-    });
+    // Create the full configuration in one go
+    let config = BuiltinsConfig {
+        always_inject_on_prompt: Some(AlwaysInjectConfig {
+            enabled: true,
+            context: vec![
+                ContextSource::String("Test context".to_string()),
+                ContextSource::Dynamic {
+                    file: Some("/tmp/test.txt".to_string()),
+                    command: None,
+                },
+                ContextSource::Dynamic {
+                    file: None,
+                    command: Some("echo 'dynamic'".to_string()),
+                },
+            ],
+        }),
+        git_pre_check: Some(GitPreCheckConfig {
+            enabled: true,
+            checks: vec![
+                CheckConfig {
+                    command: "cargo test".to_string(),
+                    message: "Tests must pass".to_string(),
+                },
+                CheckConfig {
+                    command: "cargo fmt --check".to_string(),
+                    message: "Code must be formatted".to_string(),
+                },
+            ],
+        }),
+        post_edit_check: Some(PostEditCheckConfig {
+            enabled: true,
+            by_extension,
+        }),
+        rulebook_security_guardrails: Some(RulebookSecurityConfig {
+            enabled: true,
+            message: "Test protection message".to_string(),
+            protected_paths: vec![".cupcake/".to_string(), ".config/".to_string()],
+        }),
+        ..Default::default()
+    };
 
     // Generate signals
     let signals = config.generate_signals();
@@ -263,11 +259,10 @@ add_context contains context_msg if {
             let combined = context.join(" ");
             assert!(
                 combined.contains("test-value-123"),
-                "Context should contain signal value, got: {}",
-                combined
+                "Context should contain signal value, got: {combined}"
             );
         }
-        _ => panic!("Expected Allow decision with context, got: {:?}", decision),
+        _ => panic!("Expected Allow decision with context, got: {decision:?}"),
     }
 
     Ok(())
@@ -342,8 +337,7 @@ builtins:
             let combined = context.join(" ");
             assert!(
                 combined.contains("✓ Validation passed"),
-                "Should show validation passed, got: {}",
-                combined
+                "Should show validation passed, got: {combined}"
             );
         }
         _ => panic!("Expected Allow decision with context for .txt file"),
@@ -363,25 +357,22 @@ builtins:
 
     let decision_fail = engine.evaluate(&input_fail, None).await?;
 
-    eprintln!("Decision for .fail file: {:?}", decision_fail);
+    eprintln!("Decision for .fail file: {decision_fail:?}");
 
     // Should ask for user confirmation on failure
     match decision_fail {
         cupcake_core::engine::decision::FinalDecision::Ask { reason } => {
             assert!(
                 reason.contains("validation failed"),
-                "Should mention validation failed, got: {}",
-                reason
+                "Should mention validation failed, got: {reason}"
             );
             assert!(
                 reason.contains("Do you want to continue anyway?"),
-                "Should ask to continue, got: {}",
-                reason
+                "Should ask to continue, got: {reason}"
             );
         }
         _ => panic!(
-            "Expected Ask decision for failed validation, got: {:?}",
-            decision_fail
+            "Expected Ask decision for failed validation, got: {decision_fail:?}"
         ),
     }
 

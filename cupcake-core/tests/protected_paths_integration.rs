@@ -68,13 +68,11 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("protected"),
-                "Should mention protected: {}",
-                reason
+                "Should mention protected: {reason}"
             );
         }
         _ => panic!(
-            "Expected Halt for write to protected file, got: {:?}",
-            decision
+            "Expected Halt for write to protected file, got: {decision:?}"
         ),
     }
 
@@ -96,8 +94,7 @@ builtins:
             // Good - reads are allowed
         }
         _ => panic!(
-            "Expected Allow for read of protected file, got: {:?}",
-            decision
+            "Expected Allow for read of protected file, got: {decision:?}"
         ),
     }
 
@@ -120,13 +117,11 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("protected"),
-                "Should mention protected: {}",
-                reason
+                "Should mention protected: {reason}"
             );
         }
         _ => panic!(
-            "Expected Halt for edit in protected directory, got: {:?}",
-            decision
+            "Expected Halt for edit in protected directory, got: {decision:?}"
         ),
     }
 
@@ -148,13 +143,11 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
             assert!(
                 reason.contains("protected"),
-                "Should mention protected: {}",
-                reason
+                "Should mention protected: {reason}"
             );
         }
         _ => panic!(
-            "Expected Halt for write to .secret file, got: {:?}",
-            decision
+            "Expected Halt for write to .secret file, got: {decision:?}"
         ),
     }
 
@@ -177,8 +170,7 @@ builtins:
             // Good - writes to non-protected files are allowed
         }
         _ => panic!(
-            "Expected Allow for write to non-protected file, got: {:?}",
-            decision
+            "Expected Allow for write to non-protected file, got: {decision:?}"
         ),
     }
 
@@ -244,8 +236,7 @@ builtins:
                 // Good - read commands are allowed
             }
             _ => panic!(
-                "Expected Allow for read command '{}', got: {:?}",
-                cmd, decision
+                "Expected Allow for read command '{cmd}', got: {decision:?}"
             ),
         }
     }
@@ -276,14 +267,11 @@ builtins:
             cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
                 assert!(
                     reason.contains("read operations allowed"),
-                    "Should mention only read allowed for '{}': {}",
-                    cmd,
-                    reason
+                    "Should mention only read allowed for '{cmd}': {reason}"
                 );
             }
             _ => panic!(
-                "Expected Halt for write command '{}', got: {:?}",
-                cmd, decision
+                "Expected Halt for write command '{cmd}', got: {decision:?}"
             ),
         }
     }

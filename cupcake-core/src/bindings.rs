@@ -135,12 +135,21 @@ impl BindingEngine {
 }
 
 // Compile-time thread safety verification
+//
 // These assertions ensure BindingEngine can be safely shared between threads.
 // If BindingEngine ever loses Send or Sync, compilation will fail immediately.
+//
+// This pattern works by type-checking the body of _assertions() at compile time.
+// The function is never called (hence #[allow(dead_code)]), but the compiler must
+// still verify that BindingEngine: Send + Sync when type-checking the function body.
+// This gives us zero-cost compile-time trait verification.
 const _: () = {
+    #[allow(dead_code)]  // Intentionally uncalled - exists only for type checking
     fn assert_send<T: Send>() {}
+    #[allow(dead_code)]  // Intentionally uncalled - exists only for type checking
     fn assert_sync<T: Sync>() {}
 
+    #[allow(dead_code)]  // Never executed - compiler type-checks this at compile time
     fn _assertions() {
         assert_send::<BindingEngine>();
         assert_sync::<BindingEngine>();

@@ -38,6 +38,31 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install OPA (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Download and install OPA v1.7.1
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            # GitHub Actions runners are still x64, not ARM
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_darwin_amd64
+          fi
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Install OPA (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Download OPA v1.7.1 for Windows
+          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
+          # Move to a directory in PATH
+          Move-Item opa.exe "C:\Windows\System32\opa.exe"
+          # Verify installation
+          opa version
+
       - name: Install Claude CLI (Unix)
         if: runner.os != 'Windows'
         run: |

@@ -109,10 +109,34 @@ jobs:
           }
 
       - name: Build Cupcake
+        run: cargo build --release --features deterministic-tests
+
+      - name: Verify built binary (Unix)
+        if: runner.os != 'Windows'
         run: |
-          cargo build --release --features deterministic-tests
           echo "=== Built binary location ==="
-          ls -la target/release/ | grep cupcake || echo "Binary listing failed"
+          ls -la target/release/cupcake || echo "Release binary not found"
+          ls -la target/debug/cupcake || echo "Debug binary not found"
+          echo "=== Full release directory ==="
+          ls -la target/release/ || echo "No release directory"
+
+      - name: Verify built binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "=== Built binary location ==="
+          if (Test-Path target/release/cupcake.exe) {
+            Get-Item target/release/cupcake.exe
+          } else {
+            Write-Host "Release binary not found"
+          }
+          if (Test-Path target/debug/cupcake.exe) {
+            Get-Item target/debug/cupcake.exe
+          } else {
+            Write-Host "Debug binary not found"
+          }
+          Write-Host "=== Full release directory ==="
+          Get-ChildItem target/release/ -ErrorAction SilentlyContinue
 
       - name: Create simple test script (Unix)
         if: runner.os != 'Windows'
@@ -155,7 +179,7 @@ jobs:
           }
           POLICY
 
-          # Create a simple hook that just echoes
+          # Create a simple hook that logs to a file
           cat > .claude/settings.json << 'SETTINGS'
           {
             "hooks": {
@@ -164,7 +188,7 @@ jobs:
                   "hooks": [
                     {
                       "type": "command",
-                      "command": "echo 'HOOK TRIGGERED' && pwd && ls -la",
+                      "command": "sh -c 'echo HOOK_TRIGGERED > .claude/hook.log && pwd >> .claude/hook.log && env | grep -E \"CUPCAKE|ANTHROPIC\" >> .claude/hook.log'",
                       "timeout": 10
                     }
                   ]
@@ -179,10 +203,14 @@ jobs:
 
           echo "=== Attempting to run Claude ==="
           if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY is set (length: ${#ANTHROPIC_API_KEY})"
             timeout 30 claude -p "test message" --model haiku 2>&1 || echo "Claude command failed with code $?"
           else
             echo "ANTHROPIC_API_KEY not set, skipping Claude execution"
           fi
+
+          echo "=== Check what happened with hook ==="
+          cat .claude/hook.log 2>/dev/null || echo "No hook log found"
 
           echo "=== Checking for any debug output ==="
           find . -name "*.log" -o -name "*.debug" -o -name "routing*" 2>/dev/null || echo "No debug files found"
@@ -211,11 +239,21 @@ jobs:
           CUPCAKE_DEBUG_ROUTING: 1
         continue-on-error: true
 
-      - name: Check for test artifacts
-        if: always()
+      - name: Check for test artifacts (Unix)
+        if: always() && runner.os != 'Windows'
         run: |
           echo "=== Looking for any debug directories created ==="
           find . -type d -name "debug" -o -name "routing" 2>/dev/null | head -20 || echo "No debug dirs found"
 
           echo "=== Looking for temp directories ==="
           ls -la /tmp/ | grep -E "tmp|test" | head -10 || echo "No relevant tmp dirs"
+
+      - name: Check for test artifacts (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "=== Looking for any debug directories created ==="
+          Get-ChildItem -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "debug|routing" } | Select-Object -First 20
+
+          Write-Host "=== Looking for temp directories ==="
+          Get-ChildItem $env:TEMP -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "tmp|test" } | Select-Object -First 10

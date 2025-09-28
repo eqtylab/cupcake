@@ -154,7 +154,11 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
             .unwrap()
             .join("target")
             .join("release")
-            .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+            .join(if cfg!(windows) {
+                "cupcake.exe"
+            } else {
+                "cupcake"
+            });
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
@@ -166,9 +170,16 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
                 .unwrap()
                 .join("target")
                 .join("debug")
-                .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+                .join(if cfg!(windows) {
+                    "cupcake.exe"
+                } else {
+                    "cupcake"
+                });
 
-            eprintln!("[DEBUG] Release binary not found, trying debug: {:?}", debug_target);
+            eprintln!(
+                "[DEBUG] Release binary not found, trying debug: {:?}",
+                debug_target
+            );
             format!("{} eval", debug_target.display())
         }
     } else {
@@ -178,7 +189,10 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
             .unwrap()
             .join("Cargo.toml");
         eprintln!("[DEBUG] Using cargo run for local development");
-        format!("cargo run --manifest-path {} -- eval", cargo_manifest.display())
+        format!(
+            "cargo run --manifest-path {} -- eval",
+            cargo_manifest.display()
+        )
     };
 
     eprintln!("[DEBUG] Hook command: {}", command);
@@ -211,7 +225,10 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     // Get claude CLI path
     let claude_path = get_claude_path();
     eprintln!("[DEBUG] Running claude command from: {:?}", project_path);
-    eprintln!("[DEBUG] Claude command: {} -p 'hello world' --model sonnet", claude_path);
+    eprintln!(
+        "[DEBUG] Claude command: {} -p 'hello world' --model sonnet",
+        claude_path
+    );
 
     let output = std::process::Command::new(&claude_path)
         .args(["-p", "hello world", "--model", "sonnet"])
@@ -221,8 +238,14 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         .expect("Failed to execute claude command");
 
     eprintln!("[DEBUG] Claude exit status: {:?}", output.status.code());
-    eprintln!("[DEBUG] Claude stdout length: {} bytes", output.stdout.len());
-    eprintln!("[DEBUG] Claude stderr length: {} bytes", output.stderr.len());
+    eprintln!(
+        "[DEBUG] Claude stdout length: {} bytes",
+        output.stdout.len()
+    );
+    eprintln!(
+        "[DEBUG] Claude stderr length: {} bytes",
+        output.stderr.len()
+    );
 
     if !output.status.success() {
         panic!(
@@ -253,8 +276,14 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         }
     } else {
         eprintln!("[DEBUG] Checking parent directories:");
-        eprintln!("  .cupcake exists: {}", project_path.join(".cupcake").exists());
-        eprintln!("  .cupcake/debug exists: {}", project_path.join(".cupcake/debug").exists());
+        eprintln!(
+            "  .cupcake exists: {}",
+            project_path.join(".cupcake").exists()
+        );
+        eprintln!(
+            "  .cupcake/debug exists: {}",
+            project_path.join(".cupcake/debug").exists()
+        );
     }
 
     let entries = fs::read_dir(&debug_dir)
@@ -458,7 +487,11 @@ async fn test_wildcard_policy_routing() {
             .unwrap()
             .join("target")
             .join("release")
-            .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+            .join(if cfg!(windows) {
+                "cupcake.exe"
+            } else {
+                "cupcake"
+            });
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
@@ -470,9 +503,16 @@ async fn test_wildcard_policy_routing() {
                 .unwrap()
                 .join("target")
                 .join("debug")
-                .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+                .join(if cfg!(windows) {
+                    "cupcake.exe"
+                } else {
+                    "cupcake"
+                });
 
-            eprintln!("[DEBUG] Release binary not found, trying debug: {:?}", debug_target);
+            eprintln!(
+                "[DEBUG] Release binary not found, trying debug: {:?}",
+                debug_target
+            );
             format!("{} eval", debug_target.display())
         }
     } else {
@@ -481,7 +521,10 @@ async fn test_wildcard_policy_routing() {
             .parent()
             .unwrap()
             .join("Cargo.toml");
-        format!("cargo run --manifest-path {} -- eval", cargo_manifest.display())
+        format!(
+            "cargo run --manifest-path {} -- eval",
+            cargo_manifest.display()
+        )
     };
 
     let settings = format!(
@@ -642,7 +685,11 @@ deny contains decision if {
             .unwrap()
             .join("target")
             .join("release")
-            .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+            .join(if cfg!(windows) {
+                "cupcake.exe"
+            } else {
+                "cupcake"
+            });
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
@@ -654,9 +701,16 @@ deny contains decision if {
                 .unwrap()
                 .join("target")
                 .join("debug")
-                .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+                .join(if cfg!(windows) {
+                    "cupcake.exe"
+                } else {
+                    "cupcake"
+                });
 
-            eprintln!("[DEBUG] Release binary not found, trying debug: {:?}", debug_target);
+            eprintln!(
+                "[DEBUG] Release binary not found, trying debug: {:?}",
+                debug_target
+            );
             format!("{} eval", debug_target.display())
         }
     } else {
@@ -665,7 +719,10 @@ deny contains decision if {
             .parent()
             .unwrap()
             .join("Cargo.toml");
-        format!("cargo run --manifest-path {} -- eval", cargo_manifest.display())
+        format!(
+            "cargo run --manifest-path {} -- eval",
+            cargo_manifest.display()
+        )
     };
 
     let settings = format!(

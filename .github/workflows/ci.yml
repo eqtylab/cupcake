@@ -90,16 +90,17 @@ jobs:
             Write-Host "Warning: Claude CLI not found in PATH after npm install"
           }
 
+      - name: Build release binary first
+        run: cargo build --release
+
       - name: Run ALL tests including Claude integration
         run: |
           cargo test --features deterministic-tests
         env:
+          CI: true
           CUPCAKE_GLOBAL_CONFIG: /nonexistent
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
-
-      - name: Build release
-        run: cargo build --release
 
   clippy:
     name: Clippy

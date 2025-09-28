@@ -112,13 +112,22 @@ deny contains decision if {{
 fn get_claude_path() -> String {
     // Try environment variable first (for CI/custom installs)
     if let Ok(path) = std::env::var("CLAUDE_CLI_PATH") {
+        eprintln!("[DEBUG] CLAUDE_CLI_PATH env var: {}", path);
         if std::path::Path::new(&path).exists() {
+            eprintln!("[DEBUG] Claude CLI found at env path: {}", path);
             return path;
+        } else {
+            eprintln!("[DEBUG] Claude CLI path from env doesn't exist: {}", path);
         }
+    } else {
+        eprintln!("[DEBUG] CLAUDE_CLI_PATH env var not set");
     }
 
     // Default to HOME-based path
-    let home = std::env::var("HOME").expect("HOME environment variable not set");
+    let home = std::env::var("HOME").unwrap_or_else(|_| {
+        eprintln!("[DEBUG] HOME env var not set, trying USERPROFILE (Windows)");
+        std::env::var("USERPROFILE").expect("Neither HOME nor USERPROFILE set")
+    });
     let claude_path = format!("{home}/.claude/local/claude");
 
     if !std::path::Path::new(&claude_path).exists() {
@@ -127,6 +136,7 @@ fn get_claude_path() -> String {
         );
     }
 
+    eprintln!("[DEBUG] Claude CLI found at default path: {}", claude_path);
     claude_path
 }
 
@@ -136,11 +146,42 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     let claude_dir = project_path.join(".claude");
     fs::create_dir_all(&claude_dir).unwrap();
 
-    // Get the Cargo.toml path dynamically at compile time
-    let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap() // Go up from cupcake-core to cupcake-rewrite
-        .join("Cargo.toml");
+    // Determine the command to use - prefer built binary in CI
+    let command = if std::env::var("CI").is_ok() {
+        // In CI, use the built binary directly
+        let target_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("target")
+            .join("release")
+            .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+
+        if target_dir.exists() {
+            eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
+            format!("{} eval", target_dir.display())
+        } else {
+            // Fallback to debug build
+            let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .join("target")
+                .join("debug")
+                .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+
+            eprintln!("[DEBUG] Release binary not found, trying debug: {:?}", debug_target);
+            format!("{} eval", debug_target.display())
+        }
+    } else {
+        // Local development - use cargo run
+        let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("Cargo.toml");
+        eprintln!("[DEBUG] Using cargo run for local development");
+        format!("cargo run --manifest-path {} -- eval", cargo_manifest.display())
+    };
+
+    eprintln!("[DEBUG] Hook command: {}", command);
 
     // Create settings.json with UserPromptSubmit hook to trigger on "hello world"
     let settings = format!(
@@ -151,7 +192,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         "hooks": [
           {{
             "type": "command",
-            "command": "cargo run --manifest-path {} -- eval",
+            "command": "{}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -163,18 +204,25 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     ]
   }}
 }}"#,
-        cargo_manifest.display()
+        command
     );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 
     // Get claude CLI path
     let claude_path = get_claude_path();
-    let output = std::process::Command::new(claude_path)
+    eprintln!("[DEBUG] Running claude command from: {:?}", project_path);
+    eprintln!("[DEBUG] Claude command: {} -p 'hello world' --model sonnet", claude_path);
+
+    let output = std::process::Command::new(&claude_path)
         .args(["-p", "hello world", "--model", "sonnet"])
         .current_dir(project_path)
         .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
         .output()
         .expect("Failed to execute claude command");
+
+    eprintln!("[DEBUG] Claude exit status: {:?}", output.status.code());
+    eprintln!("[DEBUG] Claude stdout length: {} bytes", output.stdout.len());
+    eprintln!("[DEBUG] Claude stderr length: {} bytes", output.stderr.len());
 
     if !output.status.success() {
         panic!(
@@ -186,10 +234,29 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     }
 
     // Wait for hooks to complete and files to be written
+    eprintln!("[DEBUG] Waiting 2 seconds for hooks to complete...");
     std::thread::sleep(std::time::Duration::from_secs(2));
 
     // Find and read the routing map JSON
     let debug_dir = project_path.join(".cupcake/debug/routing");
+    eprintln!("[DEBUG] Looking for debug directory: {:?}", debug_dir);
+    eprintln!("[DEBUG] Debug dir exists: {}", debug_dir.exists());
+
+    if debug_dir.exists() {
+        eprintln!("[DEBUG] Contents of .cupcake/debug/routing:");
+        if let Ok(entries) = fs::read_dir(&debug_dir) {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    eprintln!("  - {:?}", entry.path());
+                }
+            }
+        }
+    } else {
+        eprintln!("[DEBUG] Checking parent directories:");
+        eprintln!("  .cupcake exists: {}", project_path.join(".cupcake").exists());
+        eprintln!("  .cupcake/debug exists: {}", project_path.join(".cupcake/debug").exists());
+    }
+
     let entries = fs::read_dir(&debug_dir)
         .expect("Debug directory should exist")
         .filter_map(|e| e.ok())
@@ -383,11 +450,39 @@ async fn test_wildcard_policy_routing() {
     let claude_dir = temp_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).unwrap();
 
-    // Get the Cargo.toml path dynamically at compile time
-    let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap() // Go up from cupcake-core to cupcake-rewrite
-        .join("Cargo.toml");
+    // Determine the command to use - prefer built binary in CI
+    let command = if std::env::var("CI").is_ok() {
+        // In CI, use the built binary directly
+        let target_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("target")
+            .join("release")
+            .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+
+        if target_dir.exists() {
+            eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
+            format!("{} eval", target_dir.display())
+        } else {
+            // Fallback to debug build
+            let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .join("target")
+                .join("debug")
+                .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+
+            eprintln!("[DEBUG] Release binary not found, trying debug: {:?}", debug_target);
+            format!("{} eval", debug_target.display())
+        }
+    } else {
+        // Local development - use cargo run
+        let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("Cargo.toml");
+        format!("cargo run --manifest-path {} -- eval", cargo_manifest.display())
+    };
 
     let settings = format!(
         r#"{{
@@ -397,7 +492,7 @@ async fn test_wildcard_policy_routing() {
         "hooks": [
           {{
             "type": "command",
-            "command": "cargo run --manifest-path {} -- eval",
+            "command": "{}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -409,7 +504,7 @@ async fn test_wildcard_policy_routing() {
     ]
   }}
 }}"#,
-        cargo_manifest.display()
+        command
     );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
     eprintln!("[TIMING] Settings written: {:?}", test_start.elapsed());
@@ -539,11 +634,39 @@ deny contains decision if {
     let claude_dir = temp_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).unwrap();
 
-    // Get the Cargo.toml path dynamically at compile time
-    let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap() // Go up from cupcake-core to cupcake-rewrite
-        .join("Cargo.toml");
+    // Determine the command to use - prefer built binary in CI
+    let command = if std::env::var("CI").is_ok() {
+        // In CI, use the built binary directly
+        let target_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("target")
+            .join("release")
+            .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+
+        if target_dir.exists() {
+            eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
+            format!("{} eval", target_dir.display())
+        } else {
+            // Fallback to debug build
+            let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .join("target")
+                .join("debug")
+                .join(if cfg!(windows) { "cupcake.exe" } else { "cupcake" });
+
+            eprintln!("[DEBUG] Release binary not found, trying debug: {:?}", debug_target);
+            format!("{} eval", debug_target.display())
+        }
+    } else {
+        // Local development - use cargo run
+        let cargo_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("Cargo.toml");
+        format!("cargo run --manifest-path {} -- eval", cargo_manifest.display())
+    };
 
     let settings = format!(
         r#"{{
@@ -553,7 +676,7 @@ deny contains decision if {
         "hooks": [
           {{
             "type": "command",
-            "command": "cargo run --manifest-path {} -- eval",
+            "command": "{}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -565,7 +688,7 @@ deny contains decision if {
     ]
   }}
 }}"#,
-        cargo_manifest.display()
+        command
     );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 

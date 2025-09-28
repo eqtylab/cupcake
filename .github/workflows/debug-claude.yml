@@ -1,0 +1,221 @@
+name: Debug Claude Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v0.1.0]
+    paths:
+      - '.github/workflows/debug-claude.yml'
+      - 'cupcake-core/tests/claude_code_routing_test.rs'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  RUST_LOG: debug
+
+jobs:
+  debug-claude:
+    name: Debug Claude CLI Integration
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install OPA (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_darwin_amd64
+          fi
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Install OPA (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
+          Move-Item opa.exe "C:\Windows\System32\opa.exe"
+          opa version
+
+      - name: Install Claude CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          npm list -g @anthropic-ai/claude-code
+
+      - name: Debug Claude Installation (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "=== NPM global directory ==="
+          npm config get prefix
+
+          echo "=== Looking for claude executable ==="
+          which claude || echo "claude not found in PATH"
+
+          echo "=== All files in npm bin directory ==="
+          ls -la $(npm config get prefix)/bin/ || echo "Can't list npm bin"
+
+          echo "=== PATH variable ==="
+          echo $PATH
+
+          echo "=== Try running claude directly ==="
+          claude --version || echo "Can't run claude --version"
+
+          echo "=== Setting CLAUDE_CLI_PATH ==="
+          CLAUDE_PATH=$(which claude || echo "NOT_FOUND")
+          echo "CLAUDE_CLI_PATH=$CLAUDE_PATH"
+          echo "CLAUDE_CLI_PATH=$CLAUDE_PATH" >> $GITHUB_ENV
+
+      - name: Debug Claude Installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "=== NPM global directory ==="
+          npm config get prefix
+
+          Write-Host "=== Looking for claude executable ==="
+          Get-Command claude -ErrorAction SilentlyContinue
+
+          Write-Host "=== PATH variable ==="
+          $env:PATH -split ';'
+
+          Write-Host "=== Try running claude directly ==="
+          try { claude --version } catch { Write-Host "Can't run claude --version" }
+
+          Write-Host "=== Setting CLAUDE_CLI_PATH ==="
+          $claudePath = (Get-Command claude -ErrorAction SilentlyContinue).Path
+          if ($claudePath) {
+            Write-Host "CLAUDE_CLI_PATH=$claudePath"
+            Add-Content -Path $env:GITHUB_ENV -Value "CLAUDE_CLI_PATH=$claudePath"
+          } else {
+            Write-Host "Claude not found"
+            Add-Content -Path $env:GITHUB_ENV -Value "CLAUDE_CLI_PATH=NOT_FOUND"
+          }
+
+      - name: Build Cupcake
+        run: |
+          cargo build --release --features deterministic-tests
+          echo "=== Built binary location ==="
+          ls -la target/release/ | grep cupcake || echo "Binary listing failed"
+
+      - name: Create simple test script (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cat > test-claude.sh << 'EOF'
+          #!/bin/bash
+          set -x
+
+          echo "=== Testing Claude CLI directly ==="
+
+          # Create a temp directory
+          TESTDIR=$(mktemp -d)
+          cd "$TESTDIR"
+
+          # Create minimal cupcake structure
+          mkdir -p .cupcake/policies/system .cupcake/signals .cupcake/actions .claude
+
+          # Create minimal guidebook
+          cat > .cupcake/guidebook.yml << 'GUIDEBOOK'
+          version: "1.0"
+          builtins: {}
+          signals: {}
+          actions: {}
+          GUIDEBOOK
+
+          # Create system evaluate policy
+          cat > .cupcake/policies/system/evaluate.rego << 'POLICY'
+          package cupcake.system
+          import rego.v1
+
+          evaluate := decision_set if {
+              decision_set := {
+                  "halts": [],
+                  "denials": [],
+                  "blocks": [],
+                  "asks": [],
+                  "allow_overrides": [],
+                  "add_context": []
+              }
+          }
+          POLICY
+
+          # Create a simple hook that just echoes
+          cat > .claude/settings.json << 'SETTINGS'
+          {
+            "hooks": {
+              "UserPromptSubmit": [
+                {
+                  "hooks": [
+                    {
+                      "type": "command",
+                      "command": "echo 'HOOK TRIGGERED' && pwd && ls -la",
+                      "timeout": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          SETTINGS
+
+          echo "=== Test directory structure ==="
+          find . -type f
+
+          echo "=== Attempting to run Claude ==="
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            timeout 30 claude -p "test message" --model haiku 2>&1 || echo "Claude command failed with code $?"
+          else
+            echo "ANTHROPIC_API_KEY not set, skipping Claude execution"
+          fi
+
+          echo "=== Checking for any debug output ==="
+          find . -name "*.log" -o -name "*.debug" -o -name "routing*" 2>/dev/null || echo "No debug files found"
+
+          cd /
+          rm -rf "$TESTDIR"
+          EOF
+
+          chmod +x test-claude.sh
+          ./test-claude.sh
+
+      - name: Create simple test script (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "=== Skipping simple test on Windows for now ==="
+
+      - name: Run specific Claude routing test with debug
+        run: |
+          cargo test --features deterministic-tests claude_code_routing_test -- --nocapture --test-threads=1
+        env:
+          CUPCAKE_GLOBAL_CONFIG: /nonexistent
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
+          RUST_LOG: debug
+          CUPCAKE_DEBUG_ROUTING: 1
+        continue-on-error: true
+
+      - name: Check for test artifacts
+        if: always()
+        run: |
+          echo "=== Looking for any debug directories created ==="
+          find . -type d -name "debug" -o -name "routing" 2>/dev/null | head -20 || echo "No debug dirs found"
+
+          echo "=== Looking for temp directories ==="
+          ls -la /tmp/ | grep -E "tmp|test" | head -10 || echo "No relevant tmp dirs"

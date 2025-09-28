@@ -144,12 +144,12 @@ impl BindingEngine {
 // still verify that BindingEngine: Send + Sync when type-checking the function body.
 // This gives us zero-cost compile-time trait verification.
 const _: () = {
-    #[allow(dead_code)]  // Intentionally uncalled - exists only for type checking
+    #[allow(dead_code)] // Intentionally uncalled - exists only for type checking
     fn assert_send<T: Send>() {}
-    #[allow(dead_code)]  // Intentionally uncalled - exists only for type checking
+    #[allow(dead_code)] // Intentionally uncalled - exists only for type checking
     fn assert_sync<T: Sync>() {}
 
-    #[allow(dead_code)]  // Never executed - compiler type-checks this at compile time
+    #[allow(dead_code)] // Never executed - compiler type-checks this at compile time
     fn _assertions() {
         assert_send::<BindingEngine>();
         assert_sync::<BindingEngine>();

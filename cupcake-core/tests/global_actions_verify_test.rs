@@ -6,19 +6,14 @@ use cupcake_core::engine::{decision::FinalDecision, global_config::GlobalPaths, 
 use serial_test::serial;
 use std::env;
 use std::fs;
-use std::sync::Mutex;
 use tempfile::TempDir;
-
-// Global mutex to ensure tests using CUPCAKE_GLOBAL_CONFIG don't run in parallel
-static GLOBAL_CONFIG_MUTEX: Mutex<()> = Mutex::new(());
 
 mod test_helpers;
 
 /// Test that shows actions ARE being called but are fire-and-forget
 #[tokio::test]
+#[serial]  // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_action_execution_logs() -> Result<()> {
-    // Acquire mutex to prevent parallel execution with other global config tests
-    let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();
 
     // Initialize test logging to capture debug output
     test_helpers::init_test_logging();
@@ -121,9 +116,6 @@ halt contains decision if {
 #[tokio::test]
 #[serial]
 async fn test_global_action_working_directory_issue() -> Result<()> {
-    // Acquire mutex to prevent parallel execution with other global config tests
-    let _guard = GLOBAL_CONFIG_MUTEX.lock().unwrap();
-
     test_helpers::init_test_logging();
 
     // Setup global config

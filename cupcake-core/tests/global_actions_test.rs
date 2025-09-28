@@ -17,15 +17,10 @@ mod test_helpers;
 static ACTION_LOG: once_cell::sync::Lazy<Arc<Mutex<Vec<String>>>> =
     once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
 
-// Ensure tests don't interfere with each other's global config
-static GLOBAL_TEST_LOCK: Mutex<()> = Mutex::new(());
-
 /// Test that global HALT executes global actions
 #[tokio::test]
-#[serial]
+#[serial]  // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_halt_executes_actions() -> Result<()> {
-    // Serialize access to global config
-    let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
 
     // Clear action log
     ACTION_LOG.lock().unwrap().clear();
@@ -143,9 +138,6 @@ halt contains decision if {
 #[tokio::test]
 #[serial]
 async fn test_global_deny_executes_actions() -> Result<()> {
-    // Serialize access to global config
-    let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
-
     // Setup global config
     let global_dir = TempDir::new()?;
     env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
@@ -253,9 +245,6 @@ deny contains decision if {
 #[tokio::test]
 #[serial]
 async fn test_global_block_executes_actions() -> Result<()> {
-    // Serialize access to global config
-    let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
-
     // Setup global config
     let global_dir = TempDir::new()?;
     env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());

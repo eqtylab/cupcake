@@ -171,7 +171,10 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
 
         b.iter(|| {
             runtime.block_on(async {
-                let _decision = engine.evaluate(black_box(&dangerous_event), None).await.unwrap();
+                let _decision = engine
+                    .evaluate(black_box(&dangerous_event), None)
+                    .await
+                    .unwrap();
             });
         });
     });

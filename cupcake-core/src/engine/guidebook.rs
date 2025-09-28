@@ -124,7 +124,10 @@ impl Guidebook {
                         e.insert(signal);
                     }
                     Entry::Occupied(e) => {
-                        debug!("Keeping user-defined signal: {} (skipping builtin)", e.key());
+                        debug!(
+                            "Keeping user-defined signal: {} (skipping builtin)",
+                            e.key()
+                        );
                     }
                 }
             }

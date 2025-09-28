@@ -19,9 +19,8 @@ static ACTION_LOG: once_cell::sync::Lazy<Arc<Mutex<Vec<String>>>> =
 
 /// Test that global HALT executes global actions
 #[tokio::test]
-#[serial]  // serial attribute ensures tests run one at a time, protecting global env vars
+#[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_halt_executes_actions() -> Result<()> {
-
     // Clear action log
     ACTION_LOG.lock().unwrap().clear();
 

@@ -173,10 +173,7 @@ pub trait TrustVerifierExt {
 }
 
 impl TrustVerifierExt for Option<TrustVerifier> {
-    async fn verify_if_enabled(
-        &self,
-        command: &str,
-    ) -> Result<()> {
+    async fn verify_if_enabled(&self, command: &str) -> Result<()> {
         match self {
             Some(verifier) => {
                 verifier.verify_script(command).await?;

@@ -13,9 +13,8 @@ mod test_helpers;
 
 /// Test that global HALT with actions doesn't crash and returns correct decision
 #[tokio::test]
-#[serial]  // serial attribute ensures tests run one at a time, protecting global env vars
+#[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_halt_with_actions_simple() -> Result<()> {
-
     // Initialize test logging
     test_helpers::init_test_logging();
 

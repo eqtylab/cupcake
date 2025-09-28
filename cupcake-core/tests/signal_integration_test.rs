@@ -189,9 +189,7 @@ echo '{
     }
 
     // Initialize engine with test project
-    eprintln!(
-        "=== TEST: Initializing engine with project path: {project_path:?}"
-    );
+    eprintln!("=== TEST: Initializing engine with project path: {project_path:?}");
     eprintln!("=== TEST: Policies dir exists: {}", policies_dir.exists());
     eprintln!("=== TEST: System dir exists: {}", system_dir.exists());
 

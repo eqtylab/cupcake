@@ -274,9 +274,7 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     eprintln!("         \"matcher\": \"*\",");
     eprintln!("         \"hooks\": [{{");
     eprintln!("           \"type\": \"command\",");
-    eprintln!(
-        "           \"command\": \"cupcake eval --policy-dir {policy_path}\""
-    );
+    eprintln!("           \"command\": \"cupcake eval --policy-dir {policy_path}\"");
     eprintln!("         }}]");
     eprintln!("       }}]");
     eprintln!("     }}");

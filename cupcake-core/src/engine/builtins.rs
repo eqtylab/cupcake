@@ -416,10 +416,7 @@ impl BuiltinsConfig {
                 .as_ref()
                 .is_some_and(|c| c.enabled)
             || self.protected_paths.as_ref().is_some_and(|c| c.enabled)
-            || self
-                .git_block_no_verify
-                .as_ref()
-                .is_some_and(|c| c.enabled)
+            || self.git_block_no_verify.as_ref().is_some_and(|c| c.enabled)
             || self.system_protection.as_ref().is_some_and(|c| c.enabled)
             || self
                 .sensitive_data_protection
@@ -461,11 +458,7 @@ impl BuiltinsConfig {
         if self.protected_paths.as_ref().is_some_and(|c| c.enabled) {
             enabled.push("protected_paths".to_string());
         }
-        if self
-            .git_block_no_verify
-            .as_ref()
-            .is_some_and(|c| c.enabled)
-        {
+        if self.git_block_no_verify.as_ref().is_some_and(|c| c.enabled) {
             enabled.push("git_block_no_verify".to_string());
         }
         if self.system_protection.as_ref().is_some_and(|c| c.enabled) {
@@ -594,10 +587,12 @@ fn context_source_to_signal(source: &ContextSource) -> Option<SignalConfig> {
                     command: cmd.clone(),
                     timeout_seconds: 5,
                 })
-            } else { file.as_ref().map(|path| SignalConfig {
+            } else {
+                file.as_ref().map(|path| SignalConfig {
                     command: format!("cat '{}'", path.replace('\'', "\\'")),
                     timeout_seconds: 2,
-                }) }
+                })
+            }
         }
     }
 }

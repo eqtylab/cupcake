@@ -294,9 +294,7 @@ impl ValidationRule for IncrementalRuleGroupingRule {
                     issues.push(ValidationIssue {
                         severity: Severity::Warning,
                         rule_id: self.rule_id(),
-                        message: format!(
-                            "Multiple '{rule_name}' rules should be grouped together"
-                        ),
+                        message: format!("Multiple '{rule_name}' rules should be grouped together"),
                         line: Some(sorted_locs[0] + 1),
                     });
                 }

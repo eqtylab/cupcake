@@ -371,9 +371,7 @@ builtins:
                 "Should ask to continue, got: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Ask decision for failed validation, got: {decision_fail:?}"
-        ),
+        _ => panic!("Expected Ask decision for failed validation, got: {decision_fail:?}"),
     }
 
     Ok(())

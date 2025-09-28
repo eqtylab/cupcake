@@ -395,9 +395,7 @@ impl DebugCapture {
             .duration_since(self.timestamp)
             .map(|d| format!(" Duration: {}ms", d.as_millis()))
             .unwrap_or_default();
-        output.push_str(&format!(
-            "===== End Event [{end_time}]{elapsed} =====\n"
-        ));
+        output.push_str(&format!("===== End Event [{end_time}]{elapsed} =====\n"));
 
         Ok(output)
     }

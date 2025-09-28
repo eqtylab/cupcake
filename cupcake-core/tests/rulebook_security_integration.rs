@@ -5,9 +5,8 @@
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use serde_json::json;
-use tempfile::TempDir;
 use std::fs;
-
+use tempfile::TempDir;
 
 /// Integration test: rulebook security prevents file operations on .cupcake/ files
 #[tokio::test]
@@ -119,9 +118,7 @@ builtins:
                 "Should mention protection: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for bash command targeting .cupcake, got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for bash command targeting .cupcake, got: {decision:?}"),
     }
 
     // Test 4: Allow non-.cupcake file operations

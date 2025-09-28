@@ -200,9 +200,7 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
                     script_count += 1;
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to process {category} script '{name}': {e}"
-                    );
+                    eprintln!("Warning: Failed to process {category} script '{name}': {e}");
                     // Continue processing other scripts
                 }
             }

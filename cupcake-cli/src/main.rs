@@ -555,31 +555,34 @@ fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<Strin
 fn add_default_builtin_configs(mut content: String, enabled_builtins: &[String]) -> Result<String> {
     // For git_pre_check, ensure there's at least one check
     if enabled_builtins.contains(&"git_pre_check".to_string())
-        && (!content.contains("checks:") || content.contains("checks: []")) {
-            // Replace empty checks with a default
-            content = content.replace(
+        && (!content.contains("checks:") || content.contains("checks: []"))
+    {
+        // Replace empty checks with a default
+        content = content.replace(
                 "git_pre_check:\n    enabled: true",
                 "git_pre_check:\n    enabled: true\n    checks:\n      - command: \"echo 'Validation passed'\"\n        message: \"Basic validation check\""
             );
-        }
+    }
 
     // For protected_paths, add default paths if none exist
     if enabled_builtins.contains(&"protected_paths".to_string())
-        && (!content.contains("paths:") || content.contains("paths: []")) {
-            content = content.replace(
+        && (!content.contains("paths:") || content.contains("paths: []"))
+    {
+        content = content.replace(
                 "protected_paths:\n    enabled: true",
                 "protected_paths:\n    enabled: true\n    message: \"System path modification blocked by policy\"\n    paths:\n      - \"/etc/\"\n      - \"/System/\"\n      - \"~/.ssh/\""
             );
-        }
+    }
 
     // For post_edit_check, add basic extension checks if none exist
     if enabled_builtins.contains(&"post_edit_check".to_string())
-        && (!content.contains("by_extension:") || content.contains("by_extension: {}")) {
-            content = content.replace(
+        && (!content.contains("by_extension:") || content.contains("by_extension: {}"))
+    {
+        content = content.replace(
                 "post_edit_check:",
                 "post_edit_check:\n    by_extension:\n      \"py\":\n        command: \"python -m py_compile\"\n        message: \"Python syntax validation\"\n      \"rs\":\n        command: \"cargo check --message-format short 2>/dev/null || echo 'Rust check not available'\"\n        message: \"Rust compilation check\""
             );
-        }
+    }
 
     Ok(content)
 }

@@ -13,8 +13,7 @@ use tracing::{debug, warn};
 
 /// Routing directive extracted from OPA metadata
 /// Maps 1:1 to the NEW_GUIDING_FINAL.md specification
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct RoutingDirective {
     /// Events this policy applies to (e.g., ["PreToolUse", "PostToolUse"])
     #[serde(default)]
@@ -28,7 +27,6 @@ pub struct RoutingDirective {
     #[serde(default)]
     pub required_signals: Vec<String>,
 }
-
 
 /// Complete metadata block structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,11 +107,11 @@ fn extract_metadata_yaml(content: &str) -> Result<String> {
             if let Some(stripped) = trimmed.strip_prefix('#') {
                 // Remove leading '#' from comment lines, preserving indentation after it
                 let yaml_line = if stripped.starts_with(' ') && stripped.len() > 1 {
-                    &stripped[1..]  // Remove the single space after '#'
+                    &stripped[1..] // Remove the single space after '#'
                 } else if stripped.is_empty() {
-                    ""  // Line was just '#'
+                    "" // Line was just '#'
                 } else {
-                    stripped  // Line like "#key: value" - no space after '#'
+                    stripped // Line like "#key: value" - no space after '#'
                 };
                 yaml_lines.push(yaml_line);
             } else {

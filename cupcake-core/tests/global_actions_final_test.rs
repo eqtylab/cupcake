@@ -12,9 +12,8 @@ mod test_helpers;
 
 /// Use a marker file to prove action executed
 #[tokio::test]
-#[serial]  // serial attribute ensures tests run one at a time, protecting global env vars
+#[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_action_creates_marker_file() -> Result<()> {
-
     // Clean environment first
     env::remove_var("CUPCAKE_GLOBAL_CONFIG");
 

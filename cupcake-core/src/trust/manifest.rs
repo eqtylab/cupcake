@@ -23,7 +23,6 @@ pub enum TrustMode {
     Disabled,
 }
 
-
 /// Reference to a script that may be executed
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScriptReference {

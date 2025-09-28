@@ -12,9 +12,8 @@ mod test_helpers;
 
 /// Test that shows actions ARE being called but are fire-and-forget
 #[tokio::test]
-#[serial]  // serial attribute ensures tests run one at a time, protecting global env vars
+#[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_action_execution_logs() -> Result<()> {
-
     // Initialize test logging to capture debug output
     test_helpers::init_test_logging();
 

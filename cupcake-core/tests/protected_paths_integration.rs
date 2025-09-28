@@ -5,9 +5,8 @@
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use serde_json::json;
-use tempfile::TempDir;
 use std::fs;
-
+use tempfile::TempDir;
 
 /// Test that protected_paths blocks writes but allows reads
 #[tokio::test]
@@ -71,9 +70,7 @@ builtins:
                 "Should mention protected: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for write to protected file, got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for write to protected file, got: {decision:?}"),
     }
 
     // Test 2: ALLOW Read operation on protected file
@@ -93,9 +90,7 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - reads are allowed
         }
-        _ => panic!(
-            "Expected Allow for read of protected file, got: {decision:?}"
-        ),
+        _ => panic!("Expected Allow for read of protected file, got: {decision:?}"),
     }
 
     // Test 3: BLOCK Edit operation on directory contents
@@ -120,9 +115,7 @@ builtins:
                 "Should mention protected: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for edit in protected directory, got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for edit in protected directory, got: {decision:?}"),
     }
 
     // Test 4: BLOCK write to glob pattern match
@@ -146,9 +139,7 @@ builtins:
                 "Should mention protected: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for write to .secret file, got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for write to .secret file, got: {decision:?}"),
     }
 
     // Test 5: ALLOW write to non-protected file
@@ -169,9 +160,7 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - writes to non-protected files are allowed
         }
-        _ => panic!(
-            "Expected Allow for write to non-protected file, got: {decision:?}"
-        ),
+        _ => panic!("Expected Allow for write to non-protected file, got: {decision:?}"),
     }
 
     Ok(())
@@ -235,9 +224,7 @@ builtins:
             cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
                 // Good - read commands are allowed
             }
-            _ => panic!(
-                "Expected Allow for read command '{cmd}', got: {decision:?}"
-            ),
+            _ => panic!("Expected Allow for read command '{cmd}', got: {decision:?}"),
         }
     }
 
@@ -270,9 +257,7 @@ builtins:
                     "Should mention only read allowed for '{cmd}': {reason}"
                 );
             }
-            _ => panic!(
-                "Expected Halt for write command '{cmd}', got: {decision:?}"
-            ),
+            _ => panic!("Expected Halt for write command '{cmd}', got: {decision:?}"),
         }
     }
 

@@ -101,14 +101,8 @@ fn test_init_creates_all_required_files() -> Result<()> {
 
     for file_name in expected_files {
         let file_path = cupcake_dir.join(file_name);
-        assert!(
-            file_path.exists(),
-            "File .cupcake/{file_name} should exist"
-        );
-        assert!(
-            file_path.is_file(),
-            ".cupcake/{file_name} should be a file"
-        );
+        assert!(file_path.exists(), "File .cupcake/{file_name} should exist");
+        assert!(file_path.is_file(), ".cupcake/{file_name} should be a file");
 
         // Verify file is not empty
         let content = fs::read_to_string(&file_path)?;

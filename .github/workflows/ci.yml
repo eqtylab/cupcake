@@ -74,7 +74,10 @@ jobs:
 
           # Test OPA with a simple command
           Write-Host "Testing OPA functionality..."
-          echo 'package test' | opa parse -
+          # Create a temp file since Windows PowerShell pipe doesn't work the same way
+          "package test" | Out-File -FilePath test.rego -Encoding UTF8
+          & opa parse test.rego
+          Remove-Item test.rego
 
       - name: Install Claude CLI (Unix)
         if: runner.os != 'Windows'

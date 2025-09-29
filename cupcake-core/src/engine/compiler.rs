@@ -209,17 +209,21 @@ pub async fn compile_policies_with_namespace(
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
 
-    // Strip Windows UNC path prefix for bundle output path as well
+    // Strip Windows UNC path prefix for bundle output path
     let mut bundle_path_arg = if bundle_path_str.starts_with(r"\\?\") {
         bundle_path_str.trim_start_matches(r"\\?\").to_string()
     } else {
         bundle_path_str.to_string()
     };
 
-    // On Windows, use file:// URL format for bundle path too
+    // On Windows, OPA's -o flag needs a regular path (not file:// URL)
+    // but it still has the drive letter bug, so use backslash-only format
+    // which Windows will resolve to the current drive
     if cfg!(windows) {
-        bundle_path_arg = bundle_path_arg.replace('\\', "/");
-        bundle_path_arg = format!("file:///{}", bundle_path_arg);
+        // Strip drive letter for output path: C:\path -> \path
+        if bundle_path_arg.len() >= 2 && bundle_path_arg.chars().nth(1) == Some(':') {
+            bundle_path_arg = bundle_path_arg[2..].to_string();
+        }
     }
 
     debug!("Bundle path: {:?}", bundle_path_arg);

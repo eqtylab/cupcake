@@ -197,11 +197,12 @@ pub async fn compile_policies_with_namespace(
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
 
+    // On Windows, OPA can't write to file:// URLs, so use relative path
+    // and set working directory to the temp directory
     let bundle_path_arg = if cfg!(windows) {
-        // On Windows, use file:// URL for output path too
-        // Testing shows OPA needs consistent URL format for both input and output
-        let url_path = bundle_path_str.replace('\\', "/");
-        format!("file:///{}", url_path)
+        // Use relative path "bundle.tar.gz" and set cwd to temp_path
+        opa_cmd.current_dir(temp_path);
+        "bundle.tar.gz".to_string()
     } else {
         bundle_path_str.to_string()
     };

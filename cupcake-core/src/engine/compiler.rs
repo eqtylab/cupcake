@@ -77,6 +77,12 @@ pub async fn compile_policies_with_namespace(
         compile_id
     ));
     tokio::fs::create_dir_all(&temp_dir).await?;
+
+    // Canonicalize to ensure we have an absolute path
+    let temp_dir = tokio::fs::canonicalize(&temp_dir)
+        .await
+        .context("Failed to canonicalize temp directory path")?;
+
     let temp_path = temp_dir.as_path();
     debug!("Using temp directory: {:?}", temp_dir);
 
@@ -171,11 +177,31 @@ pub async fn compile_policies_with_namespace(
     debug!("Added single Hybrid Model entrypoint: {}", entrypoint);
 
     // Add all policy files
-    opa_cmd.arg(temp_path);
+    // On Windows, we need to ensure the path is properly formatted
+    let temp_path_str = temp_path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Failed to convert temp path to string"))?;
+
+    debug!("Original temp path: {:?}", temp_path_str);
+
+    // For Windows, try using the path as-is first
+    // We're not sure if OPA wants forward or backslashes on Windows
+    #[cfg(windows)]
+    let temp_path_arg = temp_path_str.to_string();
+    #[cfg(not(windows))]
+    let temp_path_arg = temp_path_str.to_string();
+
+    debug!("Passing to OPA: {:?}", temp_path_arg);
+    opa_cmd.arg(&temp_path_arg);
 
     // Output to bundle.tar.gz in temp dir
     let bundle_path = temp_path.join("bundle.tar.gz");
-    opa_cmd.arg("-o").arg(&bundle_path);
+    let bundle_path_str = bundle_path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
+
+    debug!("Bundle path: {:?}", bundle_path_str);
+    opa_cmd.arg("-o").arg(bundle_path_str);
 
     info!("Executing OPA build command...");
     debug!("OPA command: {:?}", opa_cmd);

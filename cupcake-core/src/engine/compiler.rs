@@ -184,18 +184,23 @@ pub async fn compile_policies_with_namespace(
         .ok_or_else(|| anyhow::anyhow!("Failed to convert temp path to string"))?;
 
     // Strip Windows UNC path prefix (\\?\) if present
-    // OPA can't handle UNC paths and strips them incorrectly
     let mut temp_path_arg = if temp_path_str.starts_with(r"\\?\") {
         temp_path_str.trim_start_matches(r"\\?\").to_string()
     } else {
         temp_path_str.to_string()
     };
 
-    // On Windows, convert backslashes to forward slashes
-    // OPA may have issues with Windows backslash paths
+    // On Windows, strip drive letter to work around OPA bug #4174
+    // OPA treats "C:\path" as namespace "C" with object "\path"
+    // Workaround: Use root-relative paths like "\path" instead
+    // See: https://github.com/open-policy-agent/opa/issues/4174
     if cfg!(windows) {
-        temp_path_arg = temp_path_arg.replace('\\', "/");
-        eprintln!("[CUPCAKE DEBUG] Converted to forward slashes: {:?}", temp_path_arg);
+        // Check for drive letter pattern: "C:" or "C:/"
+        if temp_path_arg.len() >= 2 && temp_path_arg.chars().nth(1) == Some(':') {
+            // Strip the drive letter (e.g., "C:\path" -> "\path")
+            temp_path_arg = temp_path_arg[2..].to_string();
+            eprintln!("[CUPCAKE DEBUG] Stripped drive letter, passing: {:?}", temp_path_arg);
+        }
     }
 
     debug!("Temp path for OPA: {:?}", temp_path_arg);
@@ -214,9 +219,11 @@ pub async fn compile_policies_with_namespace(
         bundle_path_str.to_string()
     };
 
-    // On Windows, convert backslashes to forward slashes for OPA
+    // On Windows, strip drive letter to work around OPA bug #4174
     if cfg!(windows) {
-        bundle_path_arg = bundle_path_arg.replace('\\', "/");
+        if bundle_path_arg.len() >= 2 && bundle_path_arg.chars().nth(1) == Some(':') {
+            bundle_path_arg = bundle_path_arg[2..].to_string();
+        }
     }
 
     debug!("Bundle path: {:?}", bundle_path_arg);

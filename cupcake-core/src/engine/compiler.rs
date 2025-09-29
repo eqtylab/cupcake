@@ -182,6 +182,7 @@ pub async fn compile_policies_with_namespace(
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert temp path to string"))?;
 
+    eprintln!("[CUPCAKE DEBUG] Original temp path: {:?}", temp_path_str);
     debug!("Original temp path: {:?}", temp_path_str);
 
     // For Windows, try using the path as-is first
@@ -191,6 +192,7 @@ pub async fn compile_policies_with_namespace(
     #[cfg(not(windows))]
     let temp_path_arg = temp_path_str.to_string();
 
+    eprintln!("[CUPCAKE DEBUG] Passing to OPA: {:?}", temp_path_arg);
     debug!("Passing to OPA: {:?}", temp_path_arg);
     opa_cmd.arg(&temp_path_arg);
 

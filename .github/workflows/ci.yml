@@ -57,11 +57,24 @@ jobs:
         shell: pwsh
         run: |
           # Download OPA v1.7.1 for Windows
+          Write-Host "Downloading OPA..."
           Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
+
           # Move to a directory in PATH
-          Move-Item opa.exe "C:\Windows\System32\opa.exe"
+          Write-Host "Moving OPA to System32..."
+          Move-Item opa.exe "C:\Windows\System32\opa.exe" -Force
+
           # Verify installation
-          opa version
+          Write-Host "Verifying OPA installation..."
+          & opa version
+
+          # Double check it's accessible
+          Write-Host "Testing OPA accessibility..."
+          Get-Command opa
+
+          # Test OPA with a simple command
+          Write-Host "Testing OPA functionality..."
+          echo 'package test' | opa parse -
 
       - name: Install Claude CLI (Unix)
         if: runner.os != 'Windows'

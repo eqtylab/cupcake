@@ -39,7 +39,11 @@ pub fn find_opa_binary() -> PathBuf {
 
     // 3. Fall back to system PATH
     debug!("Using OPA from system PATH");
-    PathBuf::from("opa")
+    if cfg!(windows) {
+        PathBuf::from("opa.exe")
+    } else {
+        PathBuf::from("opa")
+    }
 }
 
 /// Compile all policies into a single unified WASM module using OPA
@@ -151,7 +155,8 @@ pub async fn compile_policies_with_namespace(
     // Build the OPA command for Hybrid Model
     // Single entrypoint: cupcake.system.evaluate
     let opa_path = find_opa_binary();
-    let mut opa_cmd = Command::new(opa_path);
+    debug!("Using OPA binary: {:?}", opa_path);
+    let mut opa_cmd = Command::new(&opa_path);
     opa_cmd
         .arg("build")
         .arg("-t")
@@ -187,7 +192,30 @@ pub async fn compile_policies_with_namespace(
             "OPA command failed: {:?}\nStderr: {}\nStdout: {}",
             opa_cmd, stderr, stdout
         );
-        bail!("OPA compilation failed: {}", stderr);
+
+        // Provide more context on Windows
+        #[cfg(windows)]
+        {
+            error!("Windows-specific debugging:");
+            error!("Exit code: {:?}", output.status.code());
+            error!("OPA binary path used: {}", opa_path.display());
+
+            // Try to check if OPA exists
+            if !opa_path.exists() {
+                error!("OPA binary does not exist at: {}", opa_path.display());
+            } else {
+                error!("OPA binary exists at: {}", opa_path.display());
+            }
+        }
+
+        let error_msg = if !stderr.is_empty() {
+            format!("stderr: {}", stderr)
+        } else if !stdout.is_empty() {
+            format!("stdout: {}", stdout)
+        } else {
+            format!("No output from OPA. Exit code: {:?}", output.status.code())
+        };
+        bail!("OPA compilation failed: {}", error_msg);
     }
 
     info!("OPA compilation successful");

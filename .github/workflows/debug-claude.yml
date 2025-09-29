@@ -232,6 +232,7 @@ jobs:
         run: |
           cargo test --features deterministic-tests claude_code_routing_test -- --nocapture --test-threads=1
         env:
+          CI: true
           CUPCAKE_GLOBAL_CONFIG: /nonexistent
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}

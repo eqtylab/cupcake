@@ -185,12 +185,16 @@ pub async fn compile_policies_with_namespace(
 
     // Strip Windows UNC path prefix (\\?\) if present
     // OPA can't handle UNC paths and strips them incorrectly
+    eprintln!("[CUPCAKE DEBUG] Before strip: {:?}", temp_path_str);
     let temp_path_arg = if cfg!(windows) && temp_path_str.starts_with(r"\\?\") {
+        eprintln!("[CUPCAKE DEBUG] Stripping UNC prefix");
         temp_path_str.trim_start_matches(r"\\?\").to_string()
     } else {
+        eprintln!("[CUPCAKE DEBUG] No UNC prefix found or not Windows");
         temp_path_str.to_string()
     };
 
+    eprintln!("[CUPCAKE DEBUG] After strip, passing to OPA: {:?}", temp_path_arg);
     debug!("Temp path for OPA: {:?}", temp_path_arg);
     opa_cmd.arg(&temp_path_arg);
 

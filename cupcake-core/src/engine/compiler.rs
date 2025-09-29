@@ -190,17 +190,22 @@ pub async fn compile_policies_with_namespace(
         temp_path_str.to_string()
     };
 
-    // On Windows, strip drive letter to work around OPA bug #4174
-    // OPA treats "C:\path" as namespace "C" with object "\path"
-    // Workaround: Use root-relative paths like "\path" instead
-    // See: https://github.com/open-policy-agent/opa/issues/4174
+    // On Windows, check what we have
     if cfg!(windows) {
-        // Check for drive letter pattern: "C:" or "C:/"
-        if temp_path_arg.len() >= 2 && temp_path_arg.chars().nth(1) == Some(':') {
-            // Strip the drive letter (e.g., "C:\path" -> "\path")
-            temp_path_arg = temp_path_arg[2..].to_string();
-            eprintln!("[CUPCAKE DEBUG] Stripped drive letter, passing: {:?}", temp_path_arg);
+        eprintln!("[CUPCAKE DEBUG] Directory exists? {}", temp_path.exists());
+        if let Ok(entries) = std::fs::read_dir(temp_path) {
+            eprintln!("[CUPCAKE DEBUG] Directory contents:");
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    eprintln!("[CUPCAKE DEBUG]   - {:?}", entry.path());
+                }
+            }
         }
+        eprintln!("[CUPCAKE DEBUG] Original path: {:?}", temp_path_str);
+
+        // Try using forward slashes instead of backslashes
+        temp_path_arg = temp_path_arg.replace('\\', "/");
+        eprintln!("[CUPCAKE DEBUG] Converted to forward slashes: {:?}", temp_path_arg);
     }
 
     debug!("Temp path for OPA: {:?}", temp_path_arg);

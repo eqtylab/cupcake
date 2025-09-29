@@ -78,11 +78,8 @@ pub async fn compile_policies_with_namespace(
     ));
     tokio::fs::create_dir_all(&temp_dir).await?;
 
-    // Canonicalize to ensure we have an absolute path
-    let temp_dir = tokio::fs::canonicalize(&temp_dir)
-        .await
-        .context("Failed to canonicalize temp directory path")?;
-
+    // DON'T canonicalize on Windows to avoid UNC paths (\\?\C:\...)
+    // OPA has path handling bugs with both UNC paths and drive letters
     let temp_path = temp_dir.as_path();
     debug!("Using temp directory: {:?}", temp_dir);
 
@@ -177,28 +174,19 @@ pub async fn compile_policies_with_namespace(
     debug!("Added single Hybrid Model entrypoint: {}", entrypoint);
 
     // Add all policy files
-    // On Windows, canonicalize() produces UNC paths with \\?\ prefix
-    // which OPA doesn't understand. We need to strip this prefix.
     let temp_path_str = temp_path
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert temp path to string"))?;
 
-    // Strip Windows UNC path prefix (\\?\) if present
-    let mut temp_path_arg = if temp_path_str.starts_with(r"\\?\") {
-        temp_path_str.trim_start_matches(r"\\?\").to_string()
+    let temp_path_arg = if cfg!(windows) {
+        // On Windows, use file:// URL format to work around OPA bug #4174
+        // OPA strips drive letters from normal Windows paths
+        // Convert to file:// URL: C:\path -> file:///C:/path
+        let url_path = temp_path_str.replace('\\', "/");
+        format!("file:///{}", url_path)
     } else {
         temp_path_str.to_string()
     };
-
-    // On Windows, use file:// URL format to work around OPA bug #4174
-    // OPA strips drive letters from normal Windows paths
-    // See: https://github.com/open-policy-agent/opa/issues/4174
-    if cfg!(windows) {
-        // Convert to file:// URL: C:\path -> file:///C:/path
-        temp_path_arg = temp_path_arg.replace('\\', "/");
-        temp_path_arg = format!("file:///{}", temp_path_arg);
-        eprintln!("[CUPCAKE DEBUG] Using file:// URL: {:?}", temp_path_arg);
-    }
 
     debug!("Temp path for OPA: {:?}", temp_path_arg);
     opa_cmd.arg(&temp_path_arg);
@@ -209,22 +197,14 @@ pub async fn compile_policies_with_namespace(
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
 
-    // Strip Windows UNC path prefix for bundle output path
-    let mut bundle_path_arg = if bundle_path_str.starts_with(r"\\?\") {
-        bundle_path_str.trim_start_matches(r"\\?\").to_string()
+    let bundle_path_arg = if cfg!(windows) {
+        // On Windows, use file:// URL for output path too
+        // Testing shows OPA needs consistent URL format for both input and output
+        let url_path = bundle_path_str.replace('\\', "/");
+        format!("file:///{}", url_path)
     } else {
         bundle_path_str.to_string()
     };
-
-    // On Windows, OPA's -o flag needs a regular path (not file:// URL)
-    // but it still has the drive letter bug, so use backslash-only format
-    // which Windows will resolve to the current drive
-    if cfg!(windows) {
-        // Strip drive letter for output path: C:\path -> \path
-        if bundle_path_arg.len() >= 2 && bundle_path_arg.chars().nth(1) == Some(':') {
-            bundle_path_arg = bundle_path_arg[2..].to_string();
-        }
-    }
 
     debug!("Bundle path: {:?}", bundle_path_arg);
     opa_cmd.arg("-o").arg(&bundle_path_arg);

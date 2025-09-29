@@ -190,22 +190,14 @@ pub async fn compile_policies_with_namespace(
         temp_path_str.to_string()
     };
 
-    // On Windows, check what we have
+    // On Windows, use file:// URL format to work around OPA bug #4174
+    // OPA strips drive letters from normal Windows paths
+    // See: https://github.com/open-policy-agent/opa/issues/4174
     if cfg!(windows) {
-        eprintln!("[CUPCAKE DEBUG] Directory exists? {}", temp_path.exists());
-        if let Ok(entries) = std::fs::read_dir(temp_path) {
-            eprintln!("[CUPCAKE DEBUG] Directory contents:");
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    eprintln!("[CUPCAKE DEBUG]   - {:?}", entry.path());
-                }
-            }
-        }
-        eprintln!("[CUPCAKE DEBUG] Original path: {:?}", temp_path_str);
-
-        // Try using forward slashes instead of backslashes
+        // Convert to file:// URL: C:\path -> file:///C:/path
         temp_path_arg = temp_path_arg.replace('\\', "/");
-        eprintln!("[CUPCAKE DEBUG] Converted to forward slashes: {:?}", temp_path_arg);
+        temp_path_arg = format!("file:///{}", temp_path_arg);
+        eprintln!("[CUPCAKE DEBUG] Using file:// URL: {:?}", temp_path_arg);
     }
 
     debug!("Temp path for OPA: {:?}", temp_path_arg);
@@ -224,11 +216,10 @@ pub async fn compile_policies_with_namespace(
         bundle_path_str.to_string()
     };
 
-    // On Windows, strip drive letter to work around OPA bug #4174
+    // On Windows, use file:// URL format for bundle path too
     if cfg!(windows) {
-        if bundle_path_arg.len() >= 2 && bundle_path_arg.chars().nth(1) == Some(':') {
-            bundle_path_arg = bundle_path_arg[2..].to_string();
-        }
+        bundle_path_arg = bundle_path_arg.replace('\\', "/");
+        bundle_path_arg = format!("file:///{}", bundle_path_arg);
     }
 
     debug!("Bundle path: {:?}", bundle_path_arg);

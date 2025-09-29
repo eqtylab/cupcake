@@ -177,23 +177,21 @@ pub async fn compile_policies_with_namespace(
     debug!("Added single Hybrid Model entrypoint: {}", entrypoint);
 
     // Add all policy files
-    // On Windows, we need to ensure the path is properly formatted
+    // On Windows, canonicalize() produces UNC paths with \\?\ prefix
+    // which OPA doesn't understand. We need to strip this prefix.
     let temp_path_str = temp_path
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert temp path to string"))?;
 
-    eprintln!("[CUPCAKE DEBUG] Original temp path: {:?}", temp_path_str);
-    debug!("Original temp path: {:?}", temp_path_str);
+    // Strip Windows UNC path prefix (\\?\) if present
+    // OPA can't handle UNC paths and strips them incorrectly
+    let temp_path_arg = if cfg!(windows) && temp_path_str.starts_with(r"\\?\") {
+        temp_path_str.trim_start_matches(r"\\?\").to_string()
+    } else {
+        temp_path_str.to_string()
+    };
 
-    // For Windows, try using the path as-is first
-    // We're not sure if OPA wants forward or backslashes on Windows
-    #[cfg(windows)]
-    let temp_path_arg = temp_path_str.to_string();
-    #[cfg(not(windows))]
-    let temp_path_arg = temp_path_str.to_string();
-
-    eprintln!("[CUPCAKE DEBUG] Passing to OPA: {:?}", temp_path_arg);
-    debug!("Passing to OPA: {:?}", temp_path_arg);
+    debug!("Temp path for OPA: {:?}", temp_path_arg);
     opa_cmd.arg(&temp_path_arg);
 
     // Output to bundle.tar.gz in temp dir
@@ -202,8 +200,15 @@ pub async fn compile_policies_with_namespace(
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
 
-    debug!("Bundle path: {:?}", bundle_path_str);
-    opa_cmd.arg("-o").arg(bundle_path_str);
+    // Strip Windows UNC path prefix for bundle output path as well
+    let bundle_path_arg = if cfg!(windows) && bundle_path_str.starts_with(r"\\?\") {
+        bundle_path_str.trim_start_matches(r"\\?\").to_string()
+    } else {
+        bundle_path_str.to_string()
+    };
+
+    debug!("Bundle path: {:?}", bundle_path_arg);
+    opa_cmd.arg("-o").arg(&bundle_path_arg);
 
     info!("Executing OPA build command...");
     debug!("OPA command: {:?}", opa_cmd);

@@ -185,16 +185,19 @@ pub async fn compile_policies_with_namespace(
 
     // Strip Windows UNC path prefix (\\?\) if present
     // OPA can't handle UNC paths and strips them incorrectly
-    eprintln!("[CUPCAKE DEBUG] Before strip: {:?}", temp_path_str);
-    let temp_path_arg = if cfg!(windows) && temp_path_str.starts_with(r"\\?\") {
-        eprintln!("[CUPCAKE DEBUG] Stripping UNC prefix");
+    let mut temp_path_arg = if temp_path_str.starts_with(r"\\?\") {
         temp_path_str.trim_start_matches(r"\\?\").to_string()
     } else {
-        eprintln!("[CUPCAKE DEBUG] No UNC prefix found or not Windows");
         temp_path_str.to_string()
     };
 
-    eprintln!("[CUPCAKE DEBUG] After strip, passing to OPA: {:?}", temp_path_arg);
+    // On Windows, convert backslashes to forward slashes
+    // OPA may have issues with Windows backslash paths
+    if cfg!(windows) {
+        temp_path_arg = temp_path_arg.replace('\\', "/");
+        eprintln!("[CUPCAKE DEBUG] Converted to forward slashes: {:?}", temp_path_arg);
+    }
+
     debug!("Temp path for OPA: {:?}", temp_path_arg);
     opa_cmd.arg(&temp_path_arg);
 
@@ -205,11 +208,16 @@ pub async fn compile_policies_with_namespace(
         .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
 
     // Strip Windows UNC path prefix for bundle output path as well
-    let bundle_path_arg = if cfg!(windows) && bundle_path_str.starts_with(r"\\?\") {
+    let mut bundle_path_arg = if bundle_path_str.starts_with(r"\\?\") {
         bundle_path_str.trim_start_matches(r"\\?\").to_string()
     } else {
         bundle_path_str.to_string()
     };
+
+    // On Windows, convert backslashes to forward slashes for OPA
+    if cfg!(windows) {
+        bundle_path_arg = bundle_path_arg.replace('\\', "/");
+    }
 
     debug!("Bundle path: {:?}", bundle_path_arg);
     opa_cmd.arg("-o").arg(&bundle_path_arg);

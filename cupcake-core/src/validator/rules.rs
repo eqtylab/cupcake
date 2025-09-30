@@ -1,5 +1,6 @@
 //! Validation rules for Cupcake policies
 
+use super::decision_event_matrix::{DecisionEventMatrix, DecisionVerb};
 use super::{PolicyContent, Severity, ValidationIssue, ValidationRule};
 use regex::Regex;
 use std::collections::HashMap;
@@ -296,6 +297,82 @@ impl ValidationRule for IncrementalRuleGroupingRule {
                         rule_id: self.rule_id(),
                         message: format!("Multiple '{rule_name}' rules should be grouped together"),
                         line: Some(sorted_locs[0] + 1),
+                    });
+                }
+            }
+        }
+
+        issues
+    }
+}
+
+/// Rule: Decision verbs must be compatible with routed events
+pub struct DecisionEventCompatibilityRule;
+
+impl ValidationRule for DecisionEventCompatibilityRule {
+    fn rule_id(&self) -> &'static str {
+        "decision-event-compatibility"
+    }
+
+    fn description(&self) -> &'static str {
+        "Decision verbs must be compatible with the events they route to"
+    }
+
+    fn check(&self, policy: &PolicyContent) -> Vec<ValidationIssue> {
+        let mut issues = Vec::new();
+
+        // Skip if no routing metadata
+        let metadata = match &policy.metadata {
+            Some(m) => m,
+            None => return issues,
+        };
+
+        let routing = match &metadata.custom.routing {
+            Some(r) => r,
+            None => return issues,
+        };
+
+        // If no required events, policy is a wildcard - skip validation
+        if routing.required_events.is_empty() {
+            return issues;
+        }
+
+        // Get the compatibility matrix
+        let matrix = DecisionEventMatrix::new();
+
+        // Find all decision verb usages in the policy
+        let verb_pattern = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s+contains\s+").unwrap();
+        let mut found_verbs: HashMap<DecisionVerb, Vec<usize>> = HashMap::new();
+
+        for (i, line) in policy.lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if let Some(captures) = verb_pattern.captures(trimmed) {
+                if let Some(verb_name) = captures.get(1) {
+                    if let Some(verb) = DecisionVerb::from_rego_name(verb_name.as_str()) {
+                        found_verbs.entry(verb).or_default().push(i);
+                    }
+                }
+            }
+        }
+
+        // Check each verb against each required event
+        for event in &routing.required_events {
+            for (verb, line_numbers) in &found_verbs {
+                if !matrix.is_compatible(event, *verb) {
+                    // Found an incompatible combination
+                    let reason = matrix.incompatibility_reason(event, *verb);
+                    let line = line_numbers.first().copied();
+
+                    issues.push(ValidationIssue {
+                        severity: Severity::Error,
+                        rule_id: self.rule_id(),
+                        message: format!(
+                            "Policy routes to '{}' events but uses incompatible '{}' decision verb. {}",
+                            event,
+                            verb.rego_name(),
+                            reason
+                        ),
+                        line: line.map(|l| l + 1),
                     });
                 }
             }

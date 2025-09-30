@@ -7,6 +7,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
+pub mod decision_event_matrix;
 pub mod rules;
 
 #[cfg(test)]
@@ -141,6 +142,7 @@ impl PolicyValidator {
             Box::new(DecisionStructureRule),
             Box::new(RoutingMetadataRule),
             Box::new(IncrementalRuleGroupingRule),
+            Box::new(DecisionEventCompatibilityRule),
         ];
 
         Self { rules }

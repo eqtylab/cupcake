@@ -9,9 +9,9 @@
 
 > Make your AI agents follow your rules
 
-[![CI](https://img.shields.io/github/actions/workflow/status/ORG/REPO/ci.yml?label=CI)](https://github.com/ORG/REPO/actions)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-brightgreen)](./docs/README.md)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Cupcake is a **policy engine** for AI coding agents. It works with the rules you already write (`CLAUDE.md`, `AGENT.md`, `.cursor/rules`) and turns them into **enforceable guardrails**.
 

@@ -8,6 +8,7 @@
 //! - O(1) routing performance via host-side indexing
 
 use anyhow::{anyhow, Context, Result};
+use once_cell::sync::Lazy;
 // use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -16,6 +17,39 @@ use std::time::Instant;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::debug::DebugCapture;
+
+/// Detects the appropriate shell command for the current platform
+///
+/// On Windows, attempts to find Git Bash for shell script compatibility:
+/// 1. Check standard Git for Windows installation path (C:\Program Files\Git\bin\bash.exe)
+/// 2. Check alternative 32-bit path (C:\Program Files (x86)\Git\bin\bash.exe)
+/// 3. Try bash.exe in PATH (may be available from other installations)
+///
+/// On Unix systems, uses 'sh' which is always available.
+fn find_shell_command() -> &'static str {
+    if cfg!(windows) {
+        // Git Bash on GitHub Actions and most Windows dev machines
+        if std::path::Path::new(r"C:\Program Files\Git\bin\bash.exe").exists() {
+            debug!("Found Git Bash at standard 64-bit location");
+            return r"C:\Program Files\Git\bin\bash.exe";
+        }
+
+        // Check 32-bit Program Files location
+        if std::path::Path::new(r"C:\Program Files (x86)\Git\bin\bash.exe").exists() {
+            debug!("Found Git Bash at 32-bit location");
+            return r"C:\Program Files (x86)\Git\bin\bash.exe";
+        }
+
+        // Try bash.exe from PATH (will work if Git Bash is in PATH)
+        debug!("No Git Bash found at standard locations, trying bash.exe from PATH");
+        "bash.exe"
+    } else {
+        "sh"
+    }
+}
+
+/// Cached shell command determined at first use
+static SHELL_COMMAND: Lazy<&'static str> = Lazy::new(find_shell_command);
 
 /// Project path resolution following .cupcake/ convention with optional global config
 #[derive(Debug, Clone)]
@@ -1733,15 +1767,18 @@ impl Engine {
         tokio::spawn(async move {
             // Determine if this is a script file or a shell command
             // A script file starts with / or ./ and doesn't contain shell operators
-            let is_script = (command.starts_with('/') || command.starts_with("./"))
+            // On Windows, .sh files need to be invoked through bash
+            let is_script_path = (command.starts_with('/') || command.starts_with("./"))
                 && !command.contains("&&")
                 && !command.contains("||")
                 && !command.contains(';')
                 && !command.contains('|')
                 && !command.contains('>');
 
-            let result = if is_script {
-                // It's a script file, execute directly
+            let is_shell_script = command.ends_with(".sh");
+
+            let result = if is_script_path && !is_shell_script {
+                // It's a script file (but not .sh), execute directly
                 // Extract the directory from the script path to use as working directory
                 let script_path = std::path::Path::new(&command);
                 let script_working_dir = script_path
@@ -1754,10 +1791,25 @@ impl Engine {
                     .current_dir(script_working_dir)
                     .output()
                     .await
+            } else if is_shell_script && cfg!(windows) {
+                // On Windows, .sh files must be invoked through bash
+                // Extract the directory from the script path to use as working directory
+                let script_path = std::path::Path::new(&command);
+                let script_working_dir = script_path
+                    .parent()
+                    .and_then(|p| p.parent())
+                    .and_then(|p| p.parent())
+                    .unwrap_or(&working_dir);
+
+                tokio::process::Command::new(*SHELL_COMMAND)
+                    .arg(&command)
+                    .current_dir(script_working_dir)
+                    .output()
+                    .await
             } else {
-                // It's a shell command, use sh -c
+                // It's a shell command or a .sh script on Unix, use shell -c
                 // Use the provided working directory
-                let result = tokio::process::Command::new("sh")
+                let result = tokio::process::Command::new(*SHELL_COMMAND)
                     .arg("-c")
                     .arg(&command)
                     .current_dir(&working_dir)

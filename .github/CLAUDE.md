@@ -50,13 +50,52 @@ let bundle_path_arg = if cfg!(windows) {
   - `test_action_fire_and_forget`
   - `test_multiple_actions_concurrent`
 
-**Current Status**: These tests fail on Windows but pass on Ubuntu and macOS.
+**Solution Implemented** (in `cupcake-core/src/engine/mod.rs`):
+```rust
+// Shell detection function with Git Bash support
+fn find_shell_command() -> &'static str {
+    if cfg!(windows) {
+        // Check standard Git for Windows paths
+        if std::path::Path::new(r"C:\Program Files\Git\bin\bash.exe").exists() {
+            return r"C:\Program Files\Git\bin\bash.exe";
+        }
+        if std::path::Path::new(r"C:\Program Files (x86)\Git\bin\bash.exe").exists() {
+            return r"C:\Program Files (x86)\Git\bin\bash.exe";
+        }
+        "bash.exe"  // Try PATH
+    } else {
+        "sh"
+    }
+}
 
-**Possible Solutions**:
-1. Mark these tests as `#[cfg(unix)]` to skip on Windows
-2. Detect and use Git Bash on Windows (`C:\Program Files\Git\bin\bash.exe`)
-3. Use PowerShell scripts (`.ps1`) as alternatives on Windows
-4. Mock the shell execution in tests for Windows
+// Cached at first use
+static SHELL_COMMAND: Lazy<&'static str> = Lazy::new(find_shell_command);
+
+// Script execution logic
+if is_shell_script && cfg!(windows) {
+    // Invoke .sh files through bash on Windows
+    tokio::process::Command::new(*SHELL_COMMAND)
+        .arg(&command)
+        .current_dir(script_working_dir)
+        .output()
+        .await
+} else {
+    // Use detected shell for commands
+    tokio::process::Command::new(*SHELL_COMMAND)
+        .arg("-c")
+        .arg(&command)
+        .current_dir(&working_dir)
+        .output()
+        .await
+}
+```
+
+**Key Points**:
+- Automatically detects Git Bash at standard Windows installation paths
+- Falls back to `bash.exe` in PATH if not at standard locations
+- `.sh` files are explicitly invoked through bash on Windows
+- Uses lazy static initialization for performance (checks paths once)
+- Maintains cross-platform compatibility (uses `sh` on Unix)
 
 ### 3. OPA Installation
 

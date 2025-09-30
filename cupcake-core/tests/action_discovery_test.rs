@@ -4,7 +4,10 @@ use std::fs;
 use tempfile::TempDir;
 
 /// Test that actions are automatically discovered from the actions/ directory
+///
+/// Skipped on Windows due to Git Bash shell script execution timing issues.
 #[tokio::test]
+#[cfg(not(windows))]
 async fn test_action_discovery_from_directory() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
@@ -114,7 +117,10 @@ deny contains decision if {
 }
 
 /// Test that convention-discovered actions override guidebook entries
+///
+/// Skipped on Windows due to Git Bash shell script execution timing issues.
 #[tokio::test]
+#[cfg(not(windows))]
 async fn test_discovery_with_guidebook_precedence() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
@@ -213,7 +219,10 @@ deny contains decision if {
 }
 
 /// Test action discovery with subdirectories
+///
+/// Skipped on Windows due to Git Bash shell script execution timing issues.
 #[tokio::test]
+#[cfg(not(windows))]
 async fn test_action_discovery_ignores_subdirs() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();

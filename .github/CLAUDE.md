@@ -49,6 +49,10 @@ let bundle_path_arg = if cfg!(windows) {
 - `cupcake-core/tests/action_async_test.rs`
   - `test_action_fire_and_forget` - **SKIPPED ON WINDOWS** (timing-sensitive)
   - `test_multiple_actions_concurrent` - **SKIPPED ON WINDOWS** (timing-sensitive)
+- `cupcake-core/tests/action_discovery_test.rs`
+  - `test_action_discovery_from_directory` - **SKIPPED ON WINDOWS** (timing-sensitive)
+  - `test_discovery_with_guidebook_precedence` - **SKIPPED ON WINDOWS** (timing-sensitive)
+  - `test_action_discovery_ignores_subdirs` - **SKIPPED ON WINDOWS** (timing-sensitive)
 
 **Tests Skipped on Windows**:
 The timing-sensitive async tests are skipped on Windows using `#[cfg(not(windows))]` because:

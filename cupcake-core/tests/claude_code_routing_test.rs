@@ -176,9 +176,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
                     "cupcake"
                 });
 
-            eprintln!(
-                "[DEBUG] Release binary not found, trying debug: {debug_target:?}"
-            );
+            eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
             format!("{} eval", debug_target.display())
         }
     } else {
@@ -223,9 +221,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     // Get claude CLI path
     let claude_path = get_claude_path();
     eprintln!("[DEBUG] Running claude command from: {project_path:?}");
-    eprintln!(
-        "[DEBUG] Claude command: {claude_path} -p 'hello world' --model sonnet"
-    );
+    eprintln!("[DEBUG] Claude command: {claude_path} -p 'hello world' --model sonnet");
 
     let output = std::process::Command::new(&claude_path)
         .args(["-p", "hello world", "--model", "sonnet"])
@@ -504,9 +500,7 @@ async fn test_wildcard_policy_routing() {
                     "cupcake"
                 });
 
-            eprintln!(
-                "[DEBUG] Release binary not found, trying debug: {debug_target:?}"
-            );
+            eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
             format!("{} eval", debug_target.display())
         }
     } else {
@@ -700,9 +694,7 @@ deny contains decision if {
                     "cupcake"
                 });
 
-            eprintln!(
-                "[DEBUG] Release binary not found, trying debug: {debug_target:?}"
-            );
+            eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
             format!("{} eval", debug_target.display())
         }
     } else {

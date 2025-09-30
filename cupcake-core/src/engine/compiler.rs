@@ -183,7 +183,7 @@ pub async fn compile_policies_with_namespace(
         // OPA strips drive letters from normal Windows paths
         // Convert to file:// URL: C:\path -> file:///C:/path
         let url_path = temp_path_str.replace('\\', "/");
-        format!("file:///{}", url_path)
+        format!("file:///{url_path}")
     } else {
         temp_path_str.to_string()
     };
@@ -242,9 +242,9 @@ pub async fn compile_policies_with_namespace(
         }
 
         let error_msg = if !stderr.is_empty() {
-            format!("stderr: {}", stderr)
+            format!("stderr: {stderr}")
         } else if !stdout.is_empty() {
-            format!("stdout: {}", stdout)
+            format!("stdout: {stdout}")
         } else {
             format!("No output from OPA. Exit code: {:?}", output.status.code())
         };

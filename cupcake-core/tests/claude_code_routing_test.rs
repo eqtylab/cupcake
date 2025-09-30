@@ -112,12 +112,12 @@ deny contains decision if {{
 fn get_claude_path() -> String {
     // Try environment variable first (for CI/custom installs)
     if let Ok(path) = std::env::var("CLAUDE_CLI_PATH") {
-        eprintln!("[DEBUG] CLAUDE_CLI_PATH env var: {}", path);
+        eprintln!("[DEBUG] CLAUDE_CLI_PATH env var: {path}");
         if std::path::Path::new(&path).exists() {
-            eprintln!("[DEBUG] Claude CLI found at env path: {}", path);
+            eprintln!("[DEBUG] Claude CLI found at env path: {path}");
             return path;
         } else {
-            eprintln!("[DEBUG] Claude CLI path from env doesn't exist: {}", path);
+            eprintln!("[DEBUG] Claude CLI path from env doesn't exist: {path}");
         }
     } else {
         eprintln!("[DEBUG] CLAUDE_CLI_PATH env var not set");
@@ -136,7 +136,7 @@ fn get_claude_path() -> String {
         );
     }
 
-    eprintln!("[DEBUG] Claude CLI found at default path: {}", claude_path);
+    eprintln!("[DEBUG] Claude CLI found at default path: {claude_path}");
     claude_path
 }
 
@@ -161,7 +161,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
             });
 
         if target_dir.exists() {
-            eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
+            eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
             format!("{} eval", target_dir.display())
         } else {
             // Fallback to debug build
@@ -177,8 +177,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
                 });
 
             eprintln!(
-                "[DEBUG] Release binary not found, trying debug: {:?}",
-                debug_target
+                "[DEBUG] Release binary not found, trying debug: {debug_target:?}"
             );
             format!("{} eval", debug_target.display())
         }
@@ -195,7 +194,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         )
     };
 
-    eprintln!("[DEBUG] Hook command: {}", command);
+    eprintln!("[DEBUG] Hook command: {command}");
 
     // Create settings.json with UserPromptSubmit hook to trigger on "hello world"
     let settings = format!(
@@ -206,7 +205,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         "hooks": [
           {{
             "type": "command",
-            "command": "{}",
+            "command": "{command}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -217,17 +216,15 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
       }}
     ]
   }}
-}}"#,
-        command
+}}"#
     );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 
     // Get claude CLI path
     let claude_path = get_claude_path();
-    eprintln!("[DEBUG] Running claude command from: {:?}", project_path);
+    eprintln!("[DEBUG] Running claude command from: {project_path:?}");
     eprintln!(
-        "[DEBUG] Claude command: {} -p 'hello world' --model sonnet",
-        claude_path
+        "[DEBUG] Claude command: {claude_path} -p 'hello world' --model sonnet"
     );
 
     let output = std::process::Command::new(&claude_path)
@@ -262,16 +259,14 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 
     // Find and read the routing map JSON
     let debug_dir = project_path.join(".cupcake/debug/routing");
-    eprintln!("[DEBUG] Looking for debug directory: {:?}", debug_dir);
+    eprintln!("[DEBUG] Looking for debug directory: {debug_dir:?}");
     eprintln!("[DEBUG] Debug dir exists: {}", debug_dir.exists());
 
     if debug_dir.exists() {
         eprintln!("[DEBUG] Contents of .cupcake/debug/routing:");
         if let Ok(entries) = fs::read_dir(&debug_dir) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    eprintln!("  - {:?}", entry.path());
-                }
+            for entry in entries.flatten() {
+                eprintln!("  - {:?}", entry.path());
             }
         }
     } else {
@@ -494,7 +489,7 @@ async fn test_wildcard_policy_routing() {
             });
 
         if target_dir.exists() {
-            eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
+            eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
             format!("{} eval", target_dir.display())
         } else {
             // Fallback to debug build
@@ -510,8 +505,7 @@ async fn test_wildcard_policy_routing() {
                 });
 
             eprintln!(
-                "[DEBUG] Release binary not found, trying debug: {:?}",
-                debug_target
+                "[DEBUG] Release binary not found, trying debug: {debug_target:?}"
             );
             format!("{} eval", debug_target.display())
         }
@@ -535,7 +529,7 @@ async fn test_wildcard_policy_routing() {
         "hooks": [
           {{
             "type": "command",
-            "command": "{}",
+            "command": "{command}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -546,8 +540,7 @@ async fn test_wildcard_policy_routing() {
       }}
     ]
   }}
-}}"#,
-        command
+}}"#
     );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
     eprintln!("[TIMING] Settings written: {:?}", test_start.elapsed());
@@ -692,7 +685,7 @@ deny contains decision if {
             });
 
         if target_dir.exists() {
-            eprintln!("[DEBUG] Using built binary in CI: {:?}", target_dir);
+            eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
             format!("{} eval", target_dir.display())
         } else {
             // Fallback to debug build
@@ -708,8 +701,7 @@ deny contains decision if {
                 });
 
             eprintln!(
-                "[DEBUG] Release binary not found, trying debug: {:?}",
-                debug_target
+                "[DEBUG] Release binary not found, trying debug: {debug_target:?}"
             );
             format!("{} eval", debug_target.display())
         }
@@ -733,7 +725,7 @@ deny contains decision if {
         "hooks": [
           {{
             "type": "command",
-            "command": "{}",
+            "command": "{command}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -744,8 +736,7 @@ deny contains decision if {
       }}
     ]
   }}
-}}"#,
-        command
+}}"#
     );
     fs::write(claude_dir.join("settings.json"), settings).unwrap();
 

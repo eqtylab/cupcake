@@ -225,9 +225,9 @@ mod performance_tests {
         // Should complete quickly when disabled
         // In CI environments with shared resources, allow more time
         let threshold_ms = if std::env::var("CI").is_ok() {
-            50  // More lenient in CI
+            50 // More lenient in CI
         } else {
-            20  // Still reasonable for local development
+            20 // Still reasonable for local development
         };
 
         assert!(

@@ -1,24 +1,24 @@
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tempfile::TempDir;
 
 /// Convert a path to bash-compatible format (for use in shell scripts on Windows)
 #[cfg(windows)]
-fn path_for_bash(path: &PathBuf) -> String {
+fn path_for_bash(path: &Path) -> String {
     let path_str = path.display().to_string();
     if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
         let drive = path_str.chars().next().unwrap().to_lowercase();
         let path_part = &path_str[2..].replace('\\', "/");
-        format!("/{}{}", drive, path_part)
+        format!("/{drive}{path_part}")
     } else {
         path_str.replace('\\', "/")
     }
 }
 
 #[cfg(not(windows))]
-fn path_for_bash(path: &PathBuf) -> String {
+fn path_for_bash(path: &Path) -> String {
     path.display().to_string()
 }
 

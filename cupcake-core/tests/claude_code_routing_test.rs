@@ -565,12 +565,32 @@ async fn test_wildcard_policy_routing() {
     eprintln!("[TIMING] Starting Claude execution with sonnet model...");
     let claude_start = Instant::now();
 
-    let output = std::process::Command::new(claude_path)
-        .args(["-p", "hello world", "--model", "sonnet"]) // Changed to sonnet
-        .current_dir(temp_dir.path())
-        .env("CUPCAKE_DEBUG_ROUTING", "1")
-        .output()
-        .expect("Failed to execute claude command");
+    // On Windows, PowerShell scripts (.ps1) cannot be executed directly
+    let output = if cfg!(windows) && claude_path.ends_with(".ps1") {
+        eprintln!("[DEBUG] Detected PowerShell script on Windows, using powershell.exe wrapper");
+        std::process::Command::new("powershell.exe")
+            .args([
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &claude_path,
+                "-p",
+                "hello world",
+                "--model",
+                "sonnet",
+            ])
+            .current_dir(temp_dir.path())
+            .env("CUPCAKE_DEBUG_ROUTING", "1")
+            .output()
+            .expect("Failed to execute claude command via powershell.exe")
+    } else {
+        std::process::Command::new(claude_path)
+            .args(["-p", "hello world", "--model", "sonnet"])
+            .current_dir(temp_dir.path())
+            .env("CUPCAKE_DEBUG_ROUTING", "1")
+            .output()
+            .expect("Failed to execute claude command")
+    };
 
     eprintln!(
         "[TIMING] Claude execution complete: {:?} (total: {:?})",
@@ -755,12 +775,33 @@ deny contains decision if {
 
     // Get claude CLI path
     let claude_path = get_claude_path();
-    let output = std::process::Command::new(claude_path)
-        .args(["-p", "hello world", "--model", "sonnet"])
-        .current_dir(temp_dir.path())
-        .env("CUPCAKE_DEBUG_ROUTING", "1")
-        .output()
-        .expect("Failed to execute claude command");
+
+    // On Windows, PowerShell scripts (.ps1) cannot be executed directly
+    let output = if cfg!(windows) && claude_path.ends_with(".ps1") {
+        eprintln!("[DEBUG] Detected PowerShell script on Windows, using powershell.exe wrapper");
+        std::process::Command::new("powershell.exe")
+            .args([
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &claude_path,
+                "-p",
+                "hello world",
+                "--model",
+                "sonnet",
+            ])
+            .current_dir(temp_dir.path())
+            .env("CUPCAKE_DEBUG_ROUTING", "1")
+            .output()
+            .expect("Failed to execute claude command via powershell.exe")
+    } else {
+        std::process::Command::new(claude_path)
+            .args(["-p", "hello world", "--model", "sonnet"])
+            .current_dir(temp_dir.path())
+            .env("CUPCAKE_DEBUG_ROUTING", "1")
+            .output()
+            .expect("Failed to execute claude command")
+    };
 
     if !output.status.success() {
         panic!(

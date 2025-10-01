@@ -1806,7 +1806,7 @@ impl Engine {
                 let bash_path = if command.len() >= 3 && command.chars().nth(1) == Some(':') {
                     let drive = command.chars().next().unwrap().to_lowercase();
                     let path_part = &command[2..].replace('\\', "/");
-                    format!("/{}{}", drive, path_part)
+                    format!("/{drive}{path_part}")
                 } else {
                     command.replace('\\', "/")
                 };

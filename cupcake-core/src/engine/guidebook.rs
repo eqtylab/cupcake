@@ -312,7 +312,7 @@ impl Guidebook {
         // Spawn the command with stdin piped
         let mut child = Command::new(shell)
             .arg("-c")
-            .arg(&command_arg)
+            .arg(command_arg)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

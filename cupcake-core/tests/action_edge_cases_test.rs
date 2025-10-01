@@ -5,7 +5,10 @@ use std::path::Path;
 use tempfile::TempDir;
 
 /// Test that the new Path::is_file() logic correctly handles various edge cases
+///
+/// Skipped on Windows: Tests Unix-specific paths (/bin/echo) and shell behavior
 #[tokio::test]
+#[cfg(not(windows))]
 async fn test_action_execution_edge_cases() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
@@ -173,7 +176,10 @@ deny contains decision if {
 }
 
 /// Test that non-existent script paths fallback to shell execution
+///
+/// Skipped on Windows: Tests Unix shell fallback behavior
 #[tokio::test]
+#[cfg(not(windows))]
 async fn test_nonexistent_script_fallback() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();

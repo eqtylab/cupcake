@@ -45,21 +45,27 @@ let bundle_path_arg = if cfg!(windows) {
 - Requires Git Bash, WSL, or similar Unix environment
 - GitHub Actions Windows runners have Git Bash but tests may not find it
 
-**Affected Tests**:
+**Affected Tests** (all marked with `#[cfg(not(windows))]`):
 - `cupcake-core/tests/action_async_test.rs`
-  - `test_action_fire_and_forget` - **SKIPPED ON WINDOWS** (timing-sensitive)
-  - `test_multiple_actions_concurrent` - **SKIPPED ON WINDOWS** (timing-sensitive)
+  - `test_action_fire_and_forget` - **SKIPPED** (timing-sensitive)
+  - `test_multiple_actions_concurrent` - **SKIPPED** (timing-sensitive)
 - `cupcake-core/tests/action_discovery_test.rs`
-  - `test_action_discovery_from_directory` - **SKIPPED ON WINDOWS** (timing-sensitive)
-  - `test_discovery_with_guidebook_precedence` - **SKIPPED ON WINDOWS** (timing-sensitive)
-  - `test_action_discovery_ignores_subdirs` - **SKIPPED ON WINDOWS** (timing-sensitive)
+  - `test_action_discovery_from_directory` - **SKIPPED** (timing-sensitive)
+  - `test_discovery_with_guidebook_precedence` - **SKIPPED** (timing-sensitive)
+  - `test_action_discovery_ignores_subdirs` - **SKIPPED** (timing-sensitive)
+- `cupcake-core/tests/action_edge_cases_test.rs`
+  - `test_action_execution_edge_cases` - **SKIPPED** (Unix-specific paths like /bin/echo)
+  - `test_nonexistent_script_fallback` - **SKIPPED** (Unix shell fallback behavior)
 
-**Tests Skipped on Windows**:
-The timing-sensitive async tests are skipped on Windows using `#[cfg(not(windows))]` because:
-- Process spawning through Git Bash is slower than native Unix shells
-- Hard-coded timeouts would need to be much longer on Windows (unreliable)
-- The async behavior is validated on Unix platforms (macOS, Ubuntu)
-- Other action tests (`test_action_failure_non_blocking`, `test_actions_dont_block_subsequent_evaluations`) still run on Windows
+**Why Tests Are Skipped on Windows**:
+
+1. **Timing-Sensitive Tests**: Process spawning through Git Bash is slower than native Unix shells, making hard-coded timeouts unreliable
+2. **Unix-Specific Behavior**: Some tests use Unix-only paths (e.g., `/bin/echo`) or test Unix shell fallback semantics
+3. **Coverage**: Core functionality is validated by tests that DO run on Windows:
+   - `test_action_failure_non_blocking` - verifies actions don't block on failure
+   - `test_actions_dont_block_subsequent_evaluations` - verifies async execution
+   - All policy evaluation and routing tests
+   - All trust mode and validation tests
 
 **Solution Implemented** (in `cupcake-core/src/engine/mod.rs`):
 ```rust

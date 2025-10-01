@@ -289,8 +289,11 @@ impl Guidebook {
         use tokio::io::AsyncWriteExt;
         use tokio::process::Command;
 
+        // Use platform-appropriate shell (bash on Windows, sh on Unix)
+        let shell = *super::SHELL_COMMAND;
+
         // Spawn the command with stdin piped
-        let mut child = Command::new("sh")
+        let mut child = Command::new(shell)
             .arg("-c")
             .arg(&signal.command)
             .stdin(std::process::Stdio::piped())

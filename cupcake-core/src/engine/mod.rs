@@ -1801,8 +1801,18 @@ impl Engine {
                     .and_then(|p| p.parent())
                     .unwrap_or(&working_dir);
 
+                // Convert Windows path to Git Bash compatible Unix-style path
+                // C:\Users\foo -> /c/Users/foo
+                let bash_path = if command.len() >= 3 && command.chars().nth(1) == Some(':') {
+                    let drive = command.chars().next().unwrap().to_lowercase();
+                    let path_part = &command[2..].replace('\\', "/");
+                    format!("/{}{}", drive, path_part)
+                } else {
+                    command.replace('\\', "/")
+                };
+
                 tokio::process::Command::new(*SHELL_COMMAND)
-                    .arg(&command)
+                    .arg(&bash_path)
                     .current_dir(script_working_dir)
                     .output()
                     .await

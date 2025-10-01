@@ -1,8 +1,26 @@
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
+
+/// Convert a path to bash-compatible format (for use in shell scripts on Windows)
+#[cfg(windows)]
+fn path_for_bash(path: &PathBuf) -> String {
+    let path_str = path.display().to_string();
+    if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+        let drive = path_str.chars().next().unwrap().to_lowercase();
+        let path_part = &path_str[2..].replace('\\', "/");
+        format!("/{}{}", drive, path_part)
+    } else {
+        path_str.replace('\\', "/")
+    }
+}
+
+#[cfg(not(windows))]
+fn path_for_bash(path: &PathBuf) -> String {
+    path.display().to_string()
+}
 
 /// Test that actions execute when a deny decision is triggered
 #[tokio::test]
@@ -29,9 +47,9 @@ echo "Action executed for DENY-001" > {}
 echo "Command was: $1" >> {}
 date >> {}
 "#,
-        action_marker.display(),
-        action_marker.display(),
-        action_marker.display()
+        path_for_bash(&action_marker),
+        path_for_bash(&action_marker),
+        path_for_bash(&action_marker)
     );
 
     let action_path = actions_dir.join("DENY-001.sh");
@@ -134,8 +152,8 @@ async fn test_action_execution_on_halt() {
 echo "EMERGENCY HALT ACTION TRIGGERED" > {}
 echo "Timestamp: $(date)" >> {}
 "#,
-        halt_marker.display(),
-        halt_marker.display()
+        path_for_bash(&halt_marker),
+        path_for_bash(&halt_marker)
     );
 
     let action_path = actions_dir.join("HALT-001.sh");
@@ -226,8 +244,8 @@ actions:
       - command: 'echo "First action" > {}'
       - command: 'echo "Second action" > {}'
 "#,
-        marker1.display(),
-        marker2.display()
+        path_for_bash(&marker1),
+        path_for_bash(&marker2)
     );
 
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
@@ -305,7 +323,7 @@ actions:
   on_any_denial:
     - command: 'echo "Some denial occurred" > {}'
 "#,
-        general_marker.display()
+        path_for_bash(&general_marker)
     );
 
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();

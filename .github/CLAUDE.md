@@ -233,9 +233,219 @@ To test Windows-specific changes locally without a Windows machine:
 4. **Check working directory**: `std::env::current_dir()` shows where the process runs
 5. **Inspect temp files**: Debug output shows temp directory paths
 
+## Lessons Learned from Windows CI Debugging
+
+### 1. Systematic Problem-Solving Approach
+
+**Key Principle**: Understand the entire system end-to-end before deciding to skip tests or apply workarounds.
+
+**Process That Works**:
+1. **Analyze the Error**: Don't just read the error message - understand what the system is trying to do
+2. **Trace Execution Flow**: Follow code from discovery → storage → execution to find where platform differences matter
+3. **Identify Root Cause**: Distinguish between product bugs, test infrastructure issues, and external dependencies
+4. **Apply Appropriate Fix**: Product bugs need runtime fixes; test issues may need platform-specific handling
+
+**Example from This Session**:
+- **Initial Symptom**: "Action did not execute" on Windows
+- **Wrong Approach**: Skip tests because "Windows doesn't support shell scripts"
+- **Correct Approach**:
+  1. Traced how actions are discovered (stored as Windows paths)
+  2. Found where they're executed (passed to `bash.exe`)
+  3. Identified the mismatch (Git Bash needs Unix-style paths)
+  4. Applied targeted fix (convert paths at execution time)
+
+### 2. Understanding Platform-Specific Execution Models
+
+**Three Distinct Execution Patterns Emerged**:
+
+#### Pattern A: Product Features (Actions & Signals)
+- **What**: User-authored `.sh` scripts that Cupcake executes
+- **Storage**: Full Windows paths (`C:\Users\...\script.sh`)
+- **Execution**: Convert to Git Bash format at runtime (`/c/Users/.../script.sh`)
+- **Why**: Users need to write portable scripts on Windows
+- **Fix Location**: Engine code (`mod.rs`, `guidebook.rs`)
+
+#### Pattern B: Test Infrastructure (Claude CLI Integration)
+- **What**: External tool (Claude CLI) installed by npm
+- **Storage**: Platform-specific (`.ps1` on Windows, binary on Unix)
+- **Execution**: Platform-specific wrapper (PowerShell on Windows, direct on Unix)
+- **Why**: External tool's installation format is outside our control
+- **Fix Location**: Test code (`claude_code_routing_test.rs`)
+
+#### Pattern C: Test Helpers (Path Generation)
+- **What**: Paths embedded inside bash script content
+- **Storage**: N/A (generated dynamically in tests)
+- **Execution**: Must use Unix format for Git Bash to interpret correctly
+- **Why**: Backslashes in bash scripts are escape characters
+- **Fix Location**: Test utility functions (`path_for_bash()`)
+
+### 3. Git Bash Path Conversion Rules
+
+**Critical Understanding**: Git Bash on Windows requires TWO types of path conversion:
+
+1. **Script Path** (passed as argument to `bash.exe`):
+   ```rust
+   // WRONG: bash.exe C:\Users\foo\script.sh
+   // RIGHT: bash.exe /c/Users/foo/script.sh
+   ```
+
+2. **Script Content** (paths inside the bash script):
+   ```bash
+   # WRONG: echo "text" > C:\path\file.txt  # Backslash escapes next char
+   # RIGHT: echo "text" > /c/path/file.txt  # Works correctly
+   ```
+
+**Key Insight**: Both conversions are necessary. Fixing only one causes subtle failures.
+
+### 4. Error Code 193 - Diagnostic Pattern
+
+**Meaning**: "Not a valid Win32 application" - attempted to execute a file that isn't a binary executable.
+
+**Common Causes**:
+- Trying to execute PowerShell scripts (`.ps1`) directly
+- Trying to execute batch files (`.bat`, `.cmd`) without `cmd.exe`
+- Trying to execute shell scripts (`.sh`) without `bash.exe`
+
+**Solution Pattern**:
+```rust
+if cfg!(windows) && path.ends_with(".ps1") {
+    Command::new("powershell.exe").args(["-File", path, ...])
+} else if cfg!(windows) && path.ends_with(".sh") {
+    Command::new("bash.exe").arg(convert_to_unix_path(path))
+} else {
+    Command::new(path)  // Unix: execute directly
+}
+```
+
+### 5. When to Skip vs. When to Fix
+
+**Skip Tests When**:
+- Testing platform-specific behavior that doesn't exist on target platform
+- Timing-sensitive tests where platform performance differs significantly
+- Tests rely on platform-specific tools not available in CI (e.g., `/bin/echo`)
+
+**Fix Tests When**:
+- Core functionality should work cross-platform with appropriate wrappers
+- External dependencies have different installation formats but same interface
+- Platform differences can be abstracted with conditional compilation
+
+**Decision Matrix**:
+| Scenario | Skip or Fix? | Reason |
+|----------|-------------|---------|
+| Action async timing | Skip | Git Bash slower than native shell, timeouts unreliable |
+| Action execution | Fix | Core feature must work on all platforms |
+| Signal execution | Fix | Core feature must work on all platforms |
+| Claude CLI integration | Fix | External tool, platform-specific install, same interface |
+| Unix-specific paths (`/bin/echo`) | Skip | Platform-specific behavior being tested |
+
+### 6. Documentation as Understanding
+
+**Pattern**: Document not just the fix, but the *why* behind it.
+
+**Good Documentation Includes**:
+- Problem statement with error messages
+- Root cause analysis (not just symptoms)
+- Why this solution was chosen over alternatives
+- Why this differs from similar-looking problems
+- Code examples showing wrong vs. right approaches
+
+**Example from This Session**:
+```markdown
+**Why This Is Different from Actions/Signals**:
+- Actions/signals are **product features** - users write `.sh` scripts
+- Claude routing tests are **integration tests** - verify external tool integration
+- Claude CLI installation format is platform-specific, outside our control
+```
+
+### 7. Debugging Windows Without a Windows Machine
+
+**Techniques Used Successfully**:
+
+1. **Liberal `eprintln!()` Statements**:
+   ```rust
+   eprintln!("[DEBUG] Path: {:?}", path);
+   eprintln!("[DEBUG] Executing: {command}");
+   eprintln!("[DEBUG] Exit code: {:?}", output.status.code());
+   ```
+
+2. **CI as Validation Loop**:
+   - Push changes, wait ~10 minutes for CI feedback
+   - Read stderr/stdout from failed tests
+   - Iterate based on actual Windows behavior
+
+3. **Extensive Error Context**:
+   ```rust
+   .expect(&format!("Failed to execute: {}", command))
+   // Better than just: .expect("Failed to execute")
+   ```
+
+4. **Path Inspection at Every Stage**:
+   - Log paths when discovered
+   - Log paths when stored
+   - Log paths before execution
+   - Log paths inside script content
+
+**Key Insight**: Cannot guess Windows behavior - must observe actual execution through CI logs.
+
+### 8. Cross-Platform Test Helpers Pattern
+
+**Best Practice**: Create platform-aware helper functions for test setup:
+
+```rust
+#[cfg(windows)]
+fn path_for_bash(path: &PathBuf) -> String {
+    // Convert C:\path → /c/path for Git Bash
+}
+
+#[cfg(not(windows))]
+fn path_for_bash(path: &PathBuf) -> String {
+    path.display().to_string()  // No conversion needed
+}
+```
+
+**Why This Works**:
+- Tests remain readable (same API on all platforms)
+- Platform logic isolated in helper
+- Easy to update if conversion rules change
+- Compiler ensures correct version used
+
+### 9. The "Script vs. Binary" Distinction
+
+**Critical Insight**: On Windows, there are THREE types of executables:
+
+1. **Native Binaries** (`.exe`): Execute directly with `Command::new(path)`
+2. **Scripts** (`.sh`, `.ps1`, `.bat`): Require interpreter wrapper
+3. **Shebang Scripts** (Unix only): OS reads `#!/bin/bash` and routes to interpreter
+
+**Windows Behavior**:
+- No shebang support - must detect script type by extension
+- Each script type needs specific interpreter
+- Interpreter location varies (Git Bash in Program Files, PowerShell in System32)
+
+**Design Pattern**:
+```rust
+fn execute_script(path: &str) -> Command {
+    if cfg!(windows) {
+        if path.ends_with(".ps1") {
+            Command::new("powershell.exe")
+                .args(["-ExecutionPolicy", "Bypass", "-File", path])
+        } else if path.ends_with(".sh") {
+            let bash_path = convert_to_unix_path(path);
+            Command::new(*SHELL_COMMAND).arg(bash_path)
+        } else {
+            Command::new(path)  // Assume .exe
+        }
+    } else {
+        Command::new(path)  // Unix handles shebang
+    }
+}
+```
+
 ## Future Improvements
 
 1. **Consider using a Rust tar library** instead of OPA's `-o` flag to avoid path issues entirely
 2. **File an upstream issue** with OPA about Windows path handling if not already tracked
 3. **Add Windows-specific integration tests** that verify path handling
 4. **Document workarounds** for any new OPA-related features on Windows
+5. **Create reusable test utilities** for cross-platform script execution in tests
+6. **Consider GitHub Actions Windows runner documentation** for temp file locations and drive mappings

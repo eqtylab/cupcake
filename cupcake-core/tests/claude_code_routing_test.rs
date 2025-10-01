@@ -194,6 +194,10 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 
     eprintln!("[DEBUG] Hook command: {command}");
 
+    // Escape backslashes for JSON on Windows
+    let command_escaped = command.replace('\\', "\\\\");
+    eprintln!("[DEBUG] Hook command (JSON-escaped): {command_escaped}");
+
     // Create settings.json with UserPromptSubmit hook to trigger on "hello world"
     let settings = format!(
         r#"{{
@@ -203,7 +207,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         "hooks": [
           {{
             "type": "command",
-            "command": "{command}",
+            "command": "{command_escaped}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -261,6 +265,11 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
         output.stderr.len()
     );
 
+    // Print stderr even on success to catch hook errors
+    if !output.stderr.is_empty() {
+        eprintln!("[DEBUG] Claude stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+    }
+
     if !output.status.success() {
         panic!(
             "Claude command failed with status: {:?}\nSTDOUT:\n{}\nSTDERR:\n{}",
@@ -271,8 +280,8 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     }
 
     // Wait for hooks to complete and files to be written
-    eprintln!("[DEBUG] Waiting 2 seconds for hooks to complete...");
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    eprintln!("[DEBUG] Waiting 5 seconds for hooks to complete...");
+    std::thread::sleep(std::time::Duration::from_secs(5));
 
     // Find and read the routing map JSON
     let debug_dir = project_path.join(".cupcake/debug/routing");
@@ -536,6 +545,9 @@ async fn test_wildcard_policy_routing() {
         )
     };
 
+    // Escape backslashes for JSON on Windows
+    let command_escaped = command.replace('\\', "\\\\");
+
     let settings = format!(
         r#"{{
   "hooks": {{
@@ -544,7 +556,7 @@ async fn test_wildcard_policy_routing() {
         "hooks": [
           {{
             "type": "command",
-            "command": "{command}",
+            "command": "{command_escaped}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",
@@ -750,6 +762,9 @@ deny contains decision if {
         )
     };
 
+    // Escape backslashes for JSON on Windows
+    let command_escaped = command.replace('\\', "\\\\");
+
     let settings = format!(
         r#"{{
   "hooks": {{
@@ -758,7 +773,7 @@ deny contains decision if {
         "hooks": [
           {{
             "type": "command",
-            "command": "{command}",
+            "command": "{command_escaped}",
             "timeout": 120,
             "env": {{
               "CUPCAKE_DEBUG_ROUTING": "1",

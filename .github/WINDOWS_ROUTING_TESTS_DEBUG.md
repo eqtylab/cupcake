@@ -1,8 +1,12 @@
-# Windows Routing Tests Debug Handoff
+# Windows Routing Tests - RESOLVED ✅
 
-## Context
+## Status: FIXED (2025-10-01)
 
-We have 10 integration tests in `cupcake-core/tests/claude_code_routing_test.rs` that verify Cupcake's policy routing system works correctly with the Claude CLI. These tests pass on macOS and Linux but fail on Windows in CI.
+All 10 routing tests now pass on Windows. Root cause was invalid JSON in `.claude/settings.json`.
+
+## Previous Context
+
+We had 10 integration tests in `cupcake-core/tests/claude_code_routing_test.rs` that verified Cupcake's policy routing system works correctly with the Claude CLI. These tests passed on macOS and Linux but failed on Windows in CI.
 
 ## What Cupcake Is
 
@@ -10,97 +14,130 @@ Cupcake is a policy engine that intercepts Claude CLI tool calls and evaluates s
 
 The routing tests verify that policies are correctly matched to specific events (like "PreToolUse" for the Bash tool).
 
-## Current State
+## Final State - All Tests Passing ✅
 
-### Tests That Pass (All Platforms)
-- ✅ Action execution tests (4 tests) - Fixed with Git Bash path conversion
-- ✅ Signal execution tests - Fixed with platform detection + path conversion
-- ✅ All core policy evaluation tests
+### All 10 Routing Tests Pass on Windows:
+- ✅ `test_pretooluse_routing`
+- ✅ `test_posttooluse_routing`
+- ✅ `test_userpromptsubmit_routing`
+- ✅ `test_sessionstart_routing`
+- ✅ `test_notification_routing`
+- ✅ `test_precompact_routing`
+- ✅ `test_stop_routing`
+- ✅ `test_subagentstop_routing`
+- ✅ `test_wildcard_policy_routing`
+- ✅ `test_multiple_events_routing`
 
-### Tests That Fail (Windows Only)
+### Previous Symptoms (Before Fix)
 
-**Two tests with Error 193 (FIXED, pending CI verification):**
-- `test_wildcard_policy_routing`
-- `test_multiple_events_routing`
-
-These were trying to execute PowerShell scripts directly. Fix applied: wrapped with `powershell.exe -ExecutionPolicy Bypass -File`.
-
-**Eight tests with missing debug directory:**
-- `test_pretooluse_routing`
-- `test_posttooluse_routing`
-- `test_userpromptsubmit_routing`
-- `test_sessionstart_routing`
-- `test_notification_routing`
-- `test_precompact_routing`
-- `test_stop_routing`
-- `test_subagentstop_routing`
-
-These all show:
+Claude CLI executed successfully but hooks never fired:
 ```
-[DEBUG] Detected PowerShell script on Windows, using powershell.exe wrapper
 [DEBUG] Claude exit status: Some(0)
 [DEBUG] Claude stdout length: 33 bytes
 [DEBUG] Claude stderr length: 0 bytes
 [DEBUG] Waiting 2 seconds for hooks to complete...
 [DEBUG] Looking for debug directory: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpzGmKaA\\.cupcake/debug/routing"
 [DEBUG] Debug dir exists: false
-[DEBUG] Checking parent directories:
-  .cupcake exists: true
-  .cupcake/debug exists: false
 ```
 
-## The Problem
+## Root Cause: Invalid JSON
 
-### Expected Behavior
-1. Test creates `.claude/settings.json` with a `UserPromptSubmit` hook configured
-2. Test executes `claude -p "hello world" --model sonnet`
-3. Claude CLI fires the hook, running `cupcake.exe eval` with `CUPCAKE_DEBUG_ROUTING=1`
-4. Cupcake creates `.cupcake/debug/routing/routing_map_*.json` files
-5. Test reads these files and verifies policy routing worked correctly
+### The Problem
 
-### Actual Behavior on Windows
-1. ✅ Test creates `.claude/settings.json` correctly
-2. ✅ Claude CLI executes successfully (exit code 0)
-3. ❓ Hook execution status unknown - no evidence in output
-4. ❌ Debug directory `.cupcake/debug/` is NEVER created
-5. ❌ Test panics because it can't find the routing files
+Windows file paths contain backslashes: `C:\Users\Administrator\cupcake\Cargo.toml`
 
-### Key Observations
+The test code inserted these paths directly into JSON strings:
 
-**Claude executes successfully:**
-```
-[DEBUG] Claude exit status: Some(0)
-[DEBUG] Claude stdout length: 33 bytes
+```rust
+let command = "cargo run --manifest-path C:\\Users\\Administrator\\cupcake\\Cargo.toml -- eval";
+
+let settings = format!(
+    r#"{{
+      "command": "{command}"
+    }}"#
+);
 ```
 
-**Hook configuration looks correct:**
+This created **invalid JSON**:
 ```json
 {
-  "hooks": {
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "D:\\a\\cupcake\\cupcake\\target\\release\\cupcake.exe eval",
-        "timeout": 120,
-        "env": {
-          "CUPCAKE_DEBUG_ROUTING": "1",
-          "RUST_LOG": "info"
-        }
-      }]
-    }]
-  }
+  "command": "cargo run --manifest-path C:\Users\Administrator\cupcake\Cargo.toml -- eval"
 }
 ```
 
-**Directory structure partially exists:**
-```
-.cupcake exists: true        ✅
-.cupcake/debug exists: false ❌
+The sequences `\U` and `\A` are invalid JSON escape sequences. Claude CLI silently failed to parse the malformed JSON, so hooks never executed.
+
+### The Solution
+
+Escape backslashes before inserting paths into JSON:
+
+```rust
+// Escape backslashes for JSON on Windows
+let command_escaped = command.replace('\\', "\\\\");
+
+let settings = format!(
+    r#"{{
+      "command": "{command_escaped}"
+    }}"#
+);
 ```
 
-## Debugging Tasks
+This creates **valid JSON**:
+```json
+{
+  "command": "cargo run --manifest-path C:\\Users\\Administrator\\cupcake\\Cargo.toml -- eval"
+}
+```
 
-### Task 1: Verify Hooks Actually Run on Windows
+Now Claude CLI successfully parses the settings and hooks execute correctly.
+
+## Changes Made
+
+Fixed in `cupcake-core/tests/claude_code_routing_test.rs`:
+
+1. **Line 198** - Added JSON escaping to `run_claude_test()` helper:
+   ```rust
+   let command_escaped = command.replace('\\', "\\\\");
+   ```
+
+2. **Lines 550, 730** - Added JSON escaping to `test_wildcard_policy_routing` and `test_multiple_events_routing`:
+   ```rust
+   let command_escaped = command.replace('\\', "\\\\");
+   ```
+
+3. **Line 283** - Increased wait time from 2s to 5s:
+   ```rust
+   std::thread::sleep(std::time::Duration::from_secs(5));
+   ```
+   (Ensures hooks complete on Windows before checking for debug files)
+
+### Test Results
+
+```bash
+cd C:/Users/Administrator/cupcake
+export CLAUDE_CLI_PATH="/c/Users/Administrator/AppData/Roaming/npm/claude.cmd"
+cargo test --features deterministic-tests --test claude_code_routing_test
+
+running 10 tests
+test test_multiple_events_routing ... ok
+test test_notification_routing ... ok
+test test_posttooluse_routing ... ok
+test test_precompact_routing ... ok
+test test_pretooluse_routing ... ok
+test test_sessionstart_routing ... ok
+test test_stop_routing ... ok
+test test_subagentstop_routing ... ok
+test test_userpromptsubmit_routing ... ok
+test test_wildcard_policy_routing ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+---
+
+## Historical Debugging Tasks (No Longer Needed)
+
+### Task 1: Verify Hooks Actually Run on Windows (RESOLVED)
 
 **Goal:** Determine if Claude CLI on Windows (installed via npm as `claude.ps1`) actually executes hooks configured in `.claude/settings.json`.
 
@@ -308,50 +345,48 @@ The tests should:
 4. Cupcake should create `.cupcake/debug/routing/*.json` files ❌ (failing)
 5. Test should read and verify routing data ❌ (can't get this far)
 
-## Possible Solutions (Ranked by Likelihood)
+## Lessons Learned
 
-### 1. Hooks Don't Work with npm-installed Claude CLI on Windows
-**If true:** Skip these tests on Windows with `#[cfg(not(windows))]`
-**How to verify:** Task 1
+### Key Insight: JSON Validation in External Tools
 
-### 2. Path Separator Bug in Debug Output Code
-**If true:** Fix path construction in `routing_debug.rs` to use `Path::join()`
-**How to verify:** Task 3
+When generating configuration files (especially JSON) that contain platform-specific paths:
 
-### 3. Environment Variables Not Passed Through PowerShell
-**If true:** Find alternative way to signal debug mode (config file instead of env var?)
-**How to verify:** Task 5 with modified hook command
+1. **Always escape special characters** - Backslashes in JSON must be `\\`
+2. **Silent failures are hard to debug** - Claude CLI didn't report the JSON parse error
+3. **Test on the target platform** - This issue only manifests on Windows
+4. **Use structured JSON libraries** when possible instead of string formatting
 
-### 4. Working Directory Mismatch
-**If true:** Fix hook configuration to set working directory explicitly
-**How to verify:** Task 4
+### Why This Was Hard to Find
 
-### 5. Cupcake Bug on Windows
-**If true:** Debug and fix `routing_debug.rs` Windows-specific issues
-**How to verify:** Task 2
+1. **Claude CLI succeeded** (exit code 0) - hooks fail silently on bad config
+2. **No error output** - JSON parsing errors weren't reported to stderr
+3. **Hooks had worked before** - Global config had same issue, but we assumed hooks were firing
+4. **Misleading symptoms** - "debug files not created" suggested Cupcake bug, not config bug
 
-## Questions to Answer
+### Prevention
 
-1. **Do hooks work at all on Windows with PowerShell-based Claude CLI?**
-   - Test with simple echo command to file
+Consider using `serde_json` to build settings instead of string formatting:
 
-2. **Does `CUPCAKE_DEBUG_ROUTING=1` work when calling cupcake.exe directly on Windows?**
-   - Run cupcake eval manually with env var set
+```rust
+use serde_json::json;
 
-3. **Is there a path separator bug in the debug output code?**
-   - Check routing_debug.rs for string concatenation vs Path::join
+let settings = json!({
+    "hooks": {
+        "UserPromptSubmit": [{
+            "hooks": [{
+                "type": "command",
+                "command": command,  // Automatically escaped by serde_json
+                "timeout": 120,
+                "env": {
+                    "CUPCAKE_DEBUG_ROUTING": "1",
+                    "RUST_LOG": "info"
+                }
+            }]
+        }]
+    }
+});
 
-4. **Where does the hook actually execute from?**
-   - Capture working directory in hook output
+fs::write(claude_dir.join("settings.json"), settings.to_string())?;
+```
 
-5. **Is Cupcake producing errors that are being swallowed?**
-   - Redirect hook stdout/stderr to files
-
-## Contact
-
-If you find the root cause or need clarification, please document your findings and update this file with:
-- What you tested
-- What you found
-- Proposed fix (if any)
-
-All previous Windows fixes are documented in `.github/CLAUDE.md` - refer to the "Lessons Learned" section for context on the debugging approach we've been using.
+This automatically handles platform-specific escaping.

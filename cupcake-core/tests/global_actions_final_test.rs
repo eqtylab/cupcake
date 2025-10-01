@@ -27,6 +27,20 @@ async fn test_global_action_creates_marker_file() -> Result<()> {
     // Create a marker file path
     let marker_file = global_dir.path().join("action_executed.marker");
 
+    // Convert path to Unix format for Git Bash on Windows
+    let marker_path = if cfg!(windows) {
+        let path_str = marker_file.to_str().unwrap();
+        if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+            let drive = path_str.chars().next().unwrap().to_lowercase();
+            let path_part = &path_str[2..].replace('\\', "/");
+            format!("/{drive}{path_part}")
+        } else {
+            path_str.replace('\\', "/")
+        }
+    } else {
+        marker_file.to_str().unwrap().to_string()
+    };
+
     // Create global guidebook with action that creates a marker file
     let guidebook_content = format!(
         r#"signals: {{}}
@@ -38,7 +52,7 @@ actions:
 
 builtins: {{}}
 "#,
-        marker_file.to_str().unwrap()
+        marker_path
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -137,6 +151,20 @@ async fn test_global_deny_on_any_denial_action() -> Result<()> {
     // Create a marker file path
     let marker_file = global_dir.path().join("deny_action.marker");
 
+    // Convert path to Unix format for Git Bash on Windows
+    let marker_path = if cfg!(windows) {
+        let path_str = marker_file.to_str().unwrap();
+        if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+            let drive = path_str.chars().next().unwrap().to_lowercase();
+            let path_part = &path_str[2..].replace('\\', "/");
+            format!("/{drive}{path_part}")
+        } else {
+            path_str.replace('\\', "/")
+        }
+    } else {
+        marker_file.to_str().unwrap().to_string()
+    };
+
     // Create global guidebook with on_any_denial action
     let guidebook_content = format!(
         r#"signals: {{}}
@@ -147,7 +175,7 @@ actions:
 
 builtins: {{}}
 "#,
-        marker_file.to_str().unwrap()
+        marker_path
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;

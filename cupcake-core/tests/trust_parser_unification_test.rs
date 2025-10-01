@@ -69,9 +69,19 @@ async fn test_trust_parser_sees_all_scripts() -> Result<()> {
 
     // Verify the auto-discovered script has the correct path
     let auto_signal = guidebook.signals.get("auto_signal").unwrap();
+    eprintln!("Auto-discovered signal path: {}", auto_signal.command);
+
+    // On Windows, paths use backslashes
+    let expected_suffix = if cfg!(windows) {
+        "signals\\auto_signal.sh"
+    } else {
+        "signals/auto_signal.sh"
+    };
+
     assert!(
-        auto_signal.command.ends_with("signals/auto_signal.sh"),
-        "Auto-discovered signal should have full path"
+        auto_signal.command.ends_with(expected_suffix),
+        "Auto-discovered signal should have full path ending with '{expected_suffix}', got: '{}'",
+        auto_signal.command
     );
 
     Ok(())

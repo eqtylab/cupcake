@@ -20,6 +20,7 @@ static ACTION_LOG: once_cell::sync::Lazy<Arc<Mutex<Vec<String>>>> =
 /// Test that global HALT executes global actions
 #[tokio::test]
 #[serial] // serial attribute ensures tests run one at a time, protecting global env vars
+#[cfg(not(windows))] // Uses /tmp path hardcoded in bash script
 async fn test_global_halt_executes_actions() -> Result<()> {
     // Clear action log
     ACTION_LOG.lock().unwrap().clear();
@@ -47,6 +48,20 @@ echo "GLOBAL_HALT_ACTION_EXECUTED" >> /tmp/cupcake_test_actions.log
         fs::set_permissions(&action_script, fs::Permissions::from_mode(0o755))?;
     }
 
+    // Convert path to Unix format for Git Bash on Windows
+    let script_path = if cfg!(windows) {
+        let path_str = action_script.to_str().unwrap();
+        if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+            let drive = path_str.chars().next().unwrap().to_lowercase();
+            let path_part = &path_str[2..].replace('\\', "/");
+            format!("/{drive}{path_part}")
+        } else {
+            path_str.replace('\\', "/")
+        }
+    } else {
+        action_script.to_str().unwrap().to_string()
+    };
+
     // Update global guidebook with action
     let guidebook_content = format!(
         r#"signals: {{}}
@@ -58,7 +73,7 @@ actions:
 
 builtins: {{}}
 "#,
-        action_script.to_str().unwrap()
+        script_path
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -136,6 +151,7 @@ halt contains decision if {
 /// Test that global DENY executes global actions
 #[tokio::test]
 #[serial]
+#[cfg(not(windows))] // Uses /tmp path hardcoded in bash script
 async fn test_global_deny_executes_actions() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
@@ -159,6 +175,20 @@ echo "GLOBAL_DENY_ACTION_EXECUTED" >> /tmp/cupcake_test_deny.log
         fs::set_permissions(&action_script, fs::Permissions::from_mode(0o755))?;
     }
 
+    // Convert path to Unix format for Git Bash on Windows
+    let script_path = if cfg!(windows) {
+        let path_str = action_script.to_str().unwrap();
+        if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+            let drive = path_str.chars().next().unwrap().to_lowercase();
+            let path_part = &path_str[2..].replace('\\', "/");
+            format!("/{drive}{path_part}")
+        } else {
+            path_str.replace('\\', "/")
+        }
+    } else {
+        action_script.to_str().unwrap().to_string()
+    };
+
     let guidebook_content = format!(
         r#"signals: {{}}
 
@@ -168,7 +198,7 @@ actions:
 
 builtins: {{}}
 "#,
-        action_script.to_str().unwrap()
+        script_path
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -243,6 +273,7 @@ deny contains decision if {
 /// Test that global BLOCK executes global actions (and terminates early)
 #[tokio::test]
 #[serial]
+#[cfg(not(windows))] // Uses /tmp path hardcoded in bash script
 async fn test_global_block_executes_actions() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
@@ -266,6 +297,20 @@ echo "GLOBAL_BLOCK_ACTION_EXECUTED" >> /tmp/cupcake_test_block.log
         fs::set_permissions(&action_script, fs::Permissions::from_mode(0o755))?;
     }
 
+    // Convert path to Unix format for Git Bash on Windows
+    let script_path = if cfg!(windows) {
+        let path_str = action_script.to_str().unwrap();
+        if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+            let drive = path_str.chars().next().unwrap().to_lowercase();
+            let path_part = &path_str[2..].replace('\\', "/");
+            format!("/{drive}{path_part}")
+        } else {
+            path_str.replace('\\', "/")
+        }
+    } else {
+        action_script.to_str().unwrap().to_string()
+    };
+
     let guidebook_content = format!(
         r#"signals: {{}}
 
@@ -276,7 +321,7 @@ actions:
 
 builtins: {{}}
 "#,
-        action_script.to_str().unwrap()
+        script_path
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;

@@ -137,54 +137,109 @@ The fix addresses both:
 - `.sh` files are explicitly invoked through bash on Windows
 - Maintains cross-platform compatibility (no changes needed on Unix)
 
-### 3. PowerShell Script Execution in Tests
+### 3. Claude CLI Routing Tests - JSON Path Escaping
 
-**Problem**: Integration tests that execute the Claude CLI fail on Windows because npm installs Claude as a PowerShell script (`claude.ps1`), not an executable binary.
+**Problem**: All 10 Claude CLI routing tests failed on Windows due to invalid JSON in `.claude/settings.json`. Windows paths contain backslashes (`C:\Users\...`), which were inserted into JSON strings without escaping, creating invalid escape sequences like `\U` and `\A`.
 
-**Error**: `Os { code: 193, kind: Uncategorized, message: "%1 is not a valid Win32 application." }`
+**Status**: ✅ FIXED - All 10 routing tests now pass on Windows
 
 **Affected Tests**:
 - `cupcake-core/tests/claude_code_routing_test.rs` - All 10 routing tests
 
-**Solution Implemented** (in `cupcake-core/tests/claude_code_routing_test.rs`):
+**Root Cause**:
 
+Test code generated JSON with unescaped backslashes:
 ```rust
-// On Windows, PowerShell scripts (.ps1) cannot be executed directly
-// They must be invoked via powershell.exe
-let output = if cfg!(windows) && claude_path.ends_with(".ps1") {
-    std::process::Command::new("powershell.exe")
-        .args([
-            "-ExecutionPolicy", "Bypass",
-            "-File", &claude_path,
-            "-p", "hello world",
-            "--model", "sonnet",
-        ])
-        .current_dir(project_path)
-        .env("CUPCAKE_DEBUG_ROUTING", "1")
-        .output()
-        .expect("Failed to execute claude command via powershell.exe")
-} else {
-    std::process::Command::new(&claude_path)
-        .args(["-p", "hello world", "--model", "sonnet"])
-        .current_dir(project_path)
-        .env("CUPCAKE_DEBUG_ROUTING", "1")
-        .output()
-        .expect("Failed to execute claude command")
-};
+let command = "cargo run --manifest-path C:\\Users\\Admin\\cupcake\\Cargo.toml -- eval";
+let settings = format!(r#"{{"command": "{command}"}}"#);
 ```
 
-**Why This Is Different from Actions/Signals**:
-- Actions/signals are **product features** - users write `.sh` scripts that run via Git Bash on Windows
-- Claude routing tests are **integration tests** - they verify Cupcake works with the actual Claude CLI installation
-- The Claude CLI installation format is platform-specific (`.ps1` on Windows, binary on Unix)
+This created invalid JSON:
+```json
+{"command": "cargo run --manifest-path C:\Users\Admin\cupcake\Cargo.toml -- eval"}
+```
+
+Claude CLI silently failed to parse the malformed JSON, so hooks never executed.
+
+**Solution Implemented**:
+
+1. **Escape backslashes in JSON** (lines 198, 550, 730):
+   ```rust
+   // Escape backslashes for JSON on Windows
+   let command_escaped = command.replace('\\', "\\\\");
+
+   let settings = format!(
+       r#"{{
+         "hooks": {{
+           "UserPromptSubmit": [{{
+             "hooks": [{{
+               "type": "command",
+               "command": "{command_escaped}",
+               "timeout": 120,
+               "env": {{
+                 "CUPCAKE_DEBUG_ROUTING": "1",
+                 "RUST_LOG": "info"
+               }}
+             }}]
+           }}]
+         }}
+       }}"#
+   );
+   ```
+
+2. **Increased hook completion wait time** (line 283):
+   ```rust
+   // Wait longer on Windows for hooks to complete
+   std::thread::sleep(std::time::Duration::from_secs(5));
+   ```
+
+**Test Results**:
+```
+running 10 tests
+test test_multiple_events_routing ... ok
+test test_notification_routing ... ok
+test test_posttooluse_routing ... ok
+test test_precompact_routing ... ok
+test test_pretooluse_routing ... ok
+test test_sessionstart_routing ... ok
+test test_stop_routing ... ok
+test test_subagentstop_routing ... ok
+test test_userpromptsubmit_routing ... ok
+test test_wildcard_policy_routing ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
 
 **Key Points**:
-- Detects `.ps1` extension and wraps execution with `powershell.exe -File`
-- Uses `-ExecutionPolicy Bypass` to avoid script execution policy restrictions
-- Only applies to Windows - Unix systems execute the binary directly
-- Maintains test coverage for Claude CLI integration on all platforms
+- Windows paths MUST be escaped when embedded in JSON strings
+- Claude CLI silently ignores malformed JSON (no error output)
+- Always use `serde_json` for JSON generation in production code
+- Test infrastructure can use manual escaping for simple cases
+- This was the last blocker for full Windows test coverage
 
-### 4. OPA Installation
+**See Also**: `.github/WINDOWS_ROUTING_TESTS_DEBUG.md` for detailed debugging history
+
+### 4. Path Separators and JSON Escaping
+
+**Critical**: Windows paths use backslashes which have special meaning in multiple contexts:
+
+1. **JSON Strings**: Backslashes are escape characters
+   - Must use `\\` in JSON: `"C:\\Users\\path"`
+   - Use `command.replace('\\', "\\\\")` before inserting into JSON
+   - Or use `serde_json` which handles escaping automatically
+
+2. **OPA Input**: OPA expects forward slashes
+   - Always convert to forward slashes before passing to OPA
+   - Use `path.replace('\\', "/")` for OPA paths
+   - Use `Path::join()` for filesystem operations (handles platform differences)
+
+3. **Git Bash**: Expects Unix-style paths
+   - Convert `C:\Users\path` to `/c/Users/path`
+   - See "Shell Script Tests on Windows" section above
+
+**Key Rule**: Never use string concatenation for paths - always use `Path::join()`
+
+### 5. OPA Installation
 
 The CI workflow installs OPA v1.7.1 on all platforms:
 
@@ -202,13 +257,6 @@ chmod +x opa
 sudo mv opa /usr/local/bin/
 opa version
 ```
-
-### 5. Path Separators
-
-Windows uses backslashes (`\`) but OPA and many tools expect forward slashes (`/`):
-- Always convert to forward slashes before passing to OPA
-- Use `Path::join()` for filesystem operations (handles platform differences)
-- Never use string concatenation for paths
 
 ### 6. Drive Letters and Cross-Drive Issues
 
@@ -268,9 +316,10 @@ To test Windows-specific changes locally without a Windows machine:
 #### Pattern B: Test Infrastructure (Claude CLI Integration)
 - **What**: External tool (Claude CLI) installed by npm
 - **Storage**: Platform-specific (`.ps1` on Windows, binary on Unix)
-- **Execution**: Platform-specific wrapper (PowerShell on Windows, direct on Unix)
-- **Why**: External tool's installation format is outside our control
+- **Execution**: JSON configuration with escaped paths on Windows
+- **Why**: JSON parsing requires proper escaping of backslashes
 - **Fix Location**: Test code (`claude_code_routing_test.rs`)
+- **Critical Fix**: Escape Windows paths before embedding in JSON (`command.replace('\\', "\\\\")`)
 
 #### Pattern C: Test Helpers (Path Generation)
 - **What**: Paths embedded inside bash script content
@@ -387,7 +436,44 @@ if cfg!(windows) && path.ends_with(".ps1") {
 
 **Key Insight**: Cannot guess Windows behavior - must observe actual execution through CI logs.
 
-### 8. Cross-Platform Test Helpers Pattern
+### 8. Silent Failures in External Tools
+
+**Lesson from Claude CLI Routing Tests**:
+
+External tools may silently ignore malformed configuration files, making debugging extremely difficult.
+
+**The Issue**:
+- Windows paths in JSON must have escaped backslashes: `"C:\\Users\\path"`
+- Test code inserted unescaped paths: `"C:\Users\path"` (invalid JSON)
+- Claude CLI silently failed to parse JSON - no error output, exit code 0
+- Hooks never executed, but no indication why
+
+**Debugging Symptoms**:
+- Process succeeds (exit code 0) ✅
+- No stderr output ✅
+- Expected side effects don't happen ❌
+- Leads to investigating the wrong components (Cupcake instead of JSON config)
+
+**Solution Pattern**:
+```rust
+// BAD: Manual string formatting
+let path = "C:\\Users\\path";
+let json = format!(r#"{{"path": "{path}"}}"#);  // Invalid JSON!
+
+// GOOD: Use serde_json for automatic escaping
+use serde_json::json;
+let config = json!({
+    "path": path  // Automatically escaped
+});
+```
+
+**When Debugging Silent Failures**:
+1. Validate all generated config files (JSON, YAML, etc.)
+2. Check for platform-specific character escaping issues
+3. Test with minimal reproducible config outside the main application
+4. Add explicit validation/parsing in test setup if possible
+
+### 9. Cross-Platform Test Helpers Pattern
 
 **Best Practice**: Create platform-aware helper functions for test setup:
 
@@ -409,7 +495,7 @@ fn path_for_bash(path: &PathBuf) -> String {
 - Easy to update if conversion rules change
 - Compiler ensures correct version used
 
-### 9. The "Script vs. Binary" Distinction
+### 10. The "Script vs. Binary" Distinction
 
 **Critical Insight**: On Windows, there are THREE types of executables:
 

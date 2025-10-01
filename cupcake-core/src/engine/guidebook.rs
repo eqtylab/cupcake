@@ -292,10 +292,27 @@ impl Guidebook {
         // Use platform-appropriate shell (bash on Windows, sh on Unix)
         let shell = *super::SHELL_COMMAND;
 
+        // On Windows, convert .sh file paths to Git Bash format
+        // C:\Users\foo\script.sh -> /c/Users/foo/script.sh
+        #[cfg(windows)]
+        let command_arg = if signal.command.ends_with(".sh")
+            && signal.command.len() >= 3
+            && signal.command.chars().nth(1) == Some(':')
+        {
+            let drive = signal.command.chars().next().unwrap().to_lowercase();
+            let path_part = &signal.command[2..].replace('\\', "/");
+            format!("/{}{}", drive, path_part)
+        } else {
+            signal.command.clone()
+        };
+
+        #[cfg(not(windows))]
+        let command_arg = &signal.command;
+
         // Spawn the command with stdin piped
         let mut child = Command::new(shell)
             .arg("-c")
-            .arg(&signal.command)
+            .arg(&command_arg)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

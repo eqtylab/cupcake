@@ -137,7 +137,54 @@ The fix addresses both:
 - `.sh` files are explicitly invoked through bash on Windows
 - Maintains cross-platform compatibility (no changes needed on Unix)
 
-### 3. OPA Installation
+### 3. PowerShell Script Execution in Tests
+
+**Problem**: Integration tests that execute the Claude CLI fail on Windows because npm installs Claude as a PowerShell script (`claude.ps1`), not an executable binary.
+
+**Error**: `Os { code: 193, kind: Uncategorized, message: "%1 is not a valid Win32 application." }`
+
+**Affected Tests**:
+- `cupcake-core/tests/claude_code_routing_test.rs` - All 10 routing tests
+
+**Solution Implemented** (in `cupcake-core/tests/claude_code_routing_test.rs`):
+
+```rust
+// On Windows, PowerShell scripts (.ps1) cannot be executed directly
+// They must be invoked via powershell.exe
+let output = if cfg!(windows) && claude_path.ends_with(".ps1") {
+    std::process::Command::new("powershell.exe")
+        .args([
+            "-ExecutionPolicy", "Bypass",
+            "-File", &claude_path,
+            "-p", "hello world",
+            "--model", "sonnet",
+        ])
+        .current_dir(project_path)
+        .env("CUPCAKE_DEBUG_ROUTING", "1")
+        .output()
+        .expect("Failed to execute claude command via powershell.exe")
+} else {
+    std::process::Command::new(&claude_path)
+        .args(["-p", "hello world", "--model", "sonnet"])
+        .current_dir(project_path)
+        .env("CUPCAKE_DEBUG_ROUTING", "1")
+        .output()
+        .expect("Failed to execute claude command")
+};
+```
+
+**Why This Is Different from Actions/Signals**:
+- Actions/signals are **product features** - users write `.sh` scripts that run via Git Bash on Windows
+- Claude routing tests are **integration tests** - they verify Cupcake works with the actual Claude CLI installation
+- The Claude CLI installation format is platform-specific (`.ps1` on Windows, binary on Unix)
+
+**Key Points**:
+- Detects `.ps1` extension and wraps execution with `powershell.exe -File`
+- Uses `-ExecutionPolicy Bypass` to avoid script execution policy restrictions
+- Only applies to Windows - Unix systems execute the binary directly
+- Maintains test coverage for Claude CLI integration on all platforms
+
+### 4. OPA Installation
 
 The CI workflow installs OPA v1.7.1 on all platforms:
 
@@ -156,14 +203,14 @@ sudo mv opa /usr/local/bin/
 opa version
 ```
 
-### 4. Path Separators
+### 5. Path Separators
 
 Windows uses backslashes (`\`) but OPA and many tools expect forward slashes (`/`):
 - Always convert to forward slashes before passing to OPA
 - Use `Path::join()` for filesystem operations (handles platform differences)
 - Never use string concatenation for paths
 
-### 5. Drive Letters and Cross-Drive Issues
+### 6. Drive Letters and Cross-Drive Issues
 
 **Critical**: GitHub Actions Windows runners use `D:\a\...` for the working directory but temp files are on `C:\Users\...`
 

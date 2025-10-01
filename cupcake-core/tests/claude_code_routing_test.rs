@@ -223,12 +223,33 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
     eprintln!("[DEBUG] Running claude command from: {project_path:?}");
     eprintln!("[DEBUG] Claude command: {claude_path} -p 'hello world' --model sonnet");
 
-    let output = std::process::Command::new(&claude_path)
-        .args(["-p", "hello world", "--model", "sonnet"])
-        .current_dir(project_path)
-        .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
-        .output()
-        .expect("Failed to execute claude command");
+    // On Windows, PowerShell scripts (.ps1) cannot be executed directly
+    // They must be invoked via powershell.exe
+    let output = if cfg!(windows) && claude_path.ends_with(".ps1") {
+        eprintln!("[DEBUG] Detected PowerShell script on Windows, using powershell.exe wrapper");
+        std::process::Command::new("powershell.exe")
+            .args([
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &claude_path,
+                "-p",
+                "hello world",
+                "--model",
+                "sonnet",
+            ])
+            .current_dir(project_path)
+            .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
+            .output()
+            .expect("Failed to execute claude command via powershell.exe")
+    } else {
+        std::process::Command::new(&claude_path)
+            .args(["-p", "hello world", "--model", "sonnet"])
+            .current_dir(project_path)
+            .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
+            .output()
+            .expect("Failed to execute claude command")
+    };
 
     eprintln!("[DEBUG] Claude exit status: {:?}", output.status.code());
     eprintln!(

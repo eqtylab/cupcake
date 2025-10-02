@@ -571,6 +571,164 @@ impl BuiltinsConfig {
 
         signals
     }
+
+    /// Convert enabled builtin configurations to JSON format for injection into policy input
+    /// This method encapsulates the logic for transforming Rust config structs into the JSON
+    /// format expected by Rego policies at input.builtin_config.<builtin_name>
+    pub fn to_json_configs(&self) -> serde_json::Map<String, serde_json::Value> {
+        use serde_json::json;
+        let mut configs = serde_json::Map::new();
+
+        // Add protected_paths config if enabled
+        if let Some(config) = &self.protected_paths {
+            if config.enabled {
+                configs.insert(
+                    "protected_paths".to_string(),
+                    json!({
+                        "message": config.message,
+                        "paths": config.paths,
+                    }),
+                );
+            }
+        }
+
+        // Add rulebook_security_guardrails config if enabled
+        if let Some(config) = &self.rulebook_security_guardrails {
+            if config.enabled {
+                configs.insert(
+                    "rulebook_security_guardrails".to_string(),
+                    json!({
+                        "message": config.message,
+                        "protected_paths": config.protected_paths,
+                    }),
+                );
+            }
+        }
+
+        // Add enforce_full_file_read config if enabled
+        if let Some(config) = &self.enforce_full_file_read {
+            if config.enabled {
+                configs.insert(
+                    "enforce_full_file_read".to_string(),
+                    json!({
+                        "message": config.message,
+                        "max_lines": config.max_lines,
+                    }),
+                );
+            }
+        }
+
+        // Add global_file_lock config if enabled
+        if let Some(config) = &self.global_file_lock {
+            if config.enabled {
+                configs.insert(
+                    "global_file_lock".to_string(),
+                    json!({
+                        "message": config.message,
+                    }),
+                );
+            }
+        }
+
+        // Add git_block_no_verify config if enabled
+        if let Some(config) = &self.git_block_no_verify {
+            if config.enabled {
+                configs.insert(
+                    "git_block_no_verify".to_string(),
+                    json!({
+                        "message": config.message,
+                        "exceptions": config.exceptions,
+                    }),
+                );
+            }
+        }
+
+        // Add system_protection config if enabled
+        if let Some(config) = &self.system_protection {
+            if config.enabled {
+                configs.insert(
+                    "system_protection".to_string(),
+                    json!({
+                        "message": config.message,
+                        "additional_paths": config.additional_paths,
+                    }),
+                );
+            }
+        }
+
+        // Add sensitive_data_protection config if enabled
+        if let Some(config) = &self.sensitive_data_protection {
+            if config.enabled {
+                configs.insert(
+                    "sensitive_data_protection".to_string(),
+                    json!({
+                        "message": config.message,
+                        "additional_patterns": config.additional_patterns,
+                    }),
+                );
+            }
+        }
+
+        // Add cupcake_exec_protection config if enabled
+        if let Some(config) = &self.cupcake_exec_protection {
+            if config.enabled {
+                configs.insert(
+                    "cupcake_exec_protection".to_string(),
+                    json!({
+                        "message": config.message,
+                        "allowed_commands": config.allowed_commands,
+                    }),
+                );
+            }
+        }
+
+        // Add always_inject_on_prompt static strings if enabled
+        if let Some(config) = &self.always_inject_on_prompt {
+            if config.enabled {
+                let mut static_contexts = Vec::new();
+                for source in &config.context {
+                    if let ContextSource::String(s) = source {
+                        static_contexts.push(s.clone());
+                    }
+                }
+                if !static_contexts.is_empty() {
+                    configs.insert(
+                        "always_inject_on_prompt".to_string(),
+                        json!({
+                            "static_contexts": static_contexts,
+                        }),
+                    );
+                }
+            }
+        }
+
+        configs
+    }
+
+    /// Get the specific signal name for post_edit_check based on the file extension in the input
+    /// Returns None if:
+    /// - post_edit_check is not enabled
+    /// - input doesn't contain file_path in params
+    /// - file has no extension
+    /// - extension is not valid UTF-8
+    pub fn get_post_edit_signal(&self, input: &serde_json::Value) -> Option<String> {
+        // Check if post_edit_check is enabled
+        let config = self.post_edit_check.as_ref()?;
+        if !config.enabled {
+            return None;
+        }
+
+        // Extract file extension from input.params.file_path
+        let params = input.get("params")?;
+        let file_path = params.get("file_path")?;
+        let path_str = file_path.as_str()?;
+
+        // Get the file extension
+        let extension = Path::new(path_str).extension().and_then(|e| e.to_str())?;
+
+        // Return the signal name for this extension
+        Some(format!("__builtin_post_edit_{extension}"))
+    }
 }
 
 /// Convert a ContextSource to a SignalConfig (only for dynamic sources)

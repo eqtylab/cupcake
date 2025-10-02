@@ -1066,10 +1066,8 @@ impl Engine {
         // Always inject builtin config from the provided guidebook
         let mut enriched_input = input.clone();
         if let Some(input_obj) = enriched_input.as_object_mut() {
-            let mut builtin_config = serde_json::Map::new();
-
             debug!("Injecting builtin configs from guidebook in gather_signals_with_guidebook");
-            Self::inject_builtin_config_from_guidebook(&mut builtin_config, guidebook);
+            let builtin_config = guidebook.builtins.to_json_configs();
 
             if !builtin_config.is_empty() {
                 debug!("Injected {} builtin configurations", builtin_config.len());
@@ -1182,27 +1180,15 @@ impl Engine {
                         .unwrap_or("");
 
                     // Special handling for post_edit_check - only add the signal for the actual file extension
+                    // This optimization prevents running ALL validation commands when only one applies
                     if builtin_name == "post_edit_check" {
-                        // Extract file extension from input if available
-                        if let Some(params) = input.get("params") {
-                            if let Some(file_path) = params.get("file_path") {
-                                if let Some(path_str) = file_path.as_str() {
-                                    if let Some(extension) = std::path::Path::new(path_str)
-                                        .extension()
-                                        .and_then(|e| e.to_str())
-                                    {
-                                        // Only add the signal for this specific extension
-                                        let signal_name =
-                                            format!("__builtin_post_edit_{extension}");
-                                        if guidebook.signals.contains_key(&signal_name) {
-                                            debug!(
-                                                "Auto-adding signal '{}' for file extension '{}'",
-                                                signal_name, extension
-                                            );
-                                            required_signals.insert(signal_name);
-                                        }
-                                    }
-                                }
+                        if let Some(signal_name) = guidebook.builtins.get_post_edit_signal(input) {
+                            if guidebook.signals.contains_key(&signal_name) {
+                                debug!(
+                                    "Auto-adding signal '{}' for post_edit_check builtin",
+                                    signal_name
+                                );
+                                required_signals.insert(signal_name);
                             }
                         }
                     } else {
@@ -1231,13 +1217,13 @@ impl Engine {
             // First inject project configs (baseline from project)
             if let Some(project_guidebook) = &self.guidebook {
                 debug!("Injecting builtin configs from project guidebook");
-                Self::inject_builtin_config_from_guidebook(&mut builtin_config, project_guidebook);
+                builtin_config.extend(project_guidebook.builtins.to_json_configs());
             }
 
             // Then inject global configs (override project - global enforcement takes precedence)
             if let Some(global_guidebook) = &self.global_guidebook {
                 debug!("Injecting builtin configs from global guidebook (overrides project)");
-                Self::inject_builtin_config_from_guidebook(&mut builtin_config, global_guidebook);
+                builtin_config.extend(global_guidebook.builtins.to_json_configs());
             }
 
             if !builtin_config.is_empty() {
@@ -1927,154 +1913,6 @@ impl Engine {
         eprintln!("│                                                         │");
         eprintln!("│ Learn more: cupcake trust --help                       │");
         eprintln!("└─────────────────────────────────────────────────────────┘");
-    }
-
-    /// Helper method to inject builtin configurations from a guidebook into the builtin_config map
-    /// This allows for consistent builtin config injection across different evaluation paths
-    fn inject_builtin_config_from_guidebook(
-        builtin_config: &mut serde_json::Map<String, serde_json::Value>,
-        guidebook: &guidebook::Guidebook,
-    ) {
-        // Add protected_paths config if enabled
-        if let Some(config) = &guidebook.builtins.protected_paths {
-            if config.enabled {
-                debug!(
-                    "Injecting protected_paths config with message: {}",
-                    config.message
-                );
-                builtin_config.insert(
-                    "protected_paths".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "paths": config.paths,
-                    }),
-                );
-            }
-        }
-
-        // Add rulebook_security_guardrails config if enabled
-        if let Some(config) = &guidebook.builtins.rulebook_security_guardrails {
-            if config.enabled {
-                debug!("Injecting rulebook_security_guardrails config");
-                builtin_config.insert(
-                    "rulebook_security_guardrails".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "protected_paths": config.protected_paths,
-                    }),
-                );
-            }
-        }
-
-        // Add enforce_full_file_read config if enabled
-        if let Some(config) = &guidebook.builtins.enforce_full_file_read {
-            if config.enabled {
-                debug!(
-                    "Injecting enforce_full_file_read config with message: {}",
-                    config.message
-                );
-                builtin_config.insert(
-                    "enforce_full_file_read".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "max_lines": config.max_lines,
-                    }),
-                );
-            }
-        }
-
-        // Add global_file_lock config if enabled
-        if let Some(config) = &guidebook.builtins.global_file_lock {
-            if config.enabled {
-                debug!("Injecting global_file_lock config");
-                builtin_config.insert(
-                    "global_file_lock".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                    }),
-                );
-            }
-        }
-
-        // Add git_block_no_verify config if enabled
-        if let Some(config) = &guidebook.builtins.git_block_no_verify {
-            if config.enabled {
-                debug!("Injecting git_block_no_verify config");
-                builtin_config.insert(
-                    "git_block_no_verify".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "exceptions": config.exceptions,
-                    }),
-                );
-            }
-        }
-
-        // Add system_protection config if enabled
-        if let Some(config) = &guidebook.builtins.system_protection {
-            if config.enabled {
-                debug!("Injecting system_protection config");
-                builtin_config.insert(
-                    "system_protection".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "additional_paths": config.additional_paths,
-                    }),
-                );
-            }
-        }
-
-        // Add sensitive_data_protection config if enabled
-        if let Some(config) = &guidebook.builtins.sensitive_data_protection {
-            if config.enabled {
-                debug!("Injecting sensitive_data_protection config");
-                builtin_config.insert(
-                    "sensitive_data_protection".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "additional_patterns": config.additional_patterns,
-                    }),
-                );
-            }
-        }
-
-        // Add cupcake_exec_protection config if enabled
-        if let Some(config) = &guidebook.builtins.cupcake_exec_protection {
-            if config.enabled {
-                debug!("Injecting cupcake_exec_protection config");
-                builtin_config.insert(
-                    "cupcake_exec_protection".to_string(),
-                    serde_json::json!({
-                        "message": config.message,
-                        "allowed_commands": config.allowed_commands,
-                    }),
-                );
-            }
-        }
-
-        // Add always_inject_on_prompt static strings if enabled
-        if let Some(config) = &guidebook.builtins.always_inject_on_prompt {
-            if config.enabled {
-                let mut static_contexts = Vec::new();
-                for source in &config.context {
-                    if let crate::engine::builtins::ContextSource::String(s) = source {
-                        static_contexts.push(s.clone());
-                    }
-                }
-                if !static_contexts.is_empty() {
-                    debug!(
-                        "Injecting always_inject_on_prompt with {} static contexts",
-                        static_contexts.len()
-                    );
-                    builtin_config.insert(
-                        "always_inject_on_prompt".to_string(),
-                        serde_json::json!({
-                            "static_contexts": static_contexts,
-                        }),
-                    );
-                }
-            }
-        }
     }
 }
 

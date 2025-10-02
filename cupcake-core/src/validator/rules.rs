@@ -2,8 +2,21 @@
 
 use super::decision_event_matrix::{DecisionEventMatrix, DecisionVerb};
 use super::{PolicyContent, Severity, ValidationIssue, ValidationRule};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
+
+// Compile regex patterns once at startup for performance
+static OBJECT_MEMBERSHIP_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#""[^"]+"\s+in\s+[a-zA-Z_][a-zA-Z0-9_\.]*"#).unwrap());
+
+static DECISION_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"decision\s*:=\s*\{").unwrap());
+
+static RULE_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s+contains\s+").unwrap());
+
+static VERB_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s+contains\s+").unwrap());
 
 /// Rule: Metadata with scope: package must be first in file
 pub struct MetadataPlacementRule;
@@ -96,12 +109,8 @@ impl ValidationRule for ObjectKeyMembershipRule {
     fn check(&self, policy: &PolicyContent) -> Vec<ValidationIssue> {
         let mut issues = Vec::new();
 
-        // Pattern to detect "key" in object_name (simplified - will have some false positives)
-        let object_membership_pattern =
-            Regex::new(r#""[^"]+"\s+in\s+[a-zA-Z_][a-zA-Z0-9_\.]*"#).unwrap();
-
         for (i, line) in policy.lines.iter().enumerate() {
-            if object_membership_pattern.is_match(line) {
+            if OBJECT_MEMBERSHIP_PATTERN.is_match(line) {
                 issues.push(ValidationIssue {
                     severity: Severity::Warning,
                     rule_id: self.rule_id(),
@@ -131,11 +140,8 @@ impl ValidationRule for DecisionStructureRule {
     fn check(&self, policy: &PolicyContent) -> Vec<ValidationIssue> {
         let mut issues = Vec::new();
 
-        // Look for decision := { patterns and check structure
-        let decision_pattern = Regex::new(r"decision\s*:=\s*\{").unwrap();
-
         for (i, line) in policy.lines.iter().enumerate() {
-            if decision_pattern.is_match(line) {
+            if DECISION_PATTERN.is_match(line) {
                 // Check next few lines for required fields
                 let mut has_reason = false;
                 let mut has_rule_id = false;
@@ -239,13 +245,11 @@ impl ValidationRule for IncrementalRuleGroupingRule {
     fn check(&self, policy: &PolicyContent) -> Vec<ValidationIssue> {
         let mut issues = Vec::new();
 
-        // Find all rule declarations (decision verbs)
-        let rule_pattern = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s+contains\s+").unwrap();
         let mut rule_locations: HashMap<String, Vec<usize>> = HashMap::new();
 
         for (i, line) in policy.lines.iter().enumerate() {
             let trimmed = line.trim();
-            if let Some(captures) = rule_pattern.captures(trimmed) {
+            if let Some(captures) = RULE_PATTERN.captures(trimmed) {
                 if let Some(rule_name) = captures.get(1) {
                     let name = rule_name.as_str().to_string();
                     rule_locations.entry(name).or_default().push(i);
@@ -274,8 +278,8 @@ impl ValidationRule for IncrementalRuleGroupingRule {
                         let trimmed = line.trim();
 
                         // If there's a different rule type in between, it's not grouped
-                        if rule_pattern.is_match(trimmed) {
-                            if let Some(captures) = rule_pattern.captures(trimmed) {
+                        if RULE_PATTERN.is_match(trimmed) {
+                            if let Some(captures) = RULE_PATTERN.captures(trimmed) {
                                 if let Some(other_rule) = captures.get(1) {
                                     if other_rule.as_str() != rule_name {
                                         is_grouped = false;
@@ -341,12 +345,11 @@ impl ValidationRule for DecisionEventCompatibilityRule {
         let matrix = DecisionEventMatrix::new();
 
         // Find all decision verb usages in the policy
-        let verb_pattern = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s+contains\s+").unwrap();
         let mut found_verbs: HashMap<DecisionVerb, Vec<usize>> = HashMap::new();
 
         for (i, line) in policy.lines.iter().enumerate() {
             let trimmed = line.trim();
-            if let Some(captures) = verb_pattern.captures(trimmed) {
+            if let Some(captures) = VERB_PATTERN.captures(trimmed) {
                 if let Some(verb_name) = captures.get(1) {
                     if let Some(verb) = DecisionVerb::from_rego_name(verb_name.as_str()) {
                         found_verbs.entry(verb).or_default().push(i);

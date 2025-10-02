@@ -1,0 +1,10 @@
+{
+  "session_id": "abc123",
+  "transcript_path": "/Users/user/.claude/projects/test/transcript.jsonl", 
+  "cwd": "/Users/user/project",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "mcp__filesystem__read_file",
+  "tool_input": {
+    "path": "/etc/passwd"
+  }
+}

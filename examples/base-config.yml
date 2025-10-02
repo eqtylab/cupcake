@@ -1,0 +1,226 @@
+# Cupcake Base Configuration Template
+# This template demonstrates all available builtin abstractions and configuration options.
+# Copy this file to .cupcake/guidebook.yml and uncomment/modify as needed.
+
+# ============================================================================
+# SIGNALS - External data providers
+# ============================================================================
+# Signals are commands that provide data to policies. They can return strings
+# or JSON structures. Convention: place scripts in .cupcake/signals/ directory
+# for auto-discovery, or define explicitly here.
+
+signals:
+  # Example: Simple string signal
+  # current_branch:
+  #   command: "git branch --show-current"
+  #   timeout_seconds: 2
+  
+  # Example: Structured JSON signal
+  # system_info:
+  #   command: 'echo "{\"os\": \"$(uname)\", \"user\": \"$(whoami)\"}"'
+  #   timeout_seconds: 5
+
+  # Note: Signals in .cupcake/signals/ directory are auto-discovered
+  # File signals/foo.sh becomes signal "foo" automatically
+
+# ============================================================================
+# ACTIONS - Response to policy violations
+# ============================================================================
+# Actions are commands executed when policies trigger. Convention: place scripts
+# in .cupcake/actions/ directory named by rule_id for auto-discovery.
+
+actions:
+  # Actions that run on ANY policy denial
+  # on_any_denial:
+  #   - command: "echo 'Policy violation detected' >> audit.log"
+  
+  # Rule-specific actions (by rule_id)
+  # by_rule_id:
+  #   SECURITY-001:
+  #     - command: "notify-team --severity high"
+  #   LINT-001:
+  #     - command: "echo 'Code style violation'"
+
+  # Note: Scripts in .cupcake/actions/ are auto-mapped by filename
+  # File actions/SECURITY-001.sh triggers for rule_id: SECURITY-001
+
+# ============================================================================
+# BUILTINS - Higher-level policy abstractions
+# ============================================================================
+# Builtins provide common security patterns without writing Rego policies.
+# Each builtin can be enabled/disabled and configured independently.
+#
+# IMPORTANT: Builtins are ENABLED BY DEFAULT when configured. 
+# Simply configuring a builtin (even with just empty settings) enables it.
+# To disable, either remove the configuration or set 'enabled: false'.
+#
+# FILE PROTECTION BUILTINS (Three-Tier System):
+# 1. global_file_lock: Prevents ALL writes session-wide (most restrictive)
+# 2. protected_paths: Makes specific paths read-only (read allowed, write blocked)
+# 3. rulebook_security_guardrails: Total lockdown of paths (no read OR write)
+
+# ============================================================================
+# USAGE NOTES
+# ============================================================================
+# 1. Builtins are processed BEFORE custom policies, allowing you to set
+#    foundational rules that custom policies can build upon.
+#
+# 2. Signal commands are executed with 'sh -c' and should output valid JSON
+#    for structured data, or plain text for simple strings.
+#
+# 3. All paths are relative to the project root (parent of .cupcake/)
+#
+# 4. Builtin policies are located in .cupcake/policies/builtins/ and are
+#    only compiled when their corresponding builtin is enabled.
+#
+# 5. For debugging, set RUST_LOG=debug when running Cupcake to see detailed
+#    information about builtin activation and signal execution.
+#
+# 6. LIMITATION: Due to Claude Code hook limitations, context can only be
+#    injected on UserPromptSubmit and SessionStart events. PreToolUse events
+#    do not support context injection.
+
+builtins:
+  # ---------------------------------------------------------------------------
+  # ALWAYS_INJECT_ON_PROMPT - Add context to every user prompt
+  # ---------------------------------------------------------------------------
+  # Inject additional context with every user interaction. Useful for project
+  # guidelines, current state awareness, or team conventions.
+  # Note: Builtins are enabled by default when configured. Use 'enabled: false' to disable.
+  
+  # always_inject_on_prompt:
+  #   # enabled: true  # Optional - defaults to true when configured
+  #   context:
+  #     # Static text context
+  #     - "Follow SOLID principles and write comprehensive tests"
+  #     - "This is a production system - be careful with database changes"
+  #     
+  #     # Dynamic context from command
+  #     - command: "git status --short"
+  #     - command: "date '+Today is %A, %B %d'"
+  #     
+  #     # Context from file
+  #     - file: ".cupcake/coding-standards.md"
+  #     - file: "docs/current-sprint-goals.md"
+
+  # ---------------------------------------------------------------------------
+  # GLOBAL_FILE_LOCK - Session-wide write prevention
+  # ---------------------------------------------------------------------------
+  # Completely prevent ALL file modifications for the entire session. Useful for 
+  # code review, learning/exploration, or when you want to ensure zero changes.
+  # This is the most restrictive option - blocks all write operations globally.
+  
+  # global_file_lock:
+  #   message: "File editing is disabled globally by policy"
+  #   # enabled: false  # Uncomment to explicitly disable
+
+  # ---------------------------------------------------------------------------
+  # GIT_PRE_CHECK - Enforce checks before git operations
+  # ---------------------------------------------------------------------------
+  # Run validation before allowing git commits, pushes, or merges. Ensures
+  # code quality and prevents broken commits from entering the repository.
+  
+  git_pre_check:
+    enabled: true
+    checks:
+      - command: "echo Validation passed"
+        message: "Basic validation check"
+        
+    # Optional: only apply to certain operations
+    # operations: ["commit", "push"]  # skip for merge
+
+  # ---------------------------------------------------------------------------
+  # POST_EDIT_CHECK - Validate files after modification
+  # ---------------------------------------------------------------------------
+  # Run language-specific validation after files are edited. Provides immediate
+  # feedback about syntax errors, type issues, or style violations.
+  
+  # post_edit_check:
+  #   # enabled: true  # Optional - defaults to true when configured
+  #   # Checks by file extension
+  #   by_extension:
+  #     "rs":
+  #       command: "cargo check --message-format short"
+  #       message: "Rust compilation check"
+  #     
+  #     "py":
+  #       command: "python -m py_compile"
+  #       message: "Python syntax validation"
+  #     
+  #     "tsx":
+  #       command: "npx tsc --noEmit"
+  #       message: "TypeScript type checking"
+  #     
+  #     "jsx":
+  #       command: "npx eslint --quiet"
+  #       message: "ESLint validation"
+  #     
+  #     "go":
+  #       command: "go fmt && go vet"
+  #       message: "Go format and vet check"
+  #   
+  #   # Checks by glob pattern (future enhancement)
+  #   # by_pattern:
+  #   #   "src/**/*.test.ts":
+  #   #     command: "npm test -- --findRelatedTests"
+  #   #     message: "Running related tests"
+
+  # ---------------------------------------------------------------------------
+  # GIT_BLOCK_NO_VERIFY - Prevent bypassing git commit hooks
+  # ---------------------------------------------------------------------------
+  # Blocks git commands that use --no-verify flag to bypass pre-commit hooks.
+  # This ensures code quality checks, linting, and security scans always run.
+  
+  git_block_no_verify:
+    enabled: true
+    message: "Git operations with --no-verify are not permitted"
+    # Optional: Add exceptions for specific environments
+    # exceptions:
+    #   - "CI_ENVIRONMENT"
+  
+  # ---------------------------------------------------------------------------
+  # ENFORCE_FULL_FILE_READ - Require complete file reads
+  # ---------------------------------------------------------------------------
+  # Ensures Claude reads entire files (up to a configurable limit) before
+  # processing. Prevents partial reads that might miss important context.
+  # Files larger than max_lines can still use offset/limit parameters.
+  
+  # enforce_full_file_read:
+  #   enabled: true
+  #   max_lines: 2000  # Files under this size must be read completely
+  #   message: "Please read the entire file first (files under 2000 lines must be read completely)"
+
+  # ---------------------------------------------------------------------------
+  # PROTECTED_PATHS - User-defined read-only paths
+  # ---------------------------------------------------------------------------
+  # Declare specific files or directories as read-only while still allowing
+  # Claude to read and analyze them. Supports glob patterns. Uses a WHITELIST
+  # approach for bash commands - only known-safe read operations are allowed.
+  
+  protected_paths:
+    enabled: true
+    message: "System path modification blocked by policy"
+    paths:
+      - "/etc/"
+      - "/System/"  
+      - "~/.ssh/"
+      
+    # Note: Read operations (cat, grep, less, etc.) are allowed
+    # Write operations (edit, rm, mv, sed -i, etc.) are blocked
+
+  # ---------------------------------------------------------------------------
+  # RULEBOOK_SECURITY_GUARDRAILS - Cupcake configuration protection
+  # ---------------------------------------------------------------------------
+  # Protects the .cupcake directory and other critical paths from any 
+  # modification or inspection. This is the highest security level - blocks
+  # BOTH read and write operations. Essential for protecting Cupcake's own
+  # configuration and sensitive system files.
+  
+  rulebook_security_guardrails:
+    message: "Cupcake configuration files are protected from modification"
+    # Protected paths (defaults to [".cupcake/"] if not specified)
+    protected_paths:
+      - ".cupcake/"
+      - ".git/hooks/"
+      # - "secrets/"  # Add your own sensitive directories
+

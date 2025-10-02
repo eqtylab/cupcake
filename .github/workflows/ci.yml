@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, v0.1.0]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install OPA (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Download and install OPA v1.7.1
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            # GitHub Actions runners are still x64, not ARM
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_darwin_amd64
+          fi
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Install OPA (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Download OPA v1.7.1 for Windows
+          Write-Host "Downloading OPA..."
+          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
+
+          # Move to a directory in PATH
+          Write-Host "Moving OPA to System32..."
+          Move-Item opa.exe "C:\Windows\System32\opa.exe" -Force
+
+          # Verify installation
+          Write-Host "Verifying OPA installation..."
+          & opa version
+
+          # Double check it's accessible
+          Write-Host "Testing OPA accessibility..."
+          Get-Command opa
+
+          # Test OPA with a simple command
+          Write-Host "Testing OPA functionality..."
+          # Create a temp file since Windows PowerShell pipe doesn't work the same way
+          "package test" | Out-File -FilePath test.rego -Encoding UTF8
+          & opa parse test.rego
+          Remove-Item test.rego
+
+      - name: Install Claude CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Install Claude Code CLI from npm
+          npm install -g @anthropic-ai/claude-code
+
+          # Find where npm installed it and set the env var for tests
+          CLAUDE_PATH=$(which claude)
+          echo "Claude CLI installed at: $CLAUDE_PATH"
+          echo "CLAUDE_CLI_PATH=$CLAUDE_PATH" >> $GITHUB_ENV
+
+      - name: Install Claude CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Install Claude Code CLI from npm
+          npm install -g @anthropic-ai/claude-code
+
+          # Find where npm installed it and set the env var for tests
+          $claudePath = (Get-Command claude -ErrorAction SilentlyContinue).Path
+          if ($claudePath) {
+            Write-Host "Claude CLI installed at: $claudePath"
+            Add-Content -Path $env:GITHUB_ENV -Value "CLAUDE_CLI_PATH=$claudePath"
+          } else {
+            Write-Host "Warning: Claude CLI not found in PATH after npm install"
+          }
+
+      - name: Build release binary first
+        run: cargo build --release
+
+      - name: Run ALL tests including Claude integration
+        run: |
+          cargo test --features deterministic-tests
+        env:
+          CI: true
+          RUST_LOG: debug
+          CUPCAKE_GLOBAL_CONFIG: /nonexistent
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check

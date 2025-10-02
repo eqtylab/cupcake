@@ -1,0 +1,18 @@
+# Ignore Cupcake initialization files - these are created during evaluation
+.cupcake/
+
+# Ignore Claude Code settings - these are created during evaluation
+.claude/
+
+# Ignore any test outputs or temporary files
+*.log
+*.tmp
+test_results.txt
+
+# Ignore any compiled policy bundles
+bundle.tar.gz
+policies.wasm
+
+# Ignore MCP setup files
+.mcp.json
+CLAUDE.md

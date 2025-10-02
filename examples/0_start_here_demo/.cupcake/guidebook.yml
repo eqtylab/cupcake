@@ -1,0 +1,21 @@
+# Example guidebook demonstrating structured signals
+# Signals can output JSON for rich policy access
+
+signals:
+  # String signal example (outputs JSON string)
+  # git_branch: auto-discovered from signals/git_branch.sh → "main"
+  
+  # Structured signal example (auto-discovered script outputs JSON object)  
+  # test_status: auto-discovered from signals/test_status.sh → {"passing": false, "coverage": 87.5, ...}
+  
+  # Inline structured signal example
+  deployment_status:
+    command: 'echo "{\"environment\": \"staging\", \"healthy\": true, \"replicas\": 3}"'
+    
+    
+  # Simple string signal example
+  current_user:
+    command: "echo \"\\\"$(whoami)\\\"\""  # Outputs JSON string
+    
+
+# Actions are auto-discovered from actions/ directory by rule_id

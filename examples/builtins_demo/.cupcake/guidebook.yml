@@ -1,0 +1,41 @@
+# Cupcake Builtins Demo Configuration
+# This example demonstrates all 5 builtin abstractions in action
+
+# ============================================================================
+# BUILTINS - Higher-level policy abstractions
+# ============================================================================
+
+builtins:
+  # Block all file editing - useful for code review sessions
+  never_edit_files:
+    message: "File editing is disabled in this demo session"
+  
+  # Inject context on every user prompt
+  always_inject_on_prompt:
+    context:
+      - "This is a demo session showcasing Cupcake builtins"
+      - "All file edits are blocked for safety"
+  
+  # Pre-checks for git operations
+  git_pre_check:
+    checks:
+      - command: "echo 'Demo check 1 passed'"
+        message: "Basic validation"
+      - command: "test -f Cargo.toml"
+        message: "Cargo.toml must exist"
+  
+  # Post-edit validation (won't trigger since editing is blocked)
+  post_edit_check:
+    by_extension:
+      "rs":
+        command: "cargo check --message-format short 2>&1 || echo 'Syntax check'"
+        message: "Rust syntax validation"
+      "rego":
+        command: "opa fmt --list . 2>&1 || echo 'Format check'"
+        message: "OPA format check"
+
+# Traditional signals can still be defined alongside builtins
+signals:
+  demo_signal:
+    command: "echo '{\"demo\": true, \"timestamp\": \"2024-01-01\"}'"
+    timeout_seconds: 2

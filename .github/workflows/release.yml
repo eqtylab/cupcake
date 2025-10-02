@@ -1,0 +1,339 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v0.1.0)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Create the GitHub Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "## Changes since ${PREV_TAG}" > release_notes.md
+            git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD >> release_notes.md
+          else
+            echo "## Initial Release" > release_notes.md
+            echo "First release of Cupcake!" >> release_notes.md
+          fi
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo '# Unix/macOS' >> release_notes.md
+          echo 'curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.sh | sh' >> release_notes.md
+          echo '' >> release_notes.md
+          echo '# Windows PowerShell' >> release_notes.md
+          echo 'irm https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.ps1 | iex' >> release_notes.md
+          echo '```' >> release_notes.md
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: ${{ steps.get_version.outputs.version }}
+          body_path: release_notes.md
+          draft: true
+          prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+
+  # Build matrix for multiple platforms
+  build:
+    name: Build ${{ matrix.name }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    env:
+      OPA_VERSION: v1.7.1  # Centralized OPA version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS builds
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-intel
+            archive: tar.gz
+            
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-apple-silicon
+            archive: tar.gz
+
+          # Linux builds
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x64
+            archive: tar.gz
+            
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            name: linux-x64-musl
+            archive: tar.gz
+            use_cross: true
+            
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            name: linux-arm64
+            archive: tar.gz
+            use_cross: true
+
+          # Windows builds
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x64
+            archive: zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (native)
+        if: '!matrix.use_cross'
+        run: |
+          cargo build --profile dist --target ${{ matrix.target }} --bin cupcake
+
+      - name: Build (cross)
+        if: matrix.use_cross
+        run: |
+          cross build --profile dist --target ${{ matrix.target }} --bin cupcake
+
+      - name: Download OPA binary
+        if: runner.os != 'Windows'
+        run: |
+          case "${{ matrix.target }}" in
+            x86_64-apple-darwin)
+              OPA_BINARY="opa_darwin_amd64"
+              ;;
+            aarch64-apple-darwin)
+              OPA_BINARY="opa_darwin_arm64_static"
+              ;;
+            x86_64-unknown-linux-gnu)
+              OPA_BINARY="opa_linux_amd64_static"
+              ;;
+            x86_64-unknown-linux-musl)
+              OPA_BINARY="opa_linux_amd64_static"
+              ;;
+            aarch64-unknown-linux-gnu)
+              OPA_BINARY="opa_linux_arm64_static"
+              ;;
+          esac
+          
+          echo "Downloading OPA ${{ env.OPA_VERSION }} - ${OPA_BINARY}"
+          # Download with original filename for checksum verification
+          curl -L -o "${OPA_BINARY}" "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}"
+          curl -L -o "${OPA_BINARY}.sha256" "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}.sha256"
+          
+          # Verify checksum with original filename
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            shasum -a 256 -c "${OPA_BINARY}.sha256"
+          else
+            sha256sum -c "${OPA_BINARY}.sha256"
+          fi
+          
+          # Rename to opa after successful verification
+          mv "${OPA_BINARY}" opa
+          chmod +x opa
+          echo "OPA_BINARY_PATH=$(pwd)/opa" >> $GITHUB_ENV
+
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          ARCHIVE_NAME="cupcake-${VERSION}-${{ matrix.target }}"
+          mkdir -p "${ARCHIVE_NAME}/bin"
+          
+          # Copy binary
+          cp "target/${{ matrix.target }}/dist/cupcake" "${ARCHIVE_NAME}/bin/"
+          chmod +x "${ARCHIVE_NAME}/bin/cupcake"
+          
+          # Copy bundled OPA
+          cp "${OPA_BINARY_PATH}" "${ARCHIVE_NAME}/bin/opa"
+          chmod +x "${ARCHIVE_NAME}/bin/opa"
+          
+          # Copy documentation
+          cp README.md LICENSE "${ARCHIVE_NAME}/"
+          
+          # Create archive
+          tar czf "${ARCHIVE_NAME}.tar.gz" "${ARCHIVE_NAME}"
+          
+          # Generate checksum
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            shasum -a 256 "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
+          else
+            sha256sum "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
+          fi
+          
+          echo "ARCHIVE_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          echo "CHECKSUM_PATH=${ARCHIVE_NAME}.tar.gz.sha256" >> $GITHUB_ENV
+
+      - name: Download OPA binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $OPA_BINARY = "opa_windows_amd64.exe"
+          
+          Write-Host "Downloading OPA ${{ env.OPA_VERSION }} - ${OPA_BINARY}"
+          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}" -OutFile "opa.exe"
+          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}.sha256" -OutFile "opa.exe.sha256"
+          
+          # Verify checksum
+          $expectedHash = (Get-Content "opa.exe.sha256" -Raw).Split(' ')[0]
+          $actualHash = (Get-FileHash -Path "opa.exe" -Algorithm SHA256).Hash.ToLower()
+          if ($expectedHash -ne $actualHash) {
+              throw "OPA checksum verification failed"
+          }
+          
+          echo "OPA_BINARY_PATH=$(pwd)\opa.exe" >> $env:GITHUB_ENV
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.create-release.outputs.version }}"
+          $ARCHIVE_NAME = "cupcake-${VERSION}-${{ matrix.target }}"
+          
+          New-Item -ItemType Directory -Path "${ARCHIVE_NAME}/bin" -Force
+          
+          # Copy binary
+          Copy-Item "target/${{ matrix.target }}/dist/cupcake.exe" "${ARCHIVE_NAME}/bin/"
+          
+          # Copy bundled OPA
+          Copy-Item "${env:OPA_BINARY_PATH}" "${ARCHIVE_NAME}/bin/opa.exe"
+          
+          # Copy documentation
+          Copy-Item "README.md", "LICENSE" "${ARCHIVE_NAME}/"
+          
+          # Create archive
+          Compress-Archive -Path "${ARCHIVE_NAME}" -DestinationPath "${ARCHIVE_NAME}.zip"
+          
+          # Generate checksum
+          $hash = Get-FileHash -Path "${ARCHIVE_NAME}.zip" -Algorithm SHA256
+          "$($hash.Hash.ToLower())  ${ARCHIVE_NAME}.zip" | Out-File -FilePath "${ARCHIVE_NAME}.zip.sha256" -Encoding ASCII
+          
+          echo "ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $env:GITHUB_ENV
+          echo "CHECKSUM_PATH=${ARCHIVE_NAME}.zip.sha256" >> $env:GITHUB_ENV
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ARCHIVE_PATH }}
+          asset_name: ${{ env.ARCHIVE_PATH }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.CHECKSUM_PATH }}
+          asset_name: ${{ env.CHECKSUM_PATH }}
+          asset_content_type: text/plain
+
+  # Generate combined checksums file
+  checksums:
+    name: Generate Combined Checksums
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          
+          # Download all checksums from the release
+          for target in x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu x86_64-unknown-linux-musl aarch64-unknown-linux-gnu x86_64-pc-windows-msvc; do
+            # Determine extension
+            if [[ "$target" == *"windows"* ]]; then
+              ext="zip"
+            else
+              ext="tar.gz"
+            fi
+            
+            # Try to download checksum
+            curl -sL -o "cupcake-${VERSION}-${target}.${ext}.sha256" \
+              "https://github.com/${{ github.repository }}/releases/download/${VERSION}/cupcake-${VERSION}-${target}.${ext}.sha256" || true
+          done
+          
+          # Combine all checksums
+          cat *.sha256 > SHA256SUMS 2>/dev/null || echo "No checksums found" > SHA256SUMS
+
+      - name: Upload Combined Checksums
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: SHA256SUMS
+          asset_name: SHA256SUMS
+          asset_content_type: text/plain
+
+  # Finalize the release
+  finalize:
+    name: Finalize Release
+    needs: [create-release, build, checksums]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish Release
+        run: |
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release_id }}" \
+            -d '{"draft": false}'

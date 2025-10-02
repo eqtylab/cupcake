@@ -1,3 +1,5 @@
+progress_logs
+
 # Rust build artifacts
 /target/
 **/*.rs.bk
@@ -6,6 +8,9 @@
 # OPA build artifacts
 bundle.tar.gz
 *.wasm
+**/.cupcake/.manifest
+**/.cupcake/data.json
+**/.cupcake/optimized/
 
 # IDE
 .vscode/
@@ -26,3 +31,51 @@ tmp/
 temp/
 
 archive/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Maturin/PyO3
+cupcake-py/target/
+cupcake-py/build/
+cupcake-py/dist/
+cupcake-py/*.so
+cupcake-py/*.pyd
+cupcake-py/*.dll
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Disabled test files (temporary)
+*.disabled
+
+
+MANUAL_TEST_PROCEDURES.md

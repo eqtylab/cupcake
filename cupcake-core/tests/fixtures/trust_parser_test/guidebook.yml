@@ -1,0 +1,10 @@
+signals:
+  explicit_signal:
+    command: "echo 'I am explicit'"
+
+actions:
+  on_any_denial:
+    - command: "echo 'Global action'"
+  by_rule_id:
+    RULE-001:
+      - command: "echo 'Rule specific'"

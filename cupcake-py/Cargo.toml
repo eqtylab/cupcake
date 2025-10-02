@@ -1,0 +1,31 @@
+[package]
+name = "cupcake-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Python bindings for Cupcake - governance and augmentation orchestrator for agentic AI"
+
+[lib]
+name = "cupcake_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Core library
+cupcake-core = { workspace = true }
+
+# Python bindings
+pyo3 = { version = "0.26", features = ["extension-module", "abi3-py39"] }
+
+# Required for some async operations
+tokio = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+[build-dependencies]
+pyo3-build-config = "0.26"
+
+# Package metadata for maturin
+[package.metadata.maturin]
+python-source = "python"
+module-name = "cupcake.cupcake_native"

@@ -1,0 +1,36 @@
+[package]
+name = "cupcake-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI for Cupcake - governance and augmentation orchestrator for agentic AI"
+
+[dependencies]
+# Core library
+cupcake-core = { workspace = true }
+
+# CLI
+clap = { version = "4.5.41", features = ["derive"] }
+directories = { workspace = true }
+dirs = { workspace = true }
+
+# Core dependencies needed for CLI
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Table display
+tabled = "0.15"
+
+[[bin]]
+name = "cupcake"
+path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[features]
+deterministic-tests = ["cupcake-core/deterministic-tests"]

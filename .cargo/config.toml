@@ -1,0 +1,13 @@
+[alias]
+t = "test --workspace --features cupcake-core/deterministic-tests"
+test-deterministic = "test --workspace --features cupcake-core/deterministic-tests"
+build-dist = "build --profile dist --bin cupcake"
+
+# Distribution profile for optimized release builds
+[profile.dist]
+inherits = "release"
+lto = "fat"           # Enable full link-time optimization
+codegen-units = 1     # Single codegen unit for better optimization
+strip = true          # Strip symbols for smaller binaries
+panic = "abort"       # Smaller panic handler
+opt-level = 3         # Maximum optimization

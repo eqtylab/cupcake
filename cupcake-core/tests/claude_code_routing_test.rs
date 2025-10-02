@@ -267,7 +267,10 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 
     // Print stderr even on success to catch hook errors
     if !output.stderr.is_empty() {
-        eprintln!("[DEBUG] Claude stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+        eprintln!(
+            "[DEBUG] Claude stderr:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     if !output.status.success() {

@@ -868,21 +868,6 @@ impl Engine {
             .gather_signals(input, &matched_policies, debug_capture.as_deref_mut())
             .await?;
 
-        // Debug output for testing
-        if let Some(params) = input.get("params") {
-            if let Some(file_path) = params.get("file_path") {
-                if let Some(path_str) = file_path.as_str() {
-                    if path_str.ends_with(".fail") {
-                        eprintln!(
-                            "DEBUG: Enriched input for .fail file: {}",
-                            serde_json::to_string_pretty(&enriched_input)
-                                .unwrap_or_else(|_| "failed to serialize".to_string())
-                        );
-                    }
-                }
-            }
-        }
-
         // Step 3: Evaluate using single aggregation entrypoint with enriched input
         debug!("About to evaluate decision set with enriched input");
         let decision_set = self.evaluate_decision_set(&enriched_input).await?;

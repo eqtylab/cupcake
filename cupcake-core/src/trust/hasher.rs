@@ -83,15 +83,13 @@ pub fn derive_trust_key(project_path: &Path) -> Result<[u8; 32]> {
         // This ensures the same project generates the same key whether accessed via
         // the symlink (/var) or the real path (/private/var)
         let path_str = project_path.to_string_lossy();
-        let normalized_path_str =
-            if path_str.starts_with("/var/") && !path_str.starts_with("/var/folders/") {
-                path_str.to_string()
-            } else if path_str.starts_with("/var/folders/") {
-                // Handle the specific case of macOS temp directories
-                path_str.replace("/private/var/folders/", "/var/folders/")
-            } else {
-                path_str.to_string()
-            };
+        let normalized_path_str = if path_str.starts_with("/private/var/folders/") {
+            // Strip /private prefix from macOS temp directories for consistent key derivation
+            path_str.replace("/private/var/folders/", "/var/folders/")
+        } else {
+            // All other paths remain unchanged
+            path_str.to_string()
+        };
 
         // Add executable path
         if let Ok(exe_path) = std::env::current_exe() {

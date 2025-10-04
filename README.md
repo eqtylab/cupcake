@@ -21,13 +21,13 @@ Cupcake is a **policy enforcment** and **early warning** system for AI agents. I
 
 ## Agent Policy Enforcement
 
-> Currently in beta with first-class support for Claude Code; designed to be agent-agnostic.
+_Currently in beta with first-class support for Claude Code; designed to be agent-agnostic._
 
-## How It Works
+### How It Works
 
 Cupcake runs in the agent hook path and can inject context for nuanced, behavior-guiding prompts.
 
-### Core Capabilities
+#### Core Capabilities
 
 **Block any tool call**  
 Prevent the use of specific tools or commands based on your policies.
@@ -48,17 +48,17 @@ Cupcake provides first-class support for: `NeMo` and `Invariant` guardrails.
 
 It works with the rules you already write (`CLAUDE.md`, `AGENT.md`, `.cursor/rules`) and turns them into **enforceable guardrails**.
 
-### Three Principles
+#### Three Principles
 
-#### Start with plain English
+##### Start with plain English
 
 Cupcake works out of the box with the rules you've already written. Run a single command to get up and running to create the guardrails and automatic feedback to make your agents work better.
 
-#### Powerful Governance-as-Code
+##### Governance-as-Code
 
 Under the hood, rules become OPA/Rego policies compiled to WebAssembly for fast, sandboxed checks — including context aware _signals_ to enable intelligent decision making.
 
-#### Enterprise-Ready Security
+##### Enterprise-Ready Security
 
 Enforce consistent allow / deny / require-review decisions, monitor for violations, and prevent dangerous operations like deleting production data or exposing secrets.
 

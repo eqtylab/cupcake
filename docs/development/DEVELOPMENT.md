@@ -3,6 +3,7 @@
 ## Architecture: The Hybrid Model
 
 Cupcake implements a **Hybrid Model** where:
+
 - **Rego (WASM)**: Declares policies, evaluates rules, returns decision verbs
 - **Rust (Engine)**: Routes events, gathers signals, synthesizes final decisions
 
@@ -48,6 +49,7 @@ Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
 ### Core Components
 
 1. **Engine** (`src/engine/`)
+
    - Scanner: Discovers `.rego` files
    - Metadata Parser: Extracts routing from `# METADATA` blocks
    - Router: O(1) event-to-policy matching
@@ -56,6 +58,7 @@ Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
    - Synthesis: Applies decision priority hierarchy
 
 2. **Harness** (`src/harness/`)
+
    - Events: Strongly-typed Claude Code structures
    - Response: Spec-compliant JSON builders
    - Pure data transformation layer
@@ -184,10 +187,10 @@ Actions execute asynchronously after decision synthesis:
 actions:
   on_any_denial:
     - command: "echo 'Action denied' | tee -a /tmp/cupcake.log"
-  
+
   on_halt:
     - command: "notify-send 'Cupcake' 'Critical action halted'"
-  
+
   violations:
     BASH-001:
       - command: "alert-security-team.sh"
@@ -212,6 +215,7 @@ CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq 'select(.span.duration_ms > 10)'
 ```
 
 Tracing provides:
+
 - Unique trace IDs for each evaluation
 - Timing measurements for all operations
 - Policy routing and matching details
@@ -318,6 +322,7 @@ cupcake trust verify
 ### "Missing hookEventName in input"
 
 Ensure your JSON includes Claude Code's standard fields:
+
 - `hook_event_name` or `hookEventName`
 - `session_id`, `transcript_path`, `cwd`
 - Hook-specific fields (e.g., `tool_name`, `tool_input`)
@@ -336,6 +341,7 @@ Non-system policies must have metadata with routing:
 ### "OPA compilation failed"
 
 Use OPA v1.0 syntax:
+
 - `import rego.v1` at the top
 - `if` keyword in rule bodies
 - `contains` for set operations
@@ -343,6 +349,7 @@ Use OPA v1.0 syntax:
 ### "Trust manifest verification failed"
 
 Run tests with the deterministic flag:
+
 ```bash
 cargo test --features deterministic-tests
 ```
@@ -368,3 +375,56 @@ cargo test --features deterministic-tests
 - `src/trust/CLAUDE.md` - Trust system implementation details
 - `tests/CLAUDE.md` - Testing requirements
 - `examples/0_start_here_demo/` - Complete working examples
+
+### General
+
+## Development
+
+### Running Tests
+
+**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag AND with global config disabled. This ensures:
+
+1. Deterministic HMAC key generation for reliable test execution
+2. No interference from developer's personal Cupcake configuration
+
+```bash
+# Run all tests (REQUIRED for correct behavior)
+CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --features deterministic-tests
+
+# Or use the Just commands (automatically handles both requirements)
+just test              # Run all tests
+just test-unit        # Run unit tests only
+just test-integration # Run integration tests only
+just test-one <name>  # Run specific test
+
+# Alias for quick testing
+cargo t  # Configured alias that includes required flags
+```
+
+### Releasing
+
+To create a new release, push a version tag: `git tag v0.1.8 && git push origin v0.1.8`. See [Development Guide](./docs/development/DEVELOPMENT.md#release-process) for details.
+
+#### Why Global Config Must Be Disabled
+
+If you use Cupcake as a developer, you likely have a global configuration at `~/Library/Application Support/cupcake` (macOS) or `~/.config/cupcake` (Linux). This global config is designed to override project configs for organizational policy enforcement.
+
+However, during testing, this causes issues:
+
+- Tests expect specific builtin configurations
+- Global configs override the test's project configs
+- Tests fail with unexpected policy decisions
+
+Setting `CUPCAKE_GLOBAL_CONFIG=/nonexistent` ensures tests run in isolation. Global tests that need global configs create their own temporary configurations.
+
+The feature flag ensures deterministic HMAC key generation for reliable test execution. Without it, integration tests will experience race conditions and cryptographic verification failures due to non-deterministic key derivation in production mode.
+
+### Building
+
+```bash
+# Development build
+cargo build
+
+# Release build
+cargo build --release
+```

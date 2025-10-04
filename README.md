@@ -10,24 +10,57 @@
 > Make your AI agents follow your rules
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-Start%20here-brightgreen)](./docs/README.md)
+[![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Cupcake is a **policy engine** for AI coding agents. It works with the rules you already write (`CLAUDE.md`, `AGENT.md`, `.cursor/rules`) and turns them into **enforceable guardrails**.
+Cupcake is a **policy enforcment** and **early warning** system for AI agents. It is a performance enhancer as well as security tool at the cost of 0 context.
 
-- **Start with plain English.** Cupcake works out of the box with the rules you've already written. Run a single command to get up and running to create the guardrails and automatic feedback to make your agents work better.
-- **Powerful Governance-as-Code.** Under the hood, rules become OPA/Rego policies compiled to WebAssembly for fast, sandboxed checks — including context aware _signals_ to enable intelligent decision making.
-- **Enterprise-Ready Security.** enforce consistent allow / deny / require-review decisions, monitor for violations, and prevent dangerous operations like deleting production data or exposing secrets.
+- **Make agents follow your rules in deterministic fashion.**
+- **Be alerted when an agent continously violates rules.**
+- **Cupcake enables your agents to perform better without added context; and even reduces context spent on describing rules.**
+
+## Agent Policy Enforcement
+
+> Currently in beta with first-class support for Claude Code; designed to be agent-agnostic.
+
+## How It Works
 
 Cupcake runs in the agent hook path and can inject context for nuanced, behavior-guiding prompts.
 
-- **Block any tool call**: Prevent the use of specific tools or commands based on your policies.
-- **Behavioral Guidance**: Inject context and reminders directly into Claude's awareness.
-- **MCP Support**: Works seamlessly with Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
-- **LLM as a Judge**: Cupcake makes it easy to integrate other AI agents/LLMs to review actions.
-- **Guardrail Libraries**: Cupcake provides first-class support for: `NeMo` and `Invariant` guardrails.
+### Core Capabilities
 
-> Currently in beta with first-class support for Claude Code; designed to be agent-agnostic.
+**Block any tool call**  
+Prevent the use of specific tools or commands based on your policies.
+
+**Behavioral Guidance**  
+Inject context and reminders directly into Claude's awareness.
+
+**MCP Support**  
+Works seamlessly with Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
+
+**LLM as a Judge**  
+Cupcake makes it easy to integrate other AI agents/LLMs to review actions.
+
+**Guardrail Libraries**  
+Cupcake provides first-class support for: `NeMo` and `Invariant` guardrails.
+
+---
+
+It works with the rules you already write (`CLAUDE.md`, `AGENT.md`, `.cursor/rules`) and turns them into **enforceable guardrails**.
+
+### Three Principles
+
+#### Start with plain English
+
+Cupcake works out of the box with the rules you've already written. Run a single command to get up and running to create the guardrails and automatic feedback to make your agents work better.
+
+#### Powerful Governance-as-Code
+
+Under the hood, rules become OPA/Rego policies compiled to WebAssembly for fast, sandboxed checks — including context aware _signals_ to enable intelligent decision making.
+
+#### Enterprise-Ready Security
+
+Enforce consistent allow / deny / require-review decisions, monitor for violations, and prevent dangerous operations like deleting production data or exposing secrets.
 
 [Getting Started](#getting-started) · [Examples](./examples) · [Policy Author’s Guide](./POLICIES.md) · [Security Model](./docs/SECURITY.md) · [Roadmap](./ROADMAP.md)
 
@@ -73,52 +106,3 @@ Simple examples:
   - `"Block storing sensitive data in MCP memory tools."`
   - `"Require confirmation for destructive MCP GitHub operations."`
   - `"Prevent MCP filesystem access to system directories."`
-
-## Development
-
-### Running Tests
-
-**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag AND with global config disabled. This ensures:
-1. Deterministic HMAC key generation for reliable test execution
-2. No interference from developer's personal Cupcake configuration
-
-```bash
-# Run all tests (REQUIRED for correct behavior)
-CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --features deterministic-tests
-
-# Or use the Just commands (automatically handles both requirements)
-just test              # Run all tests
-just test-unit        # Run unit tests only
-just test-integration # Run integration tests only
-just test-one <name>  # Run specific test
-
-# Alias for quick testing
-cargo t  # Configured alias that includes required flags
-```
-
-### Releasing
-
-To create a new release, push a version tag: `git tag v0.1.8 && git push origin v0.1.8`. See [Development Guide](./docs/development/DEVELOPMENT.md#release-process) for details.
-
-#### Why Global Config Must Be Disabled
-
-If you use Cupcake as a developer, you likely have a global configuration at `~/Library/Application Support/cupcake` (macOS) or `~/.config/cupcake` (Linux). This global config is designed to override project configs for organizational policy enforcement.
-
-However, during testing, this causes issues:
-- Tests expect specific builtin configurations
-- Global configs override the test's project configs
-- Tests fail with unexpected policy decisions
-
-Setting `CUPCAKE_GLOBAL_CONFIG=/nonexistent` ensures tests run in isolation. Global tests that need global configs create their own temporary configurations.
-
-The feature flag ensures deterministic HMAC key generation for reliable test execution. Without it, integration tests will experience race conditions and cryptographic verification failures due to non-deterministic key derivation in production mode.
-
-### Building
-
-```bash
-# Development build
-cargo build
-
-# Release build
-cargo build --release
-```

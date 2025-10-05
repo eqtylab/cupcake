@@ -7,102 +7,94 @@
 
 # Cupcake
 
-> Make your AI agents follow your rules
+> Make AI agents follow the rules.
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Cupcake is a **policy enforcment** and **early warning** system for AI agents. It is a performance enhancer as well as security tool at the cost of 0 context.
+Cupcake is a **policy enforcement** and **early‑warning** layer for AI agents. It strengthens security and reliability **without consuming model context**.
 
-- **Make agents follow your rules in deterministic fashion.**
-- **Be alerted when an agent continously violates rules.**
-- **Cupcake enables your agents to perform better without added context; and even reduces context spent on describing rules.**
+- **Deterministic rule‑following** for your agents.
+- **Immediate alerts** when an agent repeatedly violates policies.
+- **Higher performance with less boilerplate**, by moving rules out of prompts and into guardrails.
 
-## Agent Policy Enforcement
+## Why Cupcake?
 
-_Currently in beta with first-class support for Claude Code; designed to be agent-agnostic._
+Modern agents are powerful but inconsistent at following operational and security rules, especially as prompts grow. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
 
-### How It Works
+- **Agent‑agnostic design** with first‑class support for **Claude Code hooks**.
+- **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
+- **Enterprise‑ready** controls: allow/deny/review, audit trails, and proactive warnings.
 
-Cupcake runs in the agent hook path and can inject context for nuanced, behavior-guiding prompts.
+## How it Works
 
-#### Core Capabilities
+Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file, call a tool), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
 
-**Block any tool call**  
-Prevent the use of specific tools or commands based on your policies.
+**Allow** · **Block** · **Warn** (and optionally **Require Review**)
 
-**Behavioral Guidance**  
-Inject context and reminders directly into Claude's awareness.
+```text
+Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
+```
 
-**MCP Support**  
-Works seamlessly with Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
+### Core Capabilities
 
-**LLM as a Judge**  
-Cupcake makes it easy to integrate other AI agents/LLMs to review actions.
+- **Block specific tool calls**
+  Prevent use of particular tools or arguments based on policy.
 
-**Guardrail Libraries**  
-Cupcake provides first-class support for: `NeMo` and `Invariant` guardrails.
+- **Behavioral guidance**
+  Inject lightweight, contextful reminders back to the agent (e.g., "run tests before pushing").
 
----
+- **MCP support**
+  Govern Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
 
-It works with the rules you already write (`CLAUDE.md`, `AGENT.md`, `.cursor/rules`) and turns them into **enforceable guardrails**.
+- **LLM‑as‑Judge**
+  Chain in a review step by another model/agent when policies say a human‑style check is needed.
 
-#### Three Principles
+- **Guardrail libraries**
+  First‑class integrations with `NeMo` and `Invariant` for content and safety checks.
 
-##### Start with plain English
+- **Signals (real‑time context)**
+  Pull facts from the environment (current Git branch, changed files, deployment target, etc.) and make policy decisions on them.
 
-Cupcake works out of the box with the rules you've already written. Run a single command to get up and running to create the guardrails and automatic feedback to make your agents work better.
+## Architecture
 
-##### Governance-as-Code
+- **Policies**: OPA/Rego compiled to **WASM** and executed in a sandbox.
+- **Signals**: Extensible providers (Git, CI, DB metadata, feature flags) available to policy via `input.signals`.
+- **Decisions**: `allow | block | warn | require_review` plus a human‑readable message.
+- **Observability**: Structured logs and optional evaluation traces for debugging.
 
-Under the hood, rules become OPA/Rego policies compiled to WebAssembly for fast, sandboxed checks — including context aware _signals_ to enable intelligent decision making.
+```jsonc
+// Example input passed to policy evaluation
+{
+  "kind": "shell", // action type (shell, fs_read, fs_write, mcp_call, ...)
+  "command": "git push",
+  "args": [],
+  "signals": { "tests_passed": false, "git_branch": "feature/x" },
+  "actor": { "id": "agent-1", "session": "abc123" }
+}
+```
 
-##### Enterprise-Ready Security
+## Security Model
 
-Enforce consistent allow / deny / require-review decisions, monitor for violations, and prevent dangerous operations like deleting production data or exposing secrets.
+- **Sandboxed evaluation** of untrusted inputs.
+- **Allow‑by‑default** or **deny‑by‑default** modes configurable per project.
+- **No secret ingestion** by default; policies can only read what signals expose.
+- **Auditability** through logs and optional review workflows.
 
-[Getting Started](#getting-started) · [Examples](./examples) · [Policy Author’s Guide](./POLICIES.md) · [Security Model](./docs/SECURITY.md) · [Roadmap](./ROADMAP.md)
+See the full [Security Model](./docs/SECURITY.md).
 
-## How It Works
+## FAQ
 
-Cupcake integrates with Claude Code's [hooks system](https://docs.anthropic.com/claude-code/docs/hooks-guide). When Claude is about to perform an action (like running a shell command or editing a file), it sends the details to Cupcake. Cupcake evaluates the action against your policies and instantly sends back a decision: **Allow**, **Block**, or **Warn**.
+**Does Cupcake consume prompt/context tokens?**
+No. Policies run outside the model and return structured decisions.
 
-This happens in milliseconds, providing seamless, real-time governance without interrupting the developer's flow.
+**Is Cupcake tied to a specific model?**
+No. It’s agent‑agnostic; Claude Code support ships first.
 
-## Core Features
+**How fast is evaluation?**
+Sub‑millisecond for cached policies in typical setups.
 
-- **Powerful Policy Engine**: Write policies in OPA Rego, the industry standard for policy-as-code. Go beyond simple patterns to express complex, context-aware rules.
-- **Real-Time Context**: Cupcake's "Signals" can gather facts from your environment—like the current Git branch or database info use them in policy decisions. (Similar for security-awareness circumstances)
-- **High Performance**: Sub-millisecond evaluation times for cached policies. A highly optimized WebAssembly (WASM) runtime ensures governance never slows you down.
-- **Production Ready**: Built with structured logging, robust error handling, a comprehensive test suite, and policy evaluation tracing to be a reliable and trusted part of your ai workflows.
+## License
 
-## Use Cases
-
-What can you build with Cupcake?
-
-- **Command Safety:**
-
-  - `"Block dangerous commands like 'rm -rf /'."`
-  - `"Require user confirmation before running any 'sudo' command."`
-
-- **Best Practice Reminders:**
-  - `"If the agent tries to commit code, remind it to run the linter first."`
-
-Simple examples:
-
-- **File and Directory Protection:**
-
-  - `"Prevent any edits to files inside the .aws/ or .ssh/ directories."`
-  - `"Allow file writes, but only to the src/ directory."`
-
-- **Git Workflow Enforcement:**
-
-  - `"Block 'git merge' if the current branch is not 'develop'."`
-  - `"Warn if 'git push' is attempted before tests have passed."`
-
-- **MCP Tool Governance:**
-
-  - `"Block storing sensitive data in MCP memory tools."`
-  - `"Require confirmation for destructive MCP GitHub operations."`
-  - `"Prevent MCP filesystem access to system directories."`
+[MIT](LICENSE)

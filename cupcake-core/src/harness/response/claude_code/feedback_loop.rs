@@ -1,4 +1,4 @@
-use crate::harness::response::types::{CupcakeResponse, EngineDecision};
+use crate::harness::response::types::{CupcakeResponse, EngineDecision, HookSpecificOutput};
 
 /// Builder for feedback loop hook responses
 ///
@@ -10,7 +10,8 @@ impl FeedbackLoopResponseBuilder {
     /// Build response for feedback loop events
     pub fn build(
         decision: &EngineDecision,
-        _hook_event: &str,
+        context_to_inject: Option<Vec<String>>,
+        hook_event: &str,
         suppress_output: bool,
     ) -> CupcakeResponse {
         let mut response = CupcakeResponse::empty();
@@ -22,8 +23,17 @@ impl FeedbackLoopResponseBuilder {
                 response.reason = Some(feedback.clone());
             }
             EngineDecision::Allow { .. } | EngineDecision::Ask { .. } => {
-                // Allow and Ask don't set any special fields for feedback events
-                // The empty response means allow by default
+                // For PostToolUse, allow context injection
+                if hook_event == "PostToolUse" {
+                    if let Some(contexts) = context_to_inject {
+                        if !contexts.is_empty() {
+                            response.hook_specific_output = Some(HookSpecificOutput::PostToolUse {
+                                additional_context: Some(contexts.join("\n")),
+                            });
+                        }
+                    }
+                }
+                // Stop and SubagentStop don't support context injection
             }
         }
 
@@ -45,7 +55,7 @@ mod tests {
         let decision = EngineDecision::Block {
             feedback: "Output format incorrect - please return JSON".to_string(),
         };
-        let response = FeedbackLoopResponseBuilder::build(&decision, "PostToolUse", false);
+        let response = FeedbackLoopResponseBuilder::build(&decision, None, "PostToolUse", false);
 
         assert_eq!(response.decision, Some("block".to_string()));
         assert_eq!(
@@ -59,7 +69,7 @@ mod tests {
     #[test]
     fn test_feedback_loop_allow() {
         let decision = EngineDecision::Allow { reason: None };
-        let response = FeedbackLoopResponseBuilder::build(&decision, "Stop", false);
+        let response = FeedbackLoopResponseBuilder::build(&decision, None, "Stop", false);
 
         // Allow produces empty response
         assert_eq!(response.decision, None);
@@ -69,11 +79,25 @@ mod tests {
     }
 
     #[test]
+    fn test_post_tool_use_with_context() {
+        let decision = EngineDecision::Allow { reason: None };
+        let context = vec!["File contains TODO on line 45".to_string()];
+        let response = FeedbackLoopResponseBuilder::build(&decision, Some(context), "PostToolUse", false);
+
+        match response.hook_specific_output {
+            Some(HookSpecificOutput::PostToolUse { additional_context }) => {
+                assert_eq!(additional_context, Some("File contains TODO on line 45".to_string()));
+            }
+            _ => panic!("Expected PostToolUse hook output"),
+        }
+    }
+
+    #[test]
     fn test_feedback_loop_with_suppress() {
         let decision = EngineDecision::Block {
             feedback: "Task incomplete".to_string(),
         };
-        let response = FeedbackLoopResponseBuilder::build(&decision, "SubagentStop", true);
+        let response = FeedbackLoopResponseBuilder::build(&decision, None, "SubagentStop", true);
 
         assert_eq!(response.decision, Some("block".to_string()));
         assert_eq!(response.reason, Some("Task incomplete".to_string()));
@@ -87,7 +111,7 @@ mod tests {
             let decision = EngineDecision::Block {
                 feedback: format!("Feedback for {event}"),
             };
-            let response = FeedbackLoopResponseBuilder::build(&decision, event, false);
+            let response = FeedbackLoopResponseBuilder::build(&decision, None, event, false);
 
             assert_eq!(response.decision, Some("block".to_string()));
             assert_eq!(response.reason, Some(format!("Feedback for {event}")));

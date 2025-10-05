@@ -36,6 +36,7 @@ impl ClaudeCodeResponseBuilder {
             | ClaudeCodeEvent::Stop(_)
             | ClaudeCodeEvent::SubagentStop(_) => FeedbackLoopResponseBuilder::build(
                 decision,
+                context_to_inject,
                 hook_event.event_name(),
                 suppress_output,
             ),
@@ -59,7 +60,7 @@ impl ClaudeCodeResponseBuilder {
                     suppress_output,
                 )
             }
-            ClaudeCodeEvent::Notification(_) => {
+            ClaudeCodeEvent::Notification(_) | ClaudeCodeEvent::SessionEnd(_) => {
                 GenericResponseBuilder::build(decision, suppress_output)
             }
         }

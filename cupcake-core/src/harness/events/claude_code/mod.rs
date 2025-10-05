@@ -4,6 +4,7 @@ mod notification;
 mod post_tool_use;
 mod pre_compact;
 mod pre_tool_use;
+mod session_end;
 mod session_start;
 mod stop;
 mod subagent_stop;
@@ -13,6 +14,7 @@ pub use notification::NotificationPayload;
 pub use post_tool_use::PostToolUsePayload;
 pub use pre_compact::PreCompactPayload;
 pub use pre_tool_use::PreToolUsePayload;
+pub use session_end::{SessionEndPayload, SessionEndReason};
 pub use session_start::SessionStartPayload;
 pub use stop::StopPayload;
 pub use subagent_stop::SubagentStopPayload;
@@ -66,6 +68,9 @@ pub enum ClaudeCodeEvent {
 
     /// Session start event
     SessionStart(SessionStartPayload),
+
+    /// Session end event
+    SessionEnd(SessionEndPayload),
 }
 
 /// Type of compaction trigger
@@ -97,6 +102,8 @@ pub enum SessionSource {
     Resume,
     /// After /clear command
     Clear,
+    /// After compact (auto or manual)
+    Compact,
 }
 
 impl std::fmt::Display for SessionSource {
@@ -105,6 +112,7 @@ impl std::fmt::Display for SessionSource {
             SessionSource::Startup => write!(f, "startup"),
             SessionSource::Resume => write!(f, "resume"),
             SessionSource::Clear => write!(f, "clear"),
+            SessionSource::Compact => write!(f, "compact"),
         }
     }
 }
@@ -161,6 +169,7 @@ impl ClaudeCodeEvent {
             ClaudeCodeEvent::PreCompact(payload) => &payload.common,
             ClaudeCodeEvent::UserPromptSubmit(payload) => &payload.common,
             ClaudeCodeEvent::SessionStart(payload) => &payload.common,
+            ClaudeCodeEvent::SessionEnd(payload) => &payload.common,
         }
     }
 
@@ -193,6 +202,7 @@ impl ClaudeCodeEvent {
             ClaudeCodeEvent::PreCompact { .. } => "PreCompact",
             ClaudeCodeEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
             ClaudeCodeEvent::SessionStart { .. } => "SessionStart",
+            ClaudeCodeEvent::SessionEnd { .. } => "SessionEnd",
         }
     }
 
@@ -355,11 +365,12 @@ mod tests {
 
     #[test]
     fn test_session_start_event() {
-        // Test all three source types according to Claude Code hooks.md
+        // Test all source types according to Claude Code hooks.md
         let test_cases = vec![
             ("startup", SessionSource::Startup),
             ("resume", SessionSource::Resume),
             ("clear", SessionSource::Clear),
+            ("compact", SessionSource::Compact),
         ];
 
         for (source_str, expected_source) in test_cases {
@@ -386,6 +397,7 @@ mod tests {
                         (SessionSource::Startup, SessionSource::Startup) => (),
                         (SessionSource::Resume, SessionSource::Resume) => (),
                         (SessionSource::Clear, SessionSource::Clear) => (),
+                        (SessionSource::Compact, SessionSource::Compact) => (),
                         _ => panic!("Source mismatch"),
                     }
                 }

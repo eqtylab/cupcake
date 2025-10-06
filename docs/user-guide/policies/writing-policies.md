@@ -253,17 +253,17 @@ Test policies directly with OPA:
 
 ```bash
 # Test a specific decision verb
-opa eval -d examples/policies -i input.json "data.cupcake.policies.bash_security.deny"
+opa eval -d .cupcake/policies -i input.json "data.cupcake.policies.bash_security.deny"
 
 # Test the full aggregation
-opa eval -d examples/policies -i input.json "data.cupcake.system.evaluate"
+opa eval -d .cupcake/policies -i input.json "data.cupcake.system.evaluate"
 ```
 
 Test with Cupcake:
 
 ```bash
 # Test specific scenario
-echo '{"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "sudo rm -rf /"}}' | cupcake eval --policy-dir examples/policies
+echo '{"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "sudo rm -rf /"}}' | cupcake eval --policy-dir .cupcake/policies
 ```
 
 ## Migration from Old Format

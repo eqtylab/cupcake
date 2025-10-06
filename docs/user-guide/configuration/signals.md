@@ -275,6 +275,7 @@ echo '{"branch": "main", "commit": "abc123", "dirty": false}'
 
 ## Examples
 
-See `examples/0_start_here_demo/.cupcake/signals/` for working signal implementations demonstrating:
-- Git repository information
-- Test execution results
+Example signal implementations can be created in your project's `.cupcake/signals/` directory:
+- Git branch detection: `git_branch.sh` returning current branch name
+- Test status: `test_status.sh` returning test execution results
+- Any custom shell script that outputs data for policy evaluation

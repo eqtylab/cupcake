@@ -105,10 +105,10 @@ CUPCAKE_TRACE=eval cargo run -- [args]      # Shows the main policy evaluation p
 CUPCAKE_TRACE=all cargo test --features deterministic-tests  # Shows everything (all engine components plus lower-level details)
 
 # Compile OPA policies to WASM (from project root)
-opa build -t wasm -e cupcake/system/evaluate examples/policies/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
 
-# Run cupcake with example policies
-cargo run -- examples/policies/
+# Run cupcake with policies
+cargo run -- eval --policy-dir .cupcake/policies
 ```
 
 ## Architecture Overview
@@ -189,7 +189,7 @@ The synthesis layer enforces strict priority: Halt > Deny/Block > Ask > Allow
 - `src/engine/synthesis.rs` - Decision synthesis (Intelligence Layer)
 - `src/engine/builtins.rs` - Builtin abstractions configuration
 - `src/harness/` - Claude Code response formatting
-- `examples/policies/system/evaluate.rego` - Mandatory aggregation entrypoint
+- `cupcake-core/tests/fixtures/system_evaluate.rego` - Reference system aggregation entrypoint
 - `fixtures/init/base-config.yml` - Template for builtin configuration
 
 ## Reference Documents
@@ -331,21 +331,21 @@ sprintf("%s %s", ["hello", "world"])
 
 ```bash
 # Test policies compile correctly
-opa build -t wasm -e cupcake/system/evaluate examples/policies/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
 
 # Validate specific policy syntax
-opa fmt --diff examples/policies/your-policy.rego
+opa fmt --diff .cupcake/policies/your-policy.rego
 ```
 
 #### 7. Audit Commands
 
 ```bash
 # Find potential object membership issues
-rg '".*" in [^o]' --type rego examples/policies/
-rg 'in [^o].*\{' --type rego examples/policies/
+rg '".*" in [^o]' --type rego .cupcake/policies/
+rg 'in [^o].*\{' --type rego .cupcake/policies/
 
 # Check for missing import rego.v1
-rg -L 'import rego\.v1' --type rego examples/policies/
+rg -L 'import rego\.v1' --type rego .cupcake/policies/
 ```
 
 ### 🎯 Metadata Best Practices
@@ -481,7 +481,7 @@ Enable detailed debug capture to `.cupcake/debug/` directory:
 
 ```bash
 # Set CUPCAKE_DEBUG_FILES to any value to enable
-CUPCAKE_DEBUG_FILES=1 cupcake eval --policy-dir examples/policies < event.json
+CUPCAKE_DEBUG_FILES=1 cupcake eval --policy-dir .cupcake/policies < event.json
 ```
 
 This creates human-readable debug files with complete evaluation flow including routing, signals, WASM results, and final decisions.

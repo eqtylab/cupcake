@@ -25,11 +25,11 @@ cargo test --features deterministic-tests
 cargo t
 
 # Enable evaluation tracing for debugging
-CUPCAKE_TRACE=eval cargo run -- eval --policy-dir ./examples/policies
+CUPCAKE_TRACE=eval cargo run -- eval --policy-dir .cupcake/policies
 
-# Test with an example event
-cat examples/events/pre_tool_use_bash_safe.json | \
-  target/release/cupcake eval --policy-dir ./examples/policies
+# Create a test event and evaluate
+echo '{"hook_event_name":"PreToolUse","session_id":"test","transcript_path":"/tmp/test","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"echo hello"}}' | \
+  target/release/cupcake eval --policy-dir .cupcake/policies
 
 # Output: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}
 ```
@@ -302,7 +302,6 @@ cargo test --features deterministic-tests
 - `CLAUDE.md` - Project configuration and guidelines
 - `src/trust/CLAUDE.md` - Trust system implementation details
 - `tests/CLAUDE.md` - Testing requirements
-- `examples/0_start_here_demo/` - Complete working examples
 
 ### General
 

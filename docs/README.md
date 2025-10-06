@@ -94,7 +94,6 @@ Contributing to or extending Cupcake:
 
 - **Issues:** [GitHub Issues](https://github.com/eqtylab/cupcake/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/eqtylab/cupcake/discussions)
-- **Examples:** [`/examples/`](../examples/) directory
 
 ## Contributing
 

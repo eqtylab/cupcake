@@ -34,12 +34,9 @@ impl ClaudeCodeResponseBuilder {
             }
             ClaudeCodeEvent::PostToolUse(_)
             | ClaudeCodeEvent::Stop(_)
-            | ClaudeCodeEvent::SubagentStop(_) => FeedbackLoopResponseBuilder::build(
-                decision,
-                context_to_inject,
-                hook_event.event_name(),
-                suppress_output,
-            ),
+            | ClaudeCodeEvent::SubagentStop(_) => {
+                FeedbackLoopResponseBuilder::build(decision, context_to_inject, hook_event, suppress_output)
+            }
             ClaudeCodeEvent::UserPromptSubmit(_) => ContextInjectionResponseBuilder::build(
                 decision,
                 context_to_inject,

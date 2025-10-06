@@ -1502,16 +1502,12 @@ const GUIDEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.y
 // Include authoritative builtin policies from fixtures
 const ALWAYS_INJECT_POLICY: &str =
     include_str!("../../fixtures/builtins/always_inject_on_prompt.rego");
-const GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/builtins/global_file_lock.rego");
-const GIT_PRE_CHECK_POLICY: &str =
-    include_str!("../../fixtures/builtins/git_pre_check.rego");
-const POST_EDIT_CHECK_POLICY: &str =
-    include_str!("../../fixtures/builtins/post_edit_check.rego");
+const GLOBAL_FILE_LOCK_POLICY: &str = include_str!("../../fixtures/builtins/global_file_lock.rego");
+const GIT_PRE_CHECK_POLICY: &str = include_str!("../../fixtures/builtins/git_pre_check.rego");
+const POST_EDIT_CHECK_POLICY: &str = include_str!("../../fixtures/builtins/post_edit_check.rego");
 const RULEBOOK_SECURITY_POLICY: &str =
     include_str!("../../fixtures/builtins/rulebook_security_guardrails.rego");
-const PROTECTED_PATHS_POLICY: &str =
-    include_str!("../../fixtures/builtins/protected_paths.rego");
+const PROTECTED_PATHS_POLICY: &str = include_str!("../../fixtures/builtins/protected_paths.rego");
 const GIT_BLOCK_NO_VERIFY_POLICY: &str =
     include_str!("../../fixtures/builtins/git_block_no_verify.rego");
 const ENFORCE_FULL_FILE_READ_POLICY: &str =

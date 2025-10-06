@@ -82,11 +82,15 @@ mod tests {
     fn test_post_tool_use_with_context() {
         let decision = EngineDecision::Allow { reason: None };
         let context = vec!["File contains TODO on line 45".to_string()];
-        let response = FeedbackLoopResponseBuilder::build(&decision, Some(context), "PostToolUse", false);
+        let response =
+            FeedbackLoopResponseBuilder::build(&decision, Some(context), "PostToolUse", false);
 
         match response.hook_specific_output {
             Some(HookSpecificOutput::PostToolUse { additional_context }) => {
-                assert_eq!(additional_context, Some("File contains TODO on line 45".to_string()));
+                assert_eq!(
+                    additional_context,
+                    Some("File contains TODO on line 45".to_string())
+                );
             }
             _ => panic!("Expected PostToolUse hook output"),
         }

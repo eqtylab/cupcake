@@ -125,15 +125,29 @@ mod tests {
         });
         let response = FeedbackLoopResponseBuilder::build(&decision, Some(context), &event, false);
 
-        match response.hook_specific_output {
+        // Test Rust struct correctness
+        match &response.hook_specific_output {
             Some(HookSpecificOutput::PostToolUse { additional_context }) => {
                 assert_eq!(
                     additional_context,
-                    Some("File contains TODO on line 45".to_string())
+                    &Some("File contains TODO on line 45".to_string())
                 );
             }
             _ => panic!("Expected PostToolUse hook output"),
         }
+
+        // Test JSON wire format matches Claude Code hook contract
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(
+            json["hookSpecificOutput"]["hookEventName"],
+            "PostToolUse",
+            "hookEventName field should be 'PostToolUse'"
+        );
+        assert_eq!(
+            json["hookSpecificOutput"]["additionalContext"],
+            "File contains TODO on line 45",
+            "additionalContext should contain the injected context"
+        );
     }
 
     #[test]

@@ -20,6 +20,9 @@ pub struct CupcakeResponse {
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "suppressOutput")]
     pub suppress_output: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none", rename = "systemMessage")]
+    pub system_message: Option<String>,
 }
 
 impl CupcakeResponse {
@@ -46,6 +49,10 @@ pub enum HookSpecificOutput {
         additional_context: Option<String>,
     },
     SessionStart {
+        #[serde(rename = "additionalContext", skip_serializing_if = "Option::is_none")]
+        additional_context: Option<String>,
+    },
+    PostToolUse {
         #[serde(rename = "additionalContext", skip_serializing_if = "Option::is_none")]
         additional_context: Option<String>,
     },

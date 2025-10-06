@@ -20,7 +20,7 @@ async fn test_end_to_end_signal_integration() {
     fs::create_dir_all(&signals_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
 
-    // Create system evaluation policy - matching examples/.cupcake/policies/system/evaluate.rego
+    // Create system evaluation policy - matching fixtures/system_evaluate.rego
     let system_policy = r#"package cupcake.system
 
 import rego.v1
@@ -309,7 +309,7 @@ async fn test_signal_json_parsing_fallback() {
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
 
-    // Create minimal system policy - matching examples/.cupcake/policies/system/evaluate.rego
+    // Create minimal system policy - matching fixtures/system_evaluate.rego
     let system_policy = r#"package cupcake.system
 
 import rego.v1

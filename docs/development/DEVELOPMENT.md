@@ -1,13 +1,14 @@
 # Cupcake Development Guide
 
-## Architecture: The Hybrid Model
+## Architecture
 
-Cupcake implements a **Hybrid Model** where:
+For a comprehensive overview of Cupcake's architecture, design principles, and core components, see the **[Architecture Reference](../reference/architecture.md)**.
 
-- **Rego (WASM)**: Declares policies, evaluates rules, returns decision verbs
-- **Rust (Engine)**: Routes events, gathers signals, synthesizes final decisions
-
-The engine is intelligent - it discovers policies, understands their requirements via metadata, and routes events efficiently.
+**Key concepts:**
+- **Hybrid Model**: Rego (WASM) for policy logic, Rust (Engine) for orchestration
+- **Metadata-Driven Routing**: O(1) event-to-policy matching
+- **Single Aggregation**: All policies evaluated through `cupcake.system.evaluate`
+- **Proactive Signals**: Gathered before evaluation, not reactively
 
 ## Quick Start
 
@@ -24,49 +25,14 @@ cargo test --features deterministic-tests
 cargo t
 
 # Enable evaluation tracing for debugging
-CUPCAKE_TRACE=eval cargo run -- eval --policy-dir ./examples/policies
+CUPCAKE_TRACE=eval cargo run -- eval --policy-dir .cupcake/policies
 
-# Test with an example event
-cat examples/events/pre_tool_use_bash_safe.json | \
-  target/release/cupcake eval --policy-dir ./examples/policies
+# Create a test event and evaluate
+echo '{"hook_event_name":"PreToolUse","session_id":"test","transcript_path":"/tmp/test","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"echo hello"}}' | \
+  target/release/cupcake eval --policy-dir .cupcake/policies
 
 # Output: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}
 ```
-
-## Architecture Flow
-
-```
-Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
-                            ↓
-                    1. Route (O(1) metadata lookup)
-                    2. Gather Signals (proactive)
-                    3. Evaluate (WASM via cupcake.system.evaluate)
-                    4. Synthesize (apply priority hierarchy)
-                    5. Execute Actions (async, non-blocking)
-                    6. Format Response
-```
-
-### Core Components
-
-1. **Engine** (`src/engine/`)
-
-   - Scanner: Discovers `.rego` files
-   - Metadata Parser: Extracts routing from `# METADATA` blocks
-   - Router: O(1) event-to-policy matching
-   - Compiler: Creates unified WASM module
-   - Runtime: Executes single aggregation entrypoint
-   - Synthesis: Applies decision priority hierarchy
-
-2. **Harness** (`src/harness/`)
-
-   - Events: Strongly-typed Claude Code structures
-   - Response: Spec-compliant JSON builders
-   - Pure data transformation layer
-
-3. **Trust System** (`src/trust/`)
-   - HMAC-based integrity verification
-   - Project-specific key derivation
-   - Tamper detection for scripts
 
 ## Metadata-Driven Routing
 
@@ -196,34 +162,9 @@ actions:
       - command: "alert-security-team.sh"
 ```
 
-## Debugging and Tracing
+## Debugging
 
-Cupcake includes comprehensive tracing for debugging policy evaluation:
-
-```bash
-# Enable evaluation tracing
-CUPCAKE_TRACE=eval cupcake eval < event.json
-
-# Trace specific components
-CUPCAKE_TRACE=routing,wasm cupcake eval < event.json
-
-# View trace output with jq
-CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq '.span'
-
-# Debug slow evaluations
-CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq 'select(.span.duration_ms > 10)'
-```
-
-Tracing provides:
-
-- Unique trace IDs for each evaluation
-- Timing measurements for all operations
-- Policy routing and matching details
-- Signal execution tracking
-- WASM evaluation metrics
-- Decision synthesis flow
-
-See [DEBUGGING.md](../DEBUGGING.md) for comprehensive debugging guide.
+For comprehensive debugging and troubleshooting, including policy evaluation tracing, debug file output, routing visualization, and platform-specific issues, see the **[Debugging Guide](../../DEBUGGING.md)**.
 
 ## Running Tests
 
@@ -304,19 +245,6 @@ pre-tool-use = "cat $HOOK_INPUT | cupcake eval --policy-dir /path/to/policies"
 
 The output matches Claude Code's expected JSON format for each hook type.
 
-## Debugging
-
-```bash
-# Enable debug logging
-RUST_LOG=debug cupcake eval --policy-dir ./policies
-
-# Verify policy discovery and routing
-RUST_LOG=debug cupcake verify --policy-dir ./policies
-
-# Check trust manifest
-cupcake trust verify
-```
-
 ## Common Issues
 
 ### "Missing hookEventName in input"
@@ -374,7 +302,6 @@ cargo test --features deterministic-tests
 - `CLAUDE.md` - Project configuration and guidelines
 - `src/trust/CLAUDE.md` - Trust system implementation details
 - `tests/CLAUDE.md` - Testing requirements
-- `examples/0_start_here_demo/` - Complete working examples
 
 ### General
 

@@ -56,7 +56,7 @@ Contributing to or extending Cupcake:
 
 - **[Development Setup](./development/DEVELOPMENT.md)** - Build from source
 - **[Architecture](./reference/architecture.md)** - Technical design
-- **[Debug Logging](./developer/debugging.md)** - Troubleshooting
+- **[Debugging Guide](../DEBUGGING.md)** - Comprehensive troubleshooting and tracing
 
 ## Complete Documentation Map
 
@@ -94,7 +94,6 @@ Contributing to or extending Cupcake:
 
 - **Issues:** [GitHub Issues](https://github.com/eqtylab/cupcake/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/eqtylab/cupcake/discussions)
-- **Examples:** [`/examples/`](../examples/) directory
 
 ## Contributing
 

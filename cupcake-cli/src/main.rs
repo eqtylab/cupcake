@@ -1497,33 +1497,29 @@ deny contains decision if {
 "#;
 
 // Include guidebook.yml template directly from base-config.yml
-const GUIDEBOOK_TEMPLATE: &str = include_str!("../../examples/base-config.yml");
+const GUIDEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
 
-// Include authoritative builtin policies from examples
+// Include authoritative builtin policies from fixtures
 const ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/always_inject_on_prompt.rego");
-const GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/global_file_lock.rego");
-const GIT_PRE_CHECK_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/git_pre_check.rego");
-const POST_EDIT_CHECK_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
+    include_str!("../../fixtures/builtins/always_inject_on_prompt.rego");
+const GLOBAL_FILE_LOCK_POLICY: &str = include_str!("../../fixtures/builtins/global_file_lock.rego");
+const GIT_PRE_CHECK_POLICY: &str = include_str!("../../fixtures/builtins/git_pre_check.rego");
+const POST_EDIT_CHECK_POLICY: &str = include_str!("../../fixtures/builtins/post_edit_check.rego");
 const RULEBOOK_SECURITY_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
-const PROTECTED_PATHS_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
+    include_str!("../../fixtures/builtins/rulebook_security_guardrails.rego");
+const PROTECTED_PATHS_POLICY: &str = include_str!("../../fixtures/builtins/protected_paths.rego");
 const GIT_BLOCK_NO_VERIFY_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/git_block_no_verify.rego");
+    include_str!("../../fixtures/builtins/git_block_no_verify.rego");
 const ENFORCE_FULL_FILE_READ_POLICY: &str =
-    include_str!("../../examples/.cupcake/policies/builtins/enforce_full_file_read.rego");
+    include_str!("../../fixtures/builtins/enforce_full_file_read.rego");
 
 // Global builtin policies embedded in the binary
 const GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
-    include_str!("../../examples/global_builtins/system_protection.rego");
+    include_str!("../../fixtures/global_builtins/system_protection.rego");
 const GLOBAL_SENSITIVE_DATA_POLICY: &str =
-    include_str!("../../examples/global_builtins/sensitive_data_protection.rego");
+    include_str!("../../fixtures/global_builtins/sensitive_data_protection.rego");
 const GLOBAL_CUPCAKE_EXEC_POLICY: &str =
-    include_str!("../../examples/global_builtins/cupcake_exec_protection.rego");
+    include_str!("../../fixtures/global_builtins/cupcake_exec_protection.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

@@ -36,12 +36,18 @@ impl SessionStartPayload {
         matches!(self.source, SessionSource::Clear)
     }
 
+    /// Check if this is after a compact operation
+    pub fn is_compact(&self) -> bool {
+        matches!(self.source, SessionSource::Compact)
+    }
+
     /// Get source as string
     pub fn source_str(&self) -> &'static str {
         match self.source {
             SessionSource::Startup => "startup",
             SessionSource::Resume => "resume",
             SessionSource::Clear => "clear",
+            SessionSource::Compact => "compact",
         }
     }
 }

@@ -283,12 +283,12 @@ async fn test_post_edit_validation_flow() -> Result<()> {
 
     // Copy the real post_edit_check policy content directly
     let post_edit_policy =
-        include_str!("../../examples/.cupcake/policies/builtins/post_edit_check.rego");
+        include_str!("../../fixtures/builtins/post_edit_check.rego");
     std::fs::write(builtins_dir.join("post_edit_check.rego"), post_edit_policy)?;
 
     // Use the authoritative system evaluation policy
     let evaluate_policy =
-        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+        include_str!("fixtures/system_evaluate.rego");
     std::fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     // Create guidebook with post_edit_check configuration

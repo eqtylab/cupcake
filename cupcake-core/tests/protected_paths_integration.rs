@@ -24,12 +24,12 @@ async fn test_protected_paths_read_write_distinction() -> Result<()> {
 
     // Use the authoritative system evaluation policy
     let evaluate_policy =
-        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+        include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     // Use the actual protected_paths policy
     let protected_policy =
-        include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
+        include_str!("../../fixtures/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
 
     // Create guidebook with protected_paths configuration
@@ -180,11 +180,11 @@ async fn test_protected_paths_bash_whitelist() -> Result<()> {
     fs::create_dir_all(&builtins_dir)?;
 
     let evaluate_policy =
-        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+        include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let protected_policy =
-        include_str!("../../examples/.cupcake/policies/builtins/protected_paths.rego");
+        include_str!("../../fixtures/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
 
     let guidebook_content = r#"

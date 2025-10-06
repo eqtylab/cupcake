@@ -14,7 +14,7 @@ Run tests using:
 
 ## System Evaluate Policy
 
-**MUST** use the authoritative `system/evaluate.rego` from `examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego`:
+**MUST** use the authoritative `system/evaluate.rego` from `fixtures/system_evaluate.rego`:
 
 ```rego
 package cupcake.system

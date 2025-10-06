@@ -190,7 +190,7 @@ The synthesis layer enforces strict priority: Halt > Deny/Block > Ask > Allow
 - `src/engine/builtins.rs` - Builtin abstractions configuration
 - `src/harness/` - Claude Code response formatting
 - `examples/policies/system/evaluate.rego` - Mandatory aggregation entrypoint
-- `examples/base-config.yml` - Template for builtin configuration
+- `fixtures/init/base-config.yml` - Template for builtin configuration
 
 ## Reference Documents
 
@@ -238,7 +238,7 @@ Eleven builtins provide common patterns without writing Rego:
 - **cupcake_exec_protection** - Prevents execution of cupcake commands
 - **enforce_full_file_read** - Enforces reading entire files under configurable line limit
 
-Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `examples/base-config.yml` for template.
+Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `fixtures/init/base-config.yml` for template.
 
 ### Builtin Configuration Notes
 

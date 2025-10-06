@@ -24,12 +24,12 @@ async fn test_rulebook_security_blocks_cupcake_file_edits() -> Result<()> {
 
     // Use the authoritative system evaluation policy
     let evaluate_policy =
-        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+        include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     // Use the actual rulebook security policy
     let rulebook_policy =
-        include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
+        include_str!("../../fixtures/builtins/rulebook_security_guardrails.rego");
     fs::write(
         builtins_dir.join("rulebook_security_guardrails.rego"),
         rulebook_policy,
@@ -160,11 +160,11 @@ async fn test_rulebook_security_blocks_bash_cupcake_commands() -> Result<()> {
     fs::create_dir_all(&builtins_dir)?;
 
     let evaluate_policy =
-        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+        include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let rulebook_policy =
-        include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
+        include_str!("../../fixtures/builtins/rulebook_security_guardrails.rego");
     fs::write(
         builtins_dir.join("rulebook_security_guardrails.rego"),
         rulebook_policy,
@@ -229,11 +229,11 @@ async fn test_rulebook_security_blocks_read_operations() -> Result<()> {
     fs::create_dir_all(&builtins_dir)?;
 
     let evaluate_policy =
-        include_str!("../../examples/0_start_here_demo/.cupcake/policies/system/evaluate.rego");
+        include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let rulebook_policy =
-        include_str!("../../examples/.cupcake/policies/builtins/rulebook_security_guardrails.rego");
+        include_str!("../../fixtures/builtins/rulebook_security_guardrails.rego");
     fs::write(
         builtins_dir.join("rulebook_security_guardrails.rego"),
         rulebook_policy,

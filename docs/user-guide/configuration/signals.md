@@ -275,9 +275,6 @@ echo '{"branch": "main", "commit": "abc123", "dirty": false}'
 
 ## Examples
 
-See `examples/.cupcake/signals/` for working signal implementations demonstrating:
+See `examples/0_start_here_demo/.cupcake/signals/` for working signal implementations demonstrating:
 - Git repository information
-- Test execution results  
-- Deployment status checking
-- Security scan integration
-- Performance monitoring
+- Test execution results

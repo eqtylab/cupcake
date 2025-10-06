@@ -141,6 +141,238 @@ Example: Filtering for slow evaluations
 CUPCAKE_TRACE=eval cupcake eval 2>&1 | jq 'select(.span.duration_ms > 50)'
 ```
 
+## Debug File Output
+
+Cupcake can capture the complete lifecycle of every event evaluation to human-readable debug files.
+
+### Enabling Debug Files
+
+Set the `CUPCAKE_DEBUG_FILES` environment variable to enable comprehensive debug capture:
+
+```bash
+# Enable debug file output
+CUPCAKE_DEBUG_FILES=1 cupcake eval < event.json
+
+# Files are written to .cupcake/debug/
+ls .cupcake/debug/
+```
+
+### Debug File Structure
+
+**Location**: `.cupcake/debug/`
+**Format**: `YYYY-MM-DD_HH-MM-SS_<trace_id>.txt`
+
+Each file contains:
+- Raw Claude Code event received
+- Routing decisions (which policies matched)
+- Signal execution results (commands run, outputs, timing)
+- WASM evaluation output (decision set with all verbs)
+- Final synthesized decision
+- Response sent back to Claude Code
+- Action execution results
+- Any errors encountered
+
+Example debug file:
+
+```
+===== Claude Code Event [2024-09-05 20:30:15] [abc123-def456] =====
+Event Type: PreToolUse
+Tool: Bash
+Session ID: session-789
+
+Raw Event:
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "rm -rf /tmp/test" },
+  ...
+}
+
+----- Routing -----
+Matched: Yes (3 policies)
+- cupcake.policies.security_policy
+- cupcake.policies.builtins.rulebook_security_guardrails
+- cupcake.global.policies.system_protection
+
+----- Signals -----
+Configured: 2 signals
+- __builtin_rulebook_protected_paths
+- __builtin_system_protection_paths
+
+Executed:
+[__builtin_rulebook_protected_paths]
+  Command: echo '["/etc", "/System"]'
+  Duration: 5ms
+  Result: ["/etc", "/System"]
+
+----- WASM Evaluation -----
+Decision Set:
+  Halts: 0
+  Denials: 1
+    - [SECURITY-001] Dangerous command blocked: rm -rf (HIGH)
+  Blocks: 0
+  Asks: 0
+  Allow Overrides: 0
+  Context: 0
+
+----- Synthesis -----
+Final Decision: Deny
+Reason: Dangerous command blocked: rm -rf
+
+----- Response to Claude -----
+{
+  "continue": false,
+  "stopReason": "Dangerous command blocked: rm -rf"
+}
+
+----- Actions -----
+Configured: 1 action (on_any_denial)
+Executed:
+[log_denial]
+  Command: echo "Denial logged" >> /tmp/denials.log
+  Duration: 10ms
+  Exit Code: 0
+
+===== End Event [20:30:15.234] Duration: 45ms =====
+```
+
+### When to Use Debug Files
+
+- **Development**: Understanding policy evaluation flow
+- **Troubleshooting**: See exactly why policies fired or didn't
+- **Performance Analysis**: Timing data for each evaluation stage
+- **Signal Debugging**: Verify signal outputs and commands
+- **Action Verification**: Confirm actions executed correctly
+
+### Performance Impact
+
+- **Zero overhead when disabled** - Single environment variable check
+- **Minimal impact when enabled** - File I/O happens once at end of evaluation
+- **Production safe** - Can be enabled temporarily for troubleshooting
+
+## Routing Debug System
+
+Cupcake's routing system maps events to policies using metadata-driven routing keys. When policies don't fire as expected, you need visibility into the routing map.
+
+### Enabling Routing Debug
+
+Set `CUPCAKE_DEBUG_ROUTING=1` to dump the routing map to disk:
+
+```bash
+# Enable routing debug
+CUPCAKE_DEBUG_ROUTING=1 cupcake eval < event.json
+
+# Or with Claude Code CLI
+CUPCAKE_DEBUG_ROUTING=1 claude -p "hello world"
+
+# Output location
+ls .cupcake/debug/routing/
+```
+
+### Output Formats
+
+The routing debug system generates three formats:
+
+#### 1. Text Format (Human-Readable)
+
+Shows the routing map organized by routes with policies listed under each:
+
+```
+Route: PreToolUse:Bash [SPECIFIC]
+  Policies (5):
+    1. cupcake.policies.security
+       File: ./.cupcake/policies/security_policy.rego
+       Events: PreToolUse
+       Tools: Bash, Edit
+    2. cupcake.policies.builtins.git_pre_check
+       File: (builtin)
+       Events: PreToolUse
+       Tools: Bash
+```
+
+#### 2. JSON Format (Programmatic Analysis)
+
+Complete routing data for tooling:
+
+```json
+{
+  "timestamp": "2025-09-18_13-54-10",
+  "project": {
+    "routing_entries": {
+      "PreToolUse:Bash": [
+        {
+          "package": "cupcake.policies.security",
+          "file": "./.cupcake/policies/security_policy.rego",
+          "events": ["PreToolUse"],
+          "tools": ["Bash", "Edit"],
+          "signals": ["git_branch"]
+        }
+      ]
+    }
+  },
+  "statistics": {
+    "total_routes": 7,
+    "wildcard_routes": 4
+  }
+}
+```
+
+#### 3. DOT Format (Visual Graphs)
+
+Graphviz format for generating routing diagrams:
+
+```bash
+# Generate PNG from DOT file
+dot -Tpng .cupcake/debug/routing/routing_map_*.dot -o routing.png
+```
+
+The graph shows three layers:
+1. **Events** (yellow ovals) - Hook event types
+2. **Tools** (green diamonds) - Tool names
+3. **Policies** (blue boxes) - Policy packages
+
+Edges show routing relationships from events through tools to policies.
+
+### Routing Key Concepts
+
+**Routing Keys:**
+- `PreToolUse:Bash` - Routes PreToolUse events with Bash tool specifically
+- `PreToolUse` - Routes all PreToolUse events (wildcard)
+- `PreToolUse:mcp__postgres__execute_sql` - MCP tools use full names
+
+**Wildcard Policies:**
+Policies with events but no tools match ALL tools for that event. They appear in both the wildcard route and all specific tool routes.
+
+**Global vs Project:**
+Global policies (from user config directory) and project policies (from `.cupcake/`) are tracked separately with different namespaces.
+
+### Debugging Routing Issues
+
+**No Policies Matching:**
+```bash
+CUPCAKE_DEBUG_ROUTING=1 cupcake eval < event.json
+```
+Check the generated routing map:
+- Verify policy metadata has correct `required_events` and `required_tools`
+- Confirm event JSON has proper `hook_event_name` and `tool_name` fields
+- Look for the specific routing key you expect (e.g., `PreToolUse:Bash`)
+
+**Too Many/Few Policies:**
+- Check wildcard policies (they match all tools)
+- Verify global policies aren't conflicting with project policies
+- Use the DOT graph to visualize complex routing relationships
+
+**Performance Issues:**
+- Look for routes with many policies (might slow evaluation)
+- Consider if wildcard policies should be more specific
+- Check signal count (signals are executed for all matched policies)
+
+### Performance
+
+- **Zero impact when disabled** - Single environment variable check returns early
+- **One-time cost at startup** - Debug writes happen during engine initialization
+- **Not evaluated per-event** - Routing map is built once and reused
+
 ## Cross-Language Debugging
 
 ### Python/Node.js Bindings

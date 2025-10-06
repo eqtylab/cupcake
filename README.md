@@ -75,6 +75,8 @@ Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 }
 ```
 
+See the **[Architecture Reference](./docs/reference/architecture.md)** for a comprehensive technical overview.
+
 ## Security Model
 
 - **Sandboxed evaluation** of untrusted inputs.

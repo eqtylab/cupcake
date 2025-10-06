@@ -139,13 +139,11 @@ mod tests {
         // Test JSON wire format matches Claude Code hook contract
         let json = serde_json::to_value(&response).unwrap();
         assert_eq!(
-            json["hookSpecificOutput"]["hookEventName"],
-            "PostToolUse",
+            json["hookSpecificOutput"]["hookEventName"], "PostToolUse",
             "hookEventName field should be 'PostToolUse'"
         );
         assert_eq!(
-            json["hookSpecificOutput"]["additionalContext"],
-            "File contains TODO on line 45",
+            json["hookSpecificOutput"]["additionalContext"], "File contains TODO on line 45",
             "additionalContext should contain the injected context"
         );
     }

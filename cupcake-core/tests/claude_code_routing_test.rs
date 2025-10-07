@@ -208,11 +208,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
           {{
             "type": "command",
             "command": "{command_escaped}",
-            "timeout": 120,
-            "env": {{
-              "CUPCAKE_DEBUG_ROUTING": "1",
-              "RUST_LOG": "info"
-            }}
+            "timeout": 120
           }}
         ]
       }}
@@ -243,14 +239,12 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
                 "sonnet",
             ])
             .current_dir(project_path)
-            .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
             .output()
             .expect("Failed to execute claude command via powershell.exe")
     } else {
         std::process::Command::new(&claude_path)
             .args(["-p", "hello world", "--model", "sonnet"])
             .current_dir(project_path)
-            .env("CUPCAKE_DEBUG_ROUTING", "1") // This adds to inherited env
             .output()
             .expect("Failed to execute claude command")
     };
@@ -560,11 +554,7 @@ async fn test_wildcard_policy_routing() {
           {{
             "type": "command",
             "command": "{command_escaped}",
-            "timeout": 120,
-            "env": {{
-              "CUPCAKE_DEBUG_ROUTING": "1",
-              "RUST_LOG": "info"
-            }}
+            "timeout": 120
           }}
         ]
       }}
@@ -595,14 +585,12 @@ async fn test_wildcard_policy_routing() {
                 "sonnet",
             ])
             .current_dir(temp_dir.path())
-            .env("CUPCAKE_DEBUG_ROUTING", "1")
             .output()
             .expect("Failed to execute claude command via powershell.exe")
     } else {
         std::process::Command::new(claude_path)
             .args(["-p", "hello world", "--model", "sonnet"])
             .current_dir(temp_dir.path())
-            .env("CUPCAKE_DEBUG_ROUTING", "1")
             .output()
             .expect("Failed to execute claude command")
     };
@@ -777,11 +765,7 @@ deny contains decision if {
           {{
             "type": "command",
             "command": "{command_escaped}",
-            "timeout": 120,
-            "env": {{
-              "CUPCAKE_DEBUG_ROUTING": "1",
-              "RUST_LOG": "info"
-            }}
+            "timeout": 120
           }}
         ]
       }}
@@ -809,14 +793,12 @@ deny contains decision if {
                 "sonnet",
             ])
             .current_dir(temp_dir.path())
-            .env("CUPCAKE_DEBUG_ROUTING", "1")
             .output()
             .expect("Failed to execute claude command via powershell.exe")
     } else {
         std::process::Command::new(claude_path)
             .args(["-p", "hello world", "--model", "sonnet"])
             .current_dir(temp_dir.path())
-            .env("CUPCAKE_DEBUG_ROUTING", "1")
             .output()
             .expect("Failed to execute claude command")
     };

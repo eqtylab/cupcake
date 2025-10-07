@@ -61,7 +61,7 @@ fn test_find_bundled_opa_windows() {
 }
 
 #[test]
-fn test_opa_path_env_override() {
+fn test_opa_path_cli_override() {
     // Create a temporary directory with a mock OPA
     let temp_dir = TempDir::new().unwrap();
     let custom_opa = temp_dir.path().join("custom-opa");
@@ -73,27 +73,20 @@ fn test_opa_path_env_override() {
         fs::set_permissions(&custom_opa, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    // Set the environment variable
-    std::env::set_var("CUPCAKE_OPA_PATH", custom_opa.to_str().unwrap());
+    // The actual find_opa_binary function would accept a CLI override parameter
+    // Simulate the validation logic
+    let opa_path_from_cli = Some(custom_opa.clone());
+    let validated_path = opa_path_from_cli.filter(|p| p.exists() && p.is_file());
 
-    // The actual find_opa_binary function would check this path
-    let opa_path_from_env = std::env::var("CUPCAKE_OPA_PATH")
-        .ok()
-        .map(PathBuf::from)
-        .filter(|p| p.exists());
-
-    assert!(opa_path_from_env.is_some());
-    assert_eq!(opa_path_from_env.unwrap(), custom_opa);
-
-    // Clean up
-    std::env::remove_var("CUPCAKE_OPA_PATH");
+    assert!(validated_path.is_some());
+    assert_eq!(validated_path.unwrap(), custom_opa);
 }
 
 #[test]
 fn test_opa_lookup_priority() {
     // This test verifies the documented lookup order:
-    // 1. Bundled OPA (same directory as cupcake binary)
-    // 2. CUPCAKE_OPA_PATH environment variable
+    // 1. CLI override (--opa-path flag)
+    // 2. Bundled OPA (same directory as cupcake binary)
     // 3. System PATH (fallback)
 
     // Create a temporary directory structure
@@ -147,10 +140,17 @@ fn test_opa_lookup_priority() {
 /// This would be used in the actual implementation
 fn resolve_opa_path(
     exe_dir: Option<PathBuf>,
-    env_path: Option<PathBuf>,
+    cli_override: Option<PathBuf>,
     system_fallback: &str,
 ) -> PathBuf {
-    // 1. Check bundled location
+    // 1. Check CLI override
+    if let Some(path) = cli_override {
+        if path.exists() {
+            return path;
+        }
+    }
+
+    // 2. Check bundled location
     if let Some(dir) = exe_dir {
         let bundled = if cfg!(windows) {
             dir.join("opa.exe")
@@ -159,13 +159,6 @@ fn resolve_opa_path(
         };
         if bundled.exists() {
             return bundled;
-        }
-    }
-
-    // 2. Check environment variable
-    if let Some(path) = env_path {
-        if path.exists() {
-            return path;
         }
     }
 
@@ -178,7 +171,10 @@ fn test_resolve_opa_path_helper() {
     let temp_dir = TempDir::new().unwrap();
     let opa_name = if cfg!(windows) { "opa.exe" } else { "opa" };
 
-    // Test bundled priority
+    // Test CLI override has highest priority
+    let cli_path = temp_dir.path().join("cli-opa");
+    fs::write(&cli_path, "cli").unwrap();
+
     let bundled_dir = temp_dir.path().join("bundled");
     fs::create_dir(&bundled_dir).unwrap();
     let bundled_opa = bundled_dir.join(opa_name);
@@ -186,21 +182,18 @@ fn test_resolve_opa_path_helper() {
 
     let result = resolve_opa_path(
         Some(bundled_dir.clone()),
+        Some(cli_path.clone()),
+        "system-opa",
+    );
+    assert_eq!(result, cli_path);
+
+    // Test bundled priority when CLI override doesn't exist
+    let result = resolve_opa_path(
+        Some(bundled_dir.clone()),
         Some(PathBuf::from("/nonexistent")),
         "system-opa",
     );
     assert_eq!(result, bundled_opa);
-
-    // Test env variable when bundled doesn't exist
-    let env_path = temp_dir.path().join("env-opa");
-    fs::write(&env_path, "env").unwrap();
-
-    let result = resolve_opa_path(
-        Some(PathBuf::from("/nonexistent-dir")),
-        Some(env_path.clone()),
-        "system-opa",
-    );
-    assert_eq!(result, env_path);
 
     // Test system fallback
     let result = resolve_opa_path(None, None, "system-opa");

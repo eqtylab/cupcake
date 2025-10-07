@@ -4,12 +4,11 @@
 //! Claude Code event through the Cupcake policy engine, regardless of whether
 //! policies match or actions are taken.
 //!
-//! Only enabled via CUPCAKE_DEBUG_FILES environment variable for zero production impact.
+//! Only enabled via --debug-files CLI flag for zero production impact.
 
 use anyhow::Result;
 use chrono::{DateTime, Local};
 use serde_json::Value;
-use std::env;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
@@ -115,12 +114,13 @@ impl DebugCapture {
         self.errors.push(error);
     }
 
-    /// Write the debug capture to a file if CUPCAKE_DEBUG_FILES is enabled
+    /// Write the debug capture to a file
+    ///
+    /// Note: Caller should only call this if debug files are enabled via CLI flag.
+    /// The check is done in main.rs when creating DebugCapture.
     pub fn write_if_enabled(&self) -> Result<()> {
-        if env::var("CUPCAKE_DEBUG_FILES").is_ok() {
-            if let Err(e) = self.write_debug_file() {
-                warn!("Failed to write debug file: {}", e);
-            }
+        if let Err(e) = self.write_debug_file() {
+            warn!("Failed to write debug file: {}", e);
         }
         Ok(())
     }
@@ -464,15 +464,41 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_write_if_enabled_disabled() {
-        // Test that nothing happens when CUPCAKE_DEBUG_FILES is not set
-        env::remove_var("CUPCAKE_DEBUG_FILES");
+    fn test_write_if_enabled_writes_file() {
+        // Test that write_if_enabled actually writes the file
+        // Note: The check for whether to write is now done in CLI (main.rs)
+        // This method always writes when called
 
-        let event = json!({});
-        let capture = DebugCapture::new(event, "trace".to_string());
+        let event = json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash"
+        });
+        let capture = DebugCapture::new(event, "test_trace".to_string());
 
-        // Should not error and should not create any files
+        // Should write and not error
         let result = capture.write_if_enabled();
         assert!(result.is_ok());
+
+        // Verify file was created
+        let debug_dir = Path::new(".cupcake/debug");
+        if debug_dir.exists() {
+            // File should exist with trace_id in name
+            let files: Vec<_> = std::fs::read_dir(debug_dir)
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.file_name()
+                        .to_str()
+                        .map(|s| s.contains("test_trace"))
+                        .unwrap_or(false)
+                })
+                .collect();
+            assert!(!files.is_empty(), "Debug file should have been created");
+
+            // Clean up
+            for file in files {
+                let _ = std::fs::remove_file(file.path());
+            }
+        }
     }
 }

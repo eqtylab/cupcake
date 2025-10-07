@@ -486,7 +486,8 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
         }
         None => {
             println!("❌ No global config location available");
-            println!("   Set CUPCAKE_GLOBAL_CONFIG or run 'cupcake init --global'");
+            println!("   Run 'cupcake init --global' to initialize");
+            println!("   Or use --global-config <PATH> to specify a custom location");
         }
     }
 

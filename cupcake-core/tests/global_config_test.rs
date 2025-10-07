@@ -3,28 +3,22 @@
 use anyhow::Result;
 use cupcake_core::engine::global_config::GlobalPaths;
 use serial_test::serial;
-use std::env;
+use std::env; // Still needed for test_global_config_graceful_absence
 use tempfile::TempDir;
 
 #[test]
 #[serial]
-fn test_global_config_env_var_discovery() -> Result<()> {
+fn test_global_config_cli_override_discovery() -> Result<()> {
     // Create a temporary directory to act as global config
     let temp_dir = TempDir::new()?;
-    let global_root = temp_dir.path();
+    let global_root = temp_dir.path().to_path_buf();
 
-    // Set the environment variable
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_root.to_str().unwrap());
-
-    // Discover should find it
-    let discovered = GlobalPaths::discover()?;
-    assert!(discovered.is_some(), "Should discover config from env var");
+    // Use CLI override to discover it
+    let discovered = GlobalPaths::discover_with_override(Some(global_root.clone()))?;
+    assert!(discovered.is_some(), "Should discover config from CLI override");
 
     let global_paths = discovered.unwrap();
     assert_eq!(global_paths.root, global_root);
-
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
 
     Ok(())
 }
@@ -32,14 +26,11 @@ fn test_global_config_env_var_discovery() -> Result<()> {
 #[test]
 #[serial]
 fn test_global_config_graceful_absence() -> Result<()> {
-    // Ensure no env var is set
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     // Create a temp dir that doesn't have cupcake config
     let temp_dir = TempDir::new()?;
     env::set_var("HOME", temp_dir.path().to_str().unwrap());
 
-    // Discovery should return None gracefully
+    // Discovery should return None gracefully when no config exists
     let discovered = GlobalPaths::discover()?;
 
     // This is expected to be None in CI/test environments
@@ -53,9 +44,9 @@ fn test_global_config_graceful_absence() -> Result<()> {
 #[serial]
 fn test_global_config_initialization() -> Result<()> {
     let temp_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", temp_dir.path().to_str().unwrap());
+    let global_root = temp_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root))?.unwrap();
 
     // Should not be initialized yet
     assert!(!global_paths.is_initialized());
@@ -81,9 +72,6 @@ fn test_global_config_initialization() -> Result<()> {
     assert!(evaluate_content.contains("package cupcake.global.system"));
     assert!(evaluate_content.contains("walk(data.cupcake.global.policies"));
 
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }
 
@@ -96,7 +84,6 @@ fn test_platform_specific_paths() {
     #[cfg(unix)]
     {
         // On Unix, we expect ~/.config/cupcake or similar
-        env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         let discovered = GlobalPaths::discover();
 
         // Should not error
@@ -116,7 +103,6 @@ fn test_platform_specific_paths() {
     #[cfg(windows)]
     {
         // On Windows, we expect %APPDATA%\cupcake or similar
-        env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         let discovered = GlobalPaths::discover();
 
         // Should not error

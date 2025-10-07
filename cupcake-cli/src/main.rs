@@ -304,7 +304,15 @@ async fn main() -> Result<()> {
                 .ok();
             }
 
-            eval_command(policy_dir, strict, cli.debug_files).await
+            // Build engine config from CLI flags
+            let engine_config = engine::EngineConfig {
+                wasm_max_memory: Some(cli.wasm_max_memory.bytes),
+                opa_path: cli.opa_path.clone(),
+                global_config: cli.global_config.clone(),
+                debug_routing: cli.debug_routing,
+            };
+
+            eval_command(policy_dir, strict, cli.debug_files, engine_config).await
         }
         Command::Verify { policy_dir } => verify_command(policy_dir).await,
         Command::Init {
@@ -322,14 +330,19 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn eval_command(policy_dir: PathBuf, strict: bool, debug_files_enabled: bool) -> Result<()> {
+async fn eval_command(
+    policy_dir: PathBuf,
+    strict: bool,
+    debug_files_enabled: bool,
+    engine_config: engine::EngineConfig,
+) -> Result<()> {
     debug!(
         "Initializing Cupcake engine with policies from: {:?}",
         policy_dir
     );
 
-    // Initialize the engine - MUST succeed or we exit
-    let engine = match engine::Engine::new(&policy_dir).await {
+    // Initialize the engine with configuration - MUST succeed or we exit
+    let engine = match engine::Engine::new_with_config(&policy_dir, engine_config).await {
         Ok(e) => {
             debug!("Engine initialized successfully");
             e
@@ -373,7 +386,11 @@ async fn eval_command(policy_dir: PathBuf, strict: bool, debug_files_enabled: bo
     let mut debug_capture = if debug_files_enabled {
         // Generate a trace ID for this evaluation
         let trace_id = cupcake_core::engine::trace::generate_trace_id();
-        Some(DebugCapture::new(hook_event_json.clone(), trace_id))
+        Some(DebugCapture::new(
+            hook_event_json.clone(),
+            trace_id,
+            true, // enabled
+        ))
     } else {
         None
     };

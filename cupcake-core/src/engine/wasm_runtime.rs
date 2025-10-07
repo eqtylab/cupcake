@@ -3,7 +3,7 @@
 //! Implements the NEW_GUIDING_FINAL.md single entrypoint evaluation.
 //! Queries the cupcake.system.evaluate aggregation endpoint and returns DecisionSet.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Instant;
 use tracing::{debug, instrument, trace, warn};
@@ -13,25 +13,6 @@ use super::decision::DecisionSet;
 
 // --- PART 1: Production-Grade Memory Configuration ---
 // This logic is NOT deprecated. It is a required feature.
-
-/// Parses a human-readable memory string (e.g., "16MB", "256kb") into bytes.
-fn parse_memory_string(s: &str) -> Result<u64> {
-    let s_lower = s.to_lowercase();
-    let (num_str, unit) = s_lower.trim().split_at(
-        s_lower
-            .find(|c: char| !c.is_ascii_digit() && c != '.')
-            .unwrap_or(s_lower.len()),
-    );
-    let num: f64 = num_str.trim().parse()?;
-    let multiplier = match unit.trim() {
-        "kb" | "k" => 1024.0,
-        "mb" | "m" => 1024.0 * 1024.0,
-        "gb" | "g" => 1024.0 * 1024.0 * 1024.0,
-        "b" | "" => 1.0,
-        _ => return Err(anyhow!("Unknown memory unit: '{}'", unit)),
-    };
-    Ok((num * multiplier) as u64)
-}
 
 /// Converts a byte count to the number of wasmtime pages (64KB per page).
 fn bytes_to_wasm_pages(bytes: u64) -> u32 {
@@ -81,16 +62,27 @@ pub struct WasmRuntime {
     module: Module,
     /// The namespace for this runtime (e.g., "cupcake.system" or "cupcake.global.system")
     namespace: String,
+    /// Optional max memory override from CLI (in bytes)
+    max_memory_bytes: Option<usize>,
 }
 
 impl WasmRuntime {
     /// Create a new runtime from compiled WASM bytes with default namespace
     pub fn new(wasm_bytes: &[u8]) -> Result<Self> {
-        Self::new_with_namespace(wasm_bytes, "cupcake.system")
+        Self::new_with_config(wasm_bytes, "cupcake.system", None)
     }
 
     /// Create a new runtime from compiled WASM bytes with specific namespace
     pub fn new_with_namespace(wasm_bytes: &[u8], namespace: &str) -> Result<Self> {
+        Self::new_with_config(wasm_bytes, namespace, None)
+    }
+
+    /// Create a new runtime from compiled WASM bytes with namespace and memory config
+    pub fn new_with_config(
+        wasm_bytes: &[u8],
+        namespace: &str,
+        max_memory_bytes: Option<usize>,
+    ) -> Result<Self> {
         debug!("Initializing WASM runtime");
 
         // Configure engine with memory limits
@@ -108,6 +100,7 @@ impl WasmRuntime {
             engine,
             module,
             namespace: namespace.to_string(),
+            max_memory_bytes,
         })
     }
 
@@ -167,9 +160,8 @@ impl WasmRuntime {
         let mut store = Store::new(&self.engine, ());
         let mut linker = Linker::new(&self.engine);
 
-        // Use the robust, configurable memory logic
-        // TODO: Pass CLI flag value here once engine refactor is complete
-        let (initial_pages, max_pages) = get_memory_config(None);
+        // Use the robust, configurable memory logic with CLI override
+        let (initial_pages, max_pages) = get_memory_config(self.max_memory_bytes);
         let memory_ty = MemoryType::new(initial_pages, max_pages);
         let memory = Memory::new(&mut store, memory_ty)?;
         linker.define(&mut store, "env", "memory", memory)?;

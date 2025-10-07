@@ -70,14 +70,18 @@ pub fn find_opa_binary(cli_override: Option<PathBuf>) -> Result<PathBuf> {
 }
 
 /// Compile all policies into a single unified WASM module using OPA
-pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
-    compile_policies_with_namespace(policies, "cupcake.system").await
+pub async fn compile_policies(
+    policies: &[PolicyUnit],
+    opa_path_override: Option<PathBuf>,
+) -> Result<Vec<u8>> {
+    compile_policies_with_namespace(policies, "cupcake.system", opa_path_override).await
 }
 
 /// Compile policies with a specific namespace for the entrypoint
 pub async fn compile_policies_with_namespace(
     policies: &[PolicyUnit],
     namespace: &str,
+    opa_path_override: Option<PathBuf>,
 ) -> Result<Vec<u8>> {
     if policies.is_empty() {
         bail!("No policies to compile");
@@ -180,8 +184,7 @@ pub async fn compile_policies_with_namespace(
 
     // Build the OPA command for Hybrid Model
     // Single entrypoint: cupcake.system.evaluate
-    // TODO: Pass CLI flag value here once engine refactor is complete
-    let opa_path = find_opa_binary(None)?;
+    let opa_path = find_opa_binary(opa_path_override)?;
     debug!("Using OPA binary: {:?}", opa_path);
     let mut opa_cmd = Command::new(&opa_path);
     opa_cmd

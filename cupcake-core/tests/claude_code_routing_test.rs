@@ -162,7 +162,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
-            format!("{} eval", target_dir.display())
+            format!("{} eval --debug-routing", target_dir.display())
         } else {
             // Fallback to debug build
             let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -177,7 +177,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
                 });
 
             eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
-            format!("{} eval", debug_target.display())
+            format!("{} eval --debug-routing", debug_target.display())
         }
     } else {
         // Local development - use cargo run
@@ -187,7 +187,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
             .join("Cargo.toml");
         eprintln!("[DEBUG] Using cargo run for local development");
         format!(
-            "cargo run --manifest-path {} -- eval",
+            "cargo run --manifest-path {} -- eval --debug-routing",
             cargo_manifest.display()
         )
     };
@@ -513,7 +513,7 @@ async fn test_wildcard_policy_routing() {
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
-            format!("{} eval", target_dir.display())
+            format!("{} eval --debug-routing", target_dir.display())
         } else {
             // Fallback to debug build
             let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -528,7 +528,7 @@ async fn test_wildcard_policy_routing() {
                 });
 
             eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
-            format!("{} eval", debug_target.display())
+            format!("{} eval --debug-routing", debug_target.display())
         }
     } else {
         // Local development - use cargo run
@@ -537,7 +537,7 @@ async fn test_wildcard_policy_routing() {
             .unwrap()
             .join("Cargo.toml");
         format!(
-            "cargo run --manifest-path {} -- eval",
+            "cargo run --manifest-path {} -- eval --debug-routing",
             cargo_manifest.display()
         )
     };
@@ -724,7 +724,7 @@ deny contains decision if {
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
-            format!("{} eval", target_dir.display())
+            format!("{} eval --debug-routing", target_dir.display())
         } else {
             // Fallback to debug build
             let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -739,7 +739,7 @@ deny contains decision if {
                 });
 
             eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
-            format!("{} eval", debug_target.display())
+            format!("{} eval --debug-routing", debug_target.display())
         }
     } else {
         // Local development - use cargo run
@@ -748,7 +748,7 @@ deny contains decision if {
             .unwrap()
             .join("Cargo.toml");
         format!(
-            "cargo run --manifest-path {} -- eval",
+            "cargo run --manifest-path {} -- eval --debug-routing",
             cargo_manifest.display()
         )
     };

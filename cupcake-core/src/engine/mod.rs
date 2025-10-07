@@ -85,6 +85,15 @@ impl ProjectPaths {
     /// Accepts either project root OR .cupcake/ directory for flexibility
     /// Also discovers global configuration if present
     pub fn resolve(input_path: impl AsRef<Path>) -> Result<Self> {
+        Self::resolve_with_config(input_path, None)
+    }
+
+    /// Resolve project paths with optional global config override
+    /// Used by Engine::new_with_config() to apply CLI --global-config flag
+    pub fn resolve_with_config(
+        input_path: impl AsRef<Path>,
+        global_config_override: Option<PathBuf>,
+    ) -> Result<Self> {
         let input = input_path.as_ref().to_path_buf();
 
         let (root, cupcake_dir) = if input.file_name() == Some(std::ffi::OsStr::new(".cupcake")) {
@@ -105,11 +114,13 @@ impl ProjectPaths {
             (root, cupcake_dir)
         };
 
-        // Discover global configuration (optional - may not exist)
-        let global_config = global_config::GlobalPaths::discover().unwrap_or_else(|e| {
-            debug!("Failed to discover global config: {}", e);
-            None
-        });
+        // Discover global configuration with optional CLI override
+        let global_config =
+            global_config::GlobalPaths::discover_with_override(global_config_override)
+                .unwrap_or_else(|e| {
+                    debug!("Failed to discover global config: {}", e);
+                    None
+                });
 
         // Extract global paths if config exists
         let (global_root, global_policies, global_signals, global_actions, global_guidebook) =
@@ -168,6 +179,27 @@ pub mod trace;
 // Re-export metadata types for public API
 pub use metadata::{PolicyMetadata, RoutingDirective};
 
+/// Configuration for engine initialization
+/// Provides optional overrides for engine behavior via CLI flags
+#[derive(Debug, Clone, Default)]
+pub struct EngineConfig {
+    /// Override WASM maximum memory (in bytes)
+    /// If None, uses default 10MB with 1MB-100MB enforcement
+    pub wasm_max_memory: Option<usize>,
+
+    /// Override OPA binary path
+    /// If None, uses bundled OPA or system PATH
+    pub opa_path: Option<PathBuf>,
+
+    /// Override global config directory
+    /// If None, uses platform-specific default (~/.config/cupcake or ~/Library/Application Support/cupcake)
+    pub global_config: Option<PathBuf>,
+
+    /// Enable routing diagnostics debug output
+    /// If true, writes routing maps to .cupcake/debug/routing/
+    pub debug_routing: bool,
+}
+
 /// Represents a discovered policy unit with its metadata
 /// Updated for NEW_GUIDING_FINAL.md metadata-driven routing
 #[derive(Debug, Clone)]
@@ -189,6 +221,9 @@ pub struct PolicyUnit {
 pub struct Engine {
     /// Project paths following .cupcake/ convention
     paths: ProjectPaths,
+
+    /// Engine configuration from CLI flags
+    config: EngineConfig,
 
     /// In-memory routing map: event criteria -> policy packages
     routing_map: HashMap<String, Vec<PolicyUnit>>,
@@ -226,19 +261,43 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Create a new engine instance with the given project path
+    /// Create a new engine instance with the given project path using default configuration
     /// Accepts either project root or .cupcake/ directory
-    /// This is the primary public API - simple and clean
+    /// For CLI flag overrides, use `new_with_config()`
     pub async fn new(project_path: impl AsRef<Path>) -> Result<Self> {
-        let paths = ProjectPaths::resolve(project_path)?;
+        Self::new_with_config(project_path, EngineConfig::default()).await
+    }
+
+    /// Create a new engine instance with custom configuration
+    /// Accepts either project root or .cupcake/ directory
+    /// This is the primary API for CLI integration with flag overrides
+    pub async fn new_with_config(
+        project_path: impl AsRef<Path>,
+        config: EngineConfig,
+    ) -> Result<Self> {
+        let paths = ProjectPaths::resolve_with_config(project_path, config.global_config.clone())?;
 
         info!("Initializing Cupcake Engine");
         info!("Project root: {:?}", paths.root);
         info!("Policies directory: {:?}", paths.policies);
 
+        if config.wasm_max_memory.is_some() {
+            info!("WASM max memory override: {} bytes", config.wasm_max_memory.unwrap());
+        }
+        if config.opa_path.is_some() {
+            info!("OPA path override: {:?}", config.opa_path);
+        }
+        if config.global_config.is_some() {
+            info!("Global config override: {:?}", config.global_config);
+        }
+        if config.debug_routing {
+            info!("Routing debug output enabled");
+        }
+
         // Create engine instance with both project and global support
         let mut engine = Self {
             paths,
+            config,
             routing_map: HashMap::new(),
             wasm_module: None,
             wasm_runtime: None,
@@ -324,26 +383,33 @@ impl Engine {
 
         // No entrypoint mapping needed - Hybrid Model uses single aggregation entrypoint
 
-        // Step 4: Compile unified WASM module - MANDATORY
-        let wasm_bytes = compiler::compile_policies(&self.policies).await?;
+        // Step 4: Compile unified WASM module with OPA path from CLI
+        let wasm_bytes =
+            compiler::compile_policies(&self.policies, self.config.opa_path.clone()).await?;
         info!(
             "Successfully compiled unified WASM module ({} bytes)",
             wasm_bytes.len()
         );
         self.wasm_module = Some(wasm_bytes.clone());
 
-        // Step 5: Initialize WASM runtime
-        self.wasm_runtime = Some(wasm_runtime::WasmRuntime::new(&wasm_bytes)?);
+        // Step 5: Initialize WASM runtime with memory config from CLI
+        self.wasm_runtime = Some(wasm_runtime::WasmRuntime::new_with_config(
+            &wasm_bytes,
+            "cupcake.system",
+            self.config.wasm_max_memory,
+        )?);
         info!("WASM runtime initialized");
 
         // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
         self.initialize_trust_system().await;
 
-        // Step 7: Dump routing diagnostics if debug mode enabled
+        // Step 7: Dump routing diagnostics if debug mode enabled via CLI flag
         // This happens after ALL initialization (including global) is complete
-        if let Err(e) = self.dump_routing_diagnostics() {
-            // Don't fail initialization, just warn
-            debug!("Failed to dump routing diagnostics: {}", e);
+        if self.config.debug_routing {
+            if let Err(e) = self.dump_routing_diagnostics() {
+                // Don't fail initialization, just warn
+                warn!("Failed to dump routing diagnostics: {}", e);
+            }
         }
 
         info!("Engine initialization complete");
@@ -446,10 +512,11 @@ impl Engine {
                         non_system_count
                     );
 
-                    // Compile global policies to WASM
+                    // Compile global policies to WASM with OPA path from CLI
                     let global_wasm_bytes = compiler::compile_policies_with_namespace(
                         &self.global_policies,
                         "cupcake.global.system",
+                        self.config.opa_path.clone(),
                     )
                     .await?;
                     info!(
@@ -458,10 +525,11 @@ impl Engine {
                     );
                     self.global_wasm_module = Some(global_wasm_bytes.clone());
 
-                    // Initialize global WASM runtime with global namespace
-                    self.global_wasm_runtime = Some(wasm_runtime::WasmRuntime::new_with_namespace(
+                    // Initialize global WASM runtime with global namespace and memory config
+                    self.global_wasm_runtime = Some(wasm_runtime::WasmRuntime::new_with_config(
                         &global_wasm_bytes,
                         "cupcake.global.system",
+                        self.config.wasm_max_memory,
                     )?);
                     info!("Global WASM runtime initialized with namespace: cupcake.global.system");
                 } else {

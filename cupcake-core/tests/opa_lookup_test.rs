@@ -104,36 +104,34 @@ fn test_opa_lookup_priority() {
     let bundled_opa = bundled_dir.join(opa_name);
     let env_opa = env_dir.join(opa_name);
 
-    // Test 1: All exist - bundled should be preferred
+    // Test 1: CLI override provided - CLI should be preferred (highest priority)
     fs::write(&bundled_opa, "bundled").unwrap();
-    fs::write(&env_opa, "env").unwrap();
+    fs::write(&env_opa, "cli").unwrap();
 
     let result = resolve_opa_path(
         Some(bundled_dir.clone()),
         Some(env_opa.clone()),
         "system-fallback",
     );
-    assert_eq!(result, bundled_opa);
+    assert_eq!(result, env_opa, "CLI override should have highest priority");
 
-    // Test 2: Remove bundled - env should be preferred
+    // Test 2: No CLI override - bundled should be preferred
+    let result = resolve_opa_path(
+        Some(bundled_dir.clone()),
+        None,
+        "system-fallback",
+    );
+    assert_eq!(result, bundled_opa, "Bundled should be used when no CLI override");
+
+    // Test 3: Remove bundled, no CLI override - system fallback should be used
     fs::remove_file(&bundled_opa).unwrap();
 
     let result = resolve_opa_path(
         Some(bundled_dir.clone()),
-        Some(env_opa.clone()),
+        None,
         "system-fallback",
     );
-    assert_eq!(result, env_opa);
-
-    // Test 3: Remove env - system fallback should be used
-    fs::remove_file(&env_opa).unwrap();
-
-    let result = resolve_opa_path(
-        Some(bundled_dir.clone()),
-        Some(env_dir.join(opa_name)),
-        "system-fallback",
-    );
-    assert_eq!(result, PathBuf::from("system-fallback"));
+    assert_eq!(result, PathBuf::from("system-fallback"), "System fallback should be used when bundled doesn't exist");
 }
 
 /// Test helper function to verify OPA binary resolution

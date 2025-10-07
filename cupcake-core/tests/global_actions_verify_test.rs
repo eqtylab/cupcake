@@ -4,7 +4,6 @@
 use anyhow::Result;
 use cupcake_core::engine::{decision::FinalDecision, global_config::GlobalPaths, Engine};
 use serial_test::serial;
-use std::env;
 use std::fs;
 use tempfile::TempDir;
 
@@ -19,9 +18,9 @@ async fn test_global_action_execution_logs() -> Result<()> {
 
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Verify system evaluate policy was created
@@ -73,7 +72,11 @@ halt contains decision if {
     test_helpers::create_test_project(project_dir.path())?;
 
     // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Trigger the global halt with action
     let input = serde_json::json!({
@@ -106,8 +109,6 @@ halt contains decision if {
     println!("To verify: run with RUST_LOG=debug and look for 'Executing action: echo'");
 
     // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }
 
@@ -119,9 +120,9 @@ async fn test_global_action_working_directory_issue() -> Result<()> {
 
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Verify system evaluate policy was created
@@ -172,7 +173,11 @@ deny contains decision if {
     test_helpers::create_test_project(project_dir.path())?;
 
     // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Trigger the action
     let input = serde_json::json!({
@@ -196,7 +201,5 @@ deny contains decision if {
     println!("This is a bug: global actions should have global context");
 
     // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }

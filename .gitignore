@@ -82,3 +82,4 @@ MANUAL_TEST_PROCEDURES.md
 
 # todo: edit tests so this isnt created
 cupcake-core/.cupcake/
+cupcake-cli/.cupcake/

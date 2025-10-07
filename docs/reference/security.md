@@ -1,3 +1,42 @@
+# Security
+
+## Trail of Bits Audit Findings (2025-09)
+
+**Audit Scope**: Security review of Cupcake v0.1.0 focusing on AI agent attack vectors
+
+### Vulnerabilities Fixed
+
+#### TOB-EQTY-LAB-CUPCAKE-11 (High) - Global Config Override
+**Issue**: `CUPCAKE_GLOBAL_CONFIG` environment variable allowed arbitrary configuration loading, enabling RCE via malicious actions.
+
+**Fix**: Removed environment variable; added `--global-config` CLI flag with validation.
+
+#### TOB-EQTY-LAB-CUPCAKE-1 (Medium) - WASM Memory Bypass
+**Issue**: `CUPCAKE_WASM_MAX_MEMORY` could be set to 0, causing panic and bypassing all policies.
+
+**Fix**: Removed environment variable; added `--wasm-max-memory` CLI flag with 1MB-100MB validation enforced at parse time and runtime.
+
+#### TOB-EQTY-LAB-CUPCAKE-9 (Low) - Log Information Disclosure
+**Issue**: `CUPCAKE_TRACE` and `RUST_LOG` environment variables allowed agents to extract policy information from debug logs.
+
+**Fix**: Removed environment variable dependencies; added `--trace`, `--log-level`, `--debug-files`, and `--debug-routing` CLI flags.
+
+### Architectural Solution
+
+Replaced all ambient environment variable configuration with explicit CLI flags threaded through an `EngineConfig` struct. This eliminates the entire class of environment variable manipulation attacks by AI agents.
+
+**Key Changes**:
+- CLI flags validated at parse time with defense-in-depth
+- Configuration explicitly passed from CLI layer to engine core
+- No runtime environment variable reads for security-critical settings
+- Debug output requires explicit user consent via flags
+
+**Migration**: See `docs/user-guide/cli/commands-reference.md` for new CLI flag usage.
+
+---
+
+## WASM Sandbox Model
+
 Security is a major benefit of using WASM because it runs code in a **sandboxed environment**, which is fundamentally different from how a standard Go library operates.
 
 The core difference is the principle of **trust**. WASM operates on a "deny-by-default" model, while a Go library operates on a "trust-by-default" model.

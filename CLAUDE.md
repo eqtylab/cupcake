@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Security Principles
+
+Following Trail of Bits audit (2025-09), Cupcake enforces these security principles:
+
+1. **No Ambient Authority**: Configuration via explicit CLI flags only, never environment variables
+2. **Defense-in-Depth**: Validate security-critical values at parse time and runtime
+3. **Explicit Consent**: Debug output requires explicit CLI flags from user
+4. **Fail-Safe Defaults**: All security limits enforced with safe minimums (e.g., 1MB WASM memory)
+
+**Rationale**: AI agents can manipulate environment variables through prompts. Explicit CLI flags create an audit trail and prevent bypass attacks.
+
 # Cupcake
 
 Cupcake is a policy engine for AI coding agents. It works by intercepting tool calls from AI

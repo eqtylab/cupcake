@@ -282,7 +282,10 @@ impl Engine {
         info!("Policies directory: {:?}", paths.policies);
 
         if config.wasm_max_memory.is_some() {
-            info!("WASM max memory override: {} bytes", config.wasm_max_memory.unwrap());
+            info!(
+                "WASM max memory override: {} bytes",
+                config.wasm_max_memory.unwrap()
+            );
         }
         if config.opa_path.is_some() {
             info!("OPA path override: {:?}", config.opa_path);

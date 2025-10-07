@@ -201,7 +201,7 @@ mod performance_tests {
         let start = Instant::now();
         for _ in 0..10000 {
             let debug = DebugCapture::new(event.clone(), trace_id.clone(), false); // disabled
-            // This should be essentially free when disabled
+                                                                                   // This should be essentially free when disabled
             let _ = debug.write_if_enabled();
         }
         let disabled_duration = start.elapsed();

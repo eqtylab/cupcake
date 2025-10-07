@@ -15,7 +15,10 @@ fn test_global_config_cli_override_discovery() -> Result<()> {
 
     // Use CLI override to discover it
     let discovered = GlobalPaths::discover_with_override(Some(global_root.clone()))?;
-    assert!(discovered.is_some(), "Should discover config from CLI override");
+    assert!(
+        discovered.is_some(),
+        "Should discover config from CLI override"
+    );
 
     let global_paths = discovered.unwrap();
     assert_eq!(global_paths.root, global_root);

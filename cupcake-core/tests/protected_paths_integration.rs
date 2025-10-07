@@ -45,8 +45,10 @@ builtins:
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
     // Create the engine without global config to avoid interference from global builtins
+    // Use an empty temp dir as sentinel to disable global config discovery
+    let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
-        global_config: None, // Explicitly disable global config for this test
+        global_config: Some(empty_global.path().to_path_buf()),
         ..Default::default()
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
@@ -197,8 +199,10 @@ builtins:
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
     // Create the engine without global config to avoid interference from global builtins
+    // Use an empty temp dir as sentinel to disable global config discovery
+    let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
-        global_config: None, // Explicitly disable global config for this test
+        global_config: Some(empty_global.path().to_path_buf()),
         ..Default::default()
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;

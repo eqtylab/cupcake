@@ -115,7 +115,6 @@ jobs:
         env:
           CI: true
           RUST_LOG: debug
-          CUPCAKE_GLOBAL_CONFIG: /nonexistent
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
 

@@ -283,7 +283,15 @@ mod tests {
     fn test_discover_with_cli_override_nonexistent() {
         let result = GlobalPaths::discover_with_override(Some(PathBuf::from("/nonexistent/path")));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("does not exist"));
+        let err_msg = result.unwrap_err().to_string();
+        // Error message contains "does not exist" on Unix, "cannot find" on Windows
+        assert!(
+            err_msg.contains("does not exist")
+                || err_msg.contains("cannot find")
+                || err_msg.contains("nonexistent"),
+            "Error message should indicate path doesn't exist, got: {}",
+            err_msg
+        );
     }
 
     #[test]

@@ -44,8 +44,12 @@ builtins:
 "#;
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
-    // Create the engine
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Create the engine without global config to avoid interference from global builtins
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: None, // Explicitly disable global config for this test
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Test 1: BLOCK Write operation on protected file
     let write_event = json!({
@@ -192,7 +196,12 @@ builtins:
 "#;
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Create the engine without global config to avoid interference from global builtins
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: None, // Explicitly disable global config for this test
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Test whitelisted read commands are ALLOWED
     let read_commands = vec![

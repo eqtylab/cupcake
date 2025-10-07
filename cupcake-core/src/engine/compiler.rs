@@ -10,9 +10,41 @@ use tracing::{debug, error, info};
 
 use super::PolicyUnit;
 
-/// Find the OPA binary, checking bundled location first
-pub fn find_opa_binary() -> PathBuf {
-    // 1. Check if OPA is bundled alongside cupcake binary
+/// Find the OPA binary with optional CLI override
+///
+/// Resolution order:
+/// 1. CLI override (if provided)
+/// 2. Bundled OPA alongside cupcake binary
+/// 3. System PATH
+pub fn find_opa_binary(cli_override: Option<PathBuf>) -> Result<PathBuf> {
+    // 1. Check CLI override
+    if let Some(opa_path) = cli_override {
+        // Validate the path
+        if !opa_path.exists() {
+            bail!("OPA path does not exist: {}", opa_path.display());
+        }
+
+        if !opa_path.is_file() {
+            bail!("OPA path must be a file: {}", opa_path.display());
+        }
+
+        // Check if file is executable (Unix-like systems only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata =
+                std::fs::metadata(&opa_path).context("Failed to read OPA file metadata")?;
+            let permissions = metadata.permissions();
+            if permissions.mode() & 0o111 == 0 {
+                bail!("OPA path is not executable: {}", opa_path.display());
+            }
+        }
+
+        debug!("Using CLI --opa-path override: {:?}", opa_path);
+        return Ok(opa_path);
+    }
+
+    // 2. Check if OPA is bundled alongside cupcake binary
     if let Ok(current_exe) = std::env::current_exe() {
         if let Some(exe_dir) = current_exe.parent() {
             let bundled_opa = if cfg!(windows) {
@@ -23,27 +55,18 @@ pub fn find_opa_binary() -> PathBuf {
 
             if bundled_opa.exists() {
                 debug!("Using bundled OPA at: {:?}", bundled_opa);
-                return bundled_opa;
+                return Ok(bundled_opa);
             }
-        }
-    }
-
-    // 2. Check CUPCAKE_OPA_PATH environment variable
-    if let Ok(opa_path) = std::env::var("CUPCAKE_OPA_PATH") {
-        let path = PathBuf::from(opa_path);
-        if path.exists() {
-            debug!("Using OPA from CUPCAKE_OPA_PATH: {:?}", path);
-            return path;
         }
     }
 
     // 3. Fall back to system PATH
     debug!("Using OPA from system PATH");
-    if cfg!(windows) {
+    Ok(if cfg!(windows) {
         PathBuf::from("opa.exe")
     } else {
         PathBuf::from("opa")
-    }
+    })
 }
 
 /// Compile all policies into a single unified WASM module using OPA
@@ -157,7 +180,8 @@ pub async fn compile_policies_with_namespace(
 
     // Build the OPA command for Hybrid Model
     // Single entrypoint: cupcake.system.evaluate
-    let opa_path = find_opa_binary();
+    // TODO: Pass CLI flag value here once engine refactor is complete
+    let opa_path = find_opa_binary(None)?;
     debug!("Using OPA binary: {:?}", opa_path);
     let mut opa_cmd = Command::new(&opa_path);
     opa_cmd

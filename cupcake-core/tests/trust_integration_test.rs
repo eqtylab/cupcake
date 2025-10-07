@@ -114,7 +114,13 @@ async fn test_engine_without_trust() -> Result<()> {
     let project = setup_test_project().await?;
 
     // Initialize engine without trust (should work fine)
-    let engine = Engine::new(project.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project.path(), config).await?;
 
     // Create a simple test event
     let event = serde_json::json!({
@@ -140,7 +146,13 @@ async fn test_engine_with_trust_no_manifest() -> Result<()> {
 
     // Engine should initialize fine even without trust manifest
     // (trust is optional)
-    let _engine = Engine::new(project.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let _engine = Engine::new_with_config(project.path(), config).await?;
 
     Ok(())
 }
@@ -170,7 +182,13 @@ async fn test_engine_with_valid_trust() -> Result<()> {
     manifest.save(&cupcake_dir.join(".trust"))?;
 
     // Initialize engine with trust enabled
-    let engine = Engine::new(project.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project.path(), config).await?;
 
     // Create test event that would trigger signal gathering
     let event = serde_json::json!({
@@ -223,7 +241,13 @@ deny contains decision if {
     )?;
 
     // Initialize engine with trust enabled but signal not trusted
-    let engine = Engine::new(project.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project.path(), config).await?;
 
     // Create test event that requires signal
     let event = serde_json::json!({
@@ -252,7 +276,13 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
 
     // Start without trust
     {
-        let _engine = Engine::new(project.path()).await?;
+        // Disable global config to avoid interference
+        let empty_global = TempDir::new()?;
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(empty_global.path().to_path_buf()),
+            ..Default::default()
+        };
+        let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed without trust
     }
 
@@ -262,7 +292,13 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
 
     // Now with trust
     {
-        let _engine = Engine::new(project.path()).await?;
+        // Disable global config to avoid interference
+        let empty_global = TempDir::new()?;
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(empty_global.path().to_path_buf()),
+            ..Default::default()
+        };
+        let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed with trust
     }
 
@@ -271,7 +307,13 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
 
     // Back to no trust
     {
-        let _engine = Engine::new(project.path()).await?;
+        // Disable global config to avoid interference
+        let empty_global = TempDir::new()?;
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(empty_global.path().to_path_buf()),
+            ..Default::default()
+        };
+        let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should still succeed
     }
 

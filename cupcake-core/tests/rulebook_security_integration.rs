@@ -45,7 +45,13 @@ builtins:
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
     // Create the engine - use project root, not .cupcake dir
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Test 1: Block Edit operation on .cupcake/policies/example.rego
     let edit_event = json!({
@@ -173,7 +179,13 @@ builtins:
 "#;
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Create engine without global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Test various bash commands that should be blocked
     let test_commands = vec![
@@ -241,7 +253,13 @@ builtins:
 "#;
     fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
 
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Create engine without global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Test that Read is ALSO blocked (unlike protected_paths which allows reads)
     let read_event = json!({

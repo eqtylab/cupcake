@@ -81,20 +81,7 @@ env/
 MANUAL_TEST_PROCEDURES.md
 
 # Temporary implementation/documentation files
-ENV_VAR*.md
-ENVIRONMENT_VARIABLES.md
-BASELINE_CODEBASE_STATE.md
-DEBUGGING.md
-PRE_IMPLEMENTATION_CHECKLIST.md
-TESTING_SETUP_GUIDE.md
-IMPLEMENTATION_TRACKER.md*
-PHASE*.md*
-SECURITY_REFACTOR*.md*
-*.archive
-test-results.log
-analyze_*.py
-markdown_inventory.json
-*.pdf
+
 
 # todo: edit tests so this isnt created
 cupcake-core/.cupcake/

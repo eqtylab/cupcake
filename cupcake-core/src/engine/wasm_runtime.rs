@@ -5,7 +5,6 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
-use std::env;
 use std::time::Instant;
 use tracing::{debug, instrument, trace, warn};
 use wasmtime::*;
@@ -40,28 +39,36 @@ fn bytes_to_wasm_pages(bytes: u64) -> u32 {
 }
 
 /// Gets configured WASM memory limits with safe defaults and an absolute cap.
-fn get_memory_config() -> (u32, Option<u32>) {
+///
+/// Accepts an optional max_memory_bytes parameter from CLI flag.
+/// If None, uses the default of 10MB.
+fn get_memory_config(max_memory_bytes_override: Option<usize>) -> (u32, Option<u32>) {
     const DEFAULT_INITIAL_PAGES: u32 = 5; // 320KB
-    const DEFAULT_MAX_MEMORY: &str = "10MB";
-    const ABSOLUTE_MAX_MEMORY: &str = "100MB";
+    const DEFAULT_MAX_MEMORY_BYTES: u64 = 10 * 1024 * 1024; // 10MB
+    const ABSOLUTE_MIN_MEMORY_BYTES: u64 = 1024 * 1024; // 1MB - defense in depth
+    const ABSOLUTE_MAX_MEMORY_BYTES: u64 = 100 * 1024 * 1024; // 100MB
 
-    let max_memory_str =
-        env::var("CUPCAKE_WASM_MAX_MEMORY").unwrap_or_else(|_| DEFAULT_MAX_MEMORY.to_string());
-    let mut max_memory_bytes = parse_memory_string(&max_memory_str).unwrap_or_else(|e| {
-        warn!(
-            "Invalid CUPCAKE_WASM_MAX_MEMORY value '{}': {}. Using default '{}'.",
-            max_memory_str, e, DEFAULT_MAX_MEMORY
-        );
-        parse_memory_string(DEFAULT_MAX_MEMORY).unwrap()
-    });
+    // Use override from CLI or default
+    let mut max_memory_bytes = max_memory_bytes_override
+        .map(|b| b as u64)
+        .unwrap_or(DEFAULT_MAX_MEMORY_BYTES);
 
-    let absolute_max_bytes = parse_memory_string(ABSOLUTE_MAX_MEMORY).unwrap();
-    if max_memory_bytes > absolute_max_bytes {
+    // Enforce minimum (defense in depth - already checked in CLI parsing)
+    if max_memory_bytes < ABSOLUTE_MIN_MEMORY_BYTES {
         warn!(
-            "Requested max memory ({}) exceeds the absolute maximum ({}). Capping at {}.",
-            max_memory_str, ABSOLUTE_MAX_MEMORY, ABSOLUTE_MAX_MEMORY
+            "Requested max memory ({} bytes) is below minimum ({}). Using minimum.",
+            max_memory_bytes, ABSOLUTE_MIN_MEMORY_BYTES
         );
-        max_memory_bytes = absolute_max_bytes;
+        max_memory_bytes = ABSOLUTE_MIN_MEMORY_BYTES;
+    }
+
+    // Enforce maximum cap
+    if max_memory_bytes > ABSOLUTE_MAX_MEMORY_BYTES {
+        warn!(
+            "Requested max memory ({} bytes) exceeds absolute maximum ({}). Capping at maximum.",
+            max_memory_bytes, ABSOLUTE_MAX_MEMORY_BYTES
+        );
+        max_memory_bytes = ABSOLUTE_MAX_MEMORY_BYTES;
     }
 
     let max_pages = bytes_to_wasm_pages(max_memory_bytes);
@@ -161,7 +168,8 @@ impl WasmRuntime {
         let mut linker = Linker::new(&self.engine);
 
         // Use the robust, configurable memory logic
-        let (initial_pages, max_pages) = get_memory_config();
+        // TODO: Pass CLI flag value here once engine refactor is complete
+        let (initial_pages, max_pages) = get_memory_config(None);
         let memory_ty = MemoryType::new(initial_pages, max_pages);
         let memory = Memory::new(&mut store, memory_ty)?;
         linker.define(&mut store, "env", "memory", memory)?;

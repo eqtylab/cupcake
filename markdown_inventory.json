@@ -1,0 +1,293 @@
+{
+  "generated_at": "2025-10-06 16:51:22",
+  "total_files": 41,
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "size_bytes": 17317,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "root"
+    },
+    {
+      "path": "CURRENT_PLAN.md",
+      "size_bytes": 8663,
+      "created": "2025-10-06 10:30:20",
+      "modified": "2025-10-06 10:30:20",
+      "category": "root"
+    },
+    {
+      "path": "DEBUGGING.md",
+      "size_bytes": 16328,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "root"
+    },
+    {
+      "path": "EXAMPLES_DEMO_INVENTORY.md",
+      "size_bytes": 10121,
+      "created": "2025-10-06 09:54:29",
+      "modified": "2025-10-06 09:54:29",
+      "category": "root"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 4167,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "root"
+    },
+    {
+      "path": "cupcake-core/src/harness/README.md",
+      "size_bytes": 1764,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "code"
+    },
+    {
+      "path": "cupcake-core/src/harness/events/claude_code/CLAUDE.md",
+      "size_bytes": 65,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "code"
+    },
+    {
+      "path": "cupcake-core/src/harness/events/claude_code/README.md",
+      "size_bytes": 7042,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "code"
+    },
+    {
+      "path": "cupcake-core/src/trust/CLAUDE.md",
+      "size_bytes": 2515,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "code"
+    },
+    {
+      "path": "cupcake-core/tests/CLAUDE.md",
+      "size_bytes": 1991,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "code"
+    },
+    {
+      "path": "cupcake-py/README.md",
+      "size_bytes": 2735,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "code"
+    },
+    {
+      "path": "docs/README.md",
+      "size_bytes": 4121,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/agents/claude-code/hooks-conditions.md",
+      "size_bytes": 7797,
+      "created": "2025-08-12 17:51:02",
+      "modified": "2025-08-12 17:51:21",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/agents/claude-code/hooks-guide[official][08132025].md",
+      "size_bytes": 6259,
+      "created": "2025-08-13 16:35:58",
+      "modified": "2025-08-13 16:36:20",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/agents/claude-code/hooks[official][09062025].md",
+      "size_bytes": 23038,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/agents/claude-code/read-tool-parameters.md",
+      "size_bytes": 5080,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/agents/claude-code/settings[official][08132025].md",
+      "size_bytes": 24769,
+      "created": "2025-08-13 16:35:46",
+      "modified": "2025-08-13 16:35:47",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/developer/policy-routing-system.md",
+      "size_bytes": 4295,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/developer/specs/README.md",
+      "size_bytes": 1366,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/development/DEVELOPMENT.md",
+      "size_bytes": 10244,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/reference/architecture.md",
+      "size_bytes": 16417,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/reference/design-decisions.md",
+      "size_bytes": 3416,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/reference/distribution.md",
+      "size_bytes": 7127,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/reference/security.md",
+      "size_bytes": 4656,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/reference/wasm-limitations.md",
+      "size_bytes": 2069,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/cli/commands-reference.md",
+      "size_bytes": 6598,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/cli/init.md",
+      "size_bytes": 7810,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/configuration/guardrail-integrations.md",
+      "size_bytes": 4199,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/configuration/guardrails/invariant.md",
+      "size_bytes": 6449,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/configuration/guardrails/nvidia-nemo.md",
+      "size_bytes": 4947,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/configuration/guidebook.md",
+      "size_bytes": 4224,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/configuration/signals.md",
+      "size_bytes": 8661,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/configuration/trust.md",
+      "size_bytes": 24192,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/policies/builtin-policies-reference.md",
+      "size_bytes": 7245,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/policies/metadata-system.md",
+      "size_bytes": 6480,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/policies/writing-policies.md",
+      "size_bytes": 8883,
+      "created": "2025-10-06 11:55:19",
+      "modified": "2025-10-06 11:55:19",
+      "category": "documentation"
+    },
+    {
+      "path": "docs/user-guide/quick-start.md",
+      "size_bytes": 3452,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "documentation"
+    },
+    {
+      "path": "eval/0_Claude-Code-Welcome1/CLAUDE.md",
+      "size_bytes": 725,
+      "created": "2025-09-18 09:37:33",
+      "modified": "2025-09-18 09:37:33",
+      "category": "examples"
+    },
+    {
+      "path": "eval/0_Claude-Code-Welcome1/README.md",
+      "size_bytes": 10236,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "examples"
+    },
+    {
+      "path": "eval/fixtures/claude_code_mcp.md",
+      "size_bytes": 34597,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "examples"
+    },
+    {
+      "path": "eval/fixtures/postgres_mcp.md",
+      "size_bytes": 38371,
+      "created": "2025-10-03 11:49:48",
+      "modified": "2025-10-03 11:49:48",
+      "category": "examples"
+    }
+  ]
+}

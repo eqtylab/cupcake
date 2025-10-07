@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# Cupcake
+
+Cupcake is a policy engine for AI coding agents. It works by intercepting tool calls from AI
+coding agents and evaluating them against user-defined policies written in Open Policy
+Agent (OPA) Rego, returning Allow, Block, or Warn decisions. The system integrates with
+Claude Code through a hooks mechanism that captures actions like shell commands or file
+edits before execution. It compiles policies to WebAssembly (Wasm) for fast evaluation in a
+sandboxed environment. Cupcake stores its configuration and trust data in a .cupcake
+directory and uses signals to gather contextual information such as Git branch status or file
+contents during policy evaluation. Users write policies that can block specific commands,
+protect directories, enforce workflow requirements, or inject behavioral guidance prompts
+back to the agent.
+
 ## Testing with Claude Code
 
 You can use the claude code cli functionality to test Cupcake behavior locally:
@@ -453,21 +466,26 @@ For integration tests, configure `.claude/settings.json` with UserPromptSubmit h
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "cargo run --manifest-path /path/to/Cargo.toml -- eval",
-        "env": {
-          "CUPCAKE_DEBUG_ROUTING": "1",
-          "RUST_LOG": "info"
-        }
-      }]
-    }]
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cargo run --manifest-path /path/to/Cargo.toml -- eval",
+            "env": {
+              "CUPCAKE_DEBUG_ROUTING": "1",
+              "RUST_LOG": "info"
+            }
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 Key points:
+
 - UserPromptSubmit always fires on `claude -p "hello world"`
 - Hook env vars apply to the subprocess (cargo/cupcake), not Claude itself
 - Debug files write to `.cupcake/debug/routing/` in the working directory

@@ -1,0 +1,504 @@
+# Security Refactor Implementation Tracker
+
+**Action Plan**: [SECURITY_REFACTOR_ACTION_PLAN.md](./SECURITY_REFACTOR_ACTION_PLAN.md)
+**Status**: Pre-Implementation
+**Started**: TBD
+**Target Completion**: TBD (6 weeks from start)
+
+---
+
+## Quick Status Overview
+
+| Phase | Status | Start Date | End Date | Completion |
+|-------|--------|------------|----------|------------|
+| **Phase 1**: Env Var Elimination | ⏳ Not Started | - | - | 0% |
+| **Phase 2**: Shell Hardening | ⏳ Not Started | - | - | 0% |
+| **Phase 3**: Trust System | ⏳ Not Started | - | - | 0% |
+| **Phase 4**: Policy System | ⏳ Not Started | - | - | 0% |
+| **Phase 5**: Testing | ⏳ Not Started | - | - | 0% |
+
+**Overall Progress**: 0/5 Phases Complete (0%)
+
+---
+
+## Trail of Bits Findings Status
+
+| ID | Title | Severity | Status | Phase | Notes |
+|----|-------|----------|--------|-------|-------|
+| CUPCAKE-1 | WASM Memory Bypass | Medium | ⏳ Not Started | 1 | Task 1.3 |
+| CUPCAKE-2 | Signal Bash Injection | High | ⏳ Not Started | 2 | Task 2.2 |
+| CUPCAKE-3 | Trust Path Traversal | Medium | ⏳ Not Started | 3 | Task 3.1 |
+| CUPCAKE-4 | Signal Command Injection | High | ⏳ Not Started | 2 | Task 2.2 |
+| CUPCAKE-5 | Policy Namespace Override | Low | ⏳ Not Started | 4 | Task 4.1 |
+| CUPCAKE-6 | Trust Manifest Modification | Medium | ⏳ Not Started | 3 | Task 3.2 |
+| CUPCAKE-7 | Feedback Loop Race | Info | ⏳ Not Started | 5 | N/A |
+| CUPCAKE-8 | Action Command Injection | High | ⏳ Not Started | 2 | Task 2.3 |
+| CUPCAKE-9 | Log Exposure | Low | ⏳ Not Started | 1 | Tasks 1.4-1.5 |
+| CUPCAKE-10 | Global Deny Overrides Ask | Medium | ⏳ Not Started | 4 | Task 4.2 |
+| CUPCAKE-11 | Global Config Override | High | ⏳ Not Started | 1 | Task 1.2 |
+
+**Findings Addressed**: 0/11 (0%)
+
+---
+
+## Phase 1: Environment Variable Elimination
+
+**Duration**: 1 week
+**Status**: ⏳ Not Started
+
+### Tasks
+
+#### ✅ Task 1.1: Add CLI Flag Definitions
+- **File**: `cupcake-cli/src/main.rs`
+- **Estimated**: 2 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Add `TraceModule` enum
+  - [ ] Add `LogLevel` enum
+  - [ ] Add `MemorySize` type with validation
+  - [ ] Update `Cli` struct with new flags
+  - [ ] Add help text for each flag
+  - [ ] Test CLI parsing
+
+#### ✅ Task 1.2: Update Global Config Loading
+- **File**: `cupcake-core/src/engine/global_config.rs`
+- **Estimated**: 3 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-11 (HIGH)
+- **Checklist**:
+  - [ ] Remove `env::var("CUPCAKE_GLOBAL_CONFIG")` check
+  - [ ] Add `cli_override: Option<PathBuf>` parameter
+  - [ ] Implement `validate_config_path()` function
+  - [ ] Add path validation (absolute, exists, .yml extension)
+  - [ ] Update tests
+  - [ ] Verify env var ignored
+
+#### ✅ Task 1.3: Update WASM Memory Configuration
+- **File**: `cupcake-core/src/engine/wasm_runtime.rs`
+- **Estimated**: 2 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-1 (MEDIUM)
+- **Checklist**:
+  - [ ] Remove `env::var("CUPCAKE_WASM_MAX_MEMORY")` check
+  - [ ] Accept `MemorySize` from CLI
+  - [ ] Enforce 1MB minimum (prevent bypass)
+  - [ ] Enforce 100MB maximum
+  - [ ] Add bounds checking (defense-in-depth)
+  - [ ] Test minimum enforcement
+  - [ ] Test no panic on invalid values
+
+#### ✅ Task 1.4: Update Tracing Initialization
+- **File**: `cupcake-cli/src/main.rs`
+- **Estimated**: 3 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-9 (LOW)
+- **Checklist**:
+  - [ ] Remove `env::var("CUPCAKE_TRACE")` check
+  - [ ] Remove `env::var("RUST_LOG")` check
+  - [ ] Use CLI flags exclusively
+  - [ ] Update `initialize_tracing()` signature
+  - [ ] Map `TraceModule` to filter directives
+  - [ ] Map `LogLevel` to filter level
+  - [ ] Test env vars ignored
+  - [ ] Test flags work correctly
+
+#### ✅ Task 1.5: Update Debug File and Routing Debug
+- **Files**: `cupcake-cli/src/main.rs:270`, `cupcake-core/src/engine/routing_debug.rs:73`
+- **Estimated**: 2 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-9 (LOW)
+- **Checklist**:
+  - [ ] Remove `env::var("CUPCAKE_DEBUG_FILES")` check
+  - [ ] Remove `env::var("CUPCAKE_DEBUG_ROUTING")` check
+  - [ ] Use `cli.debug_files` flag
+  - [ ] Use `cli.debug_routing` flag
+  - [ ] Update function signatures
+  - [ ] Test flags work
+
+#### ✅ Task 1.6: Update OPA Path Discovery
+- **File**: `cupcake-core/src/engine/compiler.rs`
+- **Estimated**: 2 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Remove `env::var("CUPCAKE_OPA_PATH")` check
+  - [ ] Add `cli_override: Option<PathBuf>` parameter
+  - [ ] Implement `validate_opa_binary()` function
+  - [ ] Check binary exists and is executable
+  - [ ] Run version check for validation
+  - [ ] Update all callers
+  - [ ] Test validation
+
+**Phase 1 Completion Criteria**:
+- [ ] All env var checks removed (7 variables)
+- [ ] All CLI flags implemented and tested
+- [ ] All validation functions working
+- [ ] CUPCAKE-1, 9, 11 addressed
+- [ ] Documentation updated
+- [ ] Migration guide written
+
+---
+
+## Phase 2: Shell Command Hardening
+
+**Duration**: 1.5 weeks
+**Status**: ⏳ Not Started
+
+### Tasks
+
+#### ✅ Task 2.1: Define Secure Command Types
+- **File**: `cupcake-core/src/engine/secure_command.rs` (NEW)
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-2, 4, 8
+- **Checklist**:
+  - [ ] Create new module `secure_command.rs`
+  - [ ] Define `SecureCommand` enum
+  - [ ] Implement Git command type
+  - [ ] Implement Read command type
+  - [ ] Implement Script command type
+  - [ ] Implement Echo command type
+  - [ ] Implement Test command type
+  - [ ] Implement External command type (with whitelist)
+  - [ ] Implement `execute()` method
+  - [ ] Add path validation
+  - [ ] Add whitelist checking
+  - [ ] Write unit tests
+
+#### ✅ Task 2.2: Update Signal Execution
+- **File**: `cupcake-core/src/engine/guidebook.rs`
+- **Estimated**: 6 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-2, 4 (HIGH)
+- **Checklist**:
+  - [ ] Update `Signal` struct to use `SecureCommand`
+  - [ ] Remove string-based command support
+  - [ ] Update `execute_signal()` function
+  - [ ] Add timeout support
+  - [ ] Add error handling (no bypass on failure)
+  - [ ] Reject old format with clear error
+  - [ ] Test no shell interpretation
+  - [ ] Test command injection blocked
+
+#### ✅ Task 2.3: Update Action Execution
+- **File**: `cupcake-core/src/engine/actions.rs`
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-8 (HIGH)
+- **Checklist**:
+  - [ ] Update `Action` struct to use `SecureCommand`
+  - [ ] Update `execute_actions()` function
+  - [ ] Maintain async execution
+  - [ ] Add `continue_on_failure` support
+  - [ ] Test no shell interpretation
+  - [ ] Test injection blocked
+
+#### ✅ Task 2.4: Guidebook Validation
+- **File**: `cupcake-core/src/engine/guidebook.rs`
+- **Estimated**: 3 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Implement `validate_guidebook()` function
+  - [ ] Implement `validate_signal()` function
+  - [ ] Implement `validate_secure_command()` function
+  - [ ] Validate signal names (alphanumeric + underscore)
+  - [ ] Validate timeouts (max 300s)
+  - [ ] Validate paths (no `..` segments)
+  - [ ] Validate external commands (whitelist)
+  - [ ] Call validation at load time
+  - [ ] Test validation catches issues
+
+#### ✅ Task 2.5: Create Migration Script
+- **File**: `scripts/migrate_guidebook.py` (NEW)
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Create migration script
+  - [ ] Implement git command detection
+  - [ ] Implement echo command detection
+  - [ ] Implement cat/read command detection
+  - [ ] Implement test command detection
+  - [ ] Detect complex commands (manual review)
+  - [ ] Handle signals migration
+  - [ ] Handle actions migration
+  - [ ] Add usage instructions
+  - [ ] Test with sample guidebooks
+
+**Phase 2 Completion Criteria**:
+- [ ] No `bash -c` usage anywhere
+- [ ] `SecureCommand` types implemented
+- [ ] All signals use new format
+- [ ] All actions use new format
+- [ ] Migration tool working
+- [ ] CUPCAKE-2, 4, 8 addressed
+- [ ] Documentation updated
+
+---
+
+## Phase 3: Trust System Improvements
+
+**Duration**: 1 week
+**Status**: ⏳ Not Started
+
+### Tasks
+
+#### ✅ Task 3.1: Script Path Validation
+- **File**: `cupcake-core/src/trust/mod.rs`
+- **Estimated**: 3 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-3 (MEDIUM)
+- **Checklist**:
+  - [ ] Implement `validate_script_path()` function
+  - [ ] Check path within `.cupcake/scripts/`
+  - [ ] Resolve symlinks and validate
+  - [ ] Check is regular file (not directory)
+  - [ ] Check is executable (Unix)
+  - [ ] Test path traversal blocked
+  - [ ] Test symlink validation
+
+#### ✅ Task 3.2: Manifest Integrity Checks
+- **File**: `cupcake-core/src/trust/manifest.rs`
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-6 (MEDIUM)
+- **Checklist**:
+  - [ ] Implement `validate_manifest()` function
+  - [ ] Check HMAC present
+  - [ ] Validate all script paths
+  - [ ] Check timestamp not in future
+  - [ ] Warn if timestamp too old (7 days)
+  - [ ] Implement `validate_manifest_script_path()`
+  - [ ] Reject relative paths with `..`
+  - [ ] Reject absolute paths
+  - [ ] Reject Windows drive letters
+  - [ ] Test all validations
+
+#### ✅ Task 3.3: Add Runtime Security Check
+- **File**: `cupcake-cli/src/main.rs`
+- **Estimated**: 1 hour
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Implement `check_production_hmac_security()` function
+  - [ ] Check for `deterministic-tests` feature
+  - [ ] Fail with clear error if enabled in production
+  - [ ] Call from `main()` before any other operations
+  - [ ] Test check fails in test mode
+  - [ ] Test check passes in production mode
+
+**Phase 3 Completion Criteria**:
+- [ ] Path traversal prevented
+- [ ] Manifest validation enforced
+- [ ] Production security check active
+- [ ] CUPCAKE-3, 6 addressed
+- [ ] Documentation updated
+
+---
+
+## Phase 4: Policy System Hardening
+
+**Duration**: 1 week
+**Status**: ⏳ Not Started
+
+### Tasks
+
+#### ✅ Task 4.1: Policy Namespace Isolation
+- **File**: `cupcake-core/src/engine/compiler.rs`
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-5 (LOW)
+- **Checklist**:
+  - [ ] Implement `compile_policies_with_isolation()`
+  - [ ] Implement `ensure_namespace_isolation()`
+  - [ ] Project policies → `cupcake.project.*`
+  - [ ] Global policies → `cupcake.global.*`
+  - [ ] Update package name transformation
+  - [ ] Test namespace isolation
+  - [ ] Test no collisions
+
+#### ✅ Task 4.2: Policy Decision Priority Clarification
+- **File**: `cupcake-core/src/engine/synthesis.rs`
+- **Estimated**: 6 hours
+- **Status**: ⏳ Not Started
+- **Addresses**: CUPCAKE-10 (MEDIUM)
+- **Checklist**:
+  - [ ] Define `PolicySource` enum
+  - [ ] Update `SynthesisResult` with source tracking
+  - [ ] Add `blocked_asks` field to Deny variant
+  - [ ] Update `synthesize_decisions()` logic
+  - [ ] Document priority order in code
+  - [ ] Record blocked asks
+  - [ ] Update response format
+  - [ ] Test global deny blocks ask
+  - [ ] Test blocked asks recorded
+  - [ ] Test source tracking
+
+**Phase 4 Completion Criteria**:
+- [ ] Namespace isolation working
+- [ ] Policy priority documented
+- [ ] Blocked asks recorded
+- [ ] CUPCAKE-5, 10 addressed
+- [ ] Documentation updated
+
+---
+
+## Phase 5: Testing & Validation
+
+**Duration**: 1 week
+**Status**: ⏳ Not Started
+
+### Tasks
+
+#### ✅ Task 5.1: Create Security Test Suite
+- **File**: `cupcake-core/tests/security_tests.rs` (NEW)
+- **Estimated**: 8 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Test CUPCAKE-1: WASM memory minimum
+  - [ ] Test CUPCAKE-2: Signal injection blocked
+  - [ ] Test CUPCAKE-3: Path traversal blocked
+  - [ ] Test CUPCAKE-4: Command injection blocked
+  - [ ] Test CUPCAKE-5: Namespace isolation
+  - [ ] Test CUPCAKE-6: Manifest validation
+  - [ ] Test CUPCAKE-8: Action injection blocked
+  - [ ] Test CUPCAKE-9: Env vars ignored
+  - [ ] Test CUPCAKE-10: Blocked asks recorded
+  - [ ] Test CUPCAKE-11: Global config validated
+  - [ ] All tests passing
+
+#### ✅ Task 5.2: Penetration Testing
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Create penetration test scenarios
+  - [ ] Test each ToB finding manually
+  - [ ] Document test results
+  - [ ] Verify all attacks fail safely
+  - [ ] Create test report
+
+#### ✅ Task 5.3: Documentation Review
+- **Estimated**: 4 hours
+- **Status**: ⏳ Not Started
+- **Checklist**:
+  - [ ] Review SECURITY.md
+  - [ ] Review migration guide
+  - [ ] Review updated user docs
+  - [ ] Review CHANGELOG
+  - [ ] Review README
+  - [ ] Ensure all breaking changes documented
+
+**Phase 5 Completion Criteria**:
+- [ ] All security tests passing
+- [ ] All penetration tests fail safely
+- [ ] All documentation complete
+- [ ] All 11 findings verified fixed
+- [ ] Ready for release
+
+---
+
+## Documentation Status
+
+| Document | Status | Location |
+|----------|--------|----------|
+| ENVIRONMENT_VARIABLES.md | ⏳ Needs Update | ./ENVIRONMENT_VARIABLES.md |
+| SECURITY.md | ⏳ To Create | ./SECURITY.md |
+| Migration Guide | ⏳ To Create | ./MIGRATION_v0.2.md |
+| signals.md | ⏳ Needs Update | ./docs/user-guide/configuration/signals.md |
+| actions.md | ⏳ Needs Update | ./docs/user-guide/configuration/actions.md |
+| POLICIES.md | ⏳ Needs Update | ./docs/user-guide/policies/POLICIES.md |
+| DEVELOPMENT.md | ⏳ Needs Update | ./docs/development/DEVELOPMENT.md |
+| README.md | ⏳ Needs Update | ./README.md |
+| CHANGELOG.md | ⏳ Needs Update | ./CHANGELOG.md |
+
+---
+
+## Pre-Implementation Checklist
+
+### Environment Setup
+- [ ] Development branch created (`security-refactor-v0.2`)
+- [ ] All dependencies up to date
+- [ ] OPA v1.71.0+ installed
+- [ ] Rust toolchain up to date
+- [ ] Test environment configured
+
+### Baseline Verification
+- [ ] All current tests passing
+- [ ] Current codebase documented
+- [ ] Baseline performance metrics captured
+- [ ] Git repository clean
+
+### Team Coordination
+- [ ] Implementation plan reviewed
+- [ ] Task assignments confirmed
+- [ ] Timeline agreed upon
+- [ ] Communication channels established
+
+### Infrastructure
+- [ ] CI/CD pipeline ready
+- [ ] Test coverage tools configured
+- [ ] Security scanning enabled
+- [ ] Documentation build working
+
+---
+
+## Post-Implementation Checklist
+
+### Code Quality
+- [ ] All tests passing (100% of security tests)
+- [ ] No compiler warnings
+- [ ] Code coverage meets target (>80% for new code)
+- [ ] Performance benchmarks acceptable
+- [ ] Memory safety verified (no leaks)
+
+### Security Validation
+- [ ] All 11 ToB findings addressed
+- [ ] Security test suite passing
+- [ ] Penetration tests fail safely
+- [ ] No regressions introduced
+- [ ] Third-party security review (optional)
+
+### Documentation
+- [ ] All docs updated
+- [ ] Migration guide complete
+- [ ] CHANGELOG accurate
+- [ ] README updated
+- [ ] Security advisory drafted
+
+### Release Preparation
+- [ ] Version bumped to 0.2.0
+- [ ] Git tags created
+- [ ] Release notes written
+- [ ] Installation scripts updated
+- [ ] Distribution artifacts tested
+
+---
+
+## Issue Tracking
+
+### Blockers
+*None yet*
+
+### Risks
+*None identified yet*
+
+### Questions/Decisions Needed
+*None yet*
+
+---
+
+## Notes
+
+### Important Reminders
+- No backward compatibility constraints (full refactor)
+- Focus on security first, then elegance
+- Test each change thoroughly before moving on
+- Document rationale for major decisions
+
+### References
+- Trail of Bits Audit: `2025.09 - EQTY Lab - Cupcake - Code Review - Summary Report.pdf`
+- Security Findings: `ENV_VAR_VULNERABILITIES.md`
+- Action Plan: `SECURITY_REFACTOR_ACTION_PLAN.md`
+- Environment Vars Inventory: `ENVIRONMENT_VARIABLES.md`
+
+---
+
+**Last Updated**: 2025-10-06
+**Next Update**: When implementation starts

@@ -80,18 +80,16 @@ impl FromStr for MemorySize {
             s.parse::<usize>()
         };
 
-        let bytes = parsed.map_err(|_| format!("Invalid memory size: {}", s))?;
+        let bytes = parsed.map_err(|_| format!("Invalid memory size: {s}"))?;
 
         if bytes < MIN_MEMORY {
             return Err(format!(
-                "Memory size too small: {}. Minimum is 1MB (1048576 bytes)",
-                s
+                "Memory size too small: {s}. Minimum is 1MB (1048576 bytes)"
             ));
         }
         if bytes > MAX_MEMORY {
             return Err(format!(
-                "Memory size too large: {}. Maximum is 100MB (104857600 bytes)",
-                s
+                "Memory size too large: {s}. Maximum is 100MB (104857600 bytes)"
             ));
         }
 

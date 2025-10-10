@@ -73,7 +73,7 @@ actions:
 # 4. Builtin policies are located in .cupcake/policies/builtins/ and are
 #    only compiled when their corresponding builtin is enabled.
 #
-# 5. For debugging, set RUST_LOG=debug when running Cupcake to see detailed
+# 5. For debugging, use --log-level debug when running Cupcake to see detailed
 #    information about builtin activation and signal execution.
 #
 # 6. LIMITATION: Due to Claude Code hook limitations, context can only be

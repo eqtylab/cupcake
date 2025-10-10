@@ -96,7 +96,6 @@ Cupcake automatically downloads and manages the OPA binary (v1.7.1) required for
 - **Automatic Download**: First use downloads the correct binary for your platform
 - **Checksum Verification**: SHA256 verification ensures integrity
 - **Caching**: Binary cached in `~/.cache/cupcake/bin/`
-- **Override**: Set `CUPCAKE_OPA_PATH` to use a custom OPA binary
 
 ## Performance
 

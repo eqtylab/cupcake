@@ -130,7 +130,7 @@ deny contains decision if {
 
 **"Policy not firing"**
 - Check enabled: `cupcake inspect --policy-dir .cupcake`
-- Enable debug: `RUST_LOG=debug cupcake eval`
+- Enable debug: `cupcake eval --log-level debug`
 
 **"Claude Code not responding to policies"**
 - Verify hooks: `cat .claude/settings.json`

@@ -197,14 +197,19 @@ def download_opa(force: bool = False) -> Path:
 def find_opa() -> Optional[Path]:
     """
     Find OPA binary in order of preference:
-    1. CUPCAKE_OPA_PATH environment variable
+    1. CUPCAKE_OPA_PATH environment variable (Python bindings only - deprecated, will be removed)
     2. Cached download
     3. System PATH
-    
+
+    Note: The Cupcake CLI no longer supports CUPCAKE_OPA_PATH environment variable
+    for security reasons (use --opa-path CLI flag instead). This Python bindings-specific
+    env var check will be removed in a future version for consistency.
+
     Returns:
         Path to OPA or None if not found
     """
-    # Check environment variable
+    # Check environment variable (Python bindings only - deprecated)
+    # TODO: Remove this in next major version for consistency with CLI
     env_path = os.environ.get("CUPCAKE_OPA_PATH")
     if env_path:
         path = Path(env_path)

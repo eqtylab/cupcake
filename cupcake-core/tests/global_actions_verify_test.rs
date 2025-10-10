@@ -104,9 +104,10 @@ halt contains decision if {
     // - "Executing action: echo..."
 
     println!("\n=== Test Analysis ===");
-    println!("The action WAS executed (check debug logs with RUST_LOG=debug)");
+    println!("The action WAS executed (check test debug logs)");
     println!("However, output capture is not possible with current fire-and-forget design");
-    println!("To verify: run with RUST_LOG=debug and look for 'Executing action: echo'");
+    println!("To verify: run tests with `cargo test --features deterministic-tests -- --nocapture`");
+    println!("  and look for debug log lines: 'Executing action: echo'");
 
     // Clean up
     Ok(())

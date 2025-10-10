@@ -567,5 +567,5 @@ Rust engine handles optimization, Rego focuses on logic:
 
 - **[Policy Routing System](../developer/policy-routing-system.md)** - Deep-dive on routing internals
 - **[Development Guide](../development/DEVELOPMENT.md)** - Building and extending Cupcake
-- **[Debugging Guide](../../DEBUGGING.md)** - Troubleshooting and tracing
+- **[Debugging Guide](../development/DEBUGGING.md)** - Troubleshooting and tracing
 - **[Writing Policies](../user-guide/policies/writing-policies.md)** - Policy authoring guide

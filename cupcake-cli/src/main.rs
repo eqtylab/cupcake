@@ -84,12 +84,12 @@ impl FromStr for MemorySize {
 
         if bytes < MIN_MEMORY {
             return Err(format!(
-                "Memory size too small: {s}. Minimum is 1MB (1048576 bytes)"
+                "Memory size too small: {s}. Minimum is 1MB ({MIN_MEMORY} bytes)"
             ));
         }
         if bytes > MAX_MEMORY {
             return Err(format!(
-                "Memory size too large: {s}. Maximum is 100MB (104857600 bytes)"
+                "Memory size too large: {s}. Maximum is 100MB ({MAX_MEMORY} bytes)"
             ));
         }
 

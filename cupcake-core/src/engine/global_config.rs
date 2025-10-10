@@ -44,11 +44,6 @@ impl GlobalPaths {
 
         // First check CLI override
         if let Some(override_path) = cli_override {
-            debug!(
-                "Using CLI --global-config override: {}",
-                override_path.display()
-            );
-
             // Validate the path
             if !override_path.is_absolute() {
                 return Err(anyhow::anyhow!(
@@ -64,14 +59,29 @@ impl GlobalPaths {
                 ));
             }
 
-            if !override_path.is_dir() {
+            // Canonicalize to resolve .. and symlinks (defense-in-depth)
+            // This ensures the user sees the actual target directory in logs/errors
+            let canonical_path = override_path.canonicalize().with_context(|| {
+                format!(
+                    "Failed to resolve global config path: {}",
+                    override_path.display()
+                )
+            })?;
+
+            if !canonical_path.is_dir() {
                 return Err(anyhow::anyhow!(
                     "Global config path must be a directory: {}",
-                    override_path.display()
+                    canonical_path.display()
                 ));
             }
 
-            return Ok(Some(Self::from_root(override_path)?));
+            debug!(
+                "Using CLI --global-config override: {} (resolved to {})",
+                override_path.display(),
+                canonical_path.display()
+            );
+
+            return Ok(Some(Self::from_root(canonical_path)?));
         }
 
         // Use platform-specific config directory
@@ -269,7 +279,9 @@ mod tests {
         assert!(result.is_some());
 
         let global_paths = result.unwrap();
-        assert_eq!(global_paths.root, root);
+        // Path is now canonicalized, so compare canonicalized versions
+        let expected_root = root.canonicalize().unwrap();
+        assert_eq!(global_paths.root, expected_root);
     }
 
     #[test]

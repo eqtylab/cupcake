@@ -35,13 +35,13 @@ use super::PolicyUnit;
 ///
 /// # Returns
 ///
-/// - `Ok(PathBuf)` - Path to OPA binary or command name for PATH resolution
-/// - `Err` - Only for CLI override validation failures (path doesn't exist, not executable, etc.)
+/// Returns `Ok(PathBuf)` with either an absolute path to a validated OPA binary, or a
+/// command name ("opa"/"opa.exe") for PATH resolution. See "Resolution Order" for details.
 ///
 /// # Errors
 ///
-/// Returns error only when CLI override validation fails. PATH resolution errors
-/// are deferred to execution time for better error context and to avoid false negatives.
+/// Returns `Err` only when CLI override validation fails. PATH resolution errors are
+/// deferred to execution time for better error context and to avoid false negatives.
 pub fn find_opa_binary(cli_override: Option<PathBuf>) -> Result<PathBuf> {
     // 1. Check CLI override
     if let Some(opa_path) = cli_override {

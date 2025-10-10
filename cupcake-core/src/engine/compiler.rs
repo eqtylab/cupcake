@@ -12,10 +12,36 @@ use super::PolicyUnit;
 
 /// Find the OPA binary with optional CLI override
 ///
-/// Resolution order:
-/// 1. CLI override (if provided)
-/// 2. Bundled OPA alongside cupcake binary
-/// 3. System PATH
+/// # Resolution Order
+///
+/// 1. **CLI override** (if provided) - validated for existence and executability
+/// 2. **Bundled OPA** alongside cupcake binary - checked for existence
+/// 3. **System PATH** - returned as command name for OS resolution
+///
+/// # Validation Approach
+///
+/// Different discovery methods use appropriate validation strategies:
+///
+/// - **CLI override**: Validated early (user input should fail fast with clear errors)
+/// - **Bundled OPA**: Existence check only (known specific location)
+/// - **System PATH**: No pre-validation (follows standard Rust practice)
+///
+/// The PATH fallback returns a command name ("opa" or "opa.exe") that the OS
+/// will resolve at execution time. If OPA is not found in PATH, the execution
+/// will fail with a helpful error message (see `compile_policies_with_namespace`).
+///
+/// This approach avoids TOCTOU (time-of-check-time-of-use) issues and matches
+/// the pattern used by cargo, rustup, and other Rust ecosystem tools.
+///
+/// # Returns
+///
+/// - `Ok(PathBuf)` - Path to OPA binary or command name for PATH resolution
+/// - `Err` - Only for CLI override validation failures (path doesn't exist, not executable, etc.)
+///
+/// # Errors
+///
+/// Returns error only when CLI override validation fails. PATH resolution errors
+/// are deferred to execution time for better error context and to avoid false negatives.
 pub fn find_opa_binary(cli_override: Option<PathBuf>) -> Result<PathBuf> {
     // 1. Check CLI override
     if let Some(opa_path) = cli_override {
@@ -61,6 +87,19 @@ pub fn find_opa_binary(cli_override: Option<PathBuf>) -> Result<PathBuf> {
     }
 
     // 3. Fall back to system PATH
+    //
+    // Note: We return the command name without pre-validation. This is intentional and follows
+    // standard Rust practice (used by cargo, rustup, git2-rs, etc.) for several reasons:
+    //
+    // - Avoids TOCTOU issues: Pre-checking with `which` doesn't prevent execution failures
+    //   (PATH can change, file can be deleted, permissions can change between check and use)
+    // - Better error context: Execution failure (line 244) provides actual error with helpful
+    //   message suggesting installation and --opa-path flag
+    // - No false negatives: Pre-validation can't check OPA version compatibility, only that
+    //   *some* executable exists in PATH
+    //
+    // If OPA is not found or fails to execute, the error is caught at line 244-246 with a
+    // helpful message directing the user to install OPA or use --opa-path.
     debug!("Using OPA from system PATH");
     Ok(if cfg!(windows) {
         PathBuf::from("opa.exe")

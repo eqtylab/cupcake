@@ -289,8 +289,7 @@ mod tests {
             err_msg.contains("does not exist")
                 || err_msg.contains("cannot find")
                 || err_msg.contains("nonexistent"),
-            "Error message should indicate path doesn't exist, got: {}",
-            err_msg
+            "Error message should indicate path doesn't exist, got: {err_msg}"
         );
     }
 

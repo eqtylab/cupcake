@@ -45,11 +45,10 @@ async fn test_global_action_creates_marker_file() -> Result<()> {
 actions:
   by_rule_id:
     GLOBAL-MARKER-001:
-      - command: touch {}
+      - command: touch {marker_path}
 
 builtins: {{}}
-"#,
-        marker_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -168,11 +167,10 @@ async fn test_global_deny_on_any_denial_action() -> Result<()> {
 
 actions:
   on_any_denial:
-    - command: touch {}
+    - command: touch {marker_path}
 
 builtins: {{}}
-"#,
-        marker_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;

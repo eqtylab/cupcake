@@ -68,11 +68,10 @@ echo "GLOBAL_HALT_ACTION_EXECUTED" >> /tmp/cupcake_test_actions.log
 actions:
   by_rule_id:
     GLOBAL-HALT-001:
-      - command: "{}"
+      - command: "{script_path}"
 
 builtins: {{}}
-"#,
-        script_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -194,11 +193,10 @@ echo "GLOBAL_DENY_ACTION_EXECUTED" >> /tmp/cupcake_test_deny.log
 
 actions:
   on_any_denial:
-    - command: "{}"
+    - command: "{script_path}"
 
 builtins: {{}}
-"#,
-        script_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -318,11 +316,10 @@ echo "GLOBAL_BLOCK_ACTION_EXECUTED" >> /tmp/cupcake_test_block.log
 actions:
   by_rule_id:
     GLOBAL-BLOCK-001:
-      - command: "{}"
+      - command: "{script_path}"
 
 builtins: {{}}
-"#,
-        script_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;

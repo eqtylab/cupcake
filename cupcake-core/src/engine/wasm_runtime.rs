@@ -72,7 +72,8 @@ impl WasmRuntime {
         Self::new_with_config(wasm_bytes, "cupcake.system", None)
     }
 
-    /// Create a new runtime from compiled WASM bytes with specific namespace
+    /// Create a new runtime from compiled WASM bytes with specific namespace.
+    /// Uses the default memory configuration (no override).
     pub fn new_with_namespace(wasm_bytes: &[u8], namespace: &str) -> Result<Self> {
         Self::new_with_config(wasm_bytes, namespace, None)
     }

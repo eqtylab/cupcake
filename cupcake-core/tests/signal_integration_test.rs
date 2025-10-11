@@ -207,7 +207,15 @@ echo '{
         }
     }
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(&project_path, config)
+        .await
+        .unwrap();
 
     // Test 1: String signal access (git_branch == "main")
     let event1 = json!({
@@ -391,7 +399,15 @@ echo "This is not valid JSON but should still work"
     }
 
     // Initialize engine
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(&project_path, config)
+        .await
+        .unwrap();
 
     // Test that invalid JSON is handled gracefully
     let event = json!({

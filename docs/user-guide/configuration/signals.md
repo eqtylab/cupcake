@@ -187,7 +187,7 @@ Results in: `input.signals.broken_signal == "Error: database connection failed"`
 Enable debug logging to troubleshoot signal issues:
 
 ```bash
-RUST_LOG=debug cupcake eval --policy-dir .cupcake/policies
+cupcake eval --log-level debug --policy-dir .cupcake/policies
 ```
 
 Debug output shows:

@@ -3,7 +3,6 @@
 use anyhow::Result;
 use cupcake_core::engine::{global_config::GlobalPaths, Engine};
 use serial_test::serial;
-use std::env;
 use std::fs;
 use tempfile::TempDir;
 
@@ -13,9 +12,6 @@ mod test_helpers;
 #[tokio::test]
 #[serial]
 async fn test_engine_without_global_config() -> Result<()> {
-    // Make sure no global config is set
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     let project_dir = TempDir::new()?;
 
     // Create project structure using helper
@@ -47,9 +43,9 @@ async fn test_engine_without_global_config() -> Result<()> {
 async fn test_engine_with_global_config() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Use helper to create global structure
@@ -71,7 +67,11 @@ add_context contains "Global policy active"
     test_helpers::create_test_project(project_dir.path())?;
 
     // Engine should initialize with both configs
-    let engine = Engine::new(project_dir.path()).await?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Basic smoke test - ensure it doesn't crash
     let input = serde_json::json!({
@@ -80,9 +80,6 @@ add_context contains "Global policy active"
     });
 
     let _decision = engine.evaluate(&input, None).await?;
-
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
 
     Ok(())
 }
@@ -93,9 +90,9 @@ add_context contains "Global policy active"
 async fn test_namespace_isolation() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
     test_helpers::create_test_global_config(&global_paths.root)?;
 
@@ -126,7 +123,11 @@ test_value := "project"
     )?;
 
     // Engine should handle both without namespace collision
-    let engine = Engine::new(project_dir.path()).await?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Policies are isolated - no runtime errors expected
     let input = serde_json::json!({
@@ -139,9 +140,6 @@ test_value := "project"
         decision,
         cupcake_core::engine::decision::FinalDecision::Allow { .. }
     ));
-
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
 
     Ok(())
 }

@@ -40,7 +40,7 @@ impl PyPolicyEngine {
     ///     RuntimeError: If engine initialization fails
     #[new]
     fn new(path: String) -> PyResult<Self> {
-        let engine = BindingEngine::new(&path).map_err(|e| PyRuntimeError::new_err(e))?;
+        let engine = BindingEngine::new(&path).map_err(PyRuntimeError::new_err)?;
         Ok(Self { inner: engine })
     }
 

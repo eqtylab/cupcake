@@ -297,7 +297,7 @@ builtins:
 **Builtin not working?**
 1. Check it's enabled in `guidebook.yml`
 2. Verify with `cupcake verify --policy-dir .cupcake`
-3. Enable debug logging: `RUST_LOG=debug cupcake eval`
+3. Enable debug logging: `cupcake eval --log-level debug`
 
 **Too restrictive?**
 - Disable temporarily: Set `enabled: false`

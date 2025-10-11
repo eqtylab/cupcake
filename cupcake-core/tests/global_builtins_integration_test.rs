@@ -122,10 +122,12 @@ builtins: {}
         crate::test_helpers::create_test_project(project_temp.path())?;
 
         // Set global config env var
-        std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-
-        // Create engine (pass project root, not policies directory)
-        let engine = Engine::new(project_temp.path()).await?;
+        // Create engine with global config (pass project root, not policies directory)
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(global_temp.path().to_path_buf()),
+            ..Default::default()
+        };
+        let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
         // Test system protection blocks /etc/hosts edit
         let event = json!({
@@ -151,8 +153,6 @@ builtins: {}
         );
         assert_eq!(decision.reason(), Some("Test: System file blocked"));
 
-        // Cleanup
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
 
@@ -169,10 +169,12 @@ builtins: {}
         crate::test_helpers::create_test_project(project_temp.path())?;
 
         // Set global config env var
-        std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-
-        // Create engine (pass project root, not policies directory)
-        let engine = Engine::new(project_temp.path()).await?;
+        // Create engine with global config (pass project root, not policies directory)
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(global_temp.path().to_path_buf()),
+            ..Default::default()
+        };
+        let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
         // Test sensitive data blocks .env read
         let event = json!({
@@ -192,8 +194,6 @@ builtins: {}
         );
         assert_eq!(decision.reason(), Some("Test: Sensitive file blocked"));
 
-        // Cleanup
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
 
@@ -210,10 +210,12 @@ builtins: {}
         crate::test_helpers::create_test_project(project_temp.path())?;
 
         // Set global config env var
-        std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-
-        // Create engine (pass project root, not policies directory)
-        let engine = Engine::new(project_temp.path()).await?;
+        // Create engine with global config (pass project root, not policies directory)
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(global_temp.path().to_path_buf()),
+            ..Default::default()
+        };
+        let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
         // Test cupcake execution blocks
         let event = json!({
@@ -233,8 +235,6 @@ builtins: {}
         );
         assert_eq!(decision.reason(), Some("Test: Cupcake execution blocked"));
 
-        // Cleanup
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
 
@@ -326,10 +326,12 @@ builtins:
         crate::test_helpers::create_test_project(project_temp.path())?;
 
         // Set global config env var
-        std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-
-        // Create engine (pass project root, not policies directory)
-        let engine = Engine::new(project_temp.path()).await?;
+        // Create engine with global config (pass project root, not policies directory)
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(global_temp.path().to_path_buf()),
+            ..Default::default()
+        };
+        let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
         // Test that disabled builtin does NOT fire
         let event = json!({
@@ -351,8 +353,6 @@ builtins:
         );
         assert_ne!(decision.reason(), Some("Should not fire when disabled"));
 
-        // Cleanup
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
 
@@ -464,10 +464,12 @@ builtins:
         crate::test_helpers::create_test_project(project_temp.path())?;
 
         // Set global config env var
-        std::env::set_var("CUPCAKE_GLOBAL_CONFIG", global_temp.path());
-
-        // Create engine (pass project root, not policies directory)
-        let engine = Engine::new(project_temp.path()).await?;
+        // Create engine with global config (pass project root, not policies directory)
+        let config = cupcake_core::engine::EngineConfig {
+            global_config: Some(global_temp.path().to_path_buf()),
+            ..Default::default()
+        };
+        let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
         // Test that builtin uses signal for additional path
         let event = json!({
@@ -494,8 +496,6 @@ builtins:
         );
         assert_eq!(decision.reason(), Some("Custom block message from signal"));
 
-        // Cleanup
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
         Ok(())
     }
 }

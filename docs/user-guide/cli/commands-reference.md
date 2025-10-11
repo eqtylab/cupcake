@@ -252,37 +252,83 @@ cupcake trust disable
 
 ---
 
-## Environment Variables
+## Global Options
 
-Control Cupcake behavior with environment variables:
+These options are available for all commands and control runtime behavior:
 
-### Logging & Debug
+### Logging & Debugging
 
-- `RUST_LOG` - Set log level (error, warn, info, debug, trace)
-- `CUPCAKE_TRACE` - Enable evaluation tracing (eval, signals, wasm, all)
-- `CUPCAKE_DEBUG_FILES` - Write debug files to `.cupcake/debug/`
+- `--log-level <LEVEL>` - Set logging level (error, warn, info, debug, trace)
+  - Default: `info`
+  - Example: `--log-level debug`
 
-### Configuration
+- `--trace <MODULES>` - Enable evaluation tracing (comma-separated)
+  - Modules: `eval`, `signals`, `wasm`, `actions`, `synthesis`, `routing`, `all`
+  - Example: `--trace eval,signals`
 
-- `CUPCAKE_GLOBAL_CONFIG` - Override global config location
-- `CUPCAKE_NO_TRUST` - Disable trust verification
-- `CLAUDE_PROJECT_DIR` - Project directory for Claude Code hooks
+- `--debug-files` - Write comprehensive debug output to `.cupcake/debug/`
+  - Creates timestamped debug files with full evaluation lifecycle
+  - Zero overhead when not enabled
+
+- `--debug-routing` - Write routing diagnostics to `.cupcake/debug/routing/`
+  - Shows policy matching and event routing decisions
+  - Useful for debugging policy metadata
+
+### Configuration Overrides
+
+- `--global-config <PATH>` - Override global configuration directory
+  - Must be absolute path to existing directory
+  - Example: `--global-config /etc/cupcake/global`
+
+- `--wasm-max-memory <SIZE>` - Set WASM runtime memory limit
+  - Valid range: 1MB to 100MB
+  - Default: 10MB
+  - Format: `10MB`, `5242880` (bytes), `5MB`
+  - Example: `--wasm-max-memory 50MB`
+
+- `--opa-path <PATH>` - Override OPA binary location
+  - Priority: CLI flag > bundled binary > system PATH
+  - Example: `--opa-path /usr/local/bin/opa`
 
 ### Examples
 
 ```bash
-# Debug logging
-RUST_LOG=debug cupcake eval < event.json
+# Debug logging with evaluation tracing
+cupcake eval --log-level debug --trace eval < event.json
 
-# Trace policy evaluation
-CUPCAKE_TRACE=eval cupcake eval --policy-dir .cupcake
+# Write debug files for troubleshooting
+cupcake eval --debug-files --debug-routing < event.json
 
-# Debug to files
-CUPCAKE_DEBUG_FILES=1 cupcake eval < event.json
+# Use custom global config
+cupcake eval --global-config /etc/cupcake/global < event.json
 
-# Disable global config for testing
-CUPCAKE_GLOBAL_CONFIG=/nonexistent cupcake verify
+# Increase WASM memory for complex policies
+cupcake eval --wasm-max-memory 50MB < event.json
+
+# Combine multiple options
+cupcake eval \
+  --log-level debug \
+  --trace all \
+  --debug-files \
+  --wasm-max-memory 25MB \
+  --global-config /custom/path \
+  < event.json
 ```
+
+### Environment Variables (Legacy)
+
+**Note**: Environment variables are no longer supported for security reasons. Use CLI flags instead.
+
+Previously supported variables that now require CLI flags:
+- `RUST_LOG` → Use `--log-level`
+- `CUPCAKE_TRACE` → Use `--trace`
+- `CUPCAKE_DEBUG_FILES` → Use `--debug-files`
+- `CUPCAKE_DEBUG_ROUTING` → Use `--debug-routing`
+- `CUPCAKE_GLOBAL_CONFIG` → Use `--global-config`
+- `CUPCAKE_WASM_MAX_MEMORY` → Use `--wasm-max-memory`
+- `CUPCAKE_OPA_PATH` → Use `--opa-path`
+
+See the [Security](#security-notes) section for why this change was made.
 
 ---
 
@@ -319,11 +365,19 @@ cupcake verify --policy-dir .cupcake
 ### Debug Policy Issues
 ```bash
 # Enable all debugging
-RUST_LOG=debug CUPCAKE_TRACE=all cupcake eval < test-event.json
+cupcake eval --log-level debug --trace all < test-event.json
 
 # Write debug files
-CUPCAKE_DEBUG_FILES=1 cupcake eval < test-event.json
+cupcake eval --debug-files --debug-routing < test-event.json
 ls .cupcake/debug/
+
+# Comprehensive debugging
+cupcake eval \
+  --log-level debug \
+  --trace all \
+  --debug-files \
+  --debug-routing \
+  < test-event.json
 ```
 
 ### Trust Script Workflow
@@ -346,3 +400,24 @@ echo "signals:
 # Verify all scripts are trusted
 cupcake trust verify
 ```
+
+---
+
+## Security Notes
+
+### Why Environment Variables Were Removed
+
+Prior versions of Cupcake allowed configuration via environment variables. This created security vulnerabilities where AI agents could manipulate the execution environment to bypass security controls.
+
+**Addressed Vulnerabilities**:
+- **TOB-EQTY-LAB-CUPCAKE-11** (High): Global config override via `CUPCAKE_GLOBAL_CONFIG`
+- **TOB-EQTY-LAB-CUPCAKE-1** (Medium): WASM memory bypass via `CUPCAKE_WASM_MAX_MEMORY`
+- **TOB-EQTY-LAB-CUPCAKE-9** (Low): Log information disclosure via `CUPCAKE_TRACE` and `RUST_LOG`
+
+**Solution**: All configuration now requires explicit CLI flags that cannot be manipulated by agents through prompts. This ensures:
+- Configuration is explicit and auditable
+- AI agents cannot override security settings
+- Debug output requires explicit user consent
+- Memory limits are validated with defense-in-depth
+
+For more details, see the Trail of Bits security audit findings.

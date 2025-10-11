@@ -3,9 +3,8 @@
 //! Implements the NEW_GUIDING_FINAL.md single entrypoint evaluation.
 //! Queries the cupcake.system.evaluate aggregation endpoint and returns DecisionSet.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::Value;
-use std::env;
 use std::time::Instant;
 use tracing::{debug, instrument, trace, warn};
 use wasmtime::*;
@@ -15,53 +14,42 @@ use super::decision::DecisionSet;
 // --- PART 1: Production-Grade Memory Configuration ---
 // This logic is NOT deprecated. It is a required feature.
 
-/// Parses a human-readable memory string (e.g., "16MB", "256kb") into bytes.
-fn parse_memory_string(s: &str) -> Result<u64> {
-    let s_lower = s.to_lowercase();
-    let (num_str, unit) = s_lower.trim().split_at(
-        s_lower
-            .find(|c: char| !c.is_ascii_digit() && c != '.')
-            .unwrap_or(s_lower.len()),
-    );
-    let num: f64 = num_str.trim().parse()?;
-    let multiplier = match unit.trim() {
-        "kb" | "k" => 1024.0,
-        "mb" | "m" => 1024.0 * 1024.0,
-        "gb" | "g" => 1024.0 * 1024.0 * 1024.0,
-        "b" | "" => 1.0,
-        _ => return Err(anyhow!("Unknown memory unit: '{}'", unit)),
-    };
-    Ok((num * multiplier) as u64)
-}
-
 /// Converts a byte count to the number of wasmtime pages (64KB per page).
 fn bytes_to_wasm_pages(bytes: u64) -> u32 {
     (bytes as f64 / 65536.0).ceil() as u32
 }
 
 /// Gets configured WASM memory limits with safe defaults and an absolute cap.
-fn get_memory_config() -> (u32, Option<u32>) {
+///
+/// Accepts an optional max_memory_bytes parameter from CLI flag.
+/// If None, uses the default of 10MB.
+fn get_memory_config(max_memory_bytes_override: Option<usize>) -> (u32, Option<u32>) {
     const DEFAULT_INITIAL_PAGES: u32 = 5; // 320KB
-    const DEFAULT_MAX_MEMORY: &str = "10MB";
-    const ABSOLUTE_MAX_MEMORY: &str = "100MB";
+    const DEFAULT_MAX_MEMORY_BYTES: u64 = 10 * 1024 * 1024; // 10MB
+    const ABSOLUTE_MIN_MEMORY_BYTES: u64 = 1024 * 1024; // 1MB - defense in depth
+    const ABSOLUTE_MAX_MEMORY_BYTES: u64 = 100 * 1024 * 1024; // 100MB
 
-    let max_memory_str =
-        env::var("CUPCAKE_WASM_MAX_MEMORY").unwrap_or_else(|_| DEFAULT_MAX_MEMORY.to_string());
-    let mut max_memory_bytes = parse_memory_string(&max_memory_str).unwrap_or_else(|e| {
-        warn!(
-            "Invalid CUPCAKE_WASM_MAX_MEMORY value '{}': {}. Using default '{}'.",
-            max_memory_str, e, DEFAULT_MAX_MEMORY
-        );
-        parse_memory_string(DEFAULT_MAX_MEMORY).unwrap()
-    });
+    // Use override from CLI or default
+    let mut max_memory_bytes = max_memory_bytes_override
+        .map(|b| b as u64)
+        .unwrap_or(DEFAULT_MAX_MEMORY_BYTES);
 
-    let absolute_max_bytes = parse_memory_string(ABSOLUTE_MAX_MEMORY).unwrap();
-    if max_memory_bytes > absolute_max_bytes {
+    // Enforce minimum (defense in depth - already checked in CLI parsing)
+    if max_memory_bytes < ABSOLUTE_MIN_MEMORY_BYTES {
         warn!(
-            "Requested max memory ({}) exceeds the absolute maximum ({}). Capping at {}.",
-            max_memory_str, ABSOLUTE_MAX_MEMORY, ABSOLUTE_MAX_MEMORY
+            "Requested max memory ({} bytes) is below minimum ({}). Using minimum.",
+            max_memory_bytes, ABSOLUTE_MIN_MEMORY_BYTES
         );
-        max_memory_bytes = absolute_max_bytes;
+        max_memory_bytes = ABSOLUTE_MIN_MEMORY_BYTES;
+    }
+
+    // Enforce maximum cap
+    if max_memory_bytes > ABSOLUTE_MAX_MEMORY_BYTES {
+        warn!(
+            "Requested max memory ({} bytes) exceeds absolute maximum ({}). Capping at maximum.",
+            max_memory_bytes, ABSOLUTE_MAX_MEMORY_BYTES
+        );
+        max_memory_bytes = ABSOLUTE_MAX_MEMORY_BYTES;
     }
 
     let max_pages = bytes_to_wasm_pages(max_memory_bytes);
@@ -74,16 +62,28 @@ pub struct WasmRuntime {
     module: Module,
     /// The namespace for this runtime (e.g., "cupcake.system" or "cupcake.global.system")
     namespace: String,
+    /// Optional max memory override from CLI (in bytes)
+    max_memory_bytes: Option<usize>,
 }
 
 impl WasmRuntime {
     /// Create a new runtime from compiled WASM bytes with default namespace
     pub fn new(wasm_bytes: &[u8]) -> Result<Self> {
-        Self::new_with_namespace(wasm_bytes, "cupcake.system")
+        Self::new_with_config(wasm_bytes, "cupcake.system", None)
     }
 
-    /// Create a new runtime from compiled WASM bytes with specific namespace
+    /// Create a new runtime from compiled WASM bytes with specific namespace.
+    /// Uses the default memory configuration (no override).
     pub fn new_with_namespace(wasm_bytes: &[u8], namespace: &str) -> Result<Self> {
+        Self::new_with_config(wasm_bytes, namespace, None)
+    }
+
+    /// Create a new runtime from compiled WASM bytes with namespace and memory config
+    pub fn new_with_config(
+        wasm_bytes: &[u8],
+        namespace: &str,
+        max_memory_bytes: Option<usize>,
+    ) -> Result<Self> {
         debug!("Initializing WASM runtime");
 
         // Configure engine with memory limits
@@ -101,6 +101,7 @@ impl WasmRuntime {
             engine,
             module,
             namespace: namespace.to_string(),
+            max_memory_bytes,
         })
     }
 
@@ -160,8 +161,8 @@ impl WasmRuntime {
         let mut store = Store::new(&self.engine, ());
         let mut linker = Linker::new(&self.engine);
 
-        // Use the robust, configurable memory logic
-        let (initial_pages, max_pages) = get_memory_config();
+        // Use the robust, configurable memory logic with CLI override
+        let (initial_pages, max_pages) = get_memory_config(self.max_memory_bytes);
         let memory_ty = MemoryType::new(initial_pages, max_pages);
         let memory = Memory::new(&mut store, memory_ty)?;
         linker.define(&mut store, "env", "memory", memory)?;

@@ -3,14 +3,13 @@
 //! Provides comprehensive debugging output for the routing map data structure,
 //! including JSON serialization, human-readable text format, and graph visualization.
 //!
-//! Enable with CUPCAKE_DEBUG_ROUTING=1 environment variable.
+//! Enable via --debug-routing CLI flag.
 //! In production builds, can be disabled with --no-default-features to exclude this module.
 
 use anyhow::Result;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fs;
 use std::path::Path;
 use tracing::info;
@@ -68,12 +67,10 @@ pub struct RoutingStatistics {
 
 impl Engine {
     /// Main entry point for dumping routing diagnostics
+    ///
+    /// Note: Caller should only call this if debug routing is enabled via CLI flag.
+    /// The check is done in main.rs when deciding whether to call this method.
     pub fn dump_routing_diagnostics(&self) -> Result<()> {
-        // Only run if debug environment variable is set
-        if env::var("CUPCAKE_DEBUG_ROUTING").is_err() {
-            return Ok(());
-        }
-
         // Create debug directory
         let debug_dir = Path::new(".cupcake/debug/routing");
         fs::create_dir_all(debug_dir)?;

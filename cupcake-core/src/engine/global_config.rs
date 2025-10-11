@@ -26,25 +26,62 @@ impl GlobalPaths {
     /// Discover global configuration paths using platform conventions
     ///
     /// Resolution order:
-    /// 1. Environment variable: CUPCAKE_GLOBAL_CONFIG
+    /// 1. CLI override (if provided)
     /// 2. Platform-specific user config directory
     /// 3. None if config directory doesn't exist (graceful absence)
     pub fn discover() -> Result<Option<Self>> {
+        Self::discover_with_override(None)
+    }
+
+    /// Discover global configuration with optional CLI override
+    ///
+    /// Resolution order:
+    /// 1. CLI override parameter (if provided)
+    /// 2. Platform-specific user config directory
+    /// 3. None if config directory doesn't exist (graceful absence)
+    pub fn discover_with_override(cli_override: Option<PathBuf>) -> Result<Option<Self>> {
         trace!("Discovering global configuration paths");
 
-        // First check environment variable override
-        if let Ok(env_path) = std::env::var("CUPCAKE_GLOBAL_CONFIG") {
-            debug!(
-                "Using CUPCAKE_GLOBAL_CONFIG environment variable: {}",
-                env_path
-            );
-            let root = PathBuf::from(env_path);
-            if root.exists() {
-                return Ok(Some(Self::from_root(root)?));
-            } else {
-                debug!("CUPCAKE_GLOBAL_CONFIG path does not exist, skipping global config");
-                return Ok(None);
+        // First check CLI override
+        if let Some(override_path) = cli_override {
+            // Validate the path
+            if !override_path.is_absolute() {
+                return Err(anyhow::anyhow!(
+                    "Global config path must be absolute (got: {})",
+                    override_path.display()
+                ));
             }
+
+            if !override_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Global config path does not exist: {}",
+                    override_path.display()
+                ));
+            }
+
+            // Canonicalize to resolve .. and symlinks (defense-in-depth)
+            // This ensures the user sees the actual target directory in logs/errors
+            let canonical_path = override_path.canonicalize().with_context(|| {
+                format!(
+                    "Failed to resolve global config path: {}",
+                    override_path.display()
+                )
+            })?;
+
+            if !canonical_path.is_dir() {
+                return Err(anyhow::anyhow!(
+                    "Global config path must be a directory: {}",
+                    canonical_path.display()
+                ));
+            }
+
+            debug!(
+                "Using CLI --global-config override: {} (resolved to {})",
+                override_path.display(),
+                canonical_path.display()
+            );
+
+            return Ok(Some(Self::from_root(canonical_path)?));
         }
 
         // Use platform-specific config directory
@@ -234,26 +271,42 @@ mod tests {
     }
 
     #[test]
-    fn test_discover_with_env_var() {
+    fn test_discover_with_cli_override() {
         let temp_dir = TempDir::new().unwrap();
         let root = temp_dir.path().to_path_buf();
 
-        std::env::set_var("CUPCAKE_GLOBAL_CONFIG", root.to_str().unwrap());
-
-        let result = GlobalPaths::discover().unwrap();
+        let result = GlobalPaths::discover_with_override(Some(root.clone())).unwrap();
         assert!(result.is_some());
 
         let global_paths = result.unwrap();
-        assert_eq!(global_paths.root, root);
+        // Path is now canonicalized, so compare canonicalized versions
+        let expected_root = root.canonicalize().unwrap();
+        assert_eq!(global_paths.root, expected_root);
+    }
 
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
+    #[test]
+    fn test_discover_with_cli_override_relative_path() {
+        let result = GlobalPaths::discover_with_override(Some(PathBuf::from("relative/path")));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must be absolute"));
+    }
+
+    #[test]
+    fn test_discover_with_cli_override_nonexistent() {
+        let result = GlobalPaths::discover_with_override(Some(PathBuf::from("/nonexistent/path")));
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        // Error message contains "does not exist" on Unix, "cannot find" on Windows
+        assert!(
+            err_msg.contains("does not exist")
+                || err_msg.contains("cannot find")
+                || err_msg.contains("nonexistent"),
+            "Error message should indicate path doesn't exist, got: {err_msg}"
+        );
     }
 
     #[test]
     fn test_discover_graceful_absence() {
-        // Remove any env var
-        std::env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
         // Discovery should return None when no global config exists
         let result = GlobalPaths::discover().unwrap();
 

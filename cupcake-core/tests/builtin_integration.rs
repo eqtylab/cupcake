@@ -236,7 +236,13 @@ add_context contains context_msg if {
     std::fs::write(&guidebook_path, guidebook_content)?;
 
     // Initialize engine from the temp directory
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Create test input
     let input = json!({
@@ -314,7 +320,13 @@ builtins:
     std::fs::write(&guidebook_path, guidebook_content)?;
 
     // Create engine
-    let engine = Engine::new(temp_dir.path()).await?;
+    // Disable global config to avoid interference
+    let empty_global = TempDir::new()?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Test 1: Edit a .txt file (should pass validation)
     let input_txt = json!({

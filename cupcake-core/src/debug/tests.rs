@@ -7,7 +7,6 @@ mod integration_tests {
     use super::super::*;
     use crate::engine::Engine;
     use serde_json::json;
-    use std::env;
     use std::path::Path;
 
     /// Test helper to check if we can create an engine (skips test if not)
@@ -34,8 +33,6 @@ mod integration_tests {
             return;
         };
 
-        // Enable debug for this test
-        env::set_var("CUPCAKE_DEBUG_FILES", "1");
         let event = json!({
             "hook_event_name": "PreToolUse",
             "hookEventName": "PreToolUse",
@@ -47,7 +44,7 @@ mod integration_tests {
         });
 
         let trace_id = "test-allow-123".to_string();
-        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id));
+        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true));
 
         let _decision = engine
             .evaluate(&event, debug_capture.as_mut())
@@ -63,8 +60,6 @@ mod integration_tests {
             debug.final_decision.unwrap(),
             crate::engine::decision::FinalDecision::Allow { .. }
         ));
-
-        env::remove_var("CUPCAKE_DEBUG_FILES");
     }
 
     #[tokio::test]
@@ -74,7 +69,6 @@ mod integration_tests {
             return;
         };
 
-        env::set_var("CUPCAKE_DEBUG_FILES", "1");
         let event = json!({
             "hook_event_name": "PreToolUse",
             "hookEventName": "PreToolUse",
@@ -86,7 +80,7 @@ mod integration_tests {
         });
 
         let trace_id = "test-deny-456".to_string();
-        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id));
+        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true));
 
         let _decision = engine
             .evaluate(&event, debug_capture.as_mut())
@@ -97,8 +91,6 @@ mod integration_tests {
         assert!(debug.routed);
         // Signals may or may not be executed depending on policy requirements
         // The important thing is that the decision was made correctly
-
-        env::remove_var("CUPCAKE_DEBUG_FILES");
     }
 
     #[tokio::test]
@@ -108,8 +100,6 @@ mod integration_tests {
             return;
         };
 
-        // Ensure debug is disabled
-        env::remove_var("CUPCAKE_DEBUG_FILES");
         let event = json!({
             "hook_event_name": "SessionStart",
             "hookEventName": "SessionStart",
@@ -143,8 +133,6 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_debug_error_capture() {
-        env::set_var("CUPCAKE_DEBUG_FILES", "1");
-
         let event = json!({
             "hook_event_name": "PreToolUse",
             "hookEventName": "PreToolUse",
@@ -153,7 +141,7 @@ mod integration_tests {
         });
 
         let trace_id = "test-error-789".to_string();
-        let mut debug = DebugCapture::new(event, trace_id);
+        let mut debug = DebugCapture::new(event, trace_id, true);
 
         // Simulate errors during evaluation
         debug.add_error("Signal execution failed: timeout".to_string());
@@ -161,8 +149,6 @@ mod integration_tests {
 
         assert_eq!(debug.errors.len(), 2);
         assert!(debug.errors[0].contains("Signal execution failed"));
-
-        env::remove_var("CUPCAKE_DEBUG_FILES");
     }
 
     #[test]
@@ -173,7 +159,7 @@ mod integration_tests {
             "session_id": "format-test"
         });
 
-        let mut debug = DebugCapture::new(event, "format-test-abc".to_string());
+        let mut debug = DebugCapture::new(event, "format-test-abc".to_string(), true);
 
         // Populate with sample data
         debug.routed = true;
@@ -208,16 +194,14 @@ mod performance_tests {
 
     #[test]
     fn test_zero_overhead_when_disabled() {
-        std::env::remove_var("CUPCAKE_DEBUG_FILES");
-
         let event = json!({"test": "data"});
         let trace_id = "perf-test".to_string();
 
         // Measure overhead of creating debug capture when disabled
         let start = Instant::now();
         for _ in 0..10000 {
-            let debug = DebugCapture::new(event.clone(), trace_id.clone());
-            // This should be essentially free when disabled
+            let debug = DebugCapture::new(event.clone(), trace_id.clone(), false); // disabled
+                                                                                   // This should be essentially free when disabled
             let _ = debug.write_if_enabled();
         }
         let disabled_duration = start.elapsed();
@@ -241,7 +225,7 @@ mod performance_tests {
     #[test]
     fn test_bounded_memory_usage() {
         let event = json!({"large": "x".repeat(1000)});
-        let mut debug = DebugCapture::new(event, "memory-test".to_string());
+        let mut debug = DebugCapture::new(event, "memory-test".to_string(), true);
 
         // Add many items to test memory bounds
         for i in 0..1000 {

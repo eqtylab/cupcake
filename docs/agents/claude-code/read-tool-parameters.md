@@ -173,7 +173,7 @@ The debug logs capture these parameters, making it easy to:
 
 Enable debug logging with:
 ```bash
-export CUPCAKE_DEBUG_FILES=1
+cupcake eval --debug-files < event.json
 ```
 
 Debug files in `.cupcake/debug/` will show complete tool_input including any offset/limit parameters.

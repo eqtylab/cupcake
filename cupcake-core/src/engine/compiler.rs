@@ -10,9 +10,67 @@ use tracing::{debug, error, info};
 
 use super::PolicyUnit;
 
-/// Find the OPA binary, checking bundled location first
-pub fn find_opa_binary() -> PathBuf {
-    // 1. Check if OPA is bundled alongside cupcake binary
+/// Find the OPA binary with optional CLI override
+///
+/// # Resolution Order
+///
+/// 1. **CLI override** (if provided) - validated for existence and executability
+/// 2. **Bundled OPA** alongside cupcake binary - checked for existence
+/// 3. **System PATH** - returned as command name for OS resolution
+///
+/// # Validation Approach
+///
+/// Different discovery methods use appropriate validation strategies:
+///
+/// - **CLI override**: Validated early (user input should fail fast with clear errors)
+/// - **Bundled OPA**: Existence check only (known specific location)
+/// - **System PATH**: No pre-validation (follows standard Rust practice)
+///
+/// The PATH fallback returns a command name ("opa" or "opa.exe") that the OS
+/// will resolve at execution time. If OPA is not found in PATH, the execution
+/// will fail with a helpful error message (see `compile_policies_with_namespace`).
+///
+/// This approach avoids TOCTOU (time-of-check-time-of-use) issues and matches
+/// the pattern used by cargo, rustup, and other Rust ecosystem tools.
+///
+/// # Returns
+///
+/// Returns `Ok(PathBuf)` with either an absolute path to a validated OPA binary, or a
+/// command name ("opa"/"opa.exe") for PATH resolution. See "Resolution Order" for details.
+///
+/// # Errors
+///
+/// Returns `Err` only when CLI override validation fails. PATH resolution errors are
+/// deferred to execution time for better error context and to avoid false negatives.
+pub fn find_opa_binary(cli_override: Option<PathBuf>) -> Result<PathBuf> {
+    // 1. Check CLI override
+    if let Some(opa_path) = cli_override {
+        // Validate the path
+        if !opa_path.exists() {
+            bail!("OPA path does not exist: {}", opa_path.display());
+        }
+
+        if !opa_path.is_file() {
+            bail!("OPA path must be a file: {}", opa_path.display());
+        }
+
+        // Check if file is executable (Unix-like systems only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata =
+                std::fs::metadata(&opa_path).context("Failed to read OPA file metadata")?;
+            let permissions = metadata.permissions();
+            if permissions.mode() & 0o111 == 0 {
+                bail!("OPA path is not executable: {}", opa_path.display());
+            }
+        }
+
+        debug!("Using CLI --opa-path override: {:?}", opa_path);
+        return Ok(opa_path);
+    }
+
+    // 2. Check if OPA is bundled alongside cupcake binary
     if let Ok(current_exe) = std::env::current_exe() {
         if let Some(exe_dir) = current_exe.parent() {
             let bundled_opa = if cfg!(windows) {
@@ -23,38 +81,46 @@ pub fn find_opa_binary() -> PathBuf {
 
             if bundled_opa.exists() {
                 debug!("Using bundled OPA at: {:?}", bundled_opa);
-                return bundled_opa;
+                return Ok(bundled_opa);
             }
         }
     }
 
-    // 2. Check CUPCAKE_OPA_PATH environment variable
-    if let Ok(opa_path) = std::env::var("CUPCAKE_OPA_PATH") {
-        let path = PathBuf::from(opa_path);
-        if path.exists() {
-            debug!("Using OPA from CUPCAKE_OPA_PATH: {:?}", path);
-            return path;
-        }
-    }
-
     // 3. Fall back to system PATH
+    //
+    // Note: We return the command name without pre-validation. This is intentional and follows
+    // standard Rust practice (used by cargo, rustup, git2-rs, etc.) for several reasons:
+    //
+    // - Avoids TOCTOU issues: Pre-checking with `which` doesn't prevent execution failures
+    //   (PATH can change, file can be deleted, permissions can change between check and use)
+    // - Better error context: Execution failure (line 244) provides actual error with helpful
+    //   message suggesting installation and --opa-path flag
+    // - No false negatives: Pre-validation can't check OPA version compatibility, only that
+    //   *some* executable exists in PATH
+    //
+    // If OPA is not found or fails to execute, the error is caught at line 244-246 with a
+    // helpful message directing the user to install OPA or use --opa-path.
     debug!("Using OPA from system PATH");
-    if cfg!(windows) {
+    Ok(if cfg!(windows) {
         PathBuf::from("opa.exe")
     } else {
         PathBuf::from("opa")
-    }
+    })
 }
 
 /// Compile all policies into a single unified WASM module using OPA
-pub async fn compile_policies(policies: &[PolicyUnit]) -> Result<Vec<u8>> {
-    compile_policies_with_namespace(policies, "cupcake.system").await
+pub async fn compile_policies(
+    policies: &[PolicyUnit],
+    opa_path_override: Option<PathBuf>,
+) -> Result<Vec<u8>> {
+    compile_policies_with_namespace(policies, "cupcake.system", opa_path_override).await
 }
 
 /// Compile policies with a specific namespace for the entrypoint
 pub async fn compile_policies_with_namespace(
     policies: &[PolicyUnit],
     namespace: &str,
+    opa_path_override: Option<PathBuf>,
 ) -> Result<Vec<u8>> {
     if policies.is_empty() {
         bail!("No policies to compile");
@@ -157,7 +223,7 @@ pub async fn compile_policies_with_namespace(
 
     // Build the OPA command for Hybrid Model
     // Single entrypoint: cupcake.system.evaluate
-    let opa_path = find_opa_binary();
+    let opa_path = find_opa_binary(opa_path_override)?;
     debug!("Using OPA binary: {:?}", opa_path);
     let mut opa_cmd = Command::new(&opa_path);
     opa_cmd

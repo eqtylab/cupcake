@@ -80,5 +80,9 @@ env/
 
 MANUAL_TEST_PROCEDURES.md
 
+# Temporary implementation/documentation files
+
+
 # todo: edit tests so this isnt created
 cupcake-core/.cupcake/
+cupcake-cli/.cupcake/

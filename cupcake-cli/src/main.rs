@@ -4,10 +4,10 @@
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
-use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use tabled::{
     settings::{object::Rows, Alignment, Modify, Style},
     Table, Tabled,
@@ -20,6 +20,91 @@ use cupcake_core::{debug::DebugCapture, engine, harness, validator};
 mod harness_config;
 mod trust_cli;
 
+/// Trace modules for evaluation tracing
+#[derive(Debug, Clone, ValueEnum)]
+enum TraceModule {
+    Eval,
+    Signals,
+    Wasm,
+    Synthesis,
+    Routing,
+    All,
+}
+
+/// Log levels
+#[derive(Debug, Clone, ValueEnum)]
+enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LogLevel {
+    fn to_filter_directive(&self) -> &'static str {
+        match self {
+            LogLevel::Error => "error",
+            LogLevel::Warn => "warn",
+            LogLevel::Info => "info",
+            LogLevel::Debug => "debug",
+            LogLevel::Trace => "trace",
+        }
+    }
+}
+
+/// Memory size with validation
+#[derive(Debug, Clone)]
+struct MemorySize {
+    bytes: usize,
+}
+
+impl FromStr for MemorySize {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        const MIN_MEMORY: usize = 1024 * 1024; // 1MB
+        const MAX_MEMORY: usize = 100 * 1024 * 1024; // 100MB
+
+        let parsed = if s.ends_with("MB") || s.ends_with("mb") {
+            s.trim_end_matches("MB")
+                .trim_end_matches("mb")
+                .parse::<usize>()
+                .map(|n| n * 1024 * 1024)
+        } else if s.ends_with("KB") || s.ends_with("kb") {
+            s.trim_end_matches("KB")
+                .trim_end_matches("kb")
+                .parse::<usize>()
+                .map(|n| n * 1024)
+        } else {
+            s.parse::<usize>()
+        };
+
+        let bytes = parsed.map_err(|_| format!("Invalid memory size: {s}"))?;
+
+        if bytes < MIN_MEMORY {
+            return Err(format!(
+                "Memory size too small: {s}. Minimum is 1MB ({MIN_MEMORY} bytes)"
+            ));
+        }
+        if bytes > MAX_MEMORY {
+            return Err(format!(
+                "Memory size too large: {s}. Maximum is 100MB ({MAX_MEMORY} bytes)"
+            ));
+        }
+
+        Ok(MemorySize { bytes })
+    }
+}
+
+impl Default for MemorySize {
+    fn default() -> Self {
+        MemorySize {
+            bytes: 10 * 1024 * 1024, // 10MB default
+        }
+    }
+}
+
 #[derive(Parser, Debug)]
 #[clap(
     name = "cupcake",
@@ -29,6 +114,34 @@ mod trust_cli;
 struct Cli {
     #[clap(subcommand)]
     command: Command,
+
+    /// Enable evaluation tracing (comma-separated: eval,signals,wasm,synthesis,routing,all)
+    #[clap(long, value_delimiter = ',', global = true)]
+    trace: Vec<TraceModule>,
+
+    /// Set log level
+    #[clap(long, default_value = "info", global = true)]
+    log_level: LogLevel,
+
+    /// Override global configuration file path
+    #[clap(long, global = true)]
+    global_config: Option<PathBuf>,
+
+    /// Maximum WASM memory allocation (e.g., "10MB", "50MB")
+    #[clap(long, default_value = "10MB", global = true)]
+    wasm_max_memory: MemorySize,
+
+    /// Enable debug file output to .cupcake/debug/
+    #[clap(long, global = true)]
+    debug_files: bool,
+
+    /// Enable routing debug output to .cupcake/debug/routing/
+    #[clap(long, global = true)]
+    debug_routing: bool,
+
+    /// Override OPA binary path
+    #[clap(long, global = true)]
+    opa_path: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -111,45 +224,33 @@ enum HarnessType {
     // Future harnesses can be added here
 }
 
-/// Initialize tracing with support for CUPCAKE_TRACE environment variable
+/// Initialize tracing with CLI flags
 ///
-/// Supports two environment variables:
-/// - RUST_LOG: Standard Rust logging levels (info, debug, trace, etc.)
-/// - CUPCAKE_TRACE: Specialized evaluation tracing (eval, signals, wasm, etc.)
-///
-/// When CUPCAKE_TRACE is set, enables JSON output for structured tracing.
-fn initialize_tracing() {
-    // Check for CUPCAKE_TRACE environment variable
-    let cupcake_trace = env::var("CUPCAKE_TRACE").ok();
+/// Configures logging based on --log-level and --trace flags.
+/// When --trace is set, enables JSON output for structured tracing.
+fn initialize_tracing(log_level: &LogLevel, trace_modules: &[TraceModule]) {
+    // Build the env filter based on log level
+    let mut filter = EnvFilter::new(log_level.to_filter_directive());
 
-    // Build the env filter based on RUST_LOG and CUPCAKE_TRACE
-    let mut filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    // If trace modules are specified, add trace-level logging for specific modules
+    for module in trace_modules {
+        let directive = match module {
+            TraceModule::Eval => "cupcake_core::engine=trace",
+            TraceModule::Signals => "cupcake_core::engine::guidebook=trace",
+            TraceModule::Wasm => "cupcake_core::engine::wasm_runtime=trace",
+            TraceModule::Synthesis => "cupcake_core::engine::synthesis=trace",
+            TraceModule::Routing => "cupcake_core::engine::routing=trace",
+            TraceModule::All => "cupcake_core=trace",
+        };
 
-    // If CUPCAKE_TRACE is set, add trace-level logging for specific modules
-    if let Some(trace_config) = &cupcake_trace {
-        let trace_modules: Vec<&str> = trace_config.split(',').collect();
-
-        // Enable trace level for requested modules
-        for module in trace_modules {
-            let directive = match module.trim() {
-                "eval" => "cupcake_core::engine=trace",
-                "signals" => "cupcake_core::engine::guidebook=trace",
-                "wasm" => "cupcake_core::engine::wasm_runtime=trace",
-                "synthesis" => "cupcake_core::engine::synthesis=trace",
-                "routing" => "cupcake_core::engine::routing=trace",
-                "all" => "cupcake_core=trace",
-                _ => continue,
-            };
-
-            // Parse and add the directive
-            if let Ok(parsed) = directive.parse() {
-                filter = filter.add_directive(parsed);
-            }
+        // Parse and add the directive
+        if let Ok(parsed) = directive.parse() {
+            filter = filter.add_directive(parsed);
         }
     }
 
     // Configure the subscriber based on whether tracing is enabled
-    if cupcake_trace.is_some() {
+    if !trace_modules.is_empty() {
         // JSON output for structured tracing - MUST go to stderr
         tracing_subscriber::fmt()
             .json()
@@ -164,7 +265,7 @@ fn initialize_tracing() {
 
         // Log that tracing is enabled
         tracing::info!(
-            cupcake_trace = ?cupcake_trace,
+            trace_modules = ?trace_modules,
             "Cupcake evaluation tracing enabled"
         );
     } else {
@@ -179,10 +280,10 @@ fn initialize_tracing() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing with enhanced support for CUPCAKE_TRACE
-    initialize_tracing();
-
     let cli = Cli::parse();
+
+    // Initialize tracing with CLI flags
+    initialize_tracing(&cli.log_level, &cli.trace);
 
     match cli.command {
         Command::Eval {
@@ -201,7 +302,15 @@ async fn main() -> Result<()> {
                 .ok();
             }
 
-            eval_command(policy_dir, strict).await
+            // Build engine config from CLI flags
+            let engine_config = engine::EngineConfig {
+                wasm_max_memory: Some(cli.wasm_max_memory.bytes),
+                opa_path: cli.opa_path.clone(),
+                global_config: cli.global_config.clone(),
+                debug_routing: cli.debug_routing,
+            };
+
+            eval_command(policy_dir, strict, cli.debug_files, engine_config).await
         }
         Command::Verify { policy_dir } => verify_command(policy_dir).await,
         Command::Init {
@@ -219,14 +328,19 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
+async fn eval_command(
+    policy_dir: PathBuf,
+    strict: bool,
+    debug_files_enabled: bool,
+    engine_config: engine::EngineConfig,
+) -> Result<()> {
     debug!(
         "Initializing Cupcake engine with policies from: {:?}",
         policy_dir
     );
 
-    // Initialize the engine - MUST succeed or we exit
-    let engine = match engine::Engine::new(&policy_dir).await {
+    // Initialize the engine with configuration - MUST succeed or we exit
+    let engine = match engine::Engine::new_with_config(&policy_dir, engine_config).await {
         Ok(e) => {
             debug!("Engine initialized successfully");
             e
@@ -266,11 +380,15 @@ async fn eval_command(policy_dir: PathBuf, strict: bool) -> Result<()> {
         );
     }
 
-    // Create debug capture if enabled via environment variable
-    let mut debug_capture = if std::env::var("CUPCAKE_DEBUG_FILES").is_ok() {
+    // Create debug capture if enabled via CLI flag
+    let mut debug_capture = if debug_files_enabled {
         // Generate a trace ID for this evaluation
         let trace_id = cupcake_core::engine::trace::generate_trace_id();
-        Some(DebugCapture::new(hook_event_json.clone(), trace_id))
+        Some(DebugCapture::new(
+            hook_event_json.clone(),
+            trace_id,
+            true, // enabled
+        ))
     } else {
         None
     };
@@ -366,7 +484,8 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
         }
         None => {
             println!("❌ No global config location available");
-            println!("   Set CUPCAKE_GLOBAL_CONFIG or run 'cupcake init --global'");
+            println!("   Run 'cupcake init --global' to initialize");
+            println!("   Or use --global-config <PATH> to specify a custom location");
         }
     }
 

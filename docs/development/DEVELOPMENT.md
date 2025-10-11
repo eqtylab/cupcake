@@ -25,7 +25,7 @@ cargo test --features deterministic-tests
 cargo t
 
 # Enable evaluation tracing for debugging
-CUPCAKE_TRACE=eval cargo run -- eval --policy-dir .cupcake/policies
+cargo run -- eval --trace eval --policy-dir .cupcake/policies
 
 # Create a test event and evaluate
 echo '{"hook_event_name":"PreToolUse","session_id":"test","transcript_path":"/tmp/test","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"echo hello"}}' | \
@@ -164,7 +164,7 @@ actions:
 
 ## Debugging
 
-For comprehensive debugging and troubleshooting, including policy evaluation tracing, debug file output, routing visualization, and platform-specific issues, see the **[Debugging Guide](../../DEBUGGING.md)**.
+For comprehensive debugging and troubleshooting, including policy evaluation tracing, debug file output, routing visualization, and platform-specific issues, see the **[Debugging Guide](./DEBUGGING.md)**.
 
 ## Running Tests
 
@@ -309,16 +309,16 @@ cargo test --features deterministic-tests
 
 ### Running Tests
 
-**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag AND with global config disabled. This ensures:
+**IMPORTANT**: Tests MUST be run with the `deterministic-tests` feature flag. This ensures:
 
 1. Deterministic HMAC key generation for reliable test execution
-2. No interference from developer's personal Cupcake configuration
+2. No interference from developer's personal Cupcake configuration (tests create isolated temp configs)
 
 ```bash
 # Run all tests (REQUIRED for correct behavior)
-CUPCAKE_GLOBAL_CONFIG=/nonexistent cargo test --features deterministic-tests
+cargo test --features deterministic-tests
 
-# Or use the Just commands (automatically handles both requirements)
+# Or use the Just commands (recommended)
 just test              # Run all tests
 just test-unit        # Run unit tests only
 just test-integration # Run integration tests only
@@ -332,7 +332,7 @@ cargo t  # Configured alias that includes required flags
 
 To create a new release, push a version tag: `git tag v0.1.8 && git push origin v0.1.8`. See [Development Guide](./docs/development/DEVELOPMENT.md#release-process) for details.
 
-#### Why Global Config Must Be Disabled
+#### Why Deterministic Tests Feature Is Required
 
 If you use Cupcake as a developer, you likely have a global configuration at `~/Library/Application Support/cupcake` (macOS) or `~/.config/cupcake` (Linux). This global config is designed to override project configs for organizational policy enforcement.
 
@@ -342,9 +342,7 @@ However, during testing, this causes issues:
 - Global configs override the test's project configs
 - Tests fail with unexpected policy decisions
 
-Setting `CUPCAKE_GLOBAL_CONFIG=/nonexistent` ensures tests run in isolation. Global tests that need global configs create their own temporary configurations.
-
-The feature flag ensures deterministic HMAC key generation for reliable test execution. Without it, integration tests will experience race conditions and cryptographic verification failures due to non-deterministic key derivation in production mode.
+Integration tests handle this by creating isolated temporary configurations and explicitly disabling global config discovery. The `deterministic-tests` feature flag ensures deterministic HMAC key generation for reliable test execution. Without it, integration tests will experience race conditions and cryptographic verification failures due to non-deterministic key derivation in production mode.
 
 ### Building
 

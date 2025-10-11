@@ -22,9 +22,9 @@ Starting with v0.2.0, Cupcake bundles the Open Policy Agent (OPA) v1.7.1 binary 
 - **Bundle Size**: ~45-70MB OPA binary increases release size from ~10MB to ~55-80MB total
 - **Platform Matching**: Each platform gets its appropriate OPA binary (static builds preferred)
 - **Checksum Verification**: OPA binaries are verified during the build process
-- **Lookup Order**: 
-  1. Bundled OPA (same directory as cupcake binary)
-  2. CUPCAKE_OPA_PATH environment variable
+- **Lookup Order**:
+  1. `--opa-path` CLI flag (if specified)
+  2. Bundled OPA (same directory as cupcake binary)
   3. System PATH (fallback)
 
 ### Benefits
@@ -150,7 +150,7 @@ Starting with v0.2.0, OPA v1.7.1 is bundled with Cupcake. No separate installati
 The bundled OPA:
 - Located in the same directory as the cupcake binary
 - Automatically discovered and used by cupcake
-- Can be overridden with CUPCAKE_OPA_PATH environment variable
+- Can be overridden with `--opa-path` CLI flag
 
 ## Version Management
 

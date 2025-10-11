@@ -6,7 +6,6 @@
 use anyhow::Result;
 use cupcake_core::engine::{decision::FinalDecision, global_config::GlobalPaths, Engine};
 use serial_test::serial;
-use std::env;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
@@ -27,9 +26,9 @@ async fn test_global_halt_executes_actions() -> Result<()> {
 
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Create global guidebook with action
@@ -69,11 +68,10 @@ echo "GLOBAL_HALT_ACTION_EXECUTED" >> /tmp/cupcake_test_actions.log
 actions:
   by_rule_id:
     GLOBAL-HALT-001:
-      - command: "{}"
+      - command: "{script_path}"
 
 builtins: {{}}
-"#,
-        script_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -105,8 +103,12 @@ halt contains decision if {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    // Initialize engine with global config
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Test: Trigger global HALT
     let input = serde_json::json!({
@@ -142,9 +144,6 @@ halt contains decision if {
         panic!("Action log file was not created - global action did not execute!");
     }
 
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }
 
@@ -155,9 +154,9 @@ halt contains decision if {
 async fn test_global_deny_executes_actions() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Create global guidebook with on_any_denial action
@@ -194,11 +193,10 @@ echo "GLOBAL_DENY_ACTION_EXECUTED" >> /tmp/cupcake_test_deny.log
 
 actions:
   on_any_denial:
-    - command: "{}"
+    - command: "{script_path}"
 
 builtins: {{}}
-"#,
-        script_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -231,8 +229,12 @@ deny contains decision if {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    // Initialize engine with global config
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Test: Trigger global DENY
     let input = serde_json::json!({
@@ -264,9 +266,6 @@ deny contains decision if {
         panic!("Deny action log file was not created - global action did not execute!");
     }
 
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }
 
@@ -277,9 +276,9 @@ deny contains decision if {
 async fn test_global_block_executes_actions() -> Result<()> {
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Create global guidebook with block action
@@ -317,11 +316,10 @@ echo "GLOBAL_BLOCK_ACTION_EXECUTED" >> /tmp/cupcake_test_block.log
 actions:
   by_rule_id:
     GLOBAL-BLOCK-001:
-      - command: "{}"
+      - command: "{script_path}"
 
 builtins: {{}}
-"#,
-        script_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -377,8 +375,12 @@ allow_override contains decision if {
 "#,
     )?;
 
-    // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    // Initialize engine with global config
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Test: Trigger global BLOCK
     let input = serde_json::json!({
@@ -406,9 +408,6 @@ allow_override contains decision if {
     } else {
         panic!("Block action log file was not created - global action did not execute!");
     }
-
-    // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
 
     Ok(())
 }

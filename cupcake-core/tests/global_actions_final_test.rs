@@ -4,7 +4,6 @@
 use anyhow::Result;
 use cupcake_core::engine::{decision::FinalDecision, global_config::GlobalPaths, Engine};
 use serial_test::serial;
-use std::env;
 use std::fs;
 use tempfile::TempDir;
 
@@ -15,13 +14,11 @@ mod test_helpers;
 #[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_action_creates_marker_file() -> Result<()> {
     // Clean environment first
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Create a marker file path
@@ -48,11 +45,10 @@ async fn test_global_action_creates_marker_file() -> Result<()> {
 actions:
   by_rule_id:
     GLOBAL-MARKER-001:
-      - command: touch {}
+      - command: touch {marker_path}
 
 builtins: {{}}
-"#,
-        marker_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -85,7 +81,11 @@ halt contains decision if {
     test_helpers::create_test_project(project_dir.path())?;
 
     // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Verify marker doesn't exist yet
     assert!(
@@ -129,8 +129,6 @@ halt contains decision if {
     println!("   Action executed within {} ms", attempts * 100);
 
     // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }
 
@@ -139,13 +137,11 @@ halt contains decision if {
 #[serial]
 async fn test_global_deny_on_any_denial_action() -> Result<()> {
     // Clean environment first
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     // Setup global config
     let global_dir = TempDir::new()?;
-    env::set_var("CUPCAKE_GLOBAL_CONFIG", global_dir.path().to_str().unwrap());
+    let global_root = global_dir.path().to_path_buf();
 
-    let global_paths = GlobalPaths::discover()?.unwrap();
+    let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
     // Create a marker file path
@@ -171,11 +167,10 @@ async fn test_global_deny_on_any_denial_action() -> Result<()> {
 
 actions:
   on_any_denial:
-    - command: touch {}
+    - command: touch {marker_path}
 
 builtins: {{}}
-"#,
-        marker_path
+"#
     );
 
     fs::write(&global_paths.guidebook, guidebook_content)?;
@@ -209,7 +204,11 @@ deny contains decision if {
     test_helpers::create_test_project(project_dir.path())?;
 
     // Initialize engine
-    let engine = Engine::new(project_dir.path()).await?;
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(global_root),
+        ..Default::default()
+    };
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Verify marker doesn't exist
     assert!(!marker_file.exists());
@@ -246,7 +245,5 @@ deny contains decision if {
     println!("✅ SUCCESS: Global on_any_denial action executed!");
 
     // Clean up
-    env::remove_var("CUPCAKE_GLOBAL_CONFIG");
-
     Ok(())
 }

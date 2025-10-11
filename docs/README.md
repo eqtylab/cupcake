@@ -56,7 +56,7 @@ Contributing to or extending Cupcake:
 
 - **[Development Setup](./development/DEVELOPMENT.md)** - Build from source
 - **[Architecture](./reference/architecture.md)** - Technical design
-- **[Debugging Guide](../DEBUGGING.md)** - Comprehensive troubleshooting and tracing
+- **[Debugging Guide](./development/DEBUGGING.md)** - Comprehensive troubleshooting and tracing
 
 ## Complete Documentation Map
 

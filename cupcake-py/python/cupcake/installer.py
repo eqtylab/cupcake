@@ -197,20 +197,12 @@ def download_opa(force: bool = False) -> Path:
 def find_opa() -> Optional[Path]:
     """
     Find OPA binary in order of preference:
-    1. CUPCAKE_OPA_PATH environment variable
-    2. Cached download
-    3. System PATH
-    
+    1. Cached download
+    2. System PATH
+
     Returns:
         Path to OPA or None if not found
     """
-    # Check environment variable
-    env_path = os.environ.get("CUPCAKE_OPA_PATH")
-    if env_path:
-        path = Path(env_path)
-        if path.exists():
-            return path
-    
     # Check cache
     cache_dir = get_cache_dir()
     local_name = f"opa-{OPA_VERSION}"

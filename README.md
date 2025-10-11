@@ -13,11 +13,13 @@
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Cupcake is a **policy enforcement** and **early‑warning** layer for AI agents. It strengthens security and reliability **without consuming model context**.
+**Cupcake** is a **policy enforcement** and **early-warning** layer for AI agents—strengthening security and reliability **without consuming model context**.
 
 - **Deterministic rule‑following** for your agents.
-- **Immediate alerts** when an agent repeatedly violates policies.
-- **Higher performance with less boilerplate**, by moving rules out of prompts and into guardrails.
+- **Trigger alerts** when agents repeatedly violate rules.
+- **Boost performance** by moving rules out of prompts (context) and into a dedicated enforcement layer (zero-context)
+
+Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **Open Policy Agent (OPA) Rego**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
 
 ## Why Cupcake?
 
@@ -28,6 +30,8 @@ Modern agents are powerful but inconsistent at following operational and securit
 - **Enterprise‑ready** controls: allow/deny/review, audit trails, and proactive warnings.
 
 ## How it Works
+
+Cupcake integrates with environments like **Claude Code** through lightweight hooks that monitor operations such as shell commands or file edits. Policies are **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation.
 
 Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file, call a tool), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
 

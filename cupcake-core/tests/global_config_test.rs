@@ -21,7 +21,10 @@ fn test_global_config_cli_override_discovery() -> Result<()> {
     );
 
     let global_paths = discovered.unwrap();
-    assert_eq!(global_paths.root, global_root);
+    // Compare canonicalized paths since global_config now canonicalizes for defense-in-depth
+    // On macOS, /var is a symlink to /private/var, so we need to canonicalize both sides
+    let expected_root = global_root.canonicalize()?;
+    assert_eq!(global_paths.root, expected_root);
 
     Ok(())
 }

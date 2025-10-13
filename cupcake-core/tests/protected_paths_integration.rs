@@ -30,9 +30,9 @@ async fn test_protected_paths_read_write_distinction() -> Result<()> {
     let protected_policy = include_str!("../../fixtures/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
 
-    // Create guidebook with protected_paths configuration
+    // Create rulebook with protected_paths configuration
     // The builtin generates its own signals from the config
-    let guidebook_content = r#"
+    let rulebook_content = r#"
 builtins:
   protected_paths:
     enabled: true
@@ -42,7 +42,7 @@ builtins:
       - "src/legacy/"
       - "*.secret"
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook_content)?;
 
     // Create the engine without global config to avoid interference from global builtins
     // Use an empty temp dir as sentinel to disable global config discovery
@@ -189,14 +189,14 @@ async fn test_protected_paths_bash_whitelist() -> Result<()> {
     let protected_policy = include_str!("../../fixtures/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
 
-    let guidebook_content = r#"
+    let rulebook_content = r#"
 builtins:
   protected_paths:
     enabled: true
     paths:
       - "secure.txt"
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook_content)?;
 
     // Create the engine without global config to avoid interference from global builtins
     // Use an empty temp dir as sentinel to disable global config discovery

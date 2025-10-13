@@ -33,8 +33,8 @@ async fn test_rulebook_security_blocks_cupcake_file_edits() -> Result<()> {
         rulebook_policy,
     )?;
 
-    // Create guidebook with rulebook_security_guardrails enabled
-    let guidebook_content = r#"
+    // Create rulebook with rulebook_security_guardrails enabled
+    let rulebook_content = r#"
 builtins:
   rulebook_security_guardrails:
     enabled: true
@@ -42,7 +42,7 @@ builtins:
     protected_paths:
       - ".cupcake/"
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook_content)?;
 
     // Create the engine - use project root, not .cupcake dir
     // Disable global config to avoid interference
@@ -78,7 +78,7 @@ builtins:
         _ => panic!("Expected Halt for .cupcake file edit, got: {decision:?}"),
     }
 
-    // Test 2: Block Write operation on .cupcake/guidebook.yml
+    // Test 2: Block Write operation on .cupcake/rulebook.yml
     let write_event = json!({
         "hook_event_name": "PreToolUse",
         "session_id": "test",
@@ -86,7 +86,7 @@ builtins:
         "cwd": temp_dir.path().to_string_lossy(),
         "tool_name": "Write",
         "tool_input": {
-            "file_path": ".cupcake/guidebook.yml",
+            "file_path": ".cupcake/rulebook.yml",
             "content": "malicious: content"
         }
     });
@@ -172,12 +172,12 @@ async fn test_rulebook_security_blocks_bash_cupcake_commands() -> Result<()> {
         rulebook_policy,
     )?;
 
-    let guidebook_content = r#"
+    let rulebook_content = r#"
 builtins:
   rulebook_security_guardrails:
     enabled: true
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook_content)?;
 
     // Create engine without global config to avoid interference
     let empty_global = TempDir::new()?;
@@ -189,7 +189,7 @@ builtins:
 
     // Test various bash commands that should be blocked
     let test_commands = vec![
-        "cat .cupcake/guidebook.yml",
+        "cat .cupcake/rulebook.yml",
         "echo 'test' > .cupcake/test.txt",
         "grep -r 'secret' .cupcake/",
         "find .cupcake -name '*.rego'",
@@ -245,13 +245,13 @@ async fn test_rulebook_security_blocks_read_operations() -> Result<()> {
         rulebook_policy,
     )?;
 
-    let guidebook_content = r#"
+    let rulebook_content = r#"
 builtins:
   rulebook_security_guardrails:
     enabled: true
     message: "Cupcake directory is completely protected"
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content)?;
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook_content)?;
 
     // Create engine without global config to avoid interference
     let empty_global = TempDir::new()?;
@@ -269,7 +269,7 @@ builtins:
         "cwd": temp_dir.path().to_string_lossy(),
         "tool_name": "Read",
         "tool_input": {
-            "file_path": ".cupcake/guidebook.yml"
+            "file_path": ".cupcake/rulebook.yml"
         }
     });
 

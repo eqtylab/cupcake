@@ -1,12 +1,12 @@
-use cupcake_core::engine::guidebook::{Guidebook, SignalConfig};
+use cupcake_core::engine::rulebook::{Rulebook, SignalConfig};
 use serde_json::{json, Value};
 
 #[tokio::test]
 async fn test_signal_json_parsing_string() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs a JSON string
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "test_string".to_string(),
         SignalConfig {
             command: r#"echo '"hello world"'"#.to_string(),
@@ -14,7 +14,7 @@ async fn test_signal_json_parsing_string() {
         },
     );
 
-    let result = guidebook.execute_signal("test_string").await.unwrap();
+    let result = rulebook.execute_signal("test_string").await.unwrap();
 
     // Should parse as JSON string
     assert_eq!(result, Value::String("hello world".to_string()));
@@ -22,10 +22,10 @@ async fn test_signal_json_parsing_string() {
 
 #[tokio::test]
 async fn test_signal_json_parsing_object() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs a JSON object
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "test_object".to_string(),
         SignalConfig {
             command: r#"echo '{"key": "value", "number": 42, "bool": true}'"#.to_string(),
@@ -33,7 +33,7 @@ async fn test_signal_json_parsing_object() {
         },
     );
 
-    let result = guidebook.execute_signal("test_object").await.unwrap();
+    let result = rulebook.execute_signal("test_object").await.unwrap();
 
     // Should parse as JSON object
     let expected = json!({
@@ -46,10 +46,10 @@ async fn test_signal_json_parsing_object() {
 
 #[tokio::test]
 async fn test_signal_json_parsing_array() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs a JSON array
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "test_array".to_string(),
         SignalConfig {
             command: r#"echo '["item1", "item2", 123]'"#.to_string(),
@@ -57,7 +57,7 @@ async fn test_signal_json_parsing_array() {
         },
     );
 
-    let result = guidebook.execute_signal("test_array").await.unwrap();
+    let result = rulebook.execute_signal("test_array").await.unwrap();
 
     // Should parse as JSON array
     let expected = json!(["item1", "item2", 123]);
@@ -66,10 +66,10 @@ async fn test_signal_json_parsing_array() {
 
 #[tokio::test]
 async fn test_signal_invalid_json_fallback() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs invalid JSON
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "test_invalid".to_string(),
         SignalConfig {
             command: r#"echo 'this is not valid JSON {'"#.to_string(),
@@ -77,7 +77,7 @@ async fn test_signal_invalid_json_fallback() {
         },
     );
 
-    let result = guidebook.execute_signal("test_invalid").await.unwrap();
+    let result = rulebook.execute_signal("test_invalid").await.unwrap();
 
     // Should fall back to string storage
     assert_eq!(
@@ -88,10 +88,10 @@ async fn test_signal_invalid_json_fallback() {
 
 #[tokio::test]
 async fn test_signal_empty_output() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs nothing
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "test_empty".to_string(),
         SignalConfig {
             command: r#"echo"#.to_string(), // Just echo with no args
@@ -99,7 +99,7 @@ async fn test_signal_empty_output() {
         },
     );
 
-    let result = guidebook.execute_signal("test_empty").await.unwrap();
+    let result = rulebook.execute_signal("test_empty").await.unwrap();
 
     // Should be empty string stored as JSON string
     assert_eq!(result, Value::String("".to_string()));
@@ -107,10 +107,10 @@ async fn test_signal_empty_output() {
 
 #[tokio::test]
 async fn test_signal_whitespace_trimming() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs JSON with whitespace
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "test_whitespace".to_string(),
         SignalConfig {
             command: r#"echo '   "trimmed"   '"#.to_string(),
@@ -118,7 +118,7 @@ async fn test_signal_whitespace_trimming() {
         },
     );
 
-    let result = guidebook.execute_signal("test_whitespace").await.unwrap();
+    let result = rulebook.execute_signal("test_whitespace").await.unwrap();
 
     // Should parse as JSON string with whitespace trimmed
     assert_eq!(result, Value::String("trimmed".to_string()));
@@ -126,10 +126,10 @@ async fn test_signal_whitespace_trimming() {
 
 #[tokio::test]
 async fn test_execute_signals_concurrent() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add multiple signals
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "signal1".to_string(),
         SignalConfig {
             command: r#"echo '"value1"'"#.to_string(),
@@ -137,7 +137,7 @@ async fn test_execute_signals_concurrent() {
         },
     );
 
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "signal2".to_string(),
         SignalConfig {
             command: r#"echo '{"key": "value2"}'"#.to_string(),
@@ -145,7 +145,7 @@ async fn test_execute_signals_concurrent() {
         },
     );
 
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "signal3".to_string(),
         SignalConfig {
             command: r#"echo '[1, 2, 3]'"#.to_string(),
@@ -159,7 +159,7 @@ async fn test_execute_signals_concurrent() {
         "signal3".to_string(),
     ];
 
-    let results = guidebook.execute_signals(&signal_names).await.unwrap();
+    let results = rulebook.execute_signals(&signal_names).await.unwrap();
 
     assert_eq!(results.len(), 3);
     assert_eq!(results["signal1"], Value::String("value1".to_string()));
@@ -169,10 +169,10 @@ async fn test_execute_signals_concurrent() {
 
 #[tokio::test]
 async fn test_execute_signals_with_failures() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that will succeed
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "good_signal".to_string(),
         SignalConfig {
             command: r#"echo '"success"'"#.to_string(),
@@ -181,7 +181,7 @@ async fn test_execute_signals_with_failures() {
     );
 
     // Add a signal that will fail
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "bad_signal".to_string(),
         SignalConfig {
             command: r#"exit 1"#.to_string(),
@@ -191,7 +191,7 @@ async fn test_execute_signals_with_failures() {
 
     let signal_names = vec!["good_signal".to_string(), "bad_signal".to_string()];
 
-    let results = guidebook.execute_signals(&signal_names).await.unwrap();
+    let results = rulebook.execute_signals(&signal_names).await.unwrap();
 
     // Both signals should be present - failed signals return error details for validation
     assert_eq!(results.len(), 2);
@@ -210,10 +210,10 @@ async fn test_execute_signals_with_failures() {
 
 #[tokio::test]
 async fn test_complex_structured_signal() {
-    let mut guidebook = Guidebook::default();
+    let mut rulebook = Rulebook::default();
 
     // Add a signal that outputs complex nested JSON (like our test_status example)
-    guidebook.signals.insert(
+    rulebook.signals.insert(
         "complex_signal".to_string(),
         SignalConfig {
             command: r#"echo '{
@@ -231,7 +231,7 @@ async fn test_complex_structured_signal() {
         },
     );
 
-    let result = guidebook.execute_signal("complex_signal").await.unwrap();
+    let result = rulebook.execute_signal("complex_signal").await.unwrap();
 
     let expected = json!({
         "passing": false,

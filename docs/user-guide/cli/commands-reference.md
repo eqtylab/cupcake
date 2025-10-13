@@ -190,43 +190,57 @@ cupcake trust <SUBCOMMAND>
 ### Subcommands
 
 #### trust init
+
 Initialize trust for this project:
+
 ```bash
 cupcake trust init
 ```
 
 #### trust update
+
 Update trust manifest with current scripts:
+
 ```bash
 cupcake trust update
 ```
 
 #### trust verify
+
 Verify current scripts against trust manifest:
+
 ```bash
 cupcake trust verify
 ```
 
 #### trust list
+
 List trusted scripts and their status:
+
 ```bash
 cupcake trust list
 ```
 
 #### trust disable
+
 Temporarily disable trust verification:
+
 ```bash
 cupcake trust disable
 ```
 
 #### trust enable
+
 Re-enable trust verification:
+
 ```bash
 cupcake trust enable
 ```
 
 #### trust reset
+
 Remove trust manifest and disable trust mode:
+
 ```bash
 cupcake trust reset
 ```
@@ -259,14 +273,17 @@ These options are available for all commands and control runtime behavior:
 ### Logging & Debugging
 
 - `--log-level <LEVEL>` - Set logging level (error, warn, info, debug, trace)
+
   - Default: `info`
   - Example: `--log-level debug`
 
 - `--trace <MODULES>` - Enable evaluation tracing (comma-separated)
+
   - Modules: `eval`, `signals`, `wasm`, `actions`, `synthesis`, `routing`, `all`
   - Example: `--trace eval,signals`
 
 - `--debug-files` - Write comprehensive debug output to `.cupcake/debug/`
+
   - Creates timestamped debug files with full evaluation lifecycle
   - Zero overhead when not enabled
 
@@ -277,10 +294,12 @@ These options are available for all commands and control runtime behavior:
 ### Configuration Overrides
 
 - `--global-config <PATH>` - Override global configuration directory
+
   - Must be absolute path to existing directory
   - Example: `--global-config /etc/cupcake/global`
 
 - `--wasm-max-memory <SIZE>` - Set WASM runtime memory limit
+
   - Valid range: 1MB to 100MB
   - Default: 10MB
   - Format: `10MB`, `5242880` (bytes), `5MB`
@@ -320,6 +339,7 @@ cupcake eval \
 **Note**: Environment variables are no longer supported for security reasons. Use CLI flags instead.
 
 Previously supported variables that now require CLI flags:
+
 - `RUST_LOG` → Use `--log-level`
 - `CUPCAKE_TRACE` → Use `--trace`
 - `CUPCAKE_DEBUG_FILES` → Use `--debug-files`
@@ -347,12 +367,14 @@ Cupcake uses standard exit codes:
 ## Common Workflows
 
 ### Initial Setup
+
 ```bash
 cupcake init --harness claude --builtins git_pre_check
 cupcake verify --policy-dir .cupcake
 ```
 
 ### Add Custom Policy
+
 ```bash
 # Write policy
 echo "package cupcake.policies.custom" > .cupcake/policies/custom.rego
@@ -363,6 +385,7 @@ cupcake verify --policy-dir .cupcake
 ```
 
 ### Debug Policy Issues
+
 ```bash
 # Enable all debugging
 cupcake eval --log-level debug --trace all < test-event.json
@@ -381,6 +404,7 @@ cupcake eval \
 ```
 
 ### Trust Script Workflow
+
 ```bash
 # Initialize trust for project
 cupcake trust init
@@ -392,10 +416,10 @@ chmod +x .cupcake/signals/check.sh
 # Update trust manifest to include new script
 cupcake trust update
 
-# Use in guidebook.yml
+# Use in rulebook.yml
 echo "signals:
   my_check:
-    command: .cupcake/signals/check.sh" >> .cupcake/guidebook.yml
+    command: .cupcake/signals/check.sh" >> .cupcake/rulebook.yml
 
 # Verify all scripts are trusted
 cupcake trust verify
@@ -410,11 +434,13 @@ cupcake trust verify
 Prior versions of Cupcake allowed configuration via environment variables. This created security vulnerabilities where AI agents could manipulate the execution environment to bypass security controls.
 
 **Addressed Vulnerabilities**:
+
 - **TOB-EQTY-LAB-CUPCAKE-11** (High): Global config override via `CUPCAKE_GLOBAL_CONFIG`
 - **TOB-EQTY-LAB-CUPCAKE-1** (Medium): WASM memory bypass via `CUPCAKE_WASM_MAX_MEMORY`
 - **TOB-EQTY-LAB-CUPCAKE-9** (Low): Log information disclosure via `CUPCAKE_TRACE` and `RUST_LOG`
 
 **Solution**: All configuration now requires explicit CLI flags that cannot be manipulated by agents through prompts. This ensures:
+
 - Configuration is explicit and auditable
 - AI agents cannot override security settings
 - Debug output requires explicit user consent

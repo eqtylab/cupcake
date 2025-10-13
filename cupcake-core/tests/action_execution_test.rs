@@ -233,10 +233,10 @@ async fn test_multiple_actions_per_rule() {
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
 
-    // Create guidebook with multiple actions for one rule
+    // Create rulebook with multiple actions for one rule
     let marker1 = temp_dir.path().join("cupcake_test_action1.txt");
     let marker2 = temp_dir.path().join("cupcake_test_action2.txt");
-    let guidebook = format!(
+    let rulebook = format!(
         r#"
 actions:
   by_rule_id:
@@ -248,7 +248,7 @@ actions:
         path_for_bash(&marker2)
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     create_system_policy(&system_dir);
 
@@ -316,8 +316,8 @@ async fn test_on_any_denial_actions() {
 
     let general_marker = temp_dir.path().join("any_denial.txt");
 
-    // Create guidebook with on_any_denial action
-    let guidebook = format!(
+    // Create rulebook with on_any_denial action
+    let rulebook = format!(
         r#"
 actions:
   on_any_denial:
@@ -326,7 +326,7 @@ actions:
         path_for_bash(&general_marker)
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     create_system_policy(&system_dir);
 

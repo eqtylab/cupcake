@@ -39,9 +39,9 @@ pub fn create_test_project(project_path: &Path) -> Result<()> {
     fs::create_dir_all(cupcake_dir.join("signals"))?;
     fs::create_dir_all(cupcake_dir.join("actions"))?;
 
-    // Create minimal guidebook
+    // Create minimal rulebook
     fs::write(
-        cupcake_dir.join("guidebook.yml"),
+        cupcake_dir.join("rulebook.yml"),
         "signals: {}\nactions: {}\nbuiltins: {}",
     )?;
 
@@ -66,9 +66,9 @@ pub fn create_test_global_config(global_path: &Path) -> Result<()> {
     fs::create_dir_all(global_path.join("signals"))?;
     fs::create_dir_all(global_path.join("actions"))?;
 
-    // Create minimal guidebook
+    // Create minimal rulebook
     fs::write(
-        global_path.join("guidebook.yml"),
+        global_path.join("rulebook.yml"),
         "signals: {}\nactions: {}\nbuiltins: {}",
     )?;
 

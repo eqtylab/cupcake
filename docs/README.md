@@ -21,7 +21,7 @@ Start here to understand Cupcake and get your first policy running:
    - Running `cupcake init`
    - Enabling builtin policies with `--builtins`
 
-2. **[Core Concepts](./user-guide/configuration/guidebook.md)**
+2. **[Core Concepts](./user-guide/configuration/rulebook.md)**
 
    - What is a policy engine?
    - Understanding signals and actions
@@ -71,7 +71,7 @@ Contributing to or extending Cupcake:
 
 ### Configuration
 
-- [Guidebook.yml](./user-guide/configuration/guidebook.md) - Main configuration file
+- [Rulebook.yml](./user-guide/configuration/rulebook.md) - Main configuration file
 - [Builtin Policies](./user-guide/policies/builtin-policies-reference.md) - 11 pre-built policies
 - [Signals](./user-guide/configuration/signals.md) - External data providers
 - [Actions](./user-guide/configuration/signals.md#actions) - Response scripts

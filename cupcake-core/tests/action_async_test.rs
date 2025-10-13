@@ -144,7 +144,7 @@ async fn test_multiple_actions_concurrent() {
         .map(|i| temp_dir.path().join(format!("action_{i}.txt")))
         .collect();
 
-    // Create guidebook with multiple slow actions
+    // Create rulebook with multiple slow actions
     let mut actions = vec![];
     for (i, marker) in markers.iter().enumerate() {
         actions.push(format!(
@@ -154,7 +154,7 @@ async fn test_multiple_actions_concurrent() {
         ));
     }
 
-    let guidebook = format!(
+    let rulebook = format!(
         r#"
 actions:
   by_rule_id:
@@ -164,7 +164,7 @@ actions:
         actions.join("\n")
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     create_system_policy(&system_dir);
 
@@ -323,7 +323,7 @@ async fn test_actions_dont_block_subsequent_evaluations() {
 
     // Create a slow action
     let marker = temp_dir.path().join("slow_action.txt");
-    let guidebook = format!(
+    let rulebook = format!(
         r#"
 actions:
   by_rule_id:
@@ -333,7 +333,7 @@ actions:
         marker.display()
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     create_system_policy(&system_dir);
 

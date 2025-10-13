@@ -88,7 +88,7 @@ fn test_init_creates_all_required_files() -> Result<()> {
 
     // List of all files that should be created
     let expected_files = vec![
-        "guidebook.yml",
+        "rulebook.yml",
         "policies/system/evaluate.rego",
         "policies/example.rego",
         "policies/builtins/always_inject_on_prompt.rego",
@@ -115,48 +115,48 @@ fn test_init_creates_all_required_files() -> Result<()> {
     Ok(())
 }
 
-/// Verify guidebook.yml contains expected template content
+/// Verify rulebook.yml contains expected template content
 #[test]
-fn test_guidebook_yml_content() -> Result<()> {
+fn test_rulebook_yml_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    let guidebook_path = project_path.join(".cupcake/guidebook.yml");
+    let rulebook_path = project_path.join(".cupcake/rulebook.yml");
 
-    let content = fs::read_to_string(&guidebook_path)?;
+    let content = fs::read_to_string(&rulebook_path)?;
 
     // Verify key sections are present
     assert!(
         content.contains("# Cupcake Base Configuration Template"),
-        "guidebook.yml should contain the template header"
+        "rulebook.yml should contain the template header"
     );
     assert!(
         content.contains("# SIGNALS - External data providers"),
-        "guidebook.yml should contain signals section"
+        "rulebook.yml should contain signals section"
     );
     assert!(
         content.contains("# ACTIONS - Response to policy violations"),
-        "guidebook.yml should contain actions section"
+        "rulebook.yml should contain actions section"
     );
     assert!(
         content.contains("# BUILTINS - Higher-level policy abstractions"),
-        "guidebook.yml should contain builtins section"
+        "rulebook.yml should contain builtins section"
     );
 
     // Verify all four builtins are documented
     assert!(
         content.contains("always_inject_on_prompt:"),
-        "guidebook.yml should document always_inject_on_prompt builtin"
+        "rulebook.yml should document always_inject_on_prompt builtin"
     );
     assert!(
         content.contains("global_file_lock:"),
-        "guidebook.yml should document global_file_lock builtin"
+        "rulebook.yml should document global_file_lock builtin"
     );
     assert!(
         content.contains("git_pre_check:"),
-        "guidebook.yml should document git_pre_check builtin"
+        "rulebook.yml should document git_pre_check builtin"
     );
     assert!(
         content.contains("post_edit_check:"),
-        "guidebook.yml should document post_edit_check builtin"
+        "rulebook.yml should document post_edit_check builtin"
     );
 
     // Verify examples are commented out
@@ -334,8 +334,8 @@ fn test_init_idempotent() -> Result<()> {
     assert!(project_path.join(".cupcake").exists());
 
     // Get the content of a file to verify it doesn't change
-    let guidebook_path = project_path.join(".cupcake/guidebook.yml");
-    let original_content = fs::read_to_string(&guidebook_path)?;
+    let rulebook_path = project_path.join(".cupcake/rulebook.yml");
+    let original_content = fs::read_to_string(&rulebook_path)?;
 
     // Second init should be safe
     let output = Command::new(&cupcake_bin)
@@ -352,7 +352,7 @@ fn test_init_idempotent() -> Result<()> {
     );
 
     // Content should be unchanged
-    let new_content = fs::read_to_string(&guidebook_path)?;
+    let new_content = fs::read_to_string(&rulebook_path)?;
     assert_eq!(
         original_content, new_content,
         "Running init twice should not modify existing files"
@@ -452,27 +452,27 @@ fn test_empty_directories_are_valid() -> Result<()> {
     Ok(())
 }
 
-/// Verify the guidebook.yml is valid YAML
+/// Verify the rulebook.yml is valid YAML
 #[test]
-fn test_guidebook_yml_is_valid_yaml() -> Result<()> {
+fn test_rulebook_yml_is_valid_yaml() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    let guidebook_path = project_path.join(".cupcake/guidebook.yml");
+    let rulebook_path = project_path.join(".cupcake/rulebook.yml");
 
-    let content = fs::read_to_string(&guidebook_path)?;
+    let content = fs::read_to_string(&rulebook_path)?;
 
     // Basic validation - check it's not empty and has expected YAML structure markers
-    assert!(!content.is_empty(), "guidebook.yml should not be empty");
+    assert!(!content.is_empty(), "rulebook.yml should not be empty");
     assert!(
         content.contains("signals:"),
-        "guidebook.yml should contain signals section"
+        "rulebook.yml should contain signals section"
     );
     assert!(
         content.contains("actions:"),
-        "guidebook.yml should contain actions section"
+        "rulebook.yml should contain actions section"
     );
     assert!(
         content.contains("builtins:"),
-        "guidebook.yml should contain builtins section"
+        "rulebook.yml should contain builtins section"
     );
 
     Ok(())
@@ -504,11 +504,11 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 11 files (guidebook.yml + 10 policies)
+    // We should have exactly 11 files (rulebook.yml + 10 policies)
     // Policies: evaluate.rego, example.rego, and 8 builtins
     assert_eq!(
         file_count, 11,
-        "Should have exactly 11 files (guidebook.yml + 10 policies)"
+        "Should have exactly 11 files (rulebook.yml + 10 policies)"
     );
 
     // We should have exactly 5 directories (policies, policies/system, policies/builtins, signals, actions)

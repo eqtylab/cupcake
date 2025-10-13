@@ -5,6 +5,7 @@
 For a comprehensive overview of Cupcake's architecture, design principles, and core components, see the **[Architecture Reference](../reference/architecture.md)**.
 
 **Key concepts:**
+
 - **Hybrid Model**: Rego (WASM) for policy logic, Rust (Engine) for orchestration
 - **Metadata-Driven Routing**: O(1) event-to-policy matching
 - **Single Aggregation**: All policies evaluated through `cupcake.system.evaluate`
@@ -136,7 +137,7 @@ Signals are gathered **before** policy evaluation (not reactively):
 4. Enriches input with signal data
 5. Evaluates policies with enriched input
 
-Example signal in `guidebook.yml`:
+Example signal in `rulebook.yml`:
 
 ```yaml
 signals:

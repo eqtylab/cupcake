@@ -42,7 +42,7 @@ This runs `cupcake init`, and some scaffolding to create:
 
 ```
 .cupcake/
-  ├── guidebook.yml         # Default configuration
+  ├── rulebook.yml         # Default configuration
   ├── policies/             # Rego policies
   │   └── builtins/         # Built-in rego policies (security, dev efficiency, etc)
   ├── signals/              # External data providers
@@ -149,7 +149,7 @@ The point here is that cupcake ships with numerous built-in rego rulesets.
 
 **`Built-ins` are special policies that:**
 
-- Are enabled by default in `guidebook.yml`
+- Are enabled by default in `rulebook.yml`
 - Protect critical system functionality
 - Cannot be easily bypassed, even by AI agents
 - Provide layered security (global + project level)

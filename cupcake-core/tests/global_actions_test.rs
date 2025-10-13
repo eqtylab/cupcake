@@ -31,7 +31,7 @@ async fn test_global_halt_executes_actions() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
-    // Create global guidebook with action
+    // Create global rulebook with action
     let action_script = global_paths.actions.join("log_halt.sh");
     fs::write(
         &action_script,
@@ -61,8 +61,8 @@ echo "GLOBAL_HALT_ACTION_EXECUTED" >> /tmp/cupcake_test_actions.log
         action_script.to_str().unwrap().to_string()
     };
 
-    // Update global guidebook with action
-    let guidebook_content = format!(
+    // Update global rulebook with action
+    let rulebook_content = format!(
         r#"signals: {{}}
 
 actions:
@@ -74,7 +74,7 @@ builtins: {{}}
 "#
     );
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that halts
     fs::write(
@@ -159,7 +159,7 @@ async fn test_global_deny_executes_actions() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
-    // Create global guidebook with on_any_denial action
+    // Create global rulebook with on_any_denial action
     let action_script = global_paths.actions.join("log_deny.sh");
     fs::write(
         &action_script,
@@ -188,7 +188,7 @@ echo "GLOBAL_DENY_ACTION_EXECUTED" >> /tmp/cupcake_test_deny.log
         action_script.to_str().unwrap().to_string()
     };
 
-    let guidebook_content = format!(
+    let rulebook_content = format!(
         r#"signals: {{}}
 
 actions:
@@ -199,7 +199,7 @@ builtins: {{}}
 "#
     );
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that denies
     fs::write(
@@ -281,7 +281,7 @@ async fn test_global_block_executes_actions() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
-    // Create global guidebook with block action
+    // Create global rulebook with block action
     let action_script = global_paths.actions.join("log_block.sh");
     fs::write(
         &action_script,
@@ -310,7 +310,7 @@ echo "GLOBAL_BLOCK_ACTION_EXECUTED" >> /tmp/cupcake_test_block.log
         action_script.to_str().unwrap().to_string()
     };
 
-    let guidebook_content = format!(
+    let rulebook_content = format!(
         r#"signals: {{}}
 
 actions:
@@ -322,7 +322,7 @@ builtins: {{}}
 "#
     );
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that blocks
     fs::write(

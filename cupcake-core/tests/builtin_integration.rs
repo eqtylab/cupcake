@@ -225,15 +225,15 @@ add_context contains context_msg if {
 }"#;
     std::fs::write(policies_dir.join("test_signal_access.rego"), test_policy)?;
 
-    // Create a guidebook with test signal
-    let guidebook_path = cupcake_dir.join("guidebook.yml");
-    let guidebook_content = r#"signals:
+    // Create a rulebook with test signal
+    let rulebook_path = cupcake_dir.join("rulebook.yml");
+    let rulebook_content = r#"signals:
   __builtin_test_signal:
     command: "echo 'test-value-123'"
     timeout_seconds: 1
 
 # No builtins configured - just using manual signals for this test"#;
-    std::fs::write(&guidebook_path, guidebook_content)?;
+    std::fs::write(&rulebook_path, rulebook_content)?;
 
     // Initialize engine from the temp directory
     // Disable global config to avoid interference
@@ -295,9 +295,9 @@ async fn test_post_edit_validation_flow() -> Result<()> {
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     std::fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
-    // Create guidebook with post_edit_check configuration
-    let guidebook_path = cupcake_dir.join("guidebook.yml");
-    let guidebook_content = r#"
+    // Create rulebook with post_edit_check configuration
+    let rulebook_path = cupcake_dir.join("rulebook.yml");
+    let rulebook_content = r#"
 signals:
   __builtin_post_edit_txt:
     command: "echo 'Text file validated'"
@@ -317,7 +317,7 @@ builtins:
         command: "exit 1"
         message: "This always fails"
 "#;
-    std::fs::write(&guidebook_path, guidebook_content)?;
+    std::fs::write(&rulebook_path, rulebook_content)?;
 
     // Create engine
     // Disable global config to avoid interference

@@ -153,13 +153,13 @@ jobs:
           # Create minimal cupcake structure
           mkdir -p .cupcake/policies/system .cupcake/signals .cupcake/actions .claude
 
-          # Create minimal guidebook
-          cat > .cupcake/guidebook.yml << 'GUIDEBOOK'
+          # Create minimal rulebook
+          cat > .cupcake/rulebook.yml << 'RULEBOOK'
           version: "1.0"
           builtins: {}
           signals: {}
           actions: {}
-          GUIDEBOOK
+          RULEBOOK
 
           # Create system evaluate policy
           cat > .cupcake/policies/system/evaluate.rego << 'POLICY'

@@ -2,12 +2,12 @@
 //!
 //! This test ensures the security fix for the parser divergence issue works correctly.
 //! The trust system must see ALL scripts that the engine will execute, including:
-//! - Scripts from guidebook.yml
+//! - Scripts from rulebook.yml
 //! - Auto-discovered scripts from signals/ and actions/ directories
 //! - Complex action structures like on_any_denial
 
 use anyhow::Result;
-use cupcake_core::engine::guidebook::Guidebook;
+use cupcake_core::engine::rulebook::Rulebook;
 use std::path::PathBuf;
 
 fn get_fixture_path() -> PathBuf {
@@ -17,16 +17,16 @@ fn get_fixture_path() -> PathBuf {
 #[tokio::test]
 async fn test_trust_parser_sees_all_scripts() -> Result<()> {
     let fixture_dir = get_fixture_path();
-    let guidebook_path = fixture_dir.join("guidebook.yml");
+    let rulebook_path = fixture_dir.join("rulebook.yml");
     let signals_dir = fixture_dir.join("signals");
     let actions_dir = fixture_dir.join("actions");
 
     // Load using the engine's parser with auto-discovery
-    let guidebook =
-        Guidebook::load_with_conventions(&guidebook_path, &signals_dir, &actions_dir).await?;
+    let rulebook =
+        Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir).await?;
 
     // Verify we found all scripts:
-    // From guidebook.yml:
+    // From rulebook.yml:
     //   - explicit_signal
     //   - on_any_denial action
     //   - RULE-001 action
@@ -35,40 +35,40 @@ async fn test_trust_parser_sees_all_scripts() -> Result<()> {
     //   - RULE-002.sh from actions/
 
     // Check signals (should have 2: explicit + auto-discovered)
-    assert_eq!(guidebook.signals.len(), 2, "Should find 2 signals");
+    assert_eq!(rulebook.signals.len(), 2, "Should find 2 signals");
     assert!(
-        guidebook.signals.contains_key("explicit_signal"),
+        rulebook.signals.contains_key("explicit_signal"),
         "Should have explicit_signal from YAML"
     );
     assert!(
-        guidebook.signals.contains_key("auto_signal"),
+        rulebook.signals.contains_key("auto_signal"),
         "Should have auto_signal from directory"
     );
 
     // Check on_any_denial actions (should have 1)
     assert_eq!(
-        guidebook.actions.on_any_denial.len(),
+        rulebook.actions.on_any_denial.len(),
         1,
         "Should have on_any_denial action"
     );
 
     // Check rule-specific actions (should have 2: RULE-001 from YAML, RULE-002 auto-discovered)
     assert_eq!(
-        guidebook.actions.by_rule_id.len(),
+        rulebook.actions.by_rule_id.len(),
         2,
         "Should find 2 rule-specific action sets"
     );
     assert!(
-        guidebook.actions.by_rule_id.contains_key("RULE-001"),
+        rulebook.actions.by_rule_id.contains_key("RULE-001"),
         "Should have RULE-001 from YAML"
     );
     assert!(
-        guidebook.actions.by_rule_id.contains_key("RULE-002"),
+        rulebook.actions.by_rule_id.contains_key("RULE-002"),
         "Should have RULE-002 from directory"
     );
 
     // Verify the auto-discovered script has the correct path
-    let auto_signal = guidebook.signals.get("auto_signal").unwrap();
+    let auto_signal = rulebook.signals.get("auto_signal").unwrap();
     eprintln!("Auto-discovered signal path: {}", auto_signal.command);
 
     // On Windows, paths use backslashes
@@ -90,22 +90,22 @@ async fn test_trust_parser_sees_all_scripts() -> Result<()> {
 #[tokio::test]
 async fn test_trust_parser_handles_missing_directories() -> Result<()> {
     let fixture_dir = get_fixture_path();
-    let guidebook_path = fixture_dir.join("guidebook.yml");
+    let rulebook_path = fixture_dir.join("rulebook.yml");
     let fake_signals_dir = fixture_dir.join("nonexistent_signals");
     let fake_actions_dir = fixture_dir.join("nonexistent_actions");
 
     // Should not fail even if directories don't exist
-    let guidebook =
-        Guidebook::load_with_conventions(&guidebook_path, &fake_signals_dir, &fake_actions_dir)
+    let rulebook =
+        Rulebook::load_with_conventions(&rulebook_path, &fake_signals_dir, &fake_actions_dir)
             .await?;
 
     // Should still load the explicit entries from YAML
     assert!(
-        guidebook.signals.contains_key("explicit_signal"),
+        rulebook.signals.contains_key("explicit_signal"),
         "Should have explicit_signal from YAML"
     );
     assert_eq!(
-        guidebook.actions.on_any_denial.len(),
+        rulebook.actions.on_any_denial.len(),
         1,
         "Should have on_any_denial from YAML"
     );
@@ -119,8 +119,8 @@ fn test_fixture_files_exist() {
 
     // Verify our test fixtures are in place
     assert!(
-        fixture_dir.join("guidebook.yml").exists(),
-        "guidebook.yml fixture missing"
+        fixture_dir.join("rulebook.yml").exists(),
+        "rulebook.yml fixture missing"
     );
     assert!(
         fixture_dir.join("signals/auto_signal.sh").exists(),

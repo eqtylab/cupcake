@@ -24,8 +24,8 @@ async fn test_global_halt_with_actions_simple() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
-    // Create simple global guidebook with inline action (no script file)
-    let guidebook_content = r#"signals: {}
+    // Create simple global rulebook with inline action (no script file)
+    let rulebook_content = r#"signals: {}
 
 actions:
   by_rule_id:
@@ -35,7 +35,7 @@ actions:
 builtins: {}
 "#;
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that halts
     fs::write(
@@ -113,13 +113,13 @@ async fn test_global_block_terminates_early() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
     global_paths.initialize()?;
 
-    // Create global guidebook
-    let guidebook_content = r#"signals: {}
+    // Create global rulebook
+    let rulebook_content = r#"signals: {}
 actions: {}
 builtins: {}
 "#;
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that blocks
     fs::write(

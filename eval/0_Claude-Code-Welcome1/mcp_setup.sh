@@ -107,47 +107,47 @@ echo "Installing appointment time check signal..."
 cp ../fixtures/check_appointment_time.py .cupcake/
 chmod +x .cupcake/check_appointment_time.py
 
-# Debug what's in the guidebook
-echo "Current guidebook.yml content:"
-cat .cupcake/guidebook.yml
+# Debug what's in the rulebook
+echo "Current rulebook.yml content:"
+cat .cupcake/rulebook.yml
 
-# Add signal configuration to guidebook.yml
+# Add signal configuration to rulebook.yml
 echo "Configuring appointment time signal..."
 # Use Python to properly merge the signal into existing YAML
 python3 << 'EOF'
 import yaml
 
-# Read existing guidebook
-guidebook_path = '.cupcake/guidebook.yml'
-print(f"Reading {guidebook_path}")
-with open(guidebook_path, 'r') as f:
+# Read existing rulebook
+rulebook_path = '.cupcake/rulebook.yml'
+print(f"Reading {rulebook_path}")
+with open(rulebook_path, 'r') as f:
     content = f.read()
     print(f"File content: {repr(content[:200])}")  # Show first 200 chars
-    guidebook = yaml.safe_load(content)
-    print(f"Parsed YAML type: {type(guidebook)}")
-    print(f"Parsed YAML value: {guidebook}")
+    rulebook = yaml.safe_load(content)
+    print(f"Parsed YAML type: {type(rulebook)}")
+    print(f"Parsed YAML value: {rulebook}")
 
-# If guidebook is None (empty or comments only), initialize it
-if guidebook is None:
-    print("Guidebook was None, initializing as empty dict")
-    guidebook = {}
+# If rulebook is None (empty or comments only), initialize it
+if rulebook is None:
+    print("Rulebook was None, initializing as empty dict")
+    rulebook = {}
 
-# Fix null values in the guidebook (signals and actions can't be null)
-if 'signals' not in guidebook or guidebook['signals'] is None:
-    guidebook['signals'] = {}
+# Fix null values in the rulebook (signals and actions can't be null)
+if 'signals' not in rulebook or rulebook['signals'] is None:
+    rulebook['signals'] = {}
 
-if 'actions' in guidebook and guidebook['actions'] is None:
-    guidebook['actions'] = {}
+if 'actions' in rulebook and rulebook['actions'] is None:
+    rulebook['actions'] = {}
 
-guidebook['signals']['appointment_time_check'] = {
+rulebook['signals']['appointment_time_check'] = {
     'command': 'python3 .cupcake/check_appointment_time.py'
 }
 
-# Write back the updated guidebook
-with open(guidebook_path, 'w') as f:
-    yaml.dump(guidebook, f, default_flow_style=False, sort_keys=False)
+# Write back the updated rulebook
+with open(rulebook_path, 'w') as f:
+    yaml.dump(rulebook, f, default_flow_style=False, sort_keys=False)
 
-print("✅ Signal configuration added to guidebook.yml")
+print("✅ Signal configuration added to rulebook.yml")
 EOF
 
 # Copy the appointment policy from fixtures

@@ -31,7 +31,7 @@ fn test_init_with_claude_harness_fresh() {
     // Check .cupcake directory was created
     assert!(dir_path.join(".cupcake").exists());
     assert!(dir_path.join(".cupcake/policies").exists());
-    assert!(dir_path.join(".cupcake/guidebook.yml").exists());
+    assert!(dir_path.join(".cupcake/rulebook.yml").exists());
 
     // Check .claude/settings.json was created
     let settings_path = dir_path.join(".claude/settings.json");

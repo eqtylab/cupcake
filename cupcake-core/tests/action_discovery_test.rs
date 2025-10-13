@@ -116,12 +116,12 @@ deny contains decision if {
     // No cleanup needed - TempDir handles it
 }
 
-/// Test that convention-discovered actions override guidebook entries
+/// Test that convention-discovered actions override rulebook entries
 ///
 /// Skipped on Windows due to Git Bash shell script execution timing issues.
 #[tokio::test]
 #[cfg(not(windows))]
-async fn test_discovery_with_guidebook_precedence() {
+async fn test_discovery_with_rulebook_precedence() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
@@ -134,21 +134,21 @@ async fn test_discovery_with_guidebook_precedence() {
     fs::create_dir_all(&actions_dir).unwrap();
 
     // Create markers
-    let guidebook_marker = temp_dir.path().join("guidebook_action.txt");
+    let rulebook_marker = temp_dir.path().join("rulebook_action.txt");
     let discovered_marker = temp_dir.path().join("discovered_action.txt");
 
-    // Create guidebook with explicit action
-    let guidebook = format!(
+    // Create rulebook with explicit action
+    let rulebook = format!(
         r#"
 actions:
   by_rule_id:
     OVERRIDE-001:
-      - command: 'echo "From guidebook" > {}'
+      - command: 'echo "From rulebook" > {}'
 "#,
-        guidebook_marker.display()
+        rulebook_marker.display()
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     // Also create a discovered action with same rule ID
     let discovered_script = format!(
@@ -211,9 +211,9 @@ deny contains decision if {
 
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
-    // Both actions should execute (guidebook adds to discovered)
+    // Both actions should execute (rulebook adds to discovered)
     assert!(
-        guidebook_marker.exists() || discovered_marker.exists(),
+        rulebook_marker.exists() || discovered_marker.exists(),
         "At least one action should have executed"
     );
 }

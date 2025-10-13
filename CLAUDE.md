@@ -33,12 +33,16 @@ You can use the claude code cli functionality to test Cupcake behavior locally. 
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "cupcake eval --debug-routing"
-      }]
-    }]
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --debug-routing"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -273,7 +277,7 @@ Eleven builtins provide common patterns without writing Rego:
 - **cupcake_exec_protection** - Prevents execution of cupcake commands
 - **enforce_full_file_read** - Enforces reading entire files under configurable line limit
 
-Configure in `.cupcake/guidebook.yml` under `builtins:` section. See `fixtures/init/base-config.yml` for template.
+Configure in `.cupcake/rulebook.yml` under `builtins:` section. See `fixtures/init/base-config.yml` for template.
 
 ### Builtin Configuration Notes
 
@@ -460,7 +464,7 @@ package cupcake.policies.example
 - Global policies use namespace `cupcake.global.policies.builtins.*`
 - Compile to separate WASM module with different entrypoint
 - Evaluated in Phase 1 with early termination (halt/deny/block)
-- Signals must be defined in global guidebook.yml
+- Signals must be defined in global rulebook.yml
 - Test policies should NOT use `data.*` for signal access
 
 ## Testing Claude Code Integration

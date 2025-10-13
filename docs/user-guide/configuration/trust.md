@@ -26,7 +26,7 @@ cupcake init
 
 # (Optional) Enable trust mode for script integrity
 cupcake trust init
-✓ Scanning guidebook.yml for scripts...
+✓ Scanning rulebook.yml for scripts...
 ✓ Found 5 signals, 3 actions
 ✓ Trust manifest created: .cupcake/.trust
 ✓ All scripts fingerprinted and protected
@@ -58,7 +58,7 @@ This creates a Time-of-Check-Time-of-Use (TOCTOU) vulnerability where scripts ve
 
 ### The Solution
 
-The Trust System creates a cryptographic manifest of all scripts referenced in your guidebook. Before executing any script, Cupcake verifies its integrity against this manifest. Any modifications require explicit user approval.
+The Trust System creates a cryptographic manifest of all scripts referenced in your rulebook. Before executing any script, Cupcake verifies its integrity against this manifest. Any modifications require explicit user approval.
 
 ### Threat Model Assumptions
 
@@ -74,6 +74,7 @@ The Trust System creates a cryptographic manifest of all scripts referenced in y
 Cupcake operates in one of two modes:
 
 1. **Standard Mode** (Default)
+
    - No integrity checking
    - Scripts execute immediately
    - Suitable for development and low-risk environments
@@ -137,7 +138,7 @@ When Cupcake starts without trust mode:
 
 ### Core Workflow
 
-1. **Initialization**: `cupcake trust init` scans your guidebook.yml and creates a manifest
+1. **Initialization**: `cupcake trust init` scans your rulebook.yml and creates a manifest
 2. **Verification**: Before each script execution, Cupcake verifies its hash
 3. **Violation Detection**: Modified scripts are blocked from execution
 4. **Explicit Updates**: `cupcake trust update` allows you to approve changes
@@ -210,10 +211,10 @@ The trust manifest (`.cupcake/.trust`) is a JSON file containing cryptographic h
 
 ### Quick Reference
 
-| Script Type | Example Command | Hash Source |
-|-------------|-----------------|-------------|
-| **Inline** | `npm test` | Command string itself |
-| **File** | `./scripts/lint.sh` | Script file contents |
+| Script Type | Example Command             | Hash Source             |
+| ----------- | --------------------------- | ----------------------- |
+| **Inline**  | `npm test`                  | Command string itself   |
+| **File**    | `./scripts/lint.sh`         | Script file contents    |
 | **Complex** | `python analyzer.py --args` | Script file + arguments |
 
 ### Complete Manifest Structure
@@ -273,16 +274,18 @@ The trust manifest (`.cupcake/.trust`) is a JSON file containing cryptographic h
 - **version**: Manifest format version for future compatibility
 - **timestamp**: When the manifest was created/updated
 - **mode**: "enabled" or "disabled" for trust state
-- **scripts**: Nested structure matching guidebook organization
+- **scripts**: Nested structure matching rulebook organization
 - **HMAC comment**: HMAC signature using derived key for tamper detection
 
 ### Script Entry Types
 
 1. **Inline Commands** (`type: "inline"`)
+
    - Simple commands like `npm test`, `cargo build`
    - Hash computed from the command string itself
 
 2. **File Scripts** (`type: "file"`)
+
    - Direct script execution: `./lint.sh`, `/usr/local/bin/check.py`
    - Hash computed from file contents
    - Stores absolute path for verification
@@ -307,7 +310,8 @@ Options:
 ```
 
 **Behavior**:
-- Scans guidebook.yml for all script references (unless --empty)
+
+- Scans rulebook.yml for all script references (unless --empty)
 - Computes SHA-256 hashes for each script
 - Creates .cupcake/.trust manifest
 - Enables trust mode for future executions
@@ -326,12 +330,14 @@ Options:
 ```
 
 **Behavior**:
+
 - Compares current scripts against trust manifest
 - Shows all changes (modified, added, removed)
 - Prompts for confirmation (unless --yes)
 - Updates manifest with new hashes
 
 **Example Output**:
+
 ```
 Detected changes:
   ~ ./scripts/lint.sh (modified)
@@ -357,6 +363,7 @@ Options:
 ```
 
 **Exit Codes**:
+
 - 0: All scripts match manifest
 - 1: One or more scripts modified
 
@@ -374,6 +381,7 @@ Options:
 ```
 
 **Example Output**:
+
 ```
 Trusted Scripts (Trust Mode: ENABLED)
 Last Updated: 2024-01-20 10:00:00
@@ -399,7 +407,7 @@ Options:
   --project-dir <PATH>  Path to .cupcake directory [default: .cupcake]
 
 Warning: This disables script integrity verification!
-Continue? [y/N]: 
+Continue? [y/N]:
 ```
 
 ### `cupcake trust enable`
@@ -426,7 +434,7 @@ Options:
   --force               Skip confirmation prompt
 
 Warning: This will delete the trust manifest!
-Continue? [y/N]: 
+Continue? [y/N]:
 ```
 
 ## Developer Workflows
@@ -441,8 +449,8 @@ cd my-project
 # 2. Write your policies
 vim .cupcake/policies/bash_safety.rego
 
-# 3. Configure signals and actions in guidebook
-vim .cupcake/guidebook.yml
+# 3. Configure signals and actions in rulebook
+vim .cupcake/rulebook.yml
 
 # 4. (Optional but recommended) Enable trust mode
 cupcake trust init
@@ -520,12 +528,14 @@ cupcake trust verify
 ### Security Summary
 
 **✅ Trust Mode Protects Against:**
+
 - TOCTOU (Time-of-Check-Time-of-Use) attacks
 - Unauthorized script modifications by AI agents
 - Script file tampering between approval and execution
 - Supply chain attacks via script substitution
 
 **❌ Trust Mode Does NOT Protect Against:**
+
 - Cupcake binary replacement or tampering
 - System-level compromises (root access)
 - Social engineering attacks on users
@@ -560,6 +570,7 @@ Key = SHA256(
 ```
 
 This provides:
+
 - **Uniqueness**: Different key per machine/user/project
 - **Reproducibility**: Same key generated consistently
 - **No External Dependencies**: No key management required
@@ -581,9 +592,9 @@ pub struct TrustManifest {
 }
 
 impl TrustManifest {
-    pub fn init(guidebook: &Guidebook) -> Result<Self>
+    pub fn init(rulebook: &Rulebook) -> Result<Self>
     pub fn verify_script(&self, reference: &ScriptRef) -> Result<()>
-    pub fn update(&mut self, guidebook: &Guidebook) -> Result<ChangeSet>
+    pub fn update(&mut self, rulebook: &Rulebook) -> Result<ChangeSet>
     pub fn compute_hmac(&self) -> Result<String>
     pub fn verify_hmac(&self) -> Result<bool>
 }
@@ -611,7 +622,7 @@ pub struct TrustVerifier {
 
 impl TrustVerifier {
     pub fn verify_before_execution(&self, script: &ScriptRef) -> Result<()>
-    pub fn verify_all(&self, guidebook: &Guidebook) -> Result<VerificationReport>
+    pub fn verify_all(&self, rulebook: &Rulebook) -> Result<VerificationReport>
 }
 ```
 
@@ -624,7 +635,7 @@ impl Engine {
         if let Some(trust) = &self.trust_verifier {
             trust.verify_before_execution(&signal.script_ref)?;
         }
-        
+
         // Proceed with execution
         self.execute_script_internal(&signal.command).await
     }
@@ -639,16 +650,16 @@ Trust violations should be clear and actionable:
 pub enum TrustError {
     ManifestNotFound,
     ManifestTampered,
-    ScriptModified { 
-        path: PathBuf, 
-        expected: String, 
-        actual: String 
+    ScriptModified {
+        path: PathBuf,
+        expected: String,
+        actual: String
     },
-    ScriptNotTrusted { 
-        path: PathBuf 
+    ScriptNotTrusted {
+        path: PathBuf
     },
-    ScriptNotFound { 
-        path: PathBuf 
+    ScriptNotFound {
+        path: PathBuf
     },
 }
 
@@ -656,7 +667,7 @@ impl Display for TrustError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             TrustError::ScriptModified { path, .. } => {
-                write!(f, 
+                write!(f,
                     "Script integrity violation: {}\n\
                      Run 'cupcake trust update' to approve changes.",
                     path.display())
@@ -681,16 +692,16 @@ impl Display for TrustError {
 mod tests {
     #[test]
     fn test_trust_init_creates_manifest() { }
-    
+
     #[test]
     fn test_modified_script_detection() { }
-    
+
     #[test]
     fn test_hmac_tamper_detection() { }
-    
+
     #[test]
     fn test_complex_command_parsing() { }
-    
+
     #[test]
     fn test_trust_mode_optional() { }
 }
@@ -701,18 +712,22 @@ mod tests {
 ### Enterprise Features (Future)
 
 1. **Hardware Key Support**
+
    - YubiKey / TPM integration
    - Hardware-backed HMAC signing
 
 2. **Centralized Trust Registry**
+
    - Team-wide trust management
    - Policy distribution system
 
 3. **Audit Logging**
+
    - Cryptographic audit trail
    - Compliance reporting
 
 4. **Multi-Signature Requirements**
+
    - Require N-of-M approvals for trust updates
    - Role-based trust management
 
@@ -723,7 +738,7 @@ mod tests {
 ### Platform-Specific Enhancements
 
 1. **macOS**: Keychain integration for key storage
-2. **Windows**: Windows Credential Manager integration  
+2. **Windows**: Windows Credential Manager integration
 3. **Linux**: Linux kernel keyring integration
 
 ### Advanced Verification

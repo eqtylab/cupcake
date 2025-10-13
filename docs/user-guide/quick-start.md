@@ -5,11 +5,13 @@ Get Cupcake running with your AI agent in just 5 minutes.
 ## 1. Install Cupcake (1 minute)
 
 ### macOS/Linux
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/eqtylab/cupcake/v0.1.6/scripts/install.sh | bash
 ```
 
 ### Verify Installation
+
 ```bash
 cupcake --version
 ```
@@ -17,20 +19,23 @@ cupcake --version
 ## 2. Initialize Your Project (1 minute)
 
 ### Basic Setup
+
 ```bash
 # In your project directory
 cupcake init --harness claude --builtins git_pre_check,protected_paths
 ```
 
 This command:
+
 - Creates `.cupcake/` directory structure
 - Configures Claude Code integration automatically
 - Enables two useful builtin policies
 
 ### What You Get
+
 ```
 .cupcake/
-├── guidebook.yml       # Configuration with enabled builtins
+├── rulebook.yml       # Configuration with enabled builtins
 ├── policies/           # Your custom policies go here
 ├── signals/            # External data scripts
 └── actions/            # Response scripts
@@ -47,6 +52,7 @@ cupcake inspect --policy-dir .cupcake
 ```
 
 You should see:
+
 - git_pre_check policy enabled
 - protected_paths policy enabled
 - Claude Code hooks configured
@@ -54,6 +60,7 @@ You should see:
 ## 4. Try It Out (2 minutes)
 
 With Claude Code:
+
 1. Open your project in Claude
 2. Ask Claude to edit a protected file:
    ```
@@ -62,6 +69,7 @@ With Claude Code:
 3. Cupcake will block this with: "System path modification blocked by policy"
 
 Test git protection:
+
 1. Ask Claude to commit without tests:
    ```
    "Commit these changes with message 'quick fix'"
@@ -72,11 +80,12 @@ Test git protection:
 
 ### Enable More Builtins
 
-Edit `.cupcake/guidebook.yml`:
+Edit `.cupcake/rulebook.yml`:
+
 ```yaml
 builtins:
   global_file_lock:
-    enabled: true  # Prevent ALL file modifications
+    enabled: true # Prevent ALL file modifications
 
   post_edit_check:
     by_extension:
@@ -88,6 +97,7 @@ builtins:
 ### Write a Custom Policy
 
 Create `.cupcake/policies/no-sudo.rego`:
+
 ```rego
 # METADATA
 # scope: package
@@ -113,11 +123,13 @@ deny contains decision if {
 ## Next Steps
 
 **Learn More:**
+
 - [Writing Policies](./policies/writing-policies.md) - Create custom rules
 - [Builtin Policies](./policies/builtin-policies-reference.md) - 11 pre-built policies
 - [Signals & Actions](./configuration/signals.md) - Dynamic responses
 
 **Common Tasks:**
+
 - `cupcake init --builtins global_file_lock` - Read-only session
 - `cupcake init --global` - Machine-wide policies
 - `cupcake trust init && cupcake trust update` - Enable script trust
@@ -125,14 +137,17 @@ deny contains decision if {
 ## Troubleshooting
 
 **"Command not found: cupcake"**
+
 - Add to PATH: `echo 'export PATH="$HOME/.cupcake/bin:$PATH"' >> ~/.zshrc`
 - Restart terminal or run: `source ~/.zshrc`
 
 **"Policy not firing"**
+
 - Check enabled: `cupcake inspect --policy-dir .cupcake`
 - Enable debug: `cupcake eval --log-level debug`
 
 **"Claude Code not responding to policies"**
+
 - Verify hooks: `cat .claude/settings.json`
 - Restart Claude Code after configuration changes
 

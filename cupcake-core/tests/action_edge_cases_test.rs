@@ -29,8 +29,8 @@ async fn test_action_execution_edge_cases() {
     let args_marker = temp_dir.path().join("args_executed.txt");
     let python_marker = temp_dir.path().join("python_executed.txt");
 
-    // Create guidebook with various command types
-    let guidebook = format!(
+    // Create rulebook with various command types
+    let rulebook = format!(
         r#"
 actions:
   by_rule_id:
@@ -50,7 +50,7 @@ actions:
         python_marker.display()
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     // Create a relative script that should be found and executed directly
     let scripts_dir = project_path.join(".");
@@ -193,8 +193,8 @@ async fn test_nonexistent_script_fallback() {
 
     let fallback_marker = temp_dir.path().join("fallback_executed.txt");
 
-    // Create guidebook with a path that looks like a script but doesn't exist
-    let guidebook = format!(
+    // Create rulebook with a path that looks like a script but doesn't exist
+    let rulebook = format!(
         r#"
 actions:
   by_rule_id:
@@ -205,7 +205,7 @@ actions:
         fallback_marker.display()
     );
 
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     let fallback_policy = r#"package cupcake.policies.fallback_test
 

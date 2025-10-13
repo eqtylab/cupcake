@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use cupcake_core::engine::guidebook::Guidebook;
+    use cupcake_core::engine::rulebook::Rulebook;
 
     #[test]
     fn test_global_builtins_configuration_parsing() {
@@ -29,11 +29,11 @@ builtins:
     message: "No direct cupcake execution allowed"
 "#;
 
-        // Parse the Guidebook
-        let guidebook: Guidebook =
+        // Parse the Rulebook
+        let rulebook: Rulebook =
             serde_yaml_ng::from_str(yaml_content).expect("Failed to parse YAML");
 
-        let config = guidebook.builtins;
+        let config = rulebook.builtins;
 
         // Verify system_protection
         assert!(config.system_protection.is_some());
@@ -81,10 +81,10 @@ builtins:
   cupcake_exec_protection: {}
 "#;
 
-        let guidebook: Guidebook =
+        let rulebook: Rulebook =
             serde_yaml_ng::from_str(yaml_content).expect("Failed to parse YAML");
 
-        let config = guidebook.builtins;
+        let config = rulebook.builtins;
 
         // System protection with defaults
         let sys_prot = config.system_protection.as_ref().unwrap();
@@ -134,10 +134,10 @@ builtins:
     message: "Test message"
 "#;
 
-        let guidebook: Guidebook =
+        let rulebook: Rulebook =
             serde_yaml_ng::from_str(yaml_content).expect("Failed to parse YAML");
 
-        let signals = guidebook.builtins.generate_signals();
+        let signals = rulebook.builtins.generate_signals();
 
         // These global builtins no longer generate signals - they use builtin_config
         // This is intentional to avoid spawning shell processes for static values

@@ -46,10 +46,13 @@ Running `cupcake init` creates the following structure:
 ### Files Created
 
 #### `system/evaluate.rego`
+
 The mandatory system aggregation policy that collects decision verbs from all policies. This file is required for the Cupcake engine to function and should not be modified unless you understand the aggregation system.
 
 #### `example.rego`
+
 A minimal placeholder policy that:
+
 - Prevents OPA compilation issues
 - Provides a template structure for writing real policies
 - Contains a rule that never fires (checks for an impossible command)
@@ -58,7 +61,9 @@ A minimal placeholder policy that:
 ## Behavior
 
 ### First Run
+
 When run in a directory without `.cupcake/`:
+
 ```bash
 $ cupcake init
 Initialized Cupcake project in .cupcake/
@@ -68,7 +73,9 @@ Initialized Cupcake project in .cupcake/
 ```
 
 ### Subsequent Runs
+
 If `.cupcake/` already exists, the command exits cleanly without modifying anything:
+
 ```bash
 $ cupcake init
 Cupcake project already initialized (.cupcake/ exists)
@@ -111,11 +118,12 @@ deny contains decision if {
 
 ## Builtin Policies
 
-The `--builtins` flag allows you to enable specific builtin policies during initialization. Instead of manually uncommenting sections in `guidebook.yml`, you can specify which builtins to enable from the command line.
+The `--builtins` flag allows you to enable specific builtin policies during initialization. Instead of manually uncommenting sections in `rulebook.yml`, you can specify which builtins to enable from the command line.
 
 ### Available Builtins
 
 **Project-level builtins** (for use with `cupcake init`):
+
 - `always_inject_on_prompt` - Adds context to every user prompt
 - `global_file_lock` - Prevents ALL file modifications session-wide
 - `git_pre_check` - Validates before git operations
@@ -126,6 +134,7 @@ The `--builtins` flag allows you to enable specific builtin policies during init
 - `enforce_full_file_read` - Requires complete file reads under size limit
 
 **Global builtins** (for use with `cupcake init --global`):
+
 - `system_protection` - Blocks critical system path modifications
 - `sensitive_data_protection` - Blocks credential file reads
 - `cupcake_exec_protection` - Prevents direct cupcake binary execution
@@ -154,7 +163,7 @@ When you enable certain builtins, Cupcake provides sensible defaults:
 - **protected_paths**: Includes `/etc/`, `/System/`, and `~/.ssh/` by default
 - **post_edit_check**: Adds Python and Rust syntax checks for `.py` and `.rs` files
 
-You can customize these defaults by editing `guidebook.yml` after initialization.
+You can customize these defaults by editing `rulebook.yml` after initialization.
 
 ### Error Handling
 
@@ -176,6 +185,7 @@ When you use `--harness claude`, Cupcake automatically:
 
 1. Creates or updates `.claude/settings.json` with appropriate hooks
 2. Configures four key hook events:
+
    - **PreToolUse**: Evaluates all tool uses before execution
    - **PostToolUse**: Validates file modifications (Edit/Write operations)
    - **UserPromptSubmit**: Enables prompt validation and context injection
@@ -192,32 +202,48 @@ Running `cupcake init --harness claude` generates:
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Edit|MultiEdit|Write",
-      "hooks": [{
-        "type": "command",
-        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
-      }]
-    }],
-    "SessionStart": [{
-      "hooks": [{
-        "type": "command",
-        "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
-      }]
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --policy-dir $CLAUDE_PROJECT_DIR/.cupcake"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -225,6 +251,7 @@ Running `cupcake init --harness claude` generates:
 ### Merging with Existing Settings
 
 If `.claude/settings.json` already exists, Cupcake will:
+
 - Preserve all existing settings (env vars, model preferences, etc.)
 - Merge new hooks without creating duplicates
 - Show a warning message about the merge operation

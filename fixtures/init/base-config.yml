@@ -1,6 +1,6 @@
 # Cupcake Base Configuration Template
 # This template demonstrates all available builtin abstractions and configuration options.
-# Copy this file to .cupcake/guidebook.yml and uncomment/modify as needed.
+# Copy this file to .cupcake/rulebook.yml and uncomment/modify as needed.
 
 # ============================================================================
 # SIGNALS - External data providers

@@ -95,11 +95,11 @@ halt contains decision if {
 }"#,
         )?;
 
-        // Create guidebook with builtins enabled
+        // Create rulebook with builtins enabled
         // Note: The global builtins aren't in "builtins" subdirectory in tests,
         // so we need to ensure they're not filtered out
         fs::write(
-            global_dir.join("guidebook.yml"),
+            global_dir.join("rulebook.yml"),
             r#"signals: {}
 actions: {}
 builtins: {}
@@ -307,9 +307,9 @@ halt contains decision if {
 }"#,
         )?;
 
-        // Create guidebook with builtins DISABLED
+        // Create rulebook with builtins DISABLED
         fs::write(
-            global_temp.path().join("guidebook.yml"),
+            global_temp.path().join("rulebook.yml"),
             r#"signals: {}
 actions: {}
 builtins:
@@ -439,10 +439,10 @@ halt contains decision if {
 }"#,
         )?;
 
-        // Create guidebook with additional paths AND the generated signals
+        // Create rulebook with additional paths AND the generated signals
         // The signals must be present for the builtin to work!
         fs::write(
-            global_temp.path().join("guidebook.yml"),
+            global_temp.path().join("rulebook.yml"),
             r#"signals:
   __builtin_system_protection_paths:
     command: "echo '[\"/custom/protected/path\"]'"

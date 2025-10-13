@@ -7,6 +7,7 @@ This document explains the Windows-specific requirements and fixes needed for th
 ### 1. OPA (Open Policy Agent) Path Handling Bug
 
 **Problem**: OPA v1.7.1 on Windows has known bugs with path handling:
+
 - Strips drive letters from normal paths: `C:\path` becomes `\path`
 - Cannot write to `file://` URL paths (syntax error)
 - UNC paths (`\\?\C:\`) are also not supported
@@ -14,6 +15,7 @@ This document explains the Windows-specific requirements and fixes needed for th
 **Reference**: https://github.com/open-policy-agent/opa/issues/4174
 
 **Solution Implemented** (in `cupcake-core/src/engine/compiler.rs`):
+
 ```rust
 // INPUT: Use file:// URL format (OPA can read from URLs)
 let temp_path_arg = if cfg!(windows) {
@@ -33,6 +35,7 @@ let bundle_path_arg = if cfg!(windows) {
 ```
 
 **Key Points**:
+
 - Do NOT use `canonicalize()` on Windows (produces UNC paths)
 - Input directory: `file:///C:/Users/path` format
 - Output file: relative path with `.current_dir()` set
@@ -41,17 +44,19 @@ let bundle_path_arg = if cfg!(windows) {
 ### 2. Shell Script Tests on Windows
 
 **Problem**: Tests that execute `.sh` files fail on Windows because:
+
 - Windows doesn't have native shell script support
 - Requires Git Bash, WSL, or similar Unix environment
 - GitHub Actions Windows runners have Git Bash but tests may not find it
 
 **Affected Tests** (all marked with `#[cfg(not(windows))]`):
+
 - `cupcake-core/tests/action_async_test.rs`
   - `test_action_fire_and_forget` - **SKIPPED** (timing-sensitive)
   - `test_multiple_actions_concurrent` - **SKIPPED** (timing-sensitive)
 - `cupcake-core/tests/action_discovery_test.rs`
   - `test_action_discovery_from_directory` - **SKIPPED** (timing-sensitive)
-  - `test_discovery_with_guidebook_precedence` - **SKIPPED** (timing-sensitive)
+  - `test_discovery_with_rulebook_precedence` - **SKIPPED** (timing-sensitive)
   - `test_action_discovery_ignores_subdirs` - **SKIPPED** (timing-sensitive)
 - `cupcake-core/tests/action_edge_cases_test.rs`
   - `test_action_execution_edge_cases` - **SKIPPED** (Unix-specific paths like /bin/echo)
@@ -70,6 +75,7 @@ let bundle_path_arg = if cfg!(windows) {
 **Solution Implemented** (in `cupcake-core/src/engine/mod.rs`):
 
 1. **Git Bash Detection** - Automatically finds bash.exe at standard Windows install paths:
+
 ```rust
 fn find_shell_command() -> &'static str {
     if cfg!(windows) {
@@ -87,6 +93,7 @@ fn find_shell_command() -> &'static str {
 ```
 
 2. **Windows Path Conversion for Git Bash** - Converts Windows paths to Unix-style for .sh scripts:
+
 ```rust
 // When executing .sh files on Windows, convert paths for Git Bash
 if is_shell_script && cfg!(windows) {
@@ -107,6 +114,7 @@ if is_shell_script && cfg!(windows) {
 ```
 
 3. **Test Helper for Bash-Compatible Paths** - Tests use `path_for_bash()` to generate correct paths:
+
 ```rust
 #[cfg(windows)]
 fn path_for_bash(path: &PathBuf) -> String {
@@ -118,18 +126,22 @@ fn path_for_bash(path: &PathBuf) -> String {
 **Why This Fix Was Needed**:
 
 Git Bash on Windows expects Unix-style paths, not Windows paths:
+
 - **Wrong**: `bash.exe C:\Users\foo\script.sh` → Git Bash can't interpret `C:\Users`
 - **Correct**: `bash.exe /c/Users/foo/script.sh` → Git Bash understands `/c/Users`
 
 Additionally, paths embedded **inside** bash scripts must use Unix format:
+
 - **Wrong**: `echo "text" > C:\path\file.txt` → Backslash escapes the next character
 - **Correct**: `echo "text" > /c/path/file.txt` → Works correctly
 
 The fix addresses both:
+
 1. Script path passed to `bash.exe` (engine code)
 2. Paths inside script content (test helper function)
 
 **Key Points**:
+
 - Automatically detects Git Bash at standard Windows installation paths
 - Falls back to `bash.exe` in PATH if not at standard locations
 - Converts Windows paths (`C:\`) to Git Bash format (`/c/`)
@@ -144,19 +156,22 @@ The fix addresses both:
 **Status**: ✅ FIXED - All 10 routing tests now pass on Windows
 
 **Affected Tests**:
+
 - `cupcake-core/tests/claude_code_routing_test.rs` - All 10 routing tests
 
 **Root Cause**:
 
 Test code generated JSON with unescaped backslashes:
+
 ```rust
 let command = "cargo run --manifest-path C:\\Users\\Admin\\cupcake\\Cargo.toml -- eval";
 let settings = format!(r#"{{"command": "{command}"}}"#);
 ```
 
 This created invalid JSON:
+
 ```json
-{"command": "cargo run --manifest-path C:\Users\Admin\cupcake\Cargo.toml -- eval"}
+{ "command": "cargo run --manifest-path C:UsersAdmincupcakeCargo.toml -- eval" }
 ```
 
 Claude CLI silently failed to parse the malformed JSON, so hooks never executed.
@@ -164,6 +179,7 @@ Claude CLI silently failed to parse the malformed JSON, so hooks never executed.
 **Solution Implemented**:
 
 1. **Escape backslashes in JSON** (lines 198, 550, 730):
+
    ```rust
    // Escape backslashes for JSON on Windows
    let command_escaped = command.replace('\\', "\\\\");
@@ -194,6 +210,7 @@ Claude CLI silently failed to parse the malformed JSON, so hooks never executed.
    ```
 
 **Test Results**:
+
 ```
 running 10 tests
 test test_multiple_events_routing ... ok
@@ -211,6 +228,7 @@ test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 **Key Points**:
+
 - Windows paths MUST be escaped when embedded in JSON strings
 - Claude CLI silently ignores malformed JSON (no error output)
 - Always use `serde_json` for JSON generation in production code
@@ -224,11 +242,13 @@ test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 **Critical**: Windows paths use backslashes which have special meaning in multiple contexts:
 
 1. **JSON Strings**: Backslashes are escape characters
+
    - Must use `\\` in JSON: `"C:\\Users\\path"`
    - Use `command.replace('\\', "\\\\")` before inserting into JSON
    - Or use `serde_json` which handles escaping automatically
 
 2. **OPA Input**: OPA expects forward slashes
+
    - Always convert to forward slashes before passing to OPA
    - Use `path.replace('\\', "/")` for OPA paths
    - Use `Path::join()` for filesystem operations (handles platform differences)
@@ -244,6 +264,7 @@ test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 The CI workflow installs OPA v1.7.1 on all platforms:
 
 **Windows PowerShell**:
+
 ```powershell
 Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
 Move-Item opa.exe "C:\Windows\System32\opa.exe" -Force
@@ -251,6 +272,7 @@ opa version
 ```
 
 **Unix (Linux/macOS)**:
+
 ```bash
 curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
 chmod +x opa
@@ -263,12 +285,14 @@ opa version
 **Critical**: GitHub Actions Windows runners use `D:\a\...` for the working directory but temp files are on `C:\Users\...`
 
 Root-relative paths (`\path`) resolve to the current process's drive, NOT the file's drive:
+
 - Process on `D:` accessing `\Users\...` becomes `D:\Users\...` ❌
 - This is why we need full `file:///C:/Users/...` URLs for OPA
 
 ## Testing Windows Changes
 
 To test Windows-specific changes locally without a Windows machine:
+
 1. The CI must be used for validation (10-minute feedback loop)
 2. Use extensive `eprintln!()` debugging (tracing doesn't work in tests)
 3. Verify both the happy path AND error messages contain correct paths
@@ -288,12 +312,14 @@ To test Windows-specific changes locally without a Windows machine:
 **Key Principle**: Understand the entire system end-to-end before deciding to skip tests or apply workarounds.
 
 **Process That Works**:
+
 1. **Analyze the Error**: Don't just read the error message - understand what the system is trying to do
 2. **Trace Execution Flow**: Follow code from discovery → storage → execution to find where platform differences matter
 3. **Identify Root Cause**: Distinguish between product bugs, test infrastructure issues, and external dependencies
 4. **Apply Appropriate Fix**: Product bugs need runtime fixes; test issues may need platform-specific handling
 
 **Example from This Session**:
+
 - **Initial Symptom**: "Action did not execute" on Windows
 - **Wrong Approach**: Skip tests because "Windows doesn't support shell scripts"
 - **Correct Approach**:
@@ -307,13 +333,15 @@ To test Windows-specific changes locally without a Windows machine:
 **Three Distinct Execution Patterns Emerged**:
 
 #### Pattern A: Product Features (Actions & Signals)
+
 - **What**: User-authored `.sh` scripts that Cupcake executes
 - **Storage**: Full Windows paths (`C:\Users\...\script.sh`)
 - **Execution**: Convert to Git Bash format at runtime (`/c/Users/.../script.sh`)
 - **Why**: Users need to write portable scripts on Windows
-- **Fix Location**: Engine code (`mod.rs`, `guidebook.rs`)
+- **Fix Location**: Engine code (`mod.rs`, `rulebook.rs`)
 
 #### Pattern B: Test Infrastructure (Claude CLI Integration)
+
 - **What**: External tool (Claude CLI) installed by npm
 - **Storage**: Platform-specific (`.ps1` on Windows, binary on Unix)
 - **Execution**: JSON configuration with escaped paths on Windows
@@ -322,6 +350,7 @@ To test Windows-specific changes locally without a Windows machine:
 - **Critical Fix**: Escape Windows paths before embedding in JSON (`command.replace('\\', "\\\\")`)
 
 #### Pattern C: Test Helpers (Path Generation)
+
 - **What**: Paths embedded inside bash script content
 - **Storage**: N/A (generated dynamically in tests)
 - **Execution**: Must use Unix format for Git Bash to interpret correctly
@@ -333,6 +362,7 @@ To test Windows-specific changes locally without a Windows machine:
 **Critical Understanding**: Git Bash on Windows requires TWO types of path conversion:
 
 1. **Script Path** (passed as argument to `bash.exe`):
+
    ```rust
    // WRONG: bash.exe C:\Users\foo\script.sh
    // RIGHT: bash.exe /c/Users/foo/script.sh
@@ -351,11 +381,13 @@ To test Windows-specific changes locally without a Windows machine:
 **Meaning**: "Not a valid Win32 application" - attempted to execute a file that isn't a binary executable.
 
 **Common Causes**:
+
 - Trying to execute PowerShell scripts (`.ps1`) directly
 - Trying to execute batch files (`.bat`, `.cmd`) without `cmd.exe`
 - Trying to execute shell scripts (`.sh`) without `bash.exe`
 
 **Solution Pattern**:
+
 ```rust
 if cfg!(windows) && path.ends_with(".ps1") {
     Command::new("powershell.exe").args(["-File", path, ...])
@@ -369,11 +401,13 @@ if cfg!(windows) && path.ends_with(".ps1") {
 ### 5. When to Skip vs. When to Fix
 
 **Skip Tests When**:
+
 - Testing platform-specific behavior that doesn't exist on target platform
 - Timing-sensitive tests where platform performance differs significantly
 - Tests rely on platform-specific tools not available in CI (e.g., `/bin/echo`)
 
 **Fix Tests When**:
+
 - Core functionality should work cross-platform with appropriate wrappers
 - External dependencies have different installation formats but same interface
 - Platform differences can be abstracted with conditional compilation
@@ -389,9 +423,10 @@ if cfg!(windows) && path.ends_with(".ps1") {
 
 ### 6. Documentation as Understanding
 
-**Pattern**: Document not just the fix, but the *why* behind it.
+**Pattern**: Document not just the fix, but the _why_ behind it.
 
 **Good Documentation Includes**:
+
 - Problem statement with error messages
 - Root cause analysis (not just symptoms)
 - Why this solution was chosen over alternatives
@@ -399,8 +434,10 @@ if cfg!(windows) && path.ends_with(".ps1") {
 - Code examples showing wrong vs. right approaches
 
 **Example from This Session**:
+
 ```markdown
 **Why This Is Different from Actions/Signals**:
+
 - Actions/signals are **product features** - users write `.sh` scripts
 - Claude routing tests are **integration tests** - verify external tool integration
 - Claude CLI installation format is platform-specific, outside our control
@@ -411,6 +448,7 @@ if cfg!(windows) && path.ends_with(".ps1") {
 **Techniques Used Successfully**:
 
 1. **Liberal `eprintln!()` Statements**:
+
    ```rust
    eprintln!("[DEBUG] Path: {:?}", path);
    eprintln!("[DEBUG] Executing: {command}");
@@ -418,11 +456,13 @@ if cfg!(windows) && path.ends_with(".ps1") {
    ```
 
 2. **CI as Validation Loop**:
+
    - Push changes, wait ~10 minutes for CI feedback
    - Read stderr/stdout from failed tests
    - Iterate based on actual Windows behavior
 
 3. **Extensive Error Context**:
+
    ```rust
    .expect(&format!("Failed to execute: {}", command))
    // Better than just: .expect("Failed to execute")
@@ -443,18 +483,21 @@ if cfg!(windows) && path.ends_with(".ps1") {
 External tools may silently ignore malformed configuration files, making debugging extremely difficult.
 
 **The Issue**:
+
 - Windows paths in JSON must have escaped backslashes: `"C:\\Users\\path"`
 - Test code inserted unescaped paths: `"C:\Users\path"` (invalid JSON)
 - Claude CLI silently failed to parse JSON - no error output, exit code 0
 - Hooks never executed, but no indication why
 
 **Debugging Symptoms**:
+
 - Process succeeds (exit code 0) ✅
 - No stderr output ✅
 - Expected side effects don't happen ❌
 - Leads to investigating the wrong components (Cupcake instead of JSON config)
 
 **Solution Pattern**:
+
 ```rust
 // BAD: Manual string formatting
 let path = "C:\\Users\\path";
@@ -468,6 +511,7 @@ let config = json!({
 ```
 
 **When Debugging Silent Failures**:
+
 1. Validate all generated config files (JSON, YAML, etc.)
 2. Check for platform-specific character escaping issues
 3. Test with minimal reproducible config outside the main application
@@ -490,6 +534,7 @@ fn path_for_bash(path: &PathBuf) -> String {
 ```
 
 **Why This Works**:
+
 - Tests remain readable (same API on all platforms)
 - Platform logic isolated in helper
 - Easy to update if conversion rules change
@@ -504,11 +549,13 @@ fn path_for_bash(path: &PathBuf) -> String {
 3. **Shebang Scripts** (Unix only): OS reads `#!/bin/bash` and routes to interpreter
 
 **Windows Behavior**:
+
 - No shebang support - must detect script type by extension
 - Each script type needs specific interpreter
 - Interpreter location varies (Git Bash in Program Files, PowerShell in System32)
 
 **Design Pattern**:
+
 ```rust
 fn execute_script(path: &str) -> Command {
     if cfg!(windows) {

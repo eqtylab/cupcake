@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use cupcake_core::engine::guidebook::Guidebook; // Use ENGINE's parser, not trust's!
+use cupcake_core::engine::rulebook::Rulebook; // Use ENGINE's parser, not trust's!
 use cupcake_core::trust::{
     manifest::{ScriptEntry, ScriptReference},
     TrustManifest,
@@ -147,28 +147,27 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
     let mut manifest = TrustManifest::new();
 
     if !empty {
-        println!("📁 Scanning for scripts (guidebook.yml + auto-discovery)...");
+        println!("📁 Scanning for scripts (rulebook.yml + auto-discovery)...");
 
         // Use ENGINE's parser with auto-discovery!
-        let guidebook_path = cupcake_dir.join("guidebook.yml");
+        let rulebook_path = cupcake_dir.join("rulebook.yml");
         let signals_dir = cupcake_dir.join("signals");
         let actions_dir = cupcake_dir.join("actions");
 
-        let guidebook =
-            Guidebook::load_with_conventions(&guidebook_path, &signals_dir, &actions_dir)
-                .await
-                .context("Failed to load guidebook with auto-discovery")?;
+        let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir)
+            .await
+            .context("Failed to load rulebook with auto-discovery")?;
 
-        // Get all scripts from the engine's guidebook
+        // Get all scripts from the engine's rulebook
         let mut scripts = Vec::new();
 
         // Add all signals
-        for (name, signal) in &guidebook.signals {
+        for (name, signal) in &rulebook.signals {
             scripts.push(("signals".to_string(), name.clone(), signal.command.clone()));
         }
 
         // Add all actions (including on_any_denial)
-        for action in &guidebook.actions.on_any_denial {
+        for action in &rulebook.actions.on_any_denial {
             scripts.push((
                 "actions".to_string(),
                 "on_any_denial".to_string(),
@@ -177,7 +176,7 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
         }
 
         // Add rule-specific actions
-        for (rule_id, actions) in &guidebook.actions.by_rule_id {
+        for (rule_id, actions) in &rulebook.actions.by_rule_id {
             for (idx, action) in actions.iter().enumerate() {
                 let name = if actions.len() > 1 {
                     format!("{rule_id}_{idx}")
@@ -209,7 +208,7 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
         if script_count > 0 {
             println!("📜 Found {script_count} scripts to trust");
         } else {
-            println!("📜 No scripts found in guidebook.yml");
+            println!("📜 No scripts found in rulebook.yml");
         }
     }
 
@@ -243,24 +242,24 @@ async fn trust_update(project_dir: &Path, dry_run: bool, auto_yes: bool) -> Resu
         TrustManifest::load(&trust_file).context("Failed to load existing trust manifest")?;
 
     // Use ENGINE's parser with auto-discovery!
-    let guidebook_path = cupcake_dir.join("guidebook.yml");
+    let rulebook_path = cupcake_dir.join("rulebook.yml");
     let signals_dir = cupcake_dir.join("signals");
     let actions_dir = cupcake_dir.join("actions");
 
-    let guidebook = Guidebook::load_with_conventions(&guidebook_path, &signals_dir, &actions_dir)
+    let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir)
         .await
-        .context("Failed to load guidebook with auto-discovery")?;
+        .context("Failed to load rulebook with auto-discovery")?;
 
-    // Get all scripts from the engine's guidebook
+    // Get all scripts from the engine's rulebook
     let mut scripts = Vec::new();
 
     // Add all signals
-    for (name, signal) in &guidebook.signals {
+    for (name, signal) in &rulebook.signals {
         scripts.push(("signals".to_string(), name.clone(), signal.command.clone()));
     }
 
     // Add all actions (including on_any_denial)
-    for action in &guidebook.actions.on_any_denial {
+    for action in &rulebook.actions.on_any_denial {
         scripts.push((
             "actions".to_string(),
             "on_any_denial".to_string(),
@@ -269,7 +268,7 @@ async fn trust_update(project_dir: &Path, dry_run: bool, auto_yes: bool) -> Resu
     }
 
     // Add rule-specific actions
-    for (rule_id, actions) in &guidebook.actions.by_rule_id {
+    for (rule_id, actions) in &rulebook.actions.by_rule_id {
         for (idx, action) in actions.iter().enumerate() {
             let name = if actions.len() > 1 {
                 format!("{rule_id}_{idx}")

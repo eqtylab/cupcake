@@ -2,7 +2,7 @@
 //! This proves our fix works - both use the same parser and see the same scripts
 
 use anyhow::Result;
-use cupcake_core::engine::guidebook::Guidebook;
+use cupcake_core::engine::rulebook::Rulebook;
 use std::collections::HashSet;
 use std::fs as std_fs;
 use tokio::fs;
@@ -21,8 +21,8 @@ async fn test_trust_cli_sees_all_scripts_after_fix() -> Result<()> {
     fs::create_dir_all(&signals_dir).await?;
     fs::create_dir_all(&actions_dir).await?;
 
-    // Create guidebook.yml with explicit entries
-    let guidebook_content = r#"
+    // Create rulebook.yml with explicit entries
+    let rulebook_content = r#"
 signals:
   explicit_signal:
     command: "echo explicit"
@@ -34,15 +34,15 @@ actions:
     RULE-001:
       - command: "echo rule1"
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook_content).await?;
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook_content).await?;
 
     // Create auto-discovered scripts
     fs::write(signals_dir.join("auto_signal.sh"), "#!/bin/bash\necho auto").await?;
     fs::write(actions_dir.join("RULE-002.sh"), "#!/bin/bash\necho rule2").await?;
 
     // Load using the SAME parser that trust CLI now uses (after our fix)
-    let guidebook = Guidebook::load_with_conventions(
-        &cupcake_dir.join("guidebook.yml"),
+    let rulebook = Rulebook::load_with_conventions(
+        &cupcake_dir.join("rulebook.yml"),
         &signals_dir,
         &actions_dir,
     )
@@ -52,16 +52,16 @@ actions:
     let mut scripts_seen = HashSet::new();
 
     // Signals
-    for name in guidebook.signals.keys() {
+    for name in rulebook.signals.keys() {
         scripts_seen.insert(format!("signal:{name}"));
     }
 
     // Actions (including on_any_denial)
-    for _ in &guidebook.actions.on_any_denial {
+    for _ in &rulebook.actions.on_any_denial {
         scripts_seen.insert("action:on_any_denial".to_string());
     }
 
-    for rule_id in guidebook.actions.by_rule_id.keys() {
+    for rule_id in rulebook.actions.by_rule_id.keys() {
         scripts_seen.insert(format!("action:{rule_id}"));
     }
 

@@ -1,22 +1,22 @@
 # Builtin Policies Reference
 
-Cupcake provides 11 builtin policies that implement common security patterns without writing Rego code. Enable them via `cupcake init --builtins` or by editing `guidebook.yml`.
+Cupcake provides 11 builtin policies that implement common security patterns without writing Rego code. Enable them via `cupcake init --builtins` or by editing `rulebook.yml`.
 
 ## Quick Reference
 
-| Builtin | Scope | Purpose | Blocks |
-|---------|-------|---------|--------|
-| `always_inject_on_prompt` | Project | Add context to every prompt | Nothing |
-| `global_file_lock` | Project | Prevent ALL file writes | All writes |
-| `git_pre_check` | Project | Validate before git operations | Git ops if checks fail |
-| `post_edit_check` | Project | Validate after file edits | Future edits if checks fail |
-| `rulebook_security_guardrails` | Project | Protect `.cupcake/` directory | Reads & writes to protected paths |
-| `protected_paths` | Project | User-defined read-only paths | Writes to specified paths |
-| `git_block_no_verify` | Project | Prevent bypassing hooks | `--no-verify` flag |
-| `enforce_full_file_read` | Project | Require full file reads | Partial reads of small files |
-| `system_protection` | Global | Protect OS paths | Writes to system directories |
-| `sensitive_data_protection` | Global | Protect credentials | Reads of sensitive files |
-| `cupcake_exec_protection` | Global | Block cupcake execution | Direct cupcake binary calls |
+| Builtin                        | Scope   | Purpose                        | Blocks                            |
+| ------------------------------ | ------- | ------------------------------ | --------------------------------- |
+| `always_inject_on_prompt`      | Project | Add context to every prompt    | Nothing                           |
+| `global_file_lock`             | Project | Prevent ALL file writes        | All writes                        |
+| `git_pre_check`                | Project | Validate before git operations | Git ops if checks fail            |
+| `post_edit_check`              | Project | Validate after file edits      | Future edits if checks fail       |
+| `rulebook_security_guardrails` | Project | Protect `.cupcake/` directory  | Reads & writes to protected paths |
+| `protected_paths`              | Project | User-defined read-only paths   | Writes to specified paths         |
+| `git_block_no_verify`          | Project | Prevent bypassing hooks        | `--no-verify` flag                |
+| `enforce_full_file_read`       | Project | Require full file reads        | Partial reads of small files      |
+| `system_protection`            | Global  | Protect OS paths               | Writes to system directories      |
+| `sensitive_data_protection`    | Global  | Protect credentials            | Reads of sensitive files          |
+| `cupcake_exec_protection`      | Global  | Block cupcake execution        | Direct cupcake binary calls       |
 
 ## Project-Level Builtins
 
@@ -25,6 +25,7 @@ Cupcake provides 11 builtin policies that implement common security patterns wit
 Injects additional context with every user prompt. Useful for project guidelines, coding standards, or reminders.
 
 **Configuration:**
+
 ```yaml
 builtins:
   always_inject_on_prompt:
@@ -41,6 +42,7 @@ builtins:
 ```
 
 **Use Cases:**
+
 - Enforce coding standards
 - Provide project context
 - Add current state awareness
@@ -52,6 +54,7 @@ builtins:
 Prevents ALL file modifications session-wide. Most restrictive builtin.
 
 **Configuration:**
+
 ```yaml
 builtins:
   global_file_lock:
@@ -59,6 +62,7 @@ builtins:
 ```
 
 **Use Cases:**
+
 - Code review sessions
 - Learning/exploration mode
 - Production safety
@@ -70,6 +74,7 @@ builtins:
 Runs validation commands before git operations.
 
 **Configuration:**
+
 ```yaml
 builtins:
   git_pre_check:
@@ -90,6 +95,7 @@ builtins:
 Runs validation after file edits based on file extension.
 
 **Configuration:**
+
 ```yaml
 builtins:
   post_edit_check:
@@ -114,6 +120,7 @@ builtins:
 Total lockdown of critical configuration paths. Blocks both reads AND writes.
 
 **Configuration:**
+
 ```yaml
 builtins:
   rulebook_security_guardrails:
@@ -124,6 +131,7 @@ builtins:
 ```
 
 **Use Cases:**
+
 - Prevent policy tampering
 - Protect git hooks
 - Secure CI/CD configs
@@ -135,6 +143,7 @@ builtins:
 Makes specified paths read-only (read allowed, write blocked).
 
 **Configuration:**
+
 ```yaml
 builtins:
   protected_paths:
@@ -156,11 +165,12 @@ builtins:
 Prevents bypassing git hooks with `--no-verify` flag.
 
 **Configuration:**
+
 ```yaml
 builtins:
   git_block_no_verify:
     message: "Git hooks must run"
-    exceptions: []  # Can allow specific contexts
+    exceptions: [] # Can allow specific contexts
 ```
 
 **Blocks:** `git commit --no-verify`, `git push --no-verify`
@@ -172,14 +182,16 @@ builtins:
 Requires reading entire files under a configurable line limit.
 
 **Configuration:**
+
 ```yaml
 builtins:
   enforce_full_file_read:
-    max_lines: 2000  # Files under this must be read completely
+    max_lines: 2000 # Files under this must be read completely
     message: "Please read the entire file first"
 ```
 
 **Use Cases:**
+
 - Ensure context awareness
 - Prevent cherry-picking code
 - Enforce thorough review
@@ -193,6 +205,7 @@ Global builtins provide machine-wide security policies that apply to ALL project
 Protects critical system paths from modification.
 
 **Configuration:**
+
 ```yaml
 builtins:
   system_protection:
@@ -202,6 +215,7 @@ builtins:
 ```
 
 **Default Protected Paths:**
+
 - `/etc/`, `/System/`, `/Library/`
 - `/usr/` (except `/usr/local/`)
 - `/bin/`, `/sbin/`
@@ -215,6 +229,7 @@ builtins:
 Blocks reading of credential and sensitive files.
 
 **Configuration:**
+
 ```yaml
 builtins:
   sensitive_data_protection:
@@ -224,6 +239,7 @@ builtins:
 ```
 
 **Default Protected Patterns:**
+
 - SSH keys: `*/.ssh/*`, `*_rsa`, `*.pem`
 - Cloud: `*/.aws/*`, `*/.gcloud/*`
 - Env files: `.env*`, `*.env`
@@ -237,6 +253,7 @@ builtins:
 Prevents direct execution of cupcake binary.
 
 **Configuration:**
+
 ```yaml
 builtins:
   cupcake_exec_protection:
@@ -274,12 +291,12 @@ cupcake init --global --builtins system_protection
 
 ### Via Configuration
 
-Edit `.cupcake/guidebook.yml`:
+Edit `.cupcake/rulebook.yml`:
 
 ```yaml
 builtins:
   git_pre_check:
-    enabled: true  # Optional, defaults to true when configured
+    enabled: true # Optional, defaults to true when configured
     checks:
       - command: "make test"
         message: "Tests must pass"
@@ -295,16 +312,19 @@ builtins:
 ## Troubleshooting
 
 **Builtin not working?**
-1. Check it's enabled in `guidebook.yml`
+
+1. Check it's enabled in `rulebook.yml`
 2. Verify with `cupcake verify --policy-dir .cupcake`
 3. Enable debug logging: `cupcake eval --log-level debug`
 
 **Too restrictive?**
+
 - Disable temporarily: Set `enabled: false`
 - Adjust configuration to be less broad
 - Use `protected_paths` instead of `global_file_lock`
 
 **Not restrictive enough?**
+
 - Combine multiple builtins
 - Write custom Rego policies for complex logic
 - Use `rulebook_security_guardrails` for total lockdown

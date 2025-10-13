@@ -96,9 +96,9 @@ deny contains decision if {
 "#,
     )?;
 
-    // Create guidebook with test signal
+    // Create rulebook with test signal
     fs::write(
-        cupcake_dir.join("guidebook.yml"),
+        cupcake_dir.join("rulebook.yml"),
         r#"signals:
   test_signal:
     command: "echo 'test output'"

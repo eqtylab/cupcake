@@ -14,8 +14,8 @@ pub struct GlobalPaths {
     pub root: PathBuf,
     /// Global policies directory
     pub policies: PathBuf,
-    /// Global guidebook file
-    pub guidebook: PathBuf,
+    /// Global rulebook file
+    pub rulebook: PathBuf,
     /// Global signals directory
     pub signals: PathBuf,
     /// Global actions directory  
@@ -110,7 +110,7 @@ impl GlobalPaths {
 
         Ok(GlobalPaths {
             policies: root.join("policies"),
-            guidebook: root.join("guidebook.yml"),
+            rulebook: root.join("rulebook.yml"),
             signals: root.join("signals"),
             actions: root.join("actions"),
             root,
@@ -157,7 +157,7 @@ impl GlobalPaths {
     /// Check if the global configuration is properly initialized
     pub fn is_initialized(&self) -> bool {
         self.policies.exists()
-            && self.guidebook.exists()
+            && self.rulebook.exists()
             && self.signals.exists()
             && self.actions.exists()
     }
@@ -177,9 +177,9 @@ impl GlobalPaths {
         std::fs::create_dir_all(&self.actions)
             .context("Failed to create global actions directory")?;
 
-        // Create minimal guidebook if it doesn't exist
-        if !self.guidebook.exists() {
-            let guidebook_content = r#"# Global Cupcake Configuration
+        // Create minimal rulebook if it doesn't exist
+        if !self.rulebook.exists() {
+            let rulebook_content = r#"# Global Cupcake Configuration
 # 
 # This configuration applies to ALL Cupcake projects on this machine.
 # Global policies have absolute precedence and cannot be overridden.
@@ -191,8 +191,8 @@ actions: {}
 # Builtins can be configured globally
 builtins: {}
 "#;
-            std::fs::write(&self.guidebook, guidebook_content)
-                .context("Failed to create global guidebook.yml")?;
+            std::fs::write(&self.rulebook, rulebook_content)
+                .context("Failed to create global rulebook.yml")?;
         }
 
         // Create the global system evaluate policy
@@ -259,7 +259,7 @@ mod tests {
 
         assert_eq!(global_paths.root, root);
         assert_eq!(global_paths.policies, root.join("policies"));
-        assert_eq!(global_paths.guidebook, root.join("guidebook.yml"));
+        assert_eq!(global_paths.rulebook, root.join("rulebook.yml"));
         assert_eq!(global_paths.signals, root.join("signals"));
         assert_eq!(global_paths.actions, root.join("actions"));
     }
@@ -329,7 +329,7 @@ mod tests {
         // Now should be initialized
         assert!(global_paths.is_initialized());
         assert!(global_paths.policies.exists());
-        assert!(global_paths.guidebook.exists());
+        assert!(global_paths.rulebook.exists());
         assert!(global_paths.signals.exists());
         assert!(global_paths.actions.exists());
     }
@@ -349,16 +349,16 @@ mod tests {
         assert!(global_paths.actions.exists());
 
         // Check files exist
-        assert!(global_paths.guidebook.exists());
+        assert!(global_paths.rulebook.exists());
         assert!(global_paths
             .policies
             .join("system")
             .join("evaluate.rego")
             .exists());
 
-        // Verify guidebook content
-        let guidebook_content = std::fs::read_to_string(&global_paths.guidebook).unwrap();
-        assert!(guidebook_content.contains("Global Cupcake Configuration"));
+        // Verify rulebook content
+        let rulebook_content = std::fs::read_to_string(&global_paths.rulebook).unwrap();
+        assert!(rulebook_content.contains("Global Cupcake Configuration"));
 
         // Verify evaluate.rego content
         let evaluate_content =

@@ -64,8 +64,8 @@ pub struct ProjectPaths {
     pub signals: PathBuf,
     /// Actions directory (.cupcake/actions/)
     pub actions: PathBuf,
-    /// Guidebook file (.cupcake/guidebook.yml)
-    pub guidebook: PathBuf,
+    /// Rulebook file (.cupcake/rulebook.yml)
+    pub rulebook: PathBuf,
 
     // Global configuration paths (optional - may not exist)
     /// Global config root directory
@@ -76,8 +76,8 @@ pub struct ProjectPaths {
     pub global_signals: Option<PathBuf>,
     /// Global actions directory
     pub global_actions: Option<PathBuf>,
-    /// Global guidebook file
-    pub global_guidebook: Option<PathBuf>,
+    /// Global rulebook file
+    pub global_rulebook: Option<PathBuf>,
 }
 
 impl ProjectPaths {
@@ -123,7 +123,7 @@ impl ProjectPaths {
                 });
 
         // Extract global paths if config exists
-        let (global_root, global_policies, global_signals, global_actions, global_guidebook) =
+        let (global_root, global_policies, global_signals, global_actions, global_rulebook) =
             if let Some(global) = global_config {
                 info!("Global configuration discovered at {:?}", global.root);
                 (
@@ -131,7 +131,7 @@ impl ProjectPaths {
                     Some(global.policies),
                     Some(global.signals),
                     Some(global.actions),
-                    Some(global.guidebook),
+                    Some(global.rulebook),
                 )
             } else {
                 debug!("No global configuration found - using project config only");
@@ -144,12 +144,12 @@ impl ProjectPaths {
             policies: cupcake_dir.join("policies"),
             signals: cupcake_dir.join("signals"),
             actions: cupcake_dir.join("actions"),
-            guidebook: cupcake_dir.join("guidebook.yml"),
+            rulebook: cupcake_dir.join("rulebook.yml"),
             global_root,
             global_policies,
             global_signals,
             global_actions,
-            global_guidebook,
+            global_rulebook,
         })
     }
 }
@@ -171,7 +171,7 @@ pub mod wasm_runtime;
 // Configuration and extensions
 pub mod builtins;
 pub mod global_config;
-pub mod guidebook;
+pub mod rulebook;
 
 // Diagnostics and debugging
 pub mod trace;
@@ -237,8 +237,8 @@ pub struct Engine {
     /// List of all discovered policies
     policies: Vec<PolicyUnit>,
 
-    /// Optional guidebook for signals and actions
-    guidebook: Option<guidebook::Guidebook>,
+    /// Optional rulebook for signals and actions
+    rulebook: Option<rulebook::Rulebook>,
 
     /// Optional trust verifier for script integrity
     trust_verifier: Option<crate::trust::TrustVerifier>,
@@ -256,8 +256,8 @@ pub struct Engine {
     /// List of global policies
     global_policies: Vec<PolicyUnit>,
 
-    /// Optional global guidebook
-    global_guidebook: Option<guidebook::Guidebook>,
+    /// Optional global rulebook
+    global_rulebook: Option<rulebook::Rulebook>,
 }
 
 impl Engine {
@@ -305,14 +305,14 @@ impl Engine {
             wasm_module: None,
             wasm_runtime: None,
             policies: Vec::new(),
-            guidebook: None,
+            rulebook: None,
             trust_verifier: None,
             // Initialize global fields (will be populated if global config exists)
             global_routing_map: HashMap::new(),
             global_wasm_module: None,
             global_wasm_runtime: None,
             global_policies: Vec::new(),
-            global_guidebook: None,
+            global_rulebook: None,
         };
 
         // Initialize the engine (scan, parse, compile)
@@ -331,20 +331,20 @@ impl Engine {
             self.initialize_global().await?;
         }
 
-        // Step 0B: Load project guidebook to get builtin configuration
-        self.guidebook = Some(
-            guidebook::Guidebook::load_with_conventions(
-                &self.paths.guidebook,
+        // Step 0B: Load project rulebook to get builtin configuration
+        self.rulebook = Some(
+            rulebook::Rulebook::load_with_conventions(
+                &self.paths.rulebook,
                 &self.paths.signals,
                 &self.paths.actions,
             )
             .await?,
         );
-        info!("Project guidebook loaded with convention-based discovery");
+        info!("Project rulebook loaded with convention-based discovery");
 
         // Get list of enabled builtins for filtering
         let enabled_builtins = self
-            .guidebook
+            .rulebook
             .as_ref()
             .map(|g| g.builtins.enabled_builtins())
             .unwrap_or_default();
@@ -419,7 +419,7 @@ impl Engine {
         Ok(())
     }
 
-    /// Initialize global configuration (policies, guidebook, WASM)
+    /// Initialize global configuration (policies, rulebook, WASM)
     async fn initialize_global(&mut self) -> Result<()> {
         info!("Initializing global configuration...");
 
@@ -429,28 +429,28 @@ impl Engine {
             .global_policies
             .as_ref()
             .context("Global policies path not set")?;
-        let global_guidebook_path = self
+        let global_rulebook_path = self
             .paths
-            .global_guidebook
+            .global_rulebook
             .as_ref()
-            .context("Global guidebook path not set")?;
+            .context("Global rulebook path not set")?;
 
-        // Load global guidebook
-        if global_guidebook_path.exists() {
-            self.global_guidebook = Some(
-                guidebook::Guidebook::load_with_conventions(
-                    global_guidebook_path,
+        // Load global rulebook
+        if global_rulebook_path.exists() {
+            self.global_rulebook = Some(
+                rulebook::Rulebook::load_with_conventions(
+                    global_rulebook_path,
                     self.paths.global_signals.as_ref().unwrap(),
                     self.paths.global_actions.as_ref().unwrap(),
                 )
                 .await?,
             );
-            info!("Global guidebook loaded");
+            info!("Global rulebook loaded");
         }
 
         // Get global enabled builtins
         let global_enabled_builtins = self
-            .global_guidebook
+            .global_rulebook
             .as_ref()
             .map(|g| g.builtins.enabled_builtins())
             .unwrap_or_default();
@@ -852,16 +852,16 @@ impl Engine {
                 decision::FinalDecision::Halt { reason } => {
                     info!("Global policy HALT - immediate termination: {}", reason);
                     // Execute global actions before returning
-                    if let Some(ref global_guidebook) = self.global_guidebook {
-                        info!("Global guidebook found - executing global actions");
-                        self.execute_actions_with_guidebook(
+                    if let Some(ref global_rulebook) = self.global_rulebook {
+                        info!("Global rulebook found - executing global actions");
+                        self.execute_actions_with_rulebook(
                             &global_decision,
                             &global_decision_set,
-                            global_guidebook,
+                            global_rulebook,
                         )
                         .await;
                     } else {
-                        warn!("No global guidebook - cannot execute global actions!");
+                        warn!("No global rulebook - cannot execute global actions!");
                     }
                     current_span.record("final_decision", "GlobalHalt");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
@@ -870,11 +870,11 @@ impl Engine {
                 decision::FinalDecision::Deny { reason } => {
                     info!("Global policy DENY - immediate termination: {}", reason);
                     // Execute global actions before returning
-                    if let Some(ref global_guidebook) = self.global_guidebook {
-                        self.execute_actions_with_guidebook(
+                    if let Some(ref global_rulebook) = self.global_rulebook {
+                        self.execute_actions_with_rulebook(
                             &global_decision,
                             &global_decision_set,
-                            global_guidebook,
+                            global_rulebook,
                         )
                         .await;
                     }
@@ -885,11 +885,11 @@ impl Engine {
                 decision::FinalDecision::Block { reason } => {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
                     // Execute global actions before returning
-                    if let Some(ref global_guidebook) = self.global_guidebook {
-                        self.execute_actions_with_guidebook(
+                    if let Some(ref global_rulebook) = self.global_rulebook {
+                        self.execute_actions_with_rulebook(
                             &global_decision,
                             &global_decision_set,
-                            global_guidebook,
+                            global_rulebook,
                         )
                         .await;
                     }
@@ -1005,9 +1005,9 @@ impl Engine {
 
         info!("Found {} matching global policies", global_matched.len());
 
-        // Gather signals for global policies (using global guidebook if available)
-        let enriched_input = if let Some(ref global_guidebook) = self.global_guidebook {
-            self.gather_signals_with_guidebook(input, &global_matched, global_guidebook)
+        // Gather signals for global policies (using global rulebook if available)
+        let enriched_input = if let Some(ref global_rulebook) = self.global_rulebook {
+            self.gather_signals_with_rulebook(input, &global_matched, global_rulebook)
                 .await?
         } else {
             input.clone()
@@ -1055,12 +1055,12 @@ impl Engine {
         result
     }
 
-    /// Gather signals with a specific guidebook
-    async fn gather_signals_with_guidebook(
+    /// Gather signals with a specific rulebook
+    async fn gather_signals_with_rulebook(
         &self,
         input: &Value,
         matched_policies: &[PolicyUnit],
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
     ) -> Result<Value> {
         // Collect required signals
         let mut required_signals = std::collections::HashSet::new();
@@ -1093,7 +1093,7 @@ impl Engine {
 
                 // Add all signals that match this builtin's pattern
                 let signal_prefix = format!("__builtin_{builtin_name}_");
-                for signal_name in guidebook.signals.keys() {
+                for signal_name in rulebook.signals.keys() {
                     if signal_name.starts_with(&signal_prefix) {
                         debug!(
                             "Auto-adding signal '{}' for global builtin '{}'",
@@ -1105,7 +1105,7 @@ impl Engine {
 
                 // Also check for signals without the trailing underscore (like __builtin_system_protection_paths)
                 let signal_prefix_no_underscore = format!("__builtin_{builtin_name}");
-                for signal_name in guidebook.signals.keys() {
+                for signal_name in rulebook.signals.keys() {
                     if signal_name.starts_with(&signal_prefix_no_underscore)
                         && !signal_name.starts_with(&signal_prefix)
                     {
@@ -1119,11 +1119,11 @@ impl Engine {
             }
         }
 
-        // Always inject builtin config from the provided guidebook
+        // Always inject builtin config from the provided rulebook
         let mut enriched_input = input.clone();
         if let Some(input_obj) = enriched_input.as_object_mut() {
-            debug!("Injecting builtin configs from guidebook in gather_signals_with_guidebook");
-            let builtin_config = guidebook.builtins.to_json_configs();
+            debug!("Injecting builtin configs from rulebook in gather_signals_with_rulebook");
+            let builtin_config = rulebook.builtins.to_json_configs();
 
             if !builtin_config.is_empty() {
                 debug!("Injected {} builtin configurations", builtin_config.len());
@@ -1140,11 +1140,11 @@ impl Engine {
         }
 
         let signal_names: Vec<String> = required_signals.into_iter().collect();
-        info!("Gathering {} signals from guidebook", signal_names.len());
+        info!("Gathering {} signals from rulebook", signal_names.len());
 
-        // Execute signals using the provided guidebook, passing the event data
+        // Execute signals using the provided rulebook, passing the event data
         let signal_data = self
-            .execute_signals_from_guidebook(&signal_names, guidebook, input)
+            .execute_signals_from_rulebook(&signal_names, rulebook, input)
             .await
             .unwrap_or_else(|e| {
                 warn!("Signal execution failed: {}", e);
@@ -1159,15 +1159,15 @@ impl Engine {
         Ok(enriched_input)
     }
 
-    /// Execute signals from a specific guidebook
-    async fn execute_signals_from_guidebook(
+    /// Execute signals from a specific rulebook
+    async fn execute_signals_from_rulebook(
         &self,
         signal_names: &[String],
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
         event_data: &Value,
     ) -> Result<std::collections::HashMap<String, Value>> {
-        // Use the guidebook's execute_signals_with_input method to pass event data
-        guidebook
+        // Use the rulebook's execute_signals_with_input method to pass event data
+        rulebook
             .execute_signals_with_input(signal_names, event_data)
             .await
     }
@@ -1223,7 +1223,7 @@ impl Engine {
 
         // ALSO: For builtin policies, automatically include their generated signals
         // This is needed because builtin policies can't statically declare dynamic signals
-        if let Some(guidebook) = &self.guidebook {
+        if let Some(rulebook) = &self.rulebook {
             for policy in matched_policies {
                 if policy
                     .package_name
@@ -1238,8 +1238,8 @@ impl Engine {
                     // Special handling for post_edit_check - only add the signal for the actual file extension
                     // This optimization prevents running ALL validation commands when only one applies
                     if builtin_name == "post_edit_check" {
-                        if let Some(signal_name) = guidebook.builtins.get_post_edit_signal(input) {
-                            if guidebook.signals.contains_key(&signal_name) {
+                        if let Some(signal_name) = rulebook.builtins.get_post_edit_signal(input) {
+                            if rulebook.signals.contains_key(&signal_name) {
                                 debug!(
                                     "Auto-adding signal '{}' for post_edit_check builtin",
                                     signal_name
@@ -1250,7 +1250,7 @@ impl Engine {
                     } else {
                         // For other builtins, add all matching signals
                         let signal_prefix = format!("__builtin_{builtin_name}_");
-                        for signal_name in guidebook.signals.keys() {
+                        for signal_name in rulebook.signals.keys() {
                             if signal_name.starts_with(&signal_prefix) {
                                 debug!(
                                     "Auto-adding signal '{}' for builtin '{}'",
@@ -1271,15 +1271,15 @@ impl Engine {
             let mut builtin_config = serde_json::Map::new();
 
             // First inject project configs (baseline from project)
-            if let Some(project_guidebook) = &self.guidebook {
-                debug!("Injecting builtin configs from project guidebook");
-                builtin_config.extend(project_guidebook.builtins.to_json_configs());
+            if let Some(project_rulebook) = &self.rulebook {
+                debug!("Injecting builtin configs from project rulebook");
+                builtin_config.extend(project_rulebook.builtins.to_json_configs());
             }
 
             // Then inject global configs (override project - global enforcement takes precedence)
-            if let Some(global_guidebook) = &self.global_guidebook {
-                debug!("Injecting builtin configs from global guidebook (overrides project)");
-                builtin_config.extend(global_guidebook.builtins.to_json_configs());
+            if let Some(global_rulebook) = &self.global_rulebook {
+                debug!("Injecting builtin configs from global rulebook (overrides project)");
+                builtin_config.extend(global_rulebook.builtins.to_json_configs());
             }
 
             if !builtin_config.is_empty() {
@@ -1315,12 +1315,12 @@ impl Engine {
             debug.signals_configured = signal_names.clone();
         }
 
-        // Execute signals if we have a guidebook, passing the event data (input)
-        let signal_data = if let Some(guidebook) = &self.guidebook {
+        // Execute signals if we have a rulebook, passing the event data (input)
+        let signal_data = if let Some(rulebook) = &self.rulebook {
             let results = self
                 .execute_signals_with_trust_and_debug(
                     &signal_names,
-                    guidebook,
+                    rulebook,
                     input,
                     debug_capture.as_deref_mut(),
                 )
@@ -1331,7 +1331,7 @@ impl Engine {
                 });
             results
         } else {
-            debug!("No guidebook available - no signals collected");
+            debug!("No rulebook available - no signals collected");
             std::collections::HashMap::<String, serde_json::Value>::new()
         };
 
@@ -1363,7 +1363,7 @@ impl Engine {
     async fn execute_signals_with_trust_and_debug(
         &self,
         signal_names: &[String],
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
         event_data: &Value,
         mut debug_capture: Option<&mut DebugCapture>,
     ) -> Result<HashMap<String, serde_json::Value>> {
@@ -1384,7 +1384,7 @@ impl Engine {
             .map(|name| {
                 let name = name.clone();
                 let trust_verifier = self.trust_verifier.clone();
-                let signal_config = guidebook.get_signal(&name).cloned();
+                let signal_config = rulebook.get_signal(&name).cloned();
                 let event_data = event_data.clone();
 
                 async move {
@@ -1414,9 +1414,7 @@ impl Engine {
 
                     // Execute the signal with event data and measure time
                     let signal_start = std::time::Instant::now();
-                    let result = guidebook
-                        .execute_signal_with_input(&name, &event_data)
-                        .await;
+                    let result = rulebook.execute_signal_with_input(&name, &event_data).await;
                     let signal_duration = signal_start.elapsed();
 
                     // Create signal execution record for debug
@@ -1467,24 +1465,24 @@ impl Engine {
     }
 
     /// Execute actions based on the final decision and decision set
-    /// Execute actions with a specific guidebook
-    async fn execute_actions_with_guidebook(
+    /// Execute actions with a specific rulebook
+    async fn execute_actions_with_rulebook(
         &self,
         final_decision: &decision::FinalDecision,
         decision_set: &decision::DecisionSet,
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
     ) {
         info!(
-            "execute_actions_with_guidebook called with decision: {:?}",
+            "execute_actions_with_rulebook called with decision: {:?}",
             final_decision
         );
 
-        // Determine working directory based on whether this is a global guidebook
-        // Check if we're using the global guidebook by comparing pointers
+        // Determine working directory based on whether this is a global rulebook
+        // Check if we're using the global rulebook by comparing pointers
         let is_global = self
-            .global_guidebook
+            .global_rulebook
             .as_ref()
-            .map(|gb| std::ptr::eq(gb as *const _, guidebook as *const _))
+            .map(|gb| std::ptr::eq(gb as *const _, rulebook as *const _))
             .unwrap_or(false);
 
         let working_dir = if is_global {
@@ -1506,24 +1504,24 @@ impl Engine {
                     "Number of halt decisions in set: {}",
                     decision_set.halts.len()
                 );
-                self.execute_rule_specific_actions(&decision_set.halts, guidebook, &working_dir)
+                self.execute_rule_specific_actions(&decision_set.halts, rulebook, &working_dir)
                     .await;
             }
             decision::FinalDecision::Deny { reason } => {
                 info!("Executing actions for DENY decision: {}", reason);
 
                 // Execute general denial actions
-                for action in &guidebook.actions.on_any_denial {
+                for action in &rulebook.actions.on_any_denial {
                     self.execute_single_action(action, &working_dir).await;
                 }
 
                 // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions(&decision_set.denials, guidebook, &working_dir)
+                self.execute_rule_specific_actions(&decision_set.denials, rulebook, &working_dir)
                     .await;
             }
             decision::FinalDecision::Block { reason } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.blocks, guidebook, &working_dir)
+                self.execute_rule_specific_actions(&decision_set.blocks, rulebook, &working_dir)
                     .await;
             }
             decision::FinalDecision::Ask { .. } => {
@@ -1545,8 +1543,8 @@ impl Engine {
         decision_set: &decision::DecisionSet,
         mut debug_capture: Option<&mut DebugCapture>,
     ) {
-        let Some(guidebook) = &self.guidebook else {
-            debug!("No guidebook available - no actions to execute");
+        let Some(rulebook) = &self.rulebook else {
+            debug!("No rulebook available - no actions to execute");
             return;
         };
 
@@ -1558,14 +1556,14 @@ impl Engine {
             match final_decision {
                 decision::FinalDecision::Deny { .. } => {
                     // General denial actions
-                    for action in &guidebook.actions.on_any_denial {
+                    for action in &rulebook.actions.on_any_denial {
                         configured_actions.push(format!("on_any_denial: {}", action.command));
                     }
 
                     // Rule-specific actions for denials
                     for decision_obj in &decision_set.denials {
                         if let Some(actions) =
-                            guidebook.actions.by_rule_id.get(&decision_obj.rule_id)
+                            rulebook.actions.by_rule_id.get(&decision_obj.rule_id)
                         {
                             for action in actions {
                                 configured_actions
@@ -1578,7 +1576,7 @@ impl Engine {
                     // Rule-specific actions for halts
                     for decision_obj in &decision_set.halts {
                         if let Some(actions) =
-                            guidebook.actions.by_rule_id.get(&decision_obj.rule_id)
+                            rulebook.actions.by_rule_id.get(&decision_obj.rule_id)
                         {
                             for action in actions {
                                 configured_actions
@@ -1591,7 +1589,7 @@ impl Engine {
                     // Rule-specific actions for blocks
                     for decision_obj in &decision_set.blocks {
                         if let Some(actions) =
-                            guidebook.actions.by_rule_id.get(&decision_obj.rule_id)
+                            rulebook.actions.by_rule_id.get(&decision_obj.rule_id)
                         {
                             for action in actions {
                                 configured_actions
@@ -1608,25 +1606,25 @@ impl Engine {
             debug.actions_configured = configured_actions;
         }
 
-        self.execute_actions_with_guidebook_and_debug(
+        self.execute_actions_with_rulebook_and_debug(
             final_decision,
             decision_set,
-            guidebook,
+            rulebook,
             debug_capture,
         )
         .await;
     }
 
-    /// Execute actions with guidebook and debug capture
-    async fn execute_actions_with_guidebook_and_debug(
+    /// Execute actions with rulebook and debug capture
+    async fn execute_actions_with_rulebook_and_debug(
         &self,
         final_decision: &decision::FinalDecision,
         decision_set: &decision::DecisionSet,
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
         mut debug_capture: Option<&mut DebugCapture>,
     ) {
         info!(
-            "execute_actions_with_guidebook_and_debug called with decision: {:?}",
+            "execute_actions_with_rulebook_and_debug called with decision: {:?}",
             final_decision
         );
 
@@ -1638,7 +1636,7 @@ impl Engine {
                 info!("Executing actions for HALT decision: {}", reason);
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.halts,
-                    guidebook,
+                    rulebook,
                     working_dir,
                     debug_capture.as_deref_mut(),
                 )
@@ -1648,7 +1646,7 @@ impl Engine {
                 info!("Executing actions for DENY decision: {}", reason);
 
                 // Execute general denial actions
-                for action in &guidebook.actions.on_any_denial {
+                for action in &rulebook.actions.on_any_denial {
                     self.execute_single_action_with_debug(
                         action,
                         working_dir,
@@ -1660,7 +1658,7 @@ impl Engine {
                 // Execute rule-specific actions for denials
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.denials,
-                    guidebook,
+                    rulebook,
                     working_dir,
                     debug_capture.as_deref_mut(),
                 )
@@ -1670,7 +1668,7 @@ impl Engine {
                 info!("Executing actions for BLOCK decision: {}", reason);
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.blocks,
-                    guidebook,
+                    rulebook,
                     working_dir,
                     debug_capture,
                 )
@@ -1692,7 +1690,7 @@ impl Engine {
     async fn execute_rule_specific_actions(
         &self,
         decisions: &[decision::DecisionObject],
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
         working_dir: &std::path::PathBuf,
     ) {
         info!(
@@ -1701,14 +1699,14 @@ impl Engine {
         );
         info!(
             "Available action rules: {:?}",
-            guidebook.actions.by_rule_id.keys().collect::<Vec<_>>()
+            rulebook.actions.by_rule_id.keys().collect::<Vec<_>>()
         );
 
         for decision_obj in decisions {
             let rule_id = &decision_obj.rule_id;
             info!("Looking for actions for rule ID: {}", rule_id);
 
-            if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
+            if let Some(actions) = rulebook.actions.by_rule_id.get(rule_id) {
                 info!("Found {} actions for rule {}", actions.len(), rule_id);
                 for action in actions {
                     info!("About to execute action: {}", action.command);
@@ -1724,7 +1722,7 @@ impl Engine {
     async fn execute_rule_specific_actions_with_debug(
         &self,
         decisions: &[decision::DecisionObject],
-        guidebook: &guidebook::Guidebook,
+        rulebook: &rulebook::Rulebook,
         working_dir: &std::path::PathBuf,
         mut debug_capture: Option<&mut DebugCapture>,
     ) {
@@ -1739,7 +1737,7 @@ impl Engine {
         for decision_obj in decisions {
             let rule_id = &decision_obj.rule_id;
 
-            if let Some(actions) = guidebook.actions.by_rule_id.get(rule_id) {
+            if let Some(actions) = rulebook.actions.by_rule_id.get(rule_id) {
                 info!("Found {} actions for rule {}", actions.len(), rule_id);
                 for action in actions {
                     actions_to_execute.push(action.clone());
@@ -1762,7 +1760,7 @@ impl Engine {
     /// Execute a single action command
     async fn execute_single_action(
         &self,
-        action: &guidebook::ActionConfig,
+        action: &rulebook::ActionConfig,
         working_dir: &std::path::PathBuf,
     ) {
         self.execute_single_action_with_debug(action, working_dir, None)
@@ -1772,7 +1770,7 @@ impl Engine {
     /// Execute a single action command with debug capture
     async fn execute_single_action_with_debug(
         &self,
-        action: &guidebook::ActionConfig,
+        action: &rulebook::ActionConfig,
         working_dir: &std::path::PathBuf,
         mut debug_capture: Option<&mut DebugCapture>,
     ) {

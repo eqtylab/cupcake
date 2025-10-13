@@ -18,14 +18,14 @@ fn setup_test_dir(_event_name: &str) -> TempDir {
     fs::create_dir_all(&signals_dir).unwrap();
     fs::create_dir_all(&actions_dir).unwrap();
 
-    // Create minimal guidebook with no builtins
-    let guidebook = r#"
+    // Create minimal rulebook with no builtins
+    let rulebook = r#"
 version: "1.0"
 builtins: {}
 signals: {}
 actions: {}
 "#;
-    fs::write(cupcake_dir.join("guidebook.yml"), guidebook).unwrap();
+    fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 
     // Create system evaluate policy (required for compilation)
     let system_policy = r#"package cupcake.system

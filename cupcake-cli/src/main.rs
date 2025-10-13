@@ -236,7 +236,7 @@ fn initialize_tracing(log_level: &LogLevel, trace_modules: &[TraceModule]) {
     for module in trace_modules {
         let directive = match module {
             TraceModule::Eval => "cupcake_core::engine=trace",
-            TraceModule::Signals => "cupcake_core::engine::guidebook=trace",
+            TraceModule::Signals => "cupcake_core::engine::rulebook=trace",
             TraceModule::Wasm => "cupcake_core::engine::wasm_runtime=trace",
             TraceModule::Synthesis => "cupcake_core::engine::synthesis=trace",
             TraceModule::Routing => "cupcake_core::engine::routing=trace",
@@ -587,10 +587,10 @@ fn validate_builtin_names(names: &[String], global: bool) -> Result<()> {
     Ok(())
 }
 
-/// Generate guidebook content with specified builtins enabled
-fn generate_guidebook_with_builtins(enabled_builtins: &[String]) -> Result<String> {
+/// Generate rulebook content with specified builtins enabled
+fn generate_rulebook_with_builtins(enabled_builtins: &[String]) -> Result<String> {
     // Start with the base template
-    let template = GUIDEBOOK_TEMPLATE;
+    let template = RULEBOOK_TEMPLATE;
 
     // If no builtins specified, return the template as-is
     if enabled_builtins.is_empty() {
@@ -706,8 +706,8 @@ fn add_default_builtin_configs(mut content: String, enabled_builtins: &[String])
     Ok(content)
 }
 
-/// Generate global guidebook with specified builtins enabled
-fn generate_global_guidebook(enabled_builtins: Option<&[String]>) -> String {
+/// Generate global rulebook with specified builtins enabled
+fn generate_global_rulebook(enabled_builtins: Option<&[String]>) -> String {
     // Default builtins for global config if none specified
     let default_builtins = vec![
         "system_protection".to_string(),
@@ -719,7 +719,7 @@ fn generate_global_guidebook(enabled_builtins: Option<&[String]>) -> String {
         .map(|b| b.to_vec())
         .unwrap_or(default_builtins);
 
-    let mut guidebook = String::from(
+    let mut rulebook = String::from(
         r#"# Global Cupcake Configuration
 # This configuration applies to ALL Cupcake projects on this machine
 
@@ -737,7 +737,7 @@ builtins:"#,
     for builtin in &builtins_to_enable {
         match builtin.as_str() {
             "system_protection" => {
-                guidebook.push_str(
+                rulebook.push_str(
                     r#"
   # Protect critical system paths from modification
   system_protection:
@@ -747,7 +747,7 @@ builtins:"#,
                 );
             }
             "sensitive_data_protection" => {
-                guidebook.push_str(
+                rulebook.push_str(
                     r#"
 
   # Block reading of credentials and sensitive data
@@ -757,7 +757,7 @@ builtins:"#,
                 );
             }
             "cupcake_exec_protection" => {
-                guidebook.push_str(
+                rulebook.push_str(
                     r#"
 
   # Block direct execution of cupcake binary
@@ -773,8 +773,8 @@ builtins:"#,
         }
     }
 
-    guidebook.push('\n');
-    guidebook
+    rulebook.push('\n');
+    rulebook
 }
 
 async fn init_command(
@@ -834,7 +834,7 @@ async fn init_global_config(
             GlobalPaths {
                 root: config_dir.clone(),
                 policies: config_dir.join("policies"),
-                guidebook: config_dir.join("guidebook.yml"),
+                rulebook: config_dir.join("rulebook.yml"),
                 signals: config_dir.join("signals"),
                 actions: config_dir.join("actions"),
             }
@@ -949,9 +949,9 @@ import rego.v1
 "#,
     )?;
 
-    // Create guidebook with specified or default global builtins
-    let guidebook_content = generate_global_guidebook(builtins.as_deref());
-    fs::write(global_paths.guidebook.clone(), guidebook_content)?;
+    // Create rulebook with specified or default global builtins
+    let rulebook_content = generate_global_rulebook(builtins.as_deref());
+    fs::write(global_paths.rulebook.clone(), rulebook_content)?;
 
     // Create builtins directory for global builtin policies
     let builtins_dir = global_paths.policies.join("builtins");
@@ -975,7 +975,7 @@ import rego.v1
 
     println!("✅ Initialized global Cupcake configuration");
     println!("   Location:      {:?}", global_paths.root);
-    println!("   Configuration: {:?}", global_paths.guidebook);
+    println!("   Configuration: {:?}", global_paths.rulebook);
     println!("   Add policies:  {:?}", global_paths.policies);
     println!();
     println!("   Global policies have absolute precedence over project policies.");
@@ -995,7 +995,7 @@ import rego.v1
     }
 
     println!();
-    println!("   Edit guidebook.yml to customize or disable builtins.");
+    println!("   Edit rulebook.yml to customize or disable builtins.");
     println!("   Edit example_global.rego to add custom machine-wide policies.");
 
     // Configure harness if specified
@@ -1032,15 +1032,15 @@ async fn init_project_config(
         fs::create_dir_all(".cupcake/actions")
             .context("Failed to create .cupcake/actions directory")?;
 
-        // Write guidebook.yml - either with enabled builtins or commented template
-        let guidebook_content = if let Some(ref builtin_list) = builtins {
-            generate_guidebook_with_builtins(builtin_list)?
+        // Write rulebook.yml - either with enabled builtins or commented template
+        let rulebook_content = if let Some(ref builtin_list) = builtins {
+            generate_rulebook_with_builtins(builtin_list)?
         } else {
-            GUIDEBOOK_TEMPLATE.to_string()
+            RULEBOOK_TEMPLATE.to_string()
         };
 
-        fs::write(".cupcake/guidebook.yml", guidebook_content)
-            .context("Failed to create guidebook.yml file")?;
+        fs::write(".cupcake/rulebook.yml", rulebook_content)
+            .context("Failed to create rulebook.yml file")?;
 
         // Write the authoritative system evaluate policy
         fs::write(
@@ -1103,7 +1103,7 @@ async fn init_project_config(
             .context("Failed to create example policy file")?;
 
         println!("✅ Initialized Cupcake project in .cupcake/");
-        println!("   Configuration: .cupcake/guidebook.yml (with examples)");
+        println!("   Configuration: .cupcake/rulebook.yml (with examples)");
         println!("   Add policies:  .cupcake/policies/");
         println!("   Add signals:   .cupcake/signals/");
         println!("   Add actions:   .cupcake/actions/");
@@ -1120,7 +1120,7 @@ async fn init_project_config(
             }
         }
 
-        println!("   Edit guidebook.yml to enable builtins and configure your project.");
+        println!("   Edit rulebook.yml to enable builtins and configure your project.");
     }
 
     // Configure harness if specified (whether cupcake exists or not)
@@ -1615,8 +1615,8 @@ deny contains decision if {
 # }
 "#;
 
-// Include guidebook.yml template directly from base-config.yml
-const GUIDEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
+// Include rulebook.yml template directly from base-config.yml
+const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
 
 // Include authoritative builtin policies from fixtures
 const ALWAYS_INJECT_POLICY: &str =

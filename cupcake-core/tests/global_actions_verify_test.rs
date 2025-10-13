@@ -30,9 +30,9 @@ async fn test_global_action_execution_logs() -> Result<()> {
         "System evaluate policy not created at {sys_eval:?}"
     );
 
-    // Create simple global guidebook with inline echo command
+    // Create simple global rulebook with inline echo command
     // This will execute but we can't capture output directly
-    let guidebook_content = r#"signals: {}
+    let rulebook_content = r#"signals: {}
 
 actions:
   by_rule_id:
@@ -42,7 +42,7 @@ actions:
 builtins: {}
 "#;
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that triggers the action
     fs::write(
@@ -97,7 +97,7 @@ halt contains decision if {
 
     // We can't capture the output directly because it's spawned in background
     // But the logs should show:
-    // - "execute_actions_with_guidebook called"
+    // - "execute_actions_with_rulebook called"
     // - "Executing actions for HALT decision"
     // - "Looking for actions for rule ID: GLOBAL-TEST-001"
     // - "Executing 1 actions for rule GLOBAL-TEST-001"
@@ -136,7 +136,7 @@ async fn test_global_action_working_directory_issue() -> Result<()> {
     );
 
     // Create an action that shows its working directory
-    let guidebook_content = r#"signals: {}
+    let rulebook_content = r#"signals: {}
 
 actions:
   by_rule_id:
@@ -146,7 +146,7 @@ actions:
 builtins: {}
 "#;
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy
     fs::write(

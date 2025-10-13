@@ -38,8 +38,8 @@ async fn test_global_action_creates_marker_file() -> Result<()> {
         marker_file.to_str().unwrap().to_string()
     };
 
-    // Create global guidebook with action that creates a marker file
-    let guidebook_content = format!(
+    // Create global rulebook with action that creates a marker file
+    let rulebook_content = format!(
         r#"signals: {{}}
 
 actions:
@@ -51,7 +51,7 @@ builtins: {{}}
 "#
     );
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy
     fs::write(
@@ -161,8 +161,8 @@ async fn test_global_deny_on_any_denial_action() -> Result<()> {
         marker_file.to_str().unwrap().to_string()
     };
 
-    // Create global guidebook with on_any_denial action
-    let guidebook_content = format!(
+    // Create global rulebook with on_any_denial action
+    let rulebook_content = format!(
         r#"signals: {{}}
 
 actions:
@@ -173,7 +173,7 @@ builtins: {{}}
 "#
     );
 
-    fs::write(&global_paths.guidebook, guidebook_content)?;
+    fs::write(&global_paths.rulebook, rulebook_content)?;
 
     // Create global policy that denies
     fs::write(

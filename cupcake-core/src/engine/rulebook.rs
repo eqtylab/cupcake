@@ -1,6 +1,6 @@
-//! Guidebook parser - Simple key-value lookup for signals and actions
+//! Rulebook parser - Simple key-value lookup for signals and actions
 //!
-//! The guidebook.yml is just a phonebook - no logic, just mappings
+//! The rulebook.yml is just a phonebook - no logic, just mappings
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -32,9 +32,9 @@ pub struct ActionConfig {
     pub command: String,
 }
 
-/// The simplified guidebook structure from CRITICAL_GUIDING_STAR.md
+/// The simplified rulebook structure from CRITICAL_GUIDING_STAR.md
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Guidebook {
+pub struct Rulebook {
     /// Signal name -> command mappings
     #[serde(default)]
     pub signals: HashMap<String, SignalConfig>,
@@ -60,65 +60,65 @@ pub struct ActionSection {
     pub by_rule_id: HashMap<String, Vec<ActionConfig>>,
 }
 
-impl Guidebook {
-    /// Load guidebook from a YAML file, enhanced with convention-based discovery
+impl Rulebook {
+    /// Load rulebook from a YAML file, enhanced with convention-based discovery
     pub async fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        info!("Loading guidebook from: {:?}", path);
+        info!("Loading rulebook from: {:?}", path);
 
         let content = tokio::fs::read_to_string(path)
             .await
-            .context("Failed to read guidebook file")?;
+            .context("Failed to read rulebook file")?;
 
-        let guidebook: Guidebook =
-            serde_yaml_ng::from_str(&content).context("Failed to parse guidebook YAML")?;
+        let rulebook: Rulebook =
+            serde_yaml_ng::from_str(&content).context("Failed to parse rulebook YAML")?;
 
         debug!(
             "Loaded {} explicit signals and {} rule-specific actions",
-            guidebook.signals.len(),
-            guidebook.actions.by_rule_id.len()
+            rulebook.signals.len(),
+            rulebook.actions.by_rule_id.len()
         );
 
-        Ok(guidebook)
+        Ok(rulebook)
     }
 
-    /// Create a guidebook with convention-based signal and action discovery
+    /// Create a rulebook with convention-based signal and action discovery
     /// Discovers scripts in signals/ and actions/ directories automatically
     pub async fn load_with_conventions(
-        guidebook_path: impl AsRef<Path>,
+        rulebook_path: impl AsRef<Path>,
         signals_dir: impl AsRef<Path>,
         actions_dir: impl AsRef<Path>,
     ) -> Result<Self> {
-        let mut guidebook = if guidebook_path.as_ref().exists() {
-            Self::load(guidebook_path).await?
+        let mut rulebook = if rulebook_path.as_ref().exists() {
+            Self::load(rulebook_path).await?
         } else {
-            info!("No guidebook.yml found, using pure convention-based approach");
+            info!("No rulebook.yml found, using pure convention-based approach");
             Self::default()
         };
 
         // Discover signals from directory (if exists)
         if signals_dir.as_ref().exists() {
-            Self::discover_signals(&mut guidebook, signals_dir).await?;
+            Self::discover_signals(&mut rulebook, signals_dir).await?;
         }
 
         // Discover actions from directory (if exists)
         if actions_dir.as_ref().exists() {
-            Self::discover_actions(&mut guidebook, actions_dir).await?;
+            Self::discover_actions(&mut rulebook, actions_dir).await?;
         }
 
         // Generate signals for enabled builtins
-        if guidebook.builtins.any_enabled() {
+        if rulebook.builtins.any_enabled() {
             info!(
                 "Generating signals for enabled builtins: {:?}",
-                guidebook.builtins.enabled_builtins()
+                rulebook.builtins.enabled_builtins()
             );
 
-            let builtin_signals = guidebook.builtins.generate_signals();
+            let builtin_signals = rulebook.builtins.generate_signals();
 
             // Merge builtin-generated signals (don't override user-defined)
             for (name, signal) in builtin_signals {
                 use std::collections::hash_map::Entry;
-                match guidebook.signals.entry(name) {
+                match rulebook.signals.entry(name) {
                     Entry::Vacant(e) => {
                         debug!("Adding builtin-generated signal: {}", e.key());
                         e.insert(signal);
@@ -134,29 +134,29 @@ impl Guidebook {
         }
 
         info!(
-            "Final guidebook: {} signals, {} action rules, {} enabled builtins",
-            guidebook.signals.len(),
-            guidebook.actions.by_rule_id.len(),
-            guidebook.builtins.enabled_builtins().len()
+            "Final rulebook: {} signals, {} action rules, {} enabled builtins",
+            rulebook.signals.len(),
+            rulebook.actions.by_rule_id.len(),
+            rulebook.builtins.enabled_builtins().len()
         );
 
         // Debug: show loaded actions
-        for (rule_id, actions) in &guidebook.actions.by_rule_id {
+        for (rule_id, actions) in &rulebook.actions.by_rule_id {
             debug!("Rule {}: {} actions", rule_id, actions.len());
         }
 
         // Validate builtin configuration
-        if let Err(errors) = guidebook.builtins.validate() {
+        if let Err(errors) = rulebook.builtins.validate() {
             use anyhow::bail;
             bail!("Builtin configuration errors:\n{}", errors.join("\n"));
         }
 
-        Ok(guidebook)
+        Ok(rulebook)
     }
 
     /// Discover signal scripts from a directory
     async fn discover_signals(
-        guidebook: &mut Guidebook,
+        rulebook: &mut Rulebook,
         signals_dir: impl AsRef<Path>,
     ) -> Result<()> {
         let signals_dir = signals_dir.as_ref();
@@ -180,14 +180,14 @@ impl Guidebook {
                     .and_then(|s| s.to_str())
                     .unwrap_or(file_name);
 
-                // Don't override explicit guidebook signals
-                if !guidebook.signals.contains_key(signal_name) {
+                // Don't override explicit rulebook signals
+                if !rulebook.signals.contains_key(signal_name) {
                     let signal_config = SignalConfig {
                         command: path.to_string_lossy().to_string(),
                         timeout_seconds: default_timeout(),
                     };
 
-                    guidebook
+                    rulebook
                         .signals
                         .insert(signal_name.to_string(), signal_config);
                     debug!("Discovered signal: {} -> {}", signal_name, path.display());
@@ -200,7 +200,7 @@ impl Guidebook {
 
     /// Discover action scripts from a directory  
     async fn discover_actions(
-        guidebook: &mut Guidebook,
+        rulebook: &mut Rulebook,
         actions_dir: impl AsRef<Path>,
     ) -> Result<()> {
         let actions_dir = actions_dir.as_ref();
@@ -229,7 +229,7 @@ impl Guidebook {
                     command: path.to_string_lossy().to_string(),
                 };
 
-                guidebook
+                rulebook
                     .actions
                     .by_rule_id
                     .entry(action_name.to_string())
@@ -282,7 +282,7 @@ impl Guidebook {
     ) -> Result<serde_json::Value> {
         let signal = self
             .get_signal(signal_name)
-            .with_context(|| format!("Signal '{signal_name}' not found in guidebook"))?;
+            .with_context(|| format!("Signal '{signal_name}' not found in rulebook"))?;
 
         debug!("Executing signal '{}': {}", signal_name, signal.command);
 
@@ -439,7 +439,7 @@ impl Guidebook {
     }
 }
 
-// Example guidebook.yml structure from CRITICAL_GUIDING_STAR.md:
+// Example rulebook.yml structure from CRITICAL_GUIDING_STAR.md:
 // ```yaml
 // signals:
 //   git.current_branch:
@@ -456,7 +456,7 @@ impl Guidebook {
 // ```
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
-// - Guidebook is just a phonebook - simple lookup tables
+// - Rulebook is just a phonebook - simple lookup tables
 // - No complex orchestration logic
 // - Signals map names to commands
 // - Actions map violation IDs to commands

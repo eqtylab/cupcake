@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use tracing::{debug, info};
 
-use super::guidebook::SignalConfig;
+use super::rulebook::SignalConfig;
 
 /// Configuration for all builtin abstractions
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

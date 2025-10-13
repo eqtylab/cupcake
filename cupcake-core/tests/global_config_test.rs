@@ -68,7 +68,7 @@ fn test_global_config_initialization() -> Result<()> {
     assert!(global_paths.policies.join("system").exists());
     assert!(global_paths.signals.exists());
     assert!(global_paths.actions.exists());
-    assert!(global_paths.guidebook.exists());
+    assert!(global_paths.rulebook.exists());
 
     // Verify evaluate.rego was created with correct namespace
     let evaluate_path = global_paths.policies.join("system").join("evaluate.rego");

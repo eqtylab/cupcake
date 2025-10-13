@@ -50,18 +50,19 @@ Instead of writing routing logic in your policies, you declare what events and t
 
 Cupcake uses modern Rego v1.0 syntax with decision "verbs" that express your intent clearly:
 
-| Verb | Purpose | Claude Code Behavior |
-|------|---------|---------------------|
-| `halt` | Emergency stop | Terminates entire session |
-| `deny` | Block action | Prevents tool execution with feedback |
-| `block` | Block (post-action) | Provides corrective feedback |
-| `ask` | Request confirmation | Prompts user before proceeding |
-| `allow_override` | Explicit permission | Allows with logged reason |
-| `add_context` | Inject information | Adds context to Claude's awareness |
+| Verb             | Purpose              | Claude Code Behavior                  |
+| ---------------- | -------------------- | ------------------------------------- |
+| `halt`           | Emergency stop       | Terminates entire session             |
+| `deny`           | Block action         | Prevents tool execution with feedback |
+| `block`          | Block (post-action)  | Provides corrective feedback          |
+| `ask`            | Request confirmation | Prompts user before proceeding        |
+| `allow_override` | Explicit permission  | Allows with logged reason             |
+| `add_context`    | Inject information   | Adds context to Claude's awareness    |
 
 ### 3. Trust-Based Evaluation
 
 Your policies focus purely on business logic. The engine handles:
+
 - **Routing**: Only relevant policies execute (O(1) lookup)
 - **Aggregation**: All decisions collected automatically
 - **Prioritization**: Halt > Deny > Ask > Allow (enforced by engine)
@@ -100,7 +101,7 @@ deny contains decision if {
 # Warn about risky patterns
 ask contains decision if {
     regex.match(`curl.*\|.*sh`, input.tool_input.command)
-    
+
     decision := {
         "reason": "Piping to shell can execute untrusted code. Proceed?",
         "severity": "MEDIUM",
@@ -133,7 +134,7 @@ deny contains decision if {
     sensitive_paths := [".ssh", ".aws", ".env", "secrets"]
     some path in sensitive_paths
     contains(input.tool_input.file_path, path)
-    
+
     # Note: sprintf doesn't work in WASM, use concat instead
     decision := {
         "reason": concat("", ["Cannot modify files in sensitive directory: ", path]),
@@ -161,7 +162,7 @@ import rego.v1
 deny contains decision if {
     contains(input.tool_input.command, "git commit")
     input.signals.git_branch == "main"
-    
+
     decision := {
         "reason": "Direct commits to main branch are not allowed",
         "severity": "HIGH",
@@ -173,7 +174,7 @@ deny contains decision if {
 add_context contains warning if {
     contains(input.tool_input.command, "git checkout")
     input.signals.git_status.has_changes
-    
+
     warning := "Warning: You have uncommitted changes that will be lost"
 }
 ```
@@ -183,6 +184,7 @@ add_context contains warning if {
 ### 1. Automatic Policy Discovery
 
 Drop a `.rego` file in the policies directory - Cupcake automatically:
+
 - Discovers and loads it
 - Parses metadata for routing
 - Includes it in the aggregation
@@ -191,6 +193,7 @@ Drop a `.rego` file in the policies directory - Cupcake automatically:
 ### 2. System Aggregation Policy
 
 Cupcake provides `cupcake.system.evaluate` that automatically:
+
 ```rego
 # You never write this - Cupcake provides it
 evaluate := {
@@ -225,6 +228,7 @@ Cupcake provides a consistent input structure:
 ### 4. Decision Prioritization
 
 Cupcake automatically enforces priority (you don't implement this):
+
 1. **Halt** - Stops everything immediately
 2. **Deny/Block** - Prevents or corrects action
 3. **Ask** - Requests user confirmation
@@ -271,6 +275,7 @@ echo '{"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"com
 If you have policies using the old `selector := {}` format:
 
 **Old (deprecated):**
+
 ```rego
 selector := {
     "event": "PreToolUse",
@@ -284,6 +289,7 @@ deny if {
 ```
 
 **New (current):**
+
 ```rego
 # METADATA
 # custom:
@@ -294,7 +300,7 @@ deny if {
 deny contains decision if {
     # No need to check tool_name - routing guaranteed it
     contains(input.tool_input.command, "sudo")
-    
+
     decision := {
         "reason": "Sudo requires approval",
         "severity": "HIGH",
@@ -317,7 +323,7 @@ Policies can be loaded from external sources at runtime. The engine will automat
 
 ### Custom Signals
 
-Implement custom signals by adding them to your guidebook.yml:
+Implement custom signals by adding them to your rulebook.yml:
 
 ```yaml
 signals:

@@ -154,10 +154,9 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
         let signals_dir = cupcake_dir.join("signals");
         let actions_dir = cupcake_dir.join("actions");
 
-        let rulebook =
-            Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir)
-                .await
-                .context("Failed to load rulebook with auto-discovery")?;
+        let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir)
+            .await
+            .context("Failed to load rulebook with auto-discovery")?;
 
         // Get all scripts from the engine's rulebook
         let mut scripts = Vec::new();

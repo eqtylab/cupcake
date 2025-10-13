@@ -1414,9 +1414,7 @@ impl Engine {
 
                     // Execute the signal with event data and measure time
                     let signal_start = std::time::Instant::now();
-                    let result = rulebook
-                        .execute_signal_with_input(&name, &event_data)
-                        .await;
+                    let result = rulebook.execute_signal_with_input(&name, &event_data).await;
                     let signal_duration = signal_start.elapsed();
 
                     // Create signal execution record for debug

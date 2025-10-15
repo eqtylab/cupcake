@@ -70,35 +70,70 @@ impl SynthesisEngine {
         // Priority 1: Halt (Highest - immediate cessation)
         if decision_set.has_halts() {
             let reason = Self::aggregate_reasons(&decision_set.halts);
+            let agent_messages = Self::collect_agent_messages(&decision_set.halts);
             debug!("Synthesized HALT decision: {}", reason);
-            return record_and_return("Halt", FinalDecision::Halt { reason });
+            return record_and_return(
+                "Halt",
+                FinalDecision::Halt {
+                    reason,
+                    agent_messages,
+                },
+            );
         }
 
         // Priority 2: Deny/Block (High - blocking actions)
         if decision_set.has_denials() {
             let reason = Self::aggregate_reasons(&decision_set.denials);
+            let agent_messages = Self::collect_agent_messages(&decision_set.denials);
             debug!("Synthesized DENY decision: {}", reason);
-            return record_and_return("Deny", FinalDecision::Deny { reason });
+            return record_and_return(
+                "Deny",
+                FinalDecision::Deny {
+                    reason,
+                    agent_messages,
+                },
+            );
         }
 
         if decision_set.has_blocks() {
             let reason = Self::aggregate_reasons(&decision_set.blocks);
+            let agent_messages = Self::collect_agent_messages(&decision_set.blocks);
             debug!("Synthesized BLOCK decision: {}", reason);
-            return record_and_return("Block", FinalDecision::Block { reason });
+            return record_and_return(
+                "Block",
+                FinalDecision::Block {
+                    reason,
+                    agent_messages,
+                },
+            );
         }
 
         // Priority 3: Ask (Medium - user confirmation required)
         if decision_set.has_asks() {
             let reason = Self::aggregate_reasons(&decision_set.asks);
+            let agent_messages = Self::collect_agent_messages(&decision_set.asks);
             debug!("Synthesized ASK decision: {}", reason);
-            return record_and_return("Ask", FinalDecision::Ask { reason });
+            return record_and_return(
+                "Ask",
+                FinalDecision::Ask {
+                    reason,
+                    agent_messages,
+                },
+            );
         }
 
         // Priority 4: Allow Override (Low - explicit permission)
         if decision_set.has_allow_overrides() {
             let reason = Self::aggregate_reasons(&decision_set.allow_overrides);
+            let agent_messages = Self::collect_agent_messages(&decision_set.allow_overrides);
             debug!("Synthesized ALLOW OVERRIDE decision: {}", reason);
-            return record_and_return("AllowOverride", FinalDecision::AllowOverride { reason });
+            return record_and_return(
+                "AllowOverride",
+                FinalDecision::AllowOverride {
+                    reason,
+                    agent_messages,
+                },
+            );
         }
 
         // Priority 5: Allow (Default - with optional context)
@@ -113,6 +148,17 @@ impl SynthesisEngine {
         }
 
         record_and_return("Allow", FinalDecision::Allow { context })
+    }
+
+    /// Collect agent-specific messages from decisions
+    ///
+    /// Extracts all agent_context fields from DecisionObjects.
+    /// Used by Cursor harness for separate user/agent messaging.
+    fn collect_agent_messages(decisions: &[DecisionObject]) -> Vec<String> {
+        decisions
+            .iter()
+            .filter_map(|d| d.agent_context.clone())
+            .collect()
     }
 
     /// Aggregate multiple decision reasons into a single, clear message
@@ -247,11 +293,13 @@ mod tests {
                 reason: "Emergency stop".to_string(),
                 severity: "CRITICAL".to_string(),
                 rule_id: "HALT-001".to_string(),
+                agent_context: None,
             }],
             denials: vec![DecisionObject {
                 reason: "Denied".to_string(),
                 severity: "HIGH".to_string(),
                 rule_id: "DENY-001".to_string(),
+                agent_context: None,
             }],
             ..Default::default()
         };
@@ -307,6 +355,7 @@ mod tests {
             reason: "Single reason".to_string(),
             severity: "HIGH".to_string(),
             rule_id: "TEST-001".to_string(),
+            agent_context: None,
         }];
 
         let result = SynthesisEngine::aggregate_reasons(&decisions);
@@ -320,11 +369,13 @@ mod tests {
                 reason: "First violation".to_string(),
                 severity: "HIGH".to_string(),
                 rule_id: "TEST-001".to_string(),
+                agent_context: None,
             },
             DecisionObject {
                 reason: "Second violation".to_string(),
                 severity: "HIGH".to_string(),
                 rule_id: "TEST-002".to_string(),
+                agent_context: None,
             },
         ];
 
@@ -335,17 +386,48 @@ mod tests {
     }
 
     #[test]
+    fn test_collect_agent_messages() {
+        let decisions = vec![
+            DecisionObject {
+                reason: "User message".to_string(),
+                severity: "HIGH".to_string(),
+                rule_id: "TEST-001".to_string(),
+                agent_context: Some("Technical details for agent".to_string()),
+            },
+            DecisionObject {
+                reason: "Another message".to_string(),
+                severity: "HIGH".to_string(),
+                rule_id: "TEST-002".to_string(),
+                agent_context: None,
+            },
+            DecisionObject {
+                reason: "Third message".to_string(),
+                severity: "HIGH".to_string(),
+                rule_id: "TEST-003".to_string(),
+                agent_context: Some("More agent context".to_string()),
+            },
+        ];
+
+        let agent_messages = SynthesisEngine::collect_agent_messages(&decisions);
+        assert_eq!(agent_messages.len(), 2);
+        assert_eq!(agent_messages[0], "Technical details for agent");
+        assert_eq!(agent_messages[1], "More agent context");
+    }
+
+    #[test]
     fn test_decision_set_summary() {
         let decision_set = DecisionSet {
             denials: vec![DecisionObject {
                 reason: "Test".to_string(),
                 severity: "HIGH".to_string(),
                 rule_id: "TEST-001".to_string(),
+                agent_context: None,
             }],
             asks: vec![DecisionObject {
                 reason: "Test ask".to_string(),
                 severity: "MEDIUM".to_string(),
                 rule_id: "TEST-002".to_string(),
+                agent_context: None,
             }],
             add_context: vec!["Context message".to_string()],
             ..Default::default()

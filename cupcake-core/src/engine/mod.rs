@@ -901,7 +901,7 @@ impl Engine {
 
             // Early termination on global blocking decisions
             match &global_decision {
-                decision::FinalDecision::Halt { reason } => {
+                decision::FinalDecision::Halt { reason, .. } => {
                     info!("Global policy HALT - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
@@ -919,7 +919,7 @@ impl Engine {
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
-                decision::FinalDecision::Deny { reason } => {
+                decision::FinalDecision::Deny { reason, .. } => {
                     info!("Global policy DENY - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
@@ -934,7 +934,7 @@ impl Engine {
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
-                decision::FinalDecision::Block { reason } => {
+                decision::FinalDecision::Block { reason, .. } => {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
@@ -1550,7 +1550,7 @@ impl Engine {
 
         // Execute actions based on decision type
         match final_decision {
-            decision::FinalDecision::Halt { reason } => {
+            decision::FinalDecision::Halt { reason, .. } => {
                 info!("Executing actions for HALT decision: {}", reason);
                 info!(
                     "Number of halt decisions in set: {}",
@@ -1559,7 +1559,7 @@ impl Engine {
                 self.execute_rule_specific_actions(&decision_set.halts, rulebook, &working_dir)
                     .await;
             }
-            decision::FinalDecision::Deny { reason } => {
+            decision::FinalDecision::Deny { reason, .. } => {
                 info!("Executing actions for DENY decision: {}", reason);
 
                 // Execute general denial actions
@@ -1571,7 +1571,7 @@ impl Engine {
                 self.execute_rule_specific_actions(&decision_set.denials, rulebook, &working_dir)
                     .await;
             }
-            decision::FinalDecision::Block { reason } => {
+            decision::FinalDecision::Block { reason, .. } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
                 self.execute_rule_specific_actions(&decision_set.blocks, rulebook, &working_dir)
                     .await;
@@ -1684,7 +1684,7 @@ impl Engine {
 
         // Execute actions based on decision type, capturing execution details
         match final_decision {
-            decision::FinalDecision::Halt { reason } => {
+            decision::FinalDecision::Halt { reason, .. } => {
                 info!("Executing actions for HALT decision: {}", reason);
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.halts,
@@ -1694,7 +1694,7 @@ impl Engine {
                 )
                 .await;
             }
-            decision::FinalDecision::Deny { reason } => {
+            decision::FinalDecision::Deny { reason, .. } => {
                 info!("Executing actions for DENY decision: {}", reason);
 
                 // Execute general denial actions
@@ -1716,7 +1716,7 @@ impl Engine {
                 )
                 .await;
             }
-            decision::FinalDecision::Block { reason } => {
+            decision::FinalDecision::Block { reason, .. } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.blocks,

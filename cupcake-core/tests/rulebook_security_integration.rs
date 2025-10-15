@@ -74,7 +74,7 @@ builtins:
 
     let decision = engine.evaluate(&edit_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("Cupcake"),
                 "Should mention Cupcake protection: {reason}"
@@ -98,7 +98,7 @@ builtins:
 
     let decision = engine.evaluate(&write_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("Cupcake") || reason.contains("protected"),
                 "Should mention protection: {reason}"
@@ -121,7 +121,7 @@ builtins:
 
     let decision = engine.evaluate(&bash_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("Cupcake") || reason.contains("protected"),
                 "Should mention protection: {reason}"
@@ -220,7 +220,7 @@ builtins:
 
         let decision = engine.evaluate(&bash_event, None).await?;
         match decision {
-            cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+            cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
                 assert!(
                     reason.contains("Cupcake") || reason.contains("protected"),
                     "Command '{cmd}' should be blocked with protection message: {reason}"
@@ -290,7 +290,7 @@ builtins:
 
     let decision = engine.evaluate(&read_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should block read with protection message: {reason}"
@@ -314,7 +314,7 @@ builtins:
 
     let decision = engine.evaluate(&grep_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should block grep with protection message: {reason}"

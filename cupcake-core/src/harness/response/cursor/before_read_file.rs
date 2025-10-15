@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 /// { "permission": "allow" | "deny" }
 ///
 /// No userMessage or agentMessage fields are supported.
-pub fn build(decision: &EngineDecision) -> Value {
+pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) -> Value {
     match decision {
         EngineDecision::Allow { .. } => {
             json!({ "permission": "allow" })
@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn test_allow_response() {
         let decision = EngineDecision::Allow { reason: None };
-        let response = build(&decision);
+        let response = build(&decision, None);
         assert_eq!(response["permission"], "allow");
     }
 
@@ -35,7 +35,7 @@ mod tests {
         let decision = EngineDecision::Block {
             feedback: "Sensitive file".to_string(),
         };
-        let response = build(&decision);
+        let response = build(&decision, None);
         assert_eq!(response["permission"], "deny");
     }
 
@@ -44,7 +44,7 @@ mod tests {
         let decision = EngineDecision::Ask {
             reason: "Allow read?".to_string(),
         };
-        let response = build(&decision);
+        let response = build(&decision, None);
         // Ask is treated as deny for file reads
         assert_eq!(response["permission"], "deny");
     }

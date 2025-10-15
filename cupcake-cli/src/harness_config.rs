@@ -105,9 +105,9 @@ impl HarnessConfig for CursorHarness {
             dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("~"))
                 .join(".cursor")
-                .join("settings.json")
+                .join("hooks.json")
         } else {
-            Path::new(".cursor").join("settings.json")
+            Path::new(".cursor").join("hooks.json")
         }
     }
 
@@ -123,35 +123,36 @@ impl HarnessConfig for CursorHarness {
             ".cupcake".to_string()
         };
 
-        // Cursor's hook configuration format
-        // See: CURSOR_PLAN_IMPLEMENTATION.md for event names
+        // Cursor's hook configuration format - official hooks.json structure
+        // Reference: https://docs.cursor.com/context/rules/hooks
         Ok(json!({
-            "rules": [{
-                "beforeShellExecution": {
+            "version": 1,
+            "hooks": {
+                "beforeShellExecution": [{
                     "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
-                },
-                "beforeMCPExecution": {
+                }],
+                "beforeMCPExecution": [{
                     "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
-                },
-                "afterFileEdit": {
+                }],
+                "afterFileEdit": [{
                     "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
-                },
-                "beforeReadFile": {
+                }],
+                "beforeReadFile": [{
                     "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
-                },
-                "beforeSubmitPrompt": {
+                }],
+                "beforeSubmitPrompt": [{
                     "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
-                },
-                "stop": {
+                }],
+                "stop": [{
                     "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
-                }
-            }]
+                }]
+            }
         }))
     }
 
     fn merge_settings(&self, mut existing: Value, new_hooks: Value) -> Result<Value> {
-        // For Cursor, merge the rules array
-        merge_cursor_rules(&mut existing, new_hooks)?;
+        // For Cursor hooks.json, merge using the same hooks structure as Claude
+        merge_hooks(&mut existing, new_hooks)?;
         Ok(existing)
     }
 }
@@ -444,35 +445,36 @@ fn print_cursor_manual_instructions(policy_dir: &Path, global: bool) {
     };
 
     let settings_path = if global {
-        "~/.cursor/settings.json"
+        "~/.cursor/hooks.json"
     } else {
-        ".cursor/settings.json"
+        ".cursor/hooks.json"
     };
 
     eprintln!();
     eprintln!("   To manually configure, add this to your {settings_path}:");
     eprintln!();
     eprintln!("   {{");
-    eprintln!("     \"rules\": [{{");
-    eprintln!("       \"beforeShellExecution\": {{");
+    eprintln!("     \"version\": 1,");
+    eprintln!("     \"hooks\": {{");
+    eprintln!("       \"beforeShellExecution\": [{{");
     eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
-    eprintln!("       }},");
-    eprintln!("       \"beforeMCPExecution\": {{");
+    eprintln!("       }}],");
+    eprintln!("       \"beforeMCPExecution\": [{{");
     eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
-    eprintln!("       }},");
-    eprintln!("       \"afterFileEdit\": {{");
+    eprintln!("       }}],");
+    eprintln!("       \"afterFileEdit\": [{{");
     eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
-    eprintln!("       }},");
-    eprintln!("       \"beforeReadFile\": {{");
+    eprintln!("       }}],");
+    eprintln!("       \"beforeReadFile\": [{{");
     eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
-    eprintln!("       }},");
-    eprintln!("       \"beforeSubmitPrompt\": {{");
+    eprintln!("       }}],");
+    eprintln!("       \"beforeSubmitPrompt\": [{{");
     eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
-    eprintln!("       }},");
-    eprintln!("       \"stop\": {{");
+    eprintln!("       }}],");
+    eprintln!("       \"stop\": [{{");
     eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
-    eprintln!("       }}");
-    eprintln!("     }}]");
+    eprintln!("       }}]");
+    eprintln!("     }}");
     eprintln!("   }}");
     eprintln!();
 }

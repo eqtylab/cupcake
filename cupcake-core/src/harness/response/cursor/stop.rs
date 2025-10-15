@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 /// doesn't specify a response schema for this event.
 ///
 /// We return an empty JSON object.
-pub fn build(_decision: &EngineDecision) -> Value {
+pub fn build(_decision: &EngineDecision, _agent_messages: Option<Vec<String>>) -> Value {
     // stop event is fire-and-forget
     // No response schema documented
     json!({})
@@ -20,7 +20,7 @@ mod tests {
     #[test]
     fn test_any_decision_returns_empty() {
         let decision = EngineDecision::Allow { reason: None };
-        let response = build(&decision);
+        let response = build(&decision, None);
         assert_eq!(response, json!({}));
     }
 }

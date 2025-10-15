@@ -18,6 +18,12 @@ pub struct DecisionObject {
 
     /// Unique identifier for the rule that generated this decision
     pub rule_id: String,
+
+    /// Optional agent-specific context (technical details for the agent)
+    /// Separate from `reason` which is user-facing
+    /// Currently used by Cursor harness to populate `agentMessage` field
+    #[serde(default)]
+    pub agent_context: Option<String>,
 }
 
 /// The complete set of all decisions from Rego aggregation
@@ -47,25 +53,45 @@ pub struct DecisionSet {
     /// Context injection decisions (informational)
     #[serde(default)]
     pub add_context: Vec<String>,
+
+    /// Agent-specific messages collected from agent_context fields
+    /// Used by Cursor harness for separate user/agent messaging
+    #[serde(default, skip_deserializing)]
+    pub agent_messages: Vec<String>,
 }
 
 /// The final decision after synthesis by the Rust Intelligence Layer
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FinalDecision {
     /// Immediate halt - highest priority
-    Halt { reason: String },
+    Halt {
+        reason: String,
+        agent_messages: Vec<String>,
+    },
 
     /// Deny the action - high priority
-    Deny { reason: String },
+    Deny {
+        reason: String,
+        agent_messages: Vec<String>,
+    },
 
     /// Block progression - high priority
-    Block { reason: String },
+    Block {
+        reason: String,
+        agent_messages: Vec<String>,
+    },
 
     /// Ask user for confirmation - medium priority
-    Ask { reason: String },
+    Ask {
+        reason: String,
+        agent_messages: Vec<String>,
+    },
 
     /// Allow with explicit override - low priority
-    AllowOverride { reason: String },
+    AllowOverride {
+        reason: String,
+        agent_messages: Vec<String>,
+    },
 
     /// Allow with optional context - default
     Allow { context: Vec<String> },
@@ -93,11 +119,23 @@ impl FinalDecision {
     /// Get the primary reason for this decision
     pub fn reason(&self) -> Option<&str> {
         match self {
-            FinalDecision::Halt { reason } => Some(reason),
-            FinalDecision::Deny { reason } => Some(reason),
-            FinalDecision::Block { reason } => Some(reason),
-            FinalDecision::Ask { reason } => Some(reason),
-            FinalDecision::AllowOverride { reason } => Some(reason),
+            FinalDecision::Halt { reason, .. } => Some(reason),
+            FinalDecision::Deny { reason, .. } => Some(reason),
+            FinalDecision::Block { reason, .. } => Some(reason),
+            FinalDecision::Ask { reason, .. } => Some(reason),
+            FinalDecision::AllowOverride { reason, .. } => Some(reason),
+            FinalDecision::Allow { .. } => None,
+        }
+    }
+
+    /// Get agent-specific messages if present
+    pub fn agent_messages(&self) -> Option<&Vec<String>> {
+        match self {
+            FinalDecision::Halt { agent_messages, .. } => Some(agent_messages),
+            FinalDecision::Deny { agent_messages, .. } => Some(agent_messages),
+            FinalDecision::Block { agent_messages, .. } => Some(agent_messages),
+            FinalDecision::Ask { agent_messages, .. } => Some(agent_messages),
+            FinalDecision::AllowOverride { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Allow { .. } => None,
         }
     }
@@ -177,6 +215,7 @@ mod tests {
             reason: "Test denial".to_string(),
             severity: "HIGH".to_string(),
             rule_id: "TEST-001".to_string(),
+            agent_context: None,
         });
 
         assert!(!decision_set.is_empty());
@@ -189,15 +228,21 @@ mod tests {
     fn test_final_decision_properties() {
         let halt = FinalDecision::Halt {
             reason: "Emergency stop".to_string(),
+            agent_messages: vec!["Technical details".to_string()],
         };
 
         assert!(halt.is_halt());
         assert!(!halt.is_blocking());
         assert!(!halt.requires_confirmation());
         assert_eq!(halt.reason(), Some("Emergency stop"));
+        assert_eq!(
+            halt.agent_messages(),
+            Some(&vec!["Technical details".to_string()])
+        );
 
         let deny = FinalDecision::Deny {
             reason: "Policy violation".to_string(),
+            agent_messages: vec![],
         };
 
         assert!(!deny.is_halt());
@@ -206,6 +251,7 @@ mod tests {
 
         let ask = FinalDecision::Ask {
             reason: "Confirmation needed".to_string(),
+            agent_messages: vec![],
         };
 
         assert!(!ask.is_halt());
@@ -220,6 +266,7 @@ mod tests {
         assert!(!allow.is_blocking());
         assert!(!allow.requires_confirmation());
         assert_eq!(allow.reason(), None);
+        assert_eq!(allow.agent_messages(), None);
     }
 }
 

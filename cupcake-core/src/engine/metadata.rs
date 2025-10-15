@@ -1,9 +1,9 @@
 //! OPA Metadata Parser - Standard metadata-driven routing system
 //!
 //! Implements the NEW_GUIDING_FINAL.md metadata parsing specification.
-//! Replaces the deprecated custom `selector` parser with standard OPA metadata.
+//! Uses standard OPA metadata for routing via `# METADATA` comment blocks.
 //!
-//! This module enables Host-Side Indexing by parsing `# METADATA` blocks
+//! This module enables Host-Side Indexing by parsing metadata
 //! and extracting routing directives for O(1) policy lookups.
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -327,7 +327,7 @@ import rego.v1
 }
 
 // Aligns with NEW_GUIDING_FINAL.md:
-// - Standard OPA metadata parsing replaces custom selector blocks
+// - Standard OPA metadata parsing for routing directives
 // - RoutingDirective enables Host-Side Indexing for O(1) lookups
 // - Supports required_events, required_tools, and required_signals
 // - Validates against known Claude Code event types

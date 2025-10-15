@@ -9,7 +9,7 @@ use tracing::debug;
 ///
 /// Unlike Claude Code's UserPromptSubmit which supports `additionalContext`,
 /// Cursor's implementation is limited to a boolean continue flag.
-pub fn build(decision: &EngineDecision) -> Value {
+pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) -> Value {
     // Log if context would have been injected (for debugging)
     if let EngineDecision::Allow { reason } = decision {
         if let Some(ref msg) = reason {
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn test_allow_response() {
         let decision = EngineDecision::Allow { reason: None };
-        let response = build(&decision);
+        let response = build(&decision, None);
         assert_eq!(response["continue"], true);
     }
 
@@ -54,7 +54,7 @@ mod tests {
         let decision = EngineDecision::Allow {
             reason: Some("Some context to inject".to_string()),
         };
-        let response = build(&decision);
+        let response = build(&decision, None);
         // Context is dropped - only continue field is present
         assert_eq!(response["continue"], true);
         assert!(response.get("additionalContext").is_none());
@@ -65,7 +65,7 @@ mod tests {
         let decision = EngineDecision::Block {
             feedback: "Blocked".to_string(),
         };
-        let response = build(&decision);
+        let response = build(&decision, None);
         assert_eq!(response["continue"], false);
     }
 
@@ -74,7 +74,7 @@ mod tests {
         let decision = EngineDecision::Ask {
             reason: "Question?".to_string(),
         };
-        let response = build(&decision);
+        let response = build(&decision, None);
         // Ask is treated as block for prompt events
         assert_eq!(response["continue"], false);
     }

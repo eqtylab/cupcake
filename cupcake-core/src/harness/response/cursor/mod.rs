@@ -29,15 +29,27 @@ impl CursorResponseBuilder {
     /// - beforeReadFile: Only supports {permission: "allow"|"deny"}
     /// - Other events: Support full permission model with messages
     ///
+    /// agent_messages: Optional technical details for the agent (separate from user message)
+    ///
     /// Returns raw JSON Value to be serialized to stdout
-    pub fn build_response(decision: &EngineDecision, event: &CursorEvent) -> Value {
+    pub fn build_response(
+        decision: &EngineDecision,
+        event: &CursorEvent,
+        agent_messages: Option<Vec<String>>,
+    ) -> Value {
         match event {
-            CursorEvent::BeforeShellExecution(_) => before_shell_execution::build(decision),
-            CursorEvent::BeforeMCPExecution(_) => before_mcp_execution::build(decision),
-            CursorEvent::AfterFileEdit(_) => after_file_edit::build(decision),
-            CursorEvent::BeforeReadFile(_) => before_read_file::build(decision),
-            CursorEvent::BeforeSubmitPrompt(_) => before_submit_prompt::build(decision),
-            CursorEvent::Stop(_) => stop::build(decision),
+            CursorEvent::BeforeShellExecution(_) => {
+                before_shell_execution::build(decision, agent_messages)
+            }
+            CursorEvent::BeforeMCPExecution(_) => {
+                before_mcp_execution::build(decision, agent_messages)
+            }
+            CursorEvent::AfterFileEdit(_) => after_file_edit::build(decision, agent_messages),
+            CursorEvent::BeforeReadFile(_) => before_read_file::build(decision, agent_messages),
+            CursorEvent::BeforeSubmitPrompt(_) => {
+                before_submit_prompt::build(decision, agent_messages)
+            }
+            CursorEvent::Stop(_) => stop::build(decision, agent_messages),
         }
     }
 }
@@ -60,7 +72,7 @@ mod tests {
         });
 
         let decision = EngineDecision::Allow { reason: None };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response["permission"], "allow");
     }
@@ -80,7 +92,7 @@ mod tests {
         let decision = EngineDecision::Block {
             feedback: "Dangerous command".to_string(),
         };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response["permission"], "deny");
         assert_eq!(response["userMessage"], "Dangerous command");
@@ -99,7 +111,7 @@ mod tests {
         });
 
         let decision = EngineDecision::Allow { reason: None };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response["continue"], true);
     }
@@ -119,7 +131,7 @@ mod tests {
         let decision = EngineDecision::Block {
             feedback: "Blocked".to_string(),
         };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response["continue"], false);
     }
@@ -138,7 +150,7 @@ mod tests {
         });
 
         let decision = EngineDecision::Allow { reason: None };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response["permission"], "allow");
     }
@@ -156,7 +168,7 @@ mod tests {
         });
 
         let decision = EngineDecision::Allow { reason: None };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response, serde_json::json!({}));
     }
@@ -173,7 +185,7 @@ mod tests {
         });
 
         let decision = EngineDecision::Allow { reason: None };
-        let response = CursorResponseBuilder::build_response(&decision, &event);
+        let response = CursorResponseBuilder::build_response(&decision, &event, None);
 
         assert_eq!(response, serde_json::json!({}));
     }

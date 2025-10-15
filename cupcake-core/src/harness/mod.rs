@@ -48,19 +48,19 @@ impl ClaudeHarness {
     /// and the old, correct response builders.
     fn adapt_decision(decision: &FinalDecision) -> EngineDecision {
         match decision {
-            FinalDecision::Halt { reason } => EngineDecision::Block {
+            FinalDecision::Halt { reason, .. } => EngineDecision::Block {
                 feedback: reason.clone(),
             },
-            FinalDecision::Deny { reason } => EngineDecision::Block {
+            FinalDecision::Deny { reason, .. } => EngineDecision::Block {
                 feedback: reason.clone(),
             },
-            FinalDecision::Block { reason } => EngineDecision::Block {
+            FinalDecision::Block { reason, .. } => EngineDecision::Block {
                 feedback: reason.clone(),
             },
-            FinalDecision::Ask { reason } => EngineDecision::Ask {
+            FinalDecision::Ask { reason, .. } => EngineDecision::Ask {
                 reason: reason.clone(),
             },
-            FinalDecision::AllowOverride { reason } => EngineDecision::Allow {
+            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
                 reason: Some(reason.clone()),
             },
             FinalDecision::Allow { context } => EngineDecision::Allow {
@@ -106,29 +106,32 @@ impl CursorHarness {
         // 1. Convert FinalDecision to EngineDecision format
         let engine_decision = Self::adapt_decision(decision);
 
-        // 2. Use Cursor's response builder (context is dropped if not supported)
-        let response = CursorResponseBuilder::build_response(&engine_decision, event);
+        // 2. Extract agent messages for separate user/agent messaging
+        let agent_messages = Self::extract_agent_messages(decision);
 
-        // 3. Return as JSON Value
+        // 3. Use Cursor's response builder with agent messages
+        let response = CursorResponseBuilder::build_response(&engine_decision, event, agent_messages);
+
+        // 4. Return as JSON Value
         Ok(response)
     }
 
     /// Adapt FinalDecision to EngineDecision (same logic as ClaudeHarness)
     fn adapt_decision(decision: &FinalDecision) -> EngineDecision {
         match decision {
-            FinalDecision::Halt { reason } => EngineDecision::Block {
+            FinalDecision::Halt { reason, .. } => EngineDecision::Block {
                 feedback: reason.clone(),
             },
-            FinalDecision::Deny { reason } => EngineDecision::Block {
+            FinalDecision::Deny { reason, .. } => EngineDecision::Block {
                 feedback: reason.clone(),
             },
-            FinalDecision::Block { reason } => EngineDecision::Block {
+            FinalDecision::Block { reason, .. } => EngineDecision::Block {
                 feedback: reason.clone(),
             },
-            FinalDecision::Ask { reason } => EngineDecision::Ask {
+            FinalDecision::Ask { reason, .. } => EngineDecision::Ask {
                 reason: reason.clone(),
             },
-            FinalDecision::AllowOverride { reason } => EngineDecision::Allow {
+            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
                 reason: Some(reason.clone()),
             },
             FinalDecision::Allow { context } => EngineDecision::Allow {
@@ -138,6 +141,25 @@ impl CursorHarness {
                     None
                 },
             },
+        }
+    }
+
+    /// Extract agent messages from FinalDecision
+    /// These are used by Cursor to populate the agentMessage field separately from userMessage
+    fn extract_agent_messages(decision: &FinalDecision) -> Option<Vec<String>> {
+        match decision {
+            FinalDecision::Halt { agent_messages, .. }
+            | FinalDecision::Deny { agent_messages, .. }
+            | FinalDecision::Block { agent_messages, .. }
+            | FinalDecision::Ask { agent_messages, .. }
+            | FinalDecision::AllowOverride { agent_messages, .. } => {
+                if agent_messages.is_empty() {
+                    None
+                } else {
+                    Some(agent_messages.clone())
+                }
+            }
+            FinalDecision::Allow { .. } => None,
         }
     }
 }

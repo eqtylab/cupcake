@@ -386,7 +386,7 @@ builtins:
 
     // Should ask for user confirmation on failure
     match decision_fail {
-        cupcake_core::engine::decision::FinalDecision::Ask { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Ask { reason, .. } => {
             assert!(
                 reason.contains("validation failed"),
                 "Should mention validation failed, got: {reason}"

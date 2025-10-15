@@ -317,19 +317,19 @@ impl DebugCapture {
         output.push_str("----- Synthesis -----\n");
         if let Some(ref final_decision) = self.final_decision {
             match final_decision {
-                FinalDecision::Halt { reason } => {
+                FinalDecision::Halt { reason, .. } => {
                     output.push_str(&format!("Final Decision: Halt\nReason: {reason}\n"));
                 }
-                FinalDecision::Deny { reason } => {
+                FinalDecision::Deny { reason, .. } => {
                     output.push_str(&format!("Final Decision: Deny\nReason: {reason}\n"));
                 }
-                FinalDecision::Block { reason } => {
+                FinalDecision::Block { reason, .. } => {
                     output.push_str(&format!("Final Decision: Block\nReason: {reason}\n"));
                 }
-                FinalDecision::Ask { reason } => {
+                FinalDecision::Ask { reason, .. } => {
                     output.push_str(&format!("Final Decision: Ask\nReason: {reason}\n"));
                 }
-                FinalDecision::AllowOverride { reason } => {
+                FinalDecision::AllowOverride { reason, .. } => {
                     output.push_str(&format!(
                         "Final Decision: AllowOverride\nReason: {reason}\n"
                     ));

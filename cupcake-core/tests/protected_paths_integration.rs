@@ -73,7 +73,7 @@ builtins:
 
     let decision = engine.evaluate(&write_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should mention protected: {reason}"
@@ -118,7 +118,7 @@ builtins:
 
     let decision = engine.evaluate(&edit_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should mention protected: {reason}"
@@ -142,7 +142,7 @@ builtins:
 
     let decision = engine.evaluate(&secret_write, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should mention protected: {reason}"
@@ -270,7 +270,7 @@ builtins:
 
         let decision = engine.evaluate(&bash_event, None).await?;
         match decision {
-            cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+            cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
                 assert!(
                     reason.contains("read operations allowed"),
                     "Should mention only read allowed for '{cmd}': {reason}"

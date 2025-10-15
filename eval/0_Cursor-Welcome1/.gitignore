@@ -1,0 +1,23 @@
+# Cupcake
+.cupcake/debug/
+.cupcake/trust/
+bundle.tar.gz
+
+# Test artifacts
+test-events/
+screenshots/*.png
+screenshots/*.jpg
+
+# IDE
+.idea/
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Backup files
+*.backup.*
+
+# MCP
+.mcp/node_modules/
+.mcp/package-lock.json

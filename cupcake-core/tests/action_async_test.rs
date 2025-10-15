@@ -8,15 +8,17 @@ use tempfile::TempDir;
 /// Skipped on Windows due to timing sensitivity with Git Bash process spawning.
 /// The async behavior is validated on Unix platforms.
 #[tokio::test]
-#[cfg(not(windows))]
+#[cfg(all(not(windows), feature = "deterministic-tests"))]
 async fn test_action_fire_and_forget() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
-    // Create .cupcake directory structure
+    // Create .cupcake directory structure with harness-specific layout
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
 
     fs::create_dir_all(&system_dir).unwrap();
@@ -73,9 +75,18 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("async_test.rego"), test_policy).unwrap();
+    fs::write(claude_dir.join("async_test.rego"), test_policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Initialize engine - disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
+    };
+    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -128,14 +139,16 @@ deny contains decision if {
 /// Skipped on Windows due to timing sensitivity with Git Bash process spawning.
 /// The concurrent behavior is validated on Unix platforms.
 #[tokio::test]
-#[cfg(not(windows))]
+#[cfg(all(not(windows), feature = "deterministic-tests"))]
 async fn test_multiple_actions_concurrent() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
 
     fs::create_dir_all(&system_dir).unwrap();
 
@@ -189,9 +202,18 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("concurrent.rego"), policy).unwrap();
+    fs::write(claude_dir.join("concurrent.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Initialize engine - disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
+    };
+    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -228,13 +250,16 @@ deny contains decision if {
 
 /// Test that evaluation doesn't block on action failures
 #[tokio::test]
+#[cfg(feature = "deterministic-tests")]
 async fn test_action_failure_non_blocking() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
 
     fs::create_dir_all(&system_dir).unwrap();
@@ -279,9 +304,18 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("fail_test.rego"), policy).unwrap();
+    fs::write(claude_dir.join("fail_test.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Initialize engine - disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
+    };
+    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -311,13 +345,16 @@ deny contains decision if {
 
 /// Test that actions don't block subsequent evaluations
 #[tokio::test]
+#[cfg(feature = "deterministic-tests")]
 async fn test_actions_dont_block_subsequent_evaluations() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
 
     fs::create_dir_all(&system_dir).unwrap();
 
@@ -368,9 +405,18 @@ allow_override contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("slow.rego"), policy).unwrap();
+    fs::write(claude_dir.join("slow.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Initialize engine - disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
+    };
+    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
 
     // First evaluation triggers slow action
     let event1 = json!({

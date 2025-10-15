@@ -33,9 +33,15 @@ pub fn init_test_logging() {
 pub fn create_test_project(project_path: &Path) -> Result<()> {
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
 
-    fs::create_dir_all(&system_dir)?;
+    // Create harness-specific directory structures for both Claude and Cursor
+    let claude_dir = policies_dir.join("claude");
+    let claude_system_dir = claude_dir.join("system");
+    let cursor_dir = policies_dir.join("cursor");
+    let cursor_system_dir = cursor_dir.join("system");
+
+    fs::create_dir_all(&claude_system_dir)?;
+    fs::create_dir_all(&cursor_system_dir)?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
     fs::create_dir_all(cupcake_dir.join("actions"))?;
 
@@ -45,13 +51,15 @@ pub fn create_test_project(project_path: &Path) -> Result<()> {
         "signals: {}\nactions: {}\nbuiltins: {}",
     )?;
 
-    // Use fixture for system policy
+    // Use fixture for system policy (same for both harnesses)
     let system_policy = include_str!("fixtures/system_evaluate.rego");
-    fs::write(system_dir.join("evaluate.rego"), system_policy)?;
+    fs::write(claude_system_dir.join("evaluate.rego"), system_policy)?;
+    fs::write(cursor_system_dir.join("evaluate.rego"), system_policy)?;
 
-    // Add minimal policy to ensure compilation works
+    // Add minimal policy to ensure compilation works (for both harnesses)
     let minimal_policy = include_str!("fixtures/minimal_policy.rego");
-    fs::write(policies_dir.join("minimal.rego"), minimal_policy)?;
+    fs::write(claude_dir.join("minimal.rego"), minimal_policy)?;
+    fs::write(cursor_dir.join("minimal.rego"), minimal_policy)?;
 
     Ok(())
 }
@@ -60,7 +68,9 @@ pub fn create_test_project(project_path: &Path) -> Result<()> {
 #[allow(dead_code)]
 pub fn create_test_global_config(global_path: &Path) -> Result<()> {
     let policies_dir = global_path.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory structure
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(global_path.join("signals"))?;

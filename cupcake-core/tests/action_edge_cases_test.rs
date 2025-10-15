@@ -16,7 +16,8 @@ async fn test_action_execution_edge_cases() {
     // Create .cupcake directory structure
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
 
     fs::create_dir_all(&system_dir).unwrap();
 
@@ -103,9 +104,9 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("edge_test.rego"), edge_policy).unwrap();
+    fs::write(claude_dir.join("edge_test.rego"), edge_policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
 
     // Test Case 1-3: Shell commands
     let event1 = json!({
@@ -186,7 +187,8 @@ async fn test_nonexistent_script_fallback() {
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
 
     fs::create_dir_all(&system_dir).unwrap();
     create_system_policy(&system_dir);
@@ -228,9 +230,9 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("fallback_test.rego"), fallback_policy).unwrap();
+    fs::write(claude_dir.join("fallback_test.rego"), fallback_policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",

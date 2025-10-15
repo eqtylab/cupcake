@@ -14,9 +14,10 @@ mod tests {
     /// Helper to create a test global configuration with test policies
     fn setup_test_global_config(global_dir: &Path) -> Result<()> {
         let policies_dir = global_dir.join("policies");
-        let system_dir = policies_dir.join("system");
+        // Use Claude harness-specific directory
+        let claude_dir = policies_dir.join("claude");
+        let system_dir = claude_dir.join("system");
 
-        fs::create_dir_all(&policies_dir)?;
         fs::create_dir_all(&system_dir)?;
 
         // Use the same fixture that works in other global tests
@@ -27,7 +28,7 @@ mod tests {
 
         // Create test policies (not in builtins directory to avoid filtering)
         fs::write(
-            policies_dir.join("test_system_protection.rego"),
+            claude_dir.join("test_system_protection.rego"),
             r#"# METADATA
 # scope: package
 # custom:
@@ -50,7 +51,7 @@ halt contains decision if {
         )?;
 
         fs::write(
-            policies_dir.join("test_sensitive_data.rego"),
+            claude_dir.join("test_sensitive_data.rego"),
             r#"# METADATA
 # scope: package
 # custom:
@@ -73,7 +74,7 @@ deny contains decision if {
         )?;
 
         fs::write(
-            policies_dir.join("test_cupcake_exec.rego"),
+            claude_dir.join("test_cupcake_exec.rego"),
             r#"# METADATA
 # scope: package
 # custom:
@@ -111,6 +112,7 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
+    #[cfg(feature = "deterministic-tests")]
     async fn test_global_system_protection_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -125,7 +127,10 @@ builtins: {}
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -158,6 +163,7 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
+    #[cfg(feature = "deterministic-tests")]
     async fn test_global_sensitive_data_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -172,7 +178,10 @@ builtins: {}
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -199,6 +208,7 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
+    #[cfg(feature = "deterministic-tests")]
     async fn test_global_cupcake_exec_builtin() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
@@ -213,7 +223,10 @@ builtins: {}
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -240,14 +253,17 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
+    #[cfg(feature = "deterministic-tests")]
     async fn test_global_builtins_disabled() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
         // Setup global config with builtins disabled
         let policies_dir = global_temp.path().join("policies");
-        let builtins_dir = policies_dir.join("builtins");
-        let system_dir = policies_dir.join("system");
+        // Use Claude harness-specific directory
+        let claude_dir = policies_dir.join("claude");
+        let builtins_dir = claude_dir.join("builtins");
+        let system_dir = claude_dir.join("system");
 
         fs::create_dir_all(&builtins_dir)?;
         fs::create_dir_all(&system_dir)?;
@@ -329,7 +345,10 @@ builtins:
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -358,14 +377,17 @@ builtins:
 
     #[tokio::test]
     #[serial]
+    #[cfg(feature = "deterministic-tests")]
     async fn test_global_builtin_signals() -> Result<()> {
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
         // Setup global config
         let policies_dir = global_temp.path().join("policies");
-        let builtins_dir = policies_dir.join("builtins");
-        let system_dir = policies_dir.join("system");
+        // Use Claude harness-specific directory
+        let claude_dir = policies_dir.join("claude");
+        let builtins_dir = claude_dir.join("builtins");
+        let system_dir = claude_dir.join("system");
 
         fs::create_dir_all(&builtins_dir)?;
         fs::create_dir_all(&system_dir)?;
@@ -467,7 +489,10 @@ builtins:
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 

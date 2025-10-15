@@ -7,10 +7,11 @@ fn setup_test_dir(_event_name: &str) -> TempDir {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
-    // Create .cupcake directory structure
+    // Create .cupcake directory structure with harness-specific paths
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
     let actions_dir = cupcake_dir.join("actions");
 
@@ -162,7 +163,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
-            format!("{} eval --debug-routing", target_dir.display())
+            format!("{} eval --harness claude --debug-routing", target_dir.display())
         } else {
             // Fallback to debug build
             let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -177,7 +178,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
                 });
 
             eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
-            format!("{} eval --debug-routing", debug_target.display())
+            format!("{} eval --harness claude --debug-routing", debug_target.display())
         }
     } else {
         // Local development - use cargo run
@@ -187,7 +188,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
             .join("Cargo.toml");
         eprintln!("[DEBUG] Using cargo run for local development");
         format!(
-            "cargo run --manifest-path {} -- eval --debug-routing",
+            "cargo run --manifest-path {} -- eval --harness claude --debug-routing",
             cargo_manifest.display()
         )
     };
@@ -358,7 +359,7 @@ async fn verify_routing(project_path: &std::path::Path, expected_key: &str, expe
 #[tokio::test]
 async fn test_pretooluse_routing() {
     let temp_dir = setup_test_dir("pretooluse");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(
         &policies_dir,
@@ -373,7 +374,7 @@ async fn test_pretooluse_routing() {
 #[tokio::test]
 async fn test_posttooluse_routing() {
     let temp_dir = setup_test_dir("posttooluse");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(
         &policies_dir,
@@ -388,7 +389,7 @@ async fn test_posttooluse_routing() {
 #[tokio::test]
 async fn test_userpromptsubmit_routing() {
     let temp_dir = setup_test_dir("userpromptsubmit");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(
         &policies_dir,
@@ -403,7 +404,7 @@ async fn test_userpromptsubmit_routing() {
 #[tokio::test]
 async fn test_sessionstart_routing() {
     let temp_dir = setup_test_dir("sessionstart");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(
         &policies_dir,
@@ -418,7 +419,7 @@ async fn test_sessionstart_routing() {
 #[tokio::test]
 async fn test_notification_routing() {
     let temp_dir = setup_test_dir("notification");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(
         &policies_dir,
@@ -433,7 +434,7 @@ async fn test_notification_routing() {
 #[tokio::test]
 async fn test_stop_routing() {
     let temp_dir = setup_test_dir("stop");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(&policies_dir, "test_stop", vec!["Stop"], None);
 
@@ -443,7 +444,7 @@ async fn test_stop_routing() {
 #[tokio::test]
 async fn test_subagentstop_routing() {
     let temp_dir = setup_test_dir("subagentstop");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(
         &policies_dir,
@@ -458,7 +459,7 @@ async fn test_subagentstop_routing() {
 #[tokio::test]
 async fn test_precompact_routing() {
     let temp_dir = setup_test_dir("precompact");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     write_test_policy(&policies_dir, "test_precompact", vec!["PreCompact"], None);
 
@@ -473,7 +474,7 @@ async fn test_wildcard_policy_routing() {
     eprintln!("[TIMING] Test started");
 
     let temp_dir = setup_test_dir("wildcard");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
     eprintln!("[TIMING] Setup complete: {:?}", test_start.elapsed());
 
     // Create a wildcard policy (empty tools means all tools)
@@ -513,7 +514,7 @@ async fn test_wildcard_policy_routing() {
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
-            format!("{} eval --debug-routing", target_dir.display())
+            format!("{} eval --harness claude --debug-routing", target_dir.display())
         } else {
             // Fallback to debug build
             let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -528,7 +529,7 @@ async fn test_wildcard_policy_routing() {
                 });
 
             eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
-            format!("{} eval --debug-routing", debug_target.display())
+            format!("{} eval --harness claude --debug-routing", debug_target.display())
         }
     } else {
         // Local development - use cargo run
@@ -537,7 +538,7 @@ async fn test_wildcard_policy_routing() {
             .unwrap()
             .join("Cargo.toml");
         format!(
-            "cargo run --manifest-path {} -- eval --debug-routing",
+            "cargo run --manifest-path {} -- eval --harness claude --debug-routing",
             cargo_manifest.display()
         )
     };
@@ -679,7 +680,7 @@ async fn test_wildcard_policy_routing() {
 #[tokio::test]
 async fn test_multiple_events_routing() {
     let temp_dir = setup_test_dir("multi_event");
-    let policies_dir = temp_dir.path().join(".cupcake/policies");
+    let policies_dir = temp_dir.path().join(".cupcake/policies/claude");
 
     // Create a policy that handles multiple events
     let policy = r#"# METADATA
@@ -724,7 +725,7 @@ deny contains decision if {
 
         if target_dir.exists() {
             eprintln!("[DEBUG] Using built binary in CI: {target_dir:?}");
-            format!("{} eval --debug-routing", target_dir.display())
+            format!("{} eval --harness claude --debug-routing", target_dir.display())
         } else {
             // Fallback to debug build
             let debug_target = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -739,7 +740,7 @@ deny contains decision if {
                 });
 
             eprintln!("[DEBUG] Release binary not found, trying debug: {debug_target:?}");
-            format!("{} eval --debug-routing", debug_target.display())
+            format!("{} eval --harness claude --debug-routing", debug_target.display())
         }
     } else {
         // Local development - use cargo run
@@ -748,7 +749,7 @@ deny contains decision if {
             .unwrap()
             .join("Cargo.toml");
         format!(
-            "cargo run --manifest-path {} -- eval --debug-routing",
+            "cargo run --manifest-path {} -- eval --harness claude --debug-routing",
             cargo_manifest.display()
         )
     };

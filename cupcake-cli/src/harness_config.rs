@@ -26,6 +26,9 @@ pub trait HarnessConfig {
 /// Claude Code harness implementation
 pub struct ClaudeHarness;
 
+/// Cursor harness implementation
+pub struct CursorHarness;
+
 impl HarnessConfig for ClaudeHarness {
     fn name(&self) -> &str {
         "Claude Code"
@@ -60,26 +63,26 @@ impl HarnessConfig for ClaudeHarness {
                     "matcher": "*",
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --policy-dir {}", policy_path)
+                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
                     }]
                 }],
                 "PostToolUse": [{
                     "matcher": "Edit|MultiEdit|Write",
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --policy-dir {}", policy_path)
+                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
                     }]
                 }],
                 "UserPromptSubmit": [{
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --policy-dir {}", policy_path)
+                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
                     }]
                 }],
                 "SessionStart": [{
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --policy-dir {}", policy_path)
+                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
                     }]
                 }]
             }
@@ -90,6 +93,124 @@ impl HarnessConfig for ClaudeHarness {
         merge_hooks(&mut existing, new_hooks)?;
         Ok(existing)
     }
+}
+
+impl HarnessConfig for CursorHarness {
+    fn name(&self) -> &str {
+        "Cursor"
+    }
+
+    fn settings_path(&self, global: bool) -> PathBuf {
+        if global {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("~"))
+                .join(".cursor")
+                .join("settings.json")
+        } else {
+            Path::new(".cursor").join("settings.json")
+        }
+    }
+
+    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
+        // Determine the policy path to use in commands
+        let policy_path = if global {
+            // Global config - use absolute path
+            let abs_path =
+                fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
+            abs_path.display().to_string()
+        } else {
+            // Project config - use relative path from workspace root
+            ".cupcake".to_string()
+        };
+
+        // Cursor's hook configuration format
+        // See: CURSOR_PLAN_IMPLEMENTATION.md for event names
+        Ok(json!({
+            "rules": [{
+                "beforeShellExecution": {
+                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                },
+                "beforeMCPExecution": {
+                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                },
+                "afterFileEdit": {
+                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                },
+                "beforeReadFile": {
+                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                },
+                "beforeSubmitPrompt": {
+                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                },
+                "stop": {
+                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                }
+            }]
+        }))
+    }
+
+    fn merge_settings(&self, mut existing: Value, new_hooks: Value) -> Result<Value> {
+        // For Cursor, merge the rules array
+        merge_cursor_rules(&mut existing, new_hooks)?;
+        Ok(existing)
+    }
+}
+
+/// Merge Cursor rules array without duplicates
+fn merge_cursor_rules(existing: &mut Value, new: Value) -> Result<()> {
+    // Ensure existing is an object
+    if !existing.is_object() {
+        *existing = json!({});
+    }
+
+    // Get or create rules array
+    let rules = existing
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("Invalid settings format"))?
+        .entry("rules")
+        .or_insert_with(|| json!([]));
+
+    // Ensure rules is an array
+    if !rules.is_array() {
+        *rules = json!([]);
+    }
+
+    let new_rules = new["rules"]
+        .as_array()
+        .ok_or_else(|| anyhow!("Invalid rules format"))?;
+
+    let rules_array = rules.as_array_mut().unwrap();
+
+    // Add new rules if they don't already exist
+    for new_rule in new_rules {
+        if !contains_cursor_rule(rules_array, new_rule) {
+            rules_array.push(new_rule.clone());
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if a Cursor rule already exists (by comparing hook commands)
+fn contains_cursor_rule(array: &[Value], rule: &Value) -> bool {
+    // Check if any existing rule has the same commands
+    array.iter().any(|existing| {
+        // Compare the hook commands for each event type
+        let event_types = [
+            "beforeShellExecution",
+            "beforeMCPExecution",
+            "afterFileEdit",
+            "beforeReadFile",
+            "beforeSubmitPrompt",
+            "stop",
+        ];
+
+        // If any command matches, consider it a duplicate
+        event_types.iter().any(|event| {
+            existing.get(event).and_then(|e| e.get("command"))
+                == rule.get(event).and_then(|r| r.get("command"))
+        })
+    })
 }
 
 /// Merge hooks into existing settings without duplicates
@@ -206,7 +327,39 @@ pub async fn configure_harness(
                 println!("   - Added UserPromptSubmit hook for prompt validation");
                 println!("   - Added SessionStart hook for initial context");
                 println!();
-                println!("   {} will now evaluate all tool uses and prompts against your Cupcake policies.", 
+                println!("   {} will now evaluate all tool uses and prompts against your Cupcake policies.",
+                    harness.name());
+            }
+        }
+        HarnessType::Cursor => {
+            let harness = CursorHarness;
+            let settings_path = harness.settings_path(global);
+
+            // Try to configure, fallback to manual instructions on error
+            if let Err(e) =
+                setup_harness_settings(&harness, &settings_path, policy_dir, global).await
+            {
+                eprintln!(
+                    "⚠️  Could not automatically configure {}: {}",
+                    harness.name(),
+                    e
+                );
+                print_cursor_manual_instructions(policy_dir, global);
+                // Don't fail the entire init - just warn
+            } else {
+                println!(
+                    "✅ Configured {} integration in {}",
+                    harness.name(),
+                    settings_path.display()
+                );
+                println!("   - Added beforeShellExecution hook for shell commands");
+                println!("   - Added beforeMCPExecution hook for MCP tools");
+                println!("   - Added afterFileEdit hook for post-edit validation");
+                println!("   - Added beforeReadFile hook for file access control");
+                println!("   - Added beforeSubmitPrompt hook for prompt validation");
+                println!("   - Added stop hook for cleanup");
+                println!();
+                println!("   {} will now evaluate all actions against your Cupcake policies.",
                     harness.name());
             }
         }
@@ -274,10 +427,52 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     eprintln!("         \"matcher\": \"*\",");
     eprintln!("         \"hooks\": [{{");
     eprintln!("           \"type\": \"command\",");
-    eprintln!("           \"command\": \"cupcake eval --policy-dir {policy_path}\"");
+    eprintln!("           \"command\": \"cupcake eval --harness claude --policy-dir {policy_path}\"");
     eprintln!("         }}]");
     eprintln!("       }}]");
     eprintln!("     }}");
+    eprintln!("   }}");
+    eprintln!();
+}
+
+/// Print manual configuration instructions for Cursor
+fn print_cursor_manual_instructions(policy_dir: &Path, global: bool) {
+    let policy_path = if global {
+        policy_dir.display().to_string()
+    } else {
+        ".cupcake".to_string()
+    };
+
+    let settings_path = if global {
+        "~/.cursor/settings.json"
+    } else {
+        ".cursor/settings.json"
+    };
+
+    eprintln!();
+    eprintln!("   To manually configure, add this to your {settings_path}:");
+    eprintln!();
+    eprintln!("   {{");
+    eprintln!("     \"rules\": [{{");
+    eprintln!("       \"beforeShellExecution\": {{");
+    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("       }},");
+    eprintln!("       \"beforeMCPExecution\": {{");
+    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("       }},");
+    eprintln!("       \"afterFileEdit\": {{");
+    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("       }},");
+    eprintln!("       \"beforeReadFile\": {{");
+    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("       }},");
+    eprintln!("       \"beforeSubmitPrompt\": {{");
+    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("       }},");
+    eprintln!("       \"stop\": {{");
+    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("       }}");
+    eprintln!("     }}]");
     eprintln!("   }}");
     eprintln!();
 }
@@ -295,7 +490,7 @@ mod tests {
                     "matcher": "*",
                     "hooks": [{
                         "type": "command",
-                        "command": "cupcake eval"
+                        "command": "cupcake eval --harness claude"
                     }]
                 }]
             }
@@ -326,7 +521,7 @@ mod tests {
                     "matcher": "*",
                     "hooks": [{
                         "type": "command",
-                        "command": "cupcake eval"
+                        "command": "cupcake eval --harness claude"
                     }]
                 }]
             }

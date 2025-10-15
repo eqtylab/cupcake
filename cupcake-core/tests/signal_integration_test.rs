@@ -4,15 +4,18 @@ use std::fs;
 use tempfile::TempDir;
 
 #[tokio::test]
+#[cfg(feature = "deterministic-tests")]
 async fn test_end_to_end_signal_integration() {
     // Create a temporary test project structure
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
-    // Create .cupcake directory structure
+    // Create .cupcake directory structure with harness-specific layout
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
     let actions_dir = cupcake_dir.join("actions");
 
@@ -148,7 +151,7 @@ add_context contains context_msg if {
 }
 "#;
 
-    fs::write(policies_dir.join("integration_test.rego"), test_policy).unwrap();
+    fs::write(claude_dir.join("integration_test.rego"), test_policy).unwrap();
 
     // Create string signal (git_branch) - outputs JSON string
     let git_branch_signal = r#"#!/bin/bash
@@ -211,7 +214,10 @@ echo '{
     let empty_global = TempDir::new().unwrap();
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(&project_path, config)
         .await
@@ -304,6 +310,7 @@ echo '{
 }
 
 #[tokio::test]
+#[cfg(feature = "deterministic-tests")]
 async fn test_signal_json_parsing_fallback() {
     // Create a temporary test project
     let temp_dir = TempDir::new().unwrap();
@@ -311,7 +318,9 @@ async fn test_signal_json_parsing_fallback() {
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
 
     fs::create_dir_all(&system_dir).unwrap();
@@ -381,7 +390,7 @@ add_context contains context_msg if {
 }
 "#;
 
-    fs::write(policies_dir.join("fallback_test.rego"), test_policy).unwrap();
+    fs::write(claude_dir.join("fallback_test.rego"), test_policy).unwrap();
 
     // Create signal that outputs invalid JSON
     let invalid_signal = r#"#!/bin/bash
@@ -403,7 +412,10 @@ echo "This is not valid JSON but should still work"
     let empty_global = TempDir::new().unwrap();
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(&project_path, config)
         .await

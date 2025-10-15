@@ -4,13 +4,16 @@ use std::fs;
 use tempfile::TempDir;
 
 #[tokio::test]
+#[cfg(feature = "deterministic-tests")]
 async fn test_minimal_ask_rule() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
 
     fs::create_dir_all(&system_dir).unwrap();
 
@@ -70,11 +73,20 @@ ask contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("minimal.rego"), test_policy).unwrap();
+    fs::write(claude_dir.join("minimal.rego"), test_policy).unwrap();
 
-    eprintln!("Test policies created at: {policies_dir:?}");
+    eprintln!("Test policies created at: {claude_dir:?}");
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    // Initialize engine - disable global config to avoid interference
+    let empty_global = TempDir::new().unwrap();
+    let config = cupcake_core::engine::EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
+    };
+    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",

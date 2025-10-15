@@ -32,15 +32,21 @@ pub struct BindingEngine {
 }
 
 impl BindingEngine {
-    /// Create a new binding engine with the given project path
+    /// Create a new binding engine with the given project path and harness type
     ///
     /// # Arguments
     /// * `path` - Path to the project directory or .cupcake folder
+    /// * `harness` - The AI coding agent harness type (e.g., "claude" or "cursor")
     ///
     /// # Returns
     /// * `Ok(BindingEngine)` - Successfully initialized engine
     /// * `Err(String)` - Error message suitable for FFI
-    pub fn new(path: &str) -> Result<Self, String> {
+    pub fn new(path: &str, harness: &str) -> Result<Self, String> {
+        // Parse harness string
+        let harness_type: crate::harness::types::HarnessType = harness
+            .parse()
+            .map_err(|e| format!("Invalid harness type '{}': {}", harness, e))?;
+
         // Create a current_thread runtime for FFI compatibility
         // This avoids thread-local storage issues with multi-threaded runtime
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -50,7 +56,7 @@ impl BindingEngine {
 
         // Initialize the core engine using the runtime
         let engine = runtime
-            .block_on(Engine::new(path))
+            .block_on(Engine::new(path, harness_type))
             .map_err(|e| format!("Failed to initialize core engine: {e}"))?;
 
         Ok(Self {
@@ -163,7 +169,7 @@ mod tests {
     #[test]
     fn test_binding_engine_creation() {
         // This will fail without proper test policies, but validates compilation
-        let result = BindingEngine::new("test_path");
+        let result = BindingEngine::new("test_path", "claude");
         assert!(result.is_err()); // Expected to fail without valid project
     }
 

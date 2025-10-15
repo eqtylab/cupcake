@@ -35,6 +35,7 @@ fn test_builtin_signal_generation() {
 
     // Create the full configuration in one go
     let config = BuiltinsConfig {
+        global_file_lock: None,
         always_inject_on_prompt: Some(AlwaysInjectConfig {
             enabled: true,
             context: vec![
@@ -71,7 +72,12 @@ fn test_builtin_signal_generation() {
             message: "Test protection message".to_string(),
             protected_paths: vec![".cupcake/".to_string(), ".config/".to_string()],
         }),
-        ..Default::default()
+        protected_paths: None,
+        git_block_no_verify: None,
+        system_protection: None,
+        sensitive_data_protection: None,
+        cupcake_exec_protection: None,
+        enforce_full_file_read: None,
     };
 
     // Generate signals
@@ -139,12 +145,13 @@ fn test_enabled_builtins_list() {
 #[tokio::test]
 #[cfg(feature = "deterministic-tests")]
 async fn test_builtin_policy_signal_access() -> Result<()> {
-    // Create a temporary directory for test policies
+    // Create a temporary directory for test policies with harness-specific structure
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
-    std::fs::create_dir_all(&policies_dir)?;
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     std::fs::create_dir_all(&system_dir)?;
 
     // Use the authoritative system evaluation policy
@@ -202,7 +209,7 @@ collect_verbs(verb_name) := result if {
 default collect_verbs(_) := []"#;
     std::fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
-    // Write a test policy that uses signals
+    // Write a test policy that uses signals (in Claude directory)
     let test_policy = r#"package cupcake.policies.test_signal_access
 
 import rego.v1
@@ -216,14 +223,14 @@ import rego.v1
 # Test that we can access builtin signals
 add_context contains context_msg if {
     input.hook_event_name == "UserPromptSubmit"
-    
+
     # Access the signal - it should be injected by the engine
     test_signal := input.signals["__builtin_test_signal"]
-    
+
     # add_context expects strings, not decision objects
     context_msg := concat(" ", ["Signal value:", test_signal])
 }"#;
-    std::fs::write(policies_dir.join("test_signal_access.rego"), test_policy)?;
+    std::fs::write(claude_dir.join("test_signal_access.rego"), test_policy)?;
 
     // Create a rulebook with test signal
     let rulebook_path = cupcake_dir.join("rulebook.yml");
@@ -240,7 +247,10 @@ add_context contains context_msg if {
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
@@ -278,17 +288,19 @@ add_context contains context_msg if {
 #[tokio::test]
 #[cfg(feature = "deterministic-tests")]
 async fn test_post_edit_validation_flow() -> Result<()> {
-    // Create a temporary directory for test
+    // Create a temporary directory for test with harness-specific structure
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let builtins_dir = policies_dir.join("builtins");
-    let system_dir = policies_dir.join("system");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let builtins_dir = claude_dir.join("builtins");
+    let system_dir = claude_dir.join("system");
     std::fs::create_dir_all(&builtins_dir)?;
     std::fs::create_dir_all(&system_dir)?;
 
-    // Copy the real post_edit_check policy content directly
-    let post_edit_policy = include_str!("../../fixtures/builtins/post_edit_check.rego");
+    // Copy the real post_edit_check policy content from Claude fixtures
+    let post_edit_policy = include_str!("../../fixtures/claude/builtins/post_edit_check.rego");
     std::fs::write(builtins_dir.join("post_edit_check.rego"), post_edit_policy)?;
 
     // Use the authoritative system evaluation policy
@@ -324,7 +336,10 @@ builtins:
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 

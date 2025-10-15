@@ -11,14 +11,14 @@ async fn setup_test_project() -> Result<TempDir> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
 
-    // Create directories
-    fs::create_dir_all(cupcake_dir.join("policies/system"))?;
+    // Create directories with harness-specific structure
+    fs::create_dir_all(cupcake_dir.join("policies/claude/system"))?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
     fs::create_dir_all(cupcake_dir.join("actions"))?;
 
     // Create system evaluate policy that matches the authoritative example
     fs::write(
-        cupcake_dir.join("policies/system/evaluate.rego"),
+        cupcake_dir.join("policies/claude/system/evaluate.rego"),
         r#"package cupcake.system
 
 import rego.v1
@@ -76,7 +76,7 @@ default collect_verbs(_) := []
 
     // Create a simple test policy
     fs::write(
-        cupcake_dir.join("policies/test.rego"),
+        cupcake_dir.join("policies/claude/test.rego"),
         r#"package cupcake.policies.test
 import rego.v1
 
@@ -118,7 +118,10 @@ async fn test_engine_without_trust() -> Result<()> {
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -150,7 +153,10 @@ async fn test_engine_with_trust_no_manifest() -> Result<()> {
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let _engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -186,7 +192,10 @@ async fn test_engine_with_valid_trust() -> Result<()> {
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -219,7 +228,7 @@ async fn test_engine_with_untrusted_signal() -> Result<()> {
 
     // Modify the test policy to require a signal
     fs::write(
-        cupcake_dir.join("policies/test_with_signal.rego"),
+        cupcake_dir.join("policies/claude/test_with_signal.rego"),
         r#"package cupcake.policies.test_signal
 import rego.v1
 
@@ -245,7 +254,10 @@ deny contains decision if {
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
     };
     let engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -280,7 +292,10 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         let empty_global = TempDir::new()?;
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(empty_global.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed without trust
@@ -296,7 +311,10 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         let empty_global = TempDir::new()?;
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(empty_global.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed with trust
@@ -311,7 +329,10 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         let empty_global = TempDir::new()?;
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(empty_global.path().to_path_buf()),
-            ..Default::default()
+            harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should still succeed

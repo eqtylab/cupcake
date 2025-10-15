@@ -11,13 +11,15 @@ mod integration_tests {
 
     /// Test helper to check if we can create an engine (skips test if not)
     async fn try_create_test_engine() -> Option<Engine> {
+        use crate::harness::types::HarnessType;
+
         // Try to find a valid policy directory
         let candidates = vec!["./examples", "../examples", "../../examples"];
 
         for dir in candidates {
             let path = Path::new(dir);
             if path.join(".cupcake/policies").exists() {
-                if let Ok(engine) = Engine::new(path).await {
+                if let Ok(engine) = Engine::new(path, HarnessType::ClaudeCode).await {
                     return Some(engine);
                 }
             }

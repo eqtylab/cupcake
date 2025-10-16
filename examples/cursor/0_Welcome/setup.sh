@@ -24,7 +24,7 @@ fi
 
 # Build Cupcake binary
 echo "Building Cupcake binary..."
-cd ../..
+cd ../../..
 cargo build --release
 echo "✅ Build complete"
 
@@ -32,8 +32,8 @@ echo "✅ Build complete"
 export PATH="$(pwd)/target/release:$PATH"
 echo "✅ Added cupcake to PATH for this session"
 
-# Return to eval directory
-cd eval/0_Cursor-Welcome1
+# Return to examples directory
+cd examples/cursor/0_Welcome
 
 # Initialize Cupcake project with Cursor harness
 echo "Initializing Cupcake project for Cursor..."
@@ -223,7 +223,7 @@ echo "✅ Policies compiled to bundle.tar.gz"
 
 # Create Cursor hooks configuration
 echo "Setting up Cursor hooks integration..."
-CUPCAKE_PATH="$(realpath ../../target/release/cupcake)"
+CUPCAKE_PATH="$(realpath ../../../target/release/cupcake)"
 HOOKS_FILE="$HOME/.cursor/hooks.json"
 
 # Create .cursor directory if it doesn't exist

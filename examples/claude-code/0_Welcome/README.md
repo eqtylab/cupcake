@@ -24,7 +24,9 @@ Before starting, ensure you have:
 
 - **Rust & Cargo** → [Install Rust](https://rustup.rs/)
 - **OPA (Open Policy Agent)** → [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
+  - **Windows users**: Download `opa_windows_amd64.exe` and rename to `opa.exe`
 - **Claude Code** → AI coding assistant
+- **Docker** (optional) → For MCP database demo
 
 _These are development requirements. The production software will manage these dependencies._
 
@@ -34,8 +36,14 @@ _These are development requirements. The production software will manage these d
 
 Run the setup script:
 
+**Unix/macOS/Linux:**
 ```bash
 ./setup.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
 This runs `cupcake init`, and some scaffolding to create:
@@ -53,8 +61,14 @@ This runs `cupcake init`, and some scaffolding to create:
 
 ♻️ Reset anytime with:
 
+**Unix/macOS/Linux:**
 ```bash
 ./cleanup.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy Bypass -File cleanup.ps1
 ```
 
 ### 2. Start Claude Code

@@ -27,7 +27,7 @@ try {
 
 # Build Cupcake binary
 Write-Host "`nBuilding Cupcake binary..."
-Push-Location ../..
+Push-Location ../../..
 cargo build --release
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Build failed" -ForegroundColor Red
@@ -55,9 +55,9 @@ Write-Host "✅ Project initialized" -ForegroundColor Green
 
 # Copy example policies
 Write-Host "`nCopying example policies..."
-Copy-Item -Path "..\fixtures\security_policy.rego" -Destination ".cupcake\policies\" -Force
-Copy-Item -Path "..\fixtures\git_workflow.rego" -Destination ".cupcake\policies\" -Force
-Copy-Item -Path "..\fixtures\context_injection.rego" -Destination ".cupcake\policies\" -Force
+Copy-Item -Path "..\..\fixtures\security_policy.rego" -Destination ".cupcake\policies\" -Force
+Copy-Item -Path "..\..\fixtures\git_workflow.rego" -Destination ".cupcake\policies\" -Force
+Copy-Item -Path "..\..\fixtures\context_injection.rego" -Destination ".cupcake\policies\" -Force
 Write-Host "✅ Example policies copied" -ForegroundColor Green
 
 Write-Host "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)" -ForegroundColor Green
@@ -76,7 +76,7 @@ Write-Host "`nSetting up Claude Code hooks integration..."
 New-Item -ItemType Directory -Force -Path ".claude" | Out-Null
 
 # Get absolute paths
-$manifestPath = Resolve-Path "..\..\Cargo.toml"
+$manifestPath = Resolve-Path "..\..\..\Cargo.toml"
 $opaDir = Split-Path (Get-Command opa).Source -Parent
 
 # Create Claude Code settings with Windows paths
@@ -137,7 +137,7 @@ Write-Host "✅ Claude Code hooks configured" -ForegroundColor Green
 Write-Host "`n🎉 Setup complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "1. Add cupcake to your PATH:" -ForegroundColor White
-Write-Host "   `$env:PATH = `"$(Resolve-Path ..\..\target\release);`$env:PATH`"" -ForegroundColor Yellow
+Write-Host "   `$env:PATH = `"$(Resolve-Path ..\..\..\target\release);`$env:PATH`"" -ForegroundColor Yellow
 Write-Host "2. Start Claude Code in this directory" -ForegroundColor White
 Write-Host "3. Try running commands that trigger policies" -ForegroundColor White
 Write-Host "`nExample commands to test:" -ForegroundColor Cyan

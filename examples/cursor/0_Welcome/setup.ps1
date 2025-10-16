@@ -27,7 +27,7 @@ try {
 
 # Build Cupcake binary
 Write-Host "`nBuilding Cupcake binary..."
-Push-Location ../..
+Push-Location ../../..
 cargo build --release
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Build failed" -ForegroundColor Red
@@ -170,7 +170,7 @@ Write-Host "✅ Policies compiled to bundle.tar.gz" -ForegroundColor Green
 
 # Create Cursor hooks configuration
 Write-Host "`nSetting up Cursor hooks integration..."
-$cupcakeExe = Join-Path (Resolve-Path "..\..\target\release") "cupcake.exe"
+$cupcakeExe = Join-Path (Resolve-Path "..\..\..\target\release") "cupcake.exe"
 $hooksDir = Join-Path $env:USERPROFILE ".cursor"
 $hooksFile = Join-Path $hooksDir "hooks.json"
 

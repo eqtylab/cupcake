@@ -157,63 +157,6 @@ impl HarnessConfig for CursorHarness {
     }
 }
 
-/// Merge Cursor rules array without duplicates
-fn merge_cursor_rules(existing: &mut Value, new: Value) -> Result<()> {
-    // Ensure existing is an object
-    if !existing.is_object() {
-        *existing = json!({});
-    }
-
-    // Get or create rules array
-    let rules = existing
-        .as_object_mut()
-        .ok_or_else(|| anyhow!("Invalid settings format"))?
-        .entry("rules")
-        .or_insert_with(|| json!([]));
-
-    // Ensure rules is an array
-    if !rules.is_array() {
-        *rules = json!([]);
-    }
-
-    let new_rules = new["rules"]
-        .as_array()
-        .ok_or_else(|| anyhow!("Invalid rules format"))?;
-
-    let rules_array = rules.as_array_mut().unwrap();
-
-    // Add new rules if they don't already exist
-    for new_rule in new_rules {
-        if !contains_cursor_rule(rules_array, new_rule) {
-            rules_array.push(new_rule.clone());
-        }
-    }
-
-    Ok(())
-}
-
-/// Check if a Cursor rule already exists (by comparing hook commands)
-fn contains_cursor_rule(array: &[Value], rule: &Value) -> bool {
-    // Check if any existing rule has the same commands
-    array.iter().any(|existing| {
-        // Compare the hook commands for each event type
-        let event_types = [
-            "beforeShellExecution",
-            "beforeMCPExecution",
-            "afterFileEdit",
-            "beforeReadFile",
-            "beforeSubmitPrompt",
-            "stop",
-        ];
-
-        // If any command matches, consider it a duplicate
-        event_types.iter().any(|event| {
-            existing.get(event).and_then(|e| e.get("command"))
-                == rule.get(event).and_then(|r| r.get("command"))
-        })
-    })
-}
-
 /// Merge hooks into existing settings without duplicates
 fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
     // Ensure existing is an object

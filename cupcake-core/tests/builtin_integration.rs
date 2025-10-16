@@ -36,7 +36,7 @@ fn test_builtin_signal_generation() {
     // Create the full configuration in one go
     let config = BuiltinsConfig {
         global_file_lock: None,
-        always_inject_on_prompt: Some(AlwaysInjectConfig {
+        claude_code_always_inject_on_prompt: Some(AlwaysInjectConfig {
             enabled: true,
             context: vec![
                 ContextSource::String("Test context".to_string()),
@@ -77,7 +77,7 @@ fn test_builtin_signal_generation() {
         system_protection: None,
         sensitive_data_protection: None,
         cupcake_exec_protection: None,
-        enforce_full_file_read: None,
+        claude_code_enforce_full_file_read: None,
     };
 
     // Generate signals
@@ -426,7 +426,7 @@ fn test_builtin_policy_loading() {
         &enabled
     ));
     assert!(!should_load_builtin_policy(
-        Path::new("policies/builtins/always_inject_on_prompt.rego"),
+        Path::new("policies/builtins/claude_code_always_inject_on_prompt.rego"),
         &enabled
     ));
 

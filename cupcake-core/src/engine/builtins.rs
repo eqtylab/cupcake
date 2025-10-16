@@ -13,9 +13,9 @@ use super::rulebook::SignalConfig;
 /// Configuration for all builtin abstractions
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BuiltinsConfig {
-    /// Always inject on prompt configuration
-    #[serde(default)]
-    pub always_inject_on_prompt: Option<AlwaysInjectConfig>,
+    /// Always inject on prompt configuration (Claude Code only)
+    #[serde(default, alias = "always_inject_on_prompt")]
+    pub claude_code_always_inject_on_prompt: Option<AlwaysInjectConfig>,
 
     /// Global file lock configuration (prevents all file writes)
     #[serde(default, alias = "never_edit_files")]
@@ -54,9 +54,9 @@ pub struct BuiltinsConfig {
     #[serde(default)]
     pub cupcake_exec_protection: Option<CupcakeExecProtectionConfig>,
 
-    /// Enforce full file read - prevents partial reads of small files
-    #[serde(default)]
-    pub enforce_full_file_read: Option<EnforceFullFileReadConfig>,
+    /// Enforce full file read - prevents partial reads of small files (Claude Code only)
+    #[serde(default, alias = "enforce_full_file_read")]
+    pub claude_code_enforce_full_file_read: Option<EnforceFullFileReadConfig>,
 }
 
 /// Configuration for always_inject_on_prompt builtin
@@ -299,18 +299,18 @@ impl BuiltinsConfig {
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
 
-        // Validate always_inject_on_prompt
-        if let Some(config) = &self.always_inject_on_prompt {
+        // Validate claude_code_always_inject_on_prompt
+        if let Some(config) = &self.claude_code_always_inject_on_prompt {
             if config.enabled && config.context.is_empty() {
                 errors
-                    .push("always_inject_on_prompt: enabled but no context configured".to_string());
+                    .push("claude_code_always_inject_on_prompt: enabled but no context configured".to_string());
             }
 
             for (idx, source) in config.context.iter().enumerate() {
                 if let ContextSource::Dynamic { file, command } = source {
                     if file.is_none() && command.is_none() {
                         errors.push(format!(
-                            "always_inject_on_prompt.context[{idx}]: dynamic source must have either 'file' or 'command'"
+                            "claude_code_always_inject_on_prompt.context[{idx}]: dynamic source must have either 'file' or 'command'"
                         ));
                     }
                 }
@@ -389,10 +389,10 @@ impl BuiltinsConfig {
 
         // Validate git_block_no_verify (no specific validation needed - it's simple)
 
-        // Validate enforce_full_file_read
-        if let Some(config) = &self.enforce_full_file_read {
+        // Validate claude_code_enforce_full_file_read
+        if let Some(config) = &self.claude_code_enforce_full_file_read {
             if config.enabled && config.max_lines == 0 {
-                errors.push("enforce_full_file_read: max_lines cannot be 0".to_string());
+                errors.push("claude_code_enforce_full_file_read: max_lines cannot be 0".to_string());
             }
         }
 
@@ -405,7 +405,7 @@ impl BuiltinsConfig {
 
     /// Check if any builtin is enabled
     pub fn any_enabled(&self) -> bool {
-        self.always_inject_on_prompt
+        self.claude_code_always_inject_on_prompt
             .as_ref()
             .is_some_and(|c| c.enabled)
             || self.global_file_lock.as_ref().is_some_and(|c| c.enabled)
@@ -426,6 +426,10 @@ impl BuiltinsConfig {
                 .cupcake_exec_protection
                 .as_ref()
                 .is_some_and(|c| c.enabled)
+            || self
+                .claude_code_enforce_full_file_read
+                .as_ref()
+                .is_some_and(|c| c.enabled)
     }
 
     /// Get list of enabled builtin names
@@ -433,11 +437,11 @@ impl BuiltinsConfig {
         let mut enabled = Vec::new();
 
         if self
-            .always_inject_on_prompt
+            .claude_code_always_inject_on_prompt
             .as_ref()
             .is_some_and(|c| c.enabled)
         {
-            enabled.push("always_inject_on_prompt".to_string());
+            enabled.push("claude_code_always_inject_on_prompt".to_string());
         }
         if self.global_file_lock.as_ref().is_some_and(|c| c.enabled) {
             enabled.push("global_file_lock".to_string());
@@ -479,11 +483,11 @@ impl BuiltinsConfig {
             enabled.push("cupcake_exec_protection".to_string());
         }
         if self
-            .enforce_full_file_read
+            .claude_code_enforce_full_file_read
             .as_ref()
             .is_some_and(|c| c.enabled)
         {
-            enabled.push("enforce_full_file_read".to_string());
+            enabled.push("claude_code_enforce_full_file_read".to_string());
         }
 
         enabled
@@ -493,8 +497,8 @@ impl BuiltinsConfig {
     pub fn generate_signals(&self) -> HashMap<String, SignalConfig> {
         let mut signals = HashMap::new();
 
-        // Generate signals for always_inject_on_prompt (only for dynamic sources)
-        if let Some(config) = &self.always_inject_on_prompt {
+        // Generate signals for claude_code_always_inject_on_prompt (only for dynamic sources)
+        if let Some(config) = &self.claude_code_always_inject_on_prompt {
             if config.enabled {
                 for (idx, source) in config.context.iter().enumerate() {
                     // Only generate signals for dynamic sources (commands and files)
@@ -605,11 +609,11 @@ impl BuiltinsConfig {
             }
         }
 
-        // Add enforce_full_file_read config if enabled
-        if let Some(config) = &self.enforce_full_file_read {
+        // Add claude_code_enforce_full_file_read config if enabled
+        if let Some(config) = &self.claude_code_enforce_full_file_read {
             if config.enabled {
                 configs.insert(
-                    "enforce_full_file_read".to_string(),
+                    "claude_code_enforce_full_file_read".to_string(),
                     json!({
                         "message": config.message,
                         "max_lines": config.max_lines,
@@ -682,8 +686,8 @@ impl BuiltinsConfig {
             }
         }
 
-        // Add always_inject_on_prompt static strings if enabled
-        if let Some(config) = &self.always_inject_on_prompt {
+        // Add claude_code_always_inject_on_prompt static strings if enabled
+        if let Some(config) = &self.claude_code_always_inject_on_prompt {
             if config.enabled {
                 let mut static_contexts = Vec::new();
                 for source in &config.context {
@@ -693,7 +697,7 @@ impl BuiltinsConfig {
                 }
                 if !static_contexts.is_empty() {
                     configs.insert(
-                        "always_inject_on_prompt".to_string(),
+                        "claude_code_always_inject_on_prompt".to_string(),
                         json!({
                             "static_contexts": static_contexts,
                         }),
@@ -788,7 +792,7 @@ mod tests {
     fn test_builtins_config_parsing() {
         // Test with explicit enabled values
         let yaml = r#"
-always_inject_on_prompt:
+claude_code_always_inject_on_prompt:
   enabled: true
   context:
     - "Test context"
@@ -800,16 +804,16 @@ global_file_lock:
 
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
 
-        assert!(config.always_inject_on_prompt.as_ref().unwrap().enabled);
+        assert!(config.claude_code_always_inject_on_prompt.as_ref().unwrap().enabled);
         assert!(!config.global_file_lock.as_ref().unwrap().enabled);
-        assert_eq!(config.enabled_builtins(), vec!["always_inject_on_prompt"]);
+        assert_eq!(config.enabled_builtins(), vec!["claude_code_always_inject_on_prompt"]);
     }
 
     #[test]
     fn test_default_enabled() {
         // Test that builtins default to enabled when field is omitted
         let yaml = r#"
-always_inject_on_prompt:
+claude_code_always_inject_on_prompt:
   context:
     - "Test context"
 
@@ -822,11 +826,11 @@ git_pre_check:
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
 
         // Both should default to enabled=true
-        assert!(config.always_inject_on_prompt.as_ref().unwrap().enabled);
+        assert!(config.claude_code_always_inject_on_prompt.as_ref().unwrap().enabled);
         assert!(config.git_pre_check.as_ref().unwrap().enabled);
 
         let enabled = config.enabled_builtins();
-        assert!(enabled.contains(&"always_inject_on_prompt".to_string()));
+        assert!(enabled.contains(&"claude_code_always_inject_on_prompt".to_string()));
         assert!(enabled.contains(&"git_pre_check".to_string()));
     }
 
@@ -837,7 +841,7 @@ git_pre_check:
         assert!(config.validate().is_ok());
 
         // Test empty enabled builtin fails
-        config.always_inject_on_prompt = Some(AlwaysInjectConfig {
+        config.claude_code_always_inject_on_prompt = Some(AlwaysInjectConfig {
             enabled: true,
             context: vec![],
         });
@@ -847,7 +851,7 @@ git_pre_check:
         assert!(errors[0].contains("no context configured"));
 
         // Test invalid dynamic source
-        config.always_inject_on_prompt = Some(AlwaysInjectConfig {
+        config.claude_code_always_inject_on_prompt = Some(AlwaysInjectConfig {
             enabled: true,
             context: vec![ContextSource::Dynamic {
                 file: None,

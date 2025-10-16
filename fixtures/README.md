@@ -12,12 +12,12 @@ const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.ym
 
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../fixtures/claude/builtins/always_inject_on_prompt.rego");
+    include_str!("../../fixtures/claude/builtins/claude_code_always_inject_on_prompt.rego");
 // ... and all other builtins
 
 // Cursor builtin policies
 const CURSOR_ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../fixtures/cursor/builtins/always_inject_on_prompt.rego");
+    include_str!("../../fixtures/cursor/builtins/claude_code_always_inject_on_prompt.rego");
 // ... and all other builtins
 ```
 
@@ -31,14 +31,14 @@ fixtures/
 │   └── base-config.yml           # Template for rulebook.yml configuration
 ├── claude/
 │   ├── builtins/                 # Claude Code-compatible builtin policies
-│   │   ├── always_inject_on_prompt.rego
+│   │   ├── claude_code_always_inject_on_prompt.rego
 │   │   ├── global_file_lock.rego
 │   │   ├── git_pre_check.rego
 │   │   ├── post_edit_check.rego
 │   │   ├── rulebook_security_guardrails.rego
 │   │   ├── protected_paths.rego
 │   │   ├── git_block_no_verify.rego
-│   │   └── enforce_full_file_read.rego
+│   │   └── claude_code_enforce_full_file_read.rego
 │   └── system/
 │       └── evaluate.rego         # Claude system aggregation entrypoint
 ├── cursor/
@@ -66,7 +66,7 @@ fixtures/
 
 3. **Harness-Specific Deployment**:
    - Claude Code gets all 8 builtins + 3 global builtins
-   - Cursor gets 7 builtins (no `enforce_full_file_read` due to incompatibility) + 3 global builtins
+   - Cursor gets 7 builtins (no `claude_code_enforce_full_file_read` due to incompatibility) + 3 global builtins
 
 ### 4. **Test Usage**
 

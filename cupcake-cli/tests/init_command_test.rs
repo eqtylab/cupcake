@@ -96,8 +96,8 @@ fn test_init_creates_all_required_files() -> Result<()> {
         "policies/example.rego",
         // Claude harness files
         "policies/claude/system/evaluate.rego",
-        "policies/claude/builtins/always_inject_on_prompt.rego",
-        "policies/claude/builtins/enforce_full_file_read.rego",
+        "policies/claude/builtins/claude_code_always_inject_on_prompt.rego",
+        "policies/claude/builtins/claude_code_enforce_full_file_read.rego",
         "policies/claude/builtins/git_block_no_verify.rego",
         "policies/claude/builtins/git_pre_check.rego",
         "policies/claude/builtins/global_file_lock.rego",
@@ -106,7 +106,6 @@ fn test_init_creates_all_required_files() -> Result<()> {
         "policies/claude/builtins/rulebook_security_guardrails.rego",
         // Cursor harness files
         "policies/cursor/system/evaluate.rego",
-        "policies/cursor/builtins/always_inject_on_prompt.rego",
         "policies/cursor/builtins/git_block_no_verify.rego",
         "policies/cursor/builtins/git_pre_check.rego",
         "policies/cursor/builtins/global_file_lock.rego",
@@ -159,8 +158,8 @@ fn test_rulebook_yml_content() -> Result<()> {
 
     // Verify all four builtins are documented
     assert!(
-        content.contains("always_inject_on_prompt:"),
-        "rulebook.yml should document always_inject_on_prompt builtin"
+        content.contains("claude_code_always_inject_on_prompt:"),
+        "rulebook.yml should document claude_code_always_inject_on_prompt builtin"
     );
     assert!(
         content.contains("global_file_lock:"),
@@ -177,7 +176,7 @@ fn test_rulebook_yml_content() -> Result<()> {
 
     // Verify examples are commented out
     assert!(
-        content.contains("# always_inject_on_prompt:"),
+        content.contains("# claude_code_always_inject_on_prompt:"),
         "Builtin examples should be commented out by default"
     );
 
@@ -295,16 +294,16 @@ fn test_builtin_policies_content() -> Result<()> {
         "post_edit_check.rego should have correct package"
     );
 
-    // Test always_inject_on_prompt.rego
-    let inject_path = builtins_dir.join("always_inject_on_prompt.rego");
+    // Test claude_code_always_inject_on_prompt.rego
+    let inject_path = builtins_dir.join("claude_code_always_inject_on_prompt.rego");
     let content = fs::read_to_string(&inject_path)?;
     assert!(
-        content.contains("package cupcake.policies.builtins.always_inject_on_prompt"),
-        "always_inject_on_prompt.rego should have correct package"
+        content.contains("package cupcake.policies.builtins.claude_code_always_inject_on_prompt"),
+        "claude_code_always_inject_on_prompt.rego should have correct package"
     );
     assert!(
         content.contains("add_context contains"),
-        "always_inject_on_prompt.rego should use add_context verb"
+        "claude_code_always_inject_on_prompt.rego should use add_context verb"
     );
 
     // Test protected_paths.rego
@@ -526,15 +525,15 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 19 files in harness-specific structure:
+    // We should have exactly 18 files in harness-specific structure:
     // - 1 rulebook.yml
     // - 1 example.rego
     // - Claude: 1 evaluate.rego + 8 builtins = 9 files
-    // - Cursor: 1 evaluate.rego + 7 builtins = 8 files
-    // Total: 1 + 1 + 9 + 8 = 19 files
+    // - Cursor: 1 evaluate.rego + 6 builtins = 7 files (no always_inject_on_prompt)
+    // Total: 1 + 1 + 9 + 7 = 18 files
     assert_eq!(
-        file_count, 19,
-        "Should have exactly 19 files (1 rulebook + 1 example + 9 claude + 8 cursor)"
+        file_count, 18,
+        "Should have exactly 18 files (1 rulebook + 1 example + 9 claude + 7 cursor)"
     );
 
     // We should have exactly 9 directories:

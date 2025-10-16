@@ -82,13 +82,14 @@ actions:
 
 builtins:
   # ---------------------------------------------------------------------------
-  # ALWAYS_INJECT_ON_PROMPT - Add context to every user prompt
+  # CLAUDE_CODE_ALWAYS_INJECT_ON_PROMPT - Add context to every user prompt (Claude Code only)
   # ---------------------------------------------------------------------------
   # Inject additional context with every user interaction. Useful for project
   # guidelines, current state awareness, or team conventions.
   # Note: Builtins are enabled by default when configured. Use 'enabled: false' to disable.
-  
-  # always_inject_on_prompt:
+  # Note: This builtin only works with Claude Code due to context injection support.
+
+  # claude_code_always_inject_on_prompt:
   #   # enabled: true  # Optional - defaults to true when configured
   #   context:
   #     # Static text context
@@ -179,13 +180,14 @@ builtins:
     #   - "CI_ENVIRONMENT"
   
   # ---------------------------------------------------------------------------
-  # ENFORCE_FULL_FILE_READ - Require complete file reads
+  # CLAUDE_CODE_ENFORCE_FULL_FILE_READ - Require complete file reads (Claude Code only)
   # ---------------------------------------------------------------------------
   # Ensures Claude reads entire files (up to a configurable limit) before
   # processing. Prevents partial reads that might miss important context.
   # Files larger than max_lines can still use offset/limit parameters.
-  
-  # enforce_full_file_read:
+  # Note: This builtin only works with Claude Code.
+
+  # claude_code_enforce_full_file_read:
   #   enabled: true
   #   max_lines: 2000  # Files under this size must be read completely
   #   message: "Please read the entire file first (files under 2000 lines must be read completely)"

@@ -1166,7 +1166,7 @@ async fn init_project_config(
         // Deploy harness-specific builtin policies
         // Claude Code builtins - all builtins available
         let claude_builtins = vec![
-            ("always_inject_on_prompt.rego", CLAUDE_ALWAYS_INJECT_POLICY),
+            ("claude_code_always_inject_on_prompt.rego", CLAUDE_ALWAYS_INJECT_POLICY),
             ("global_file_lock.rego", CLAUDE_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CLAUDE_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CLAUDE_POST_EDIT_CHECK_POLICY),
@@ -1177,7 +1177,7 @@ async fn init_project_config(
             ("protected_paths.rego", CLAUDE_PROTECTED_PATHS_POLICY),
             ("git_block_no_verify.rego", CLAUDE_GIT_BLOCK_NO_VERIFY_POLICY),
             (
-                "enforce_full_file_read.rego",
+                "claude_code_enforce_full_file_read.rego",
                 CLAUDE_ENFORCE_FULL_FILE_READ_POLICY,
             ),
         ];
@@ -1188,9 +1188,8 @@ async fn init_project_config(
                 .with_context(|| format!("Failed to create Claude builtin: {}", filename))?;
         }
 
-        // Cursor builtins - only compatible ones (no enforce_full_file_read)
+        // Cursor builtins - only compatible ones (no always_inject or enforce_full_file_read)
         let cursor_builtins = vec![
-            ("always_inject_on_prompt.rego", CURSOR_ALWAYS_INJECT_POLICY),
             ("global_file_lock.rego", CURSOR_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CURSOR_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CURSOR_POST_EDIT_CHECK_POLICY),
@@ -1733,7 +1732,7 @@ const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.ym
 
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../fixtures/claude/builtins/always_inject_on_prompt.rego");
+    include_str!("../../fixtures/claude/builtins/claude_code_always_inject_on_prompt.rego");
 const CLAUDE_GLOBAL_FILE_LOCK_POLICY: &str =
     include_str!("../../fixtures/claude/builtins/global_file_lock.rego");
 const CLAUDE_GIT_PRE_CHECK_POLICY: &str =
@@ -1747,11 +1746,10 @@ const CLAUDE_PROTECTED_PATHS_POLICY: &str =
 const CLAUDE_GIT_BLOCK_NO_VERIFY_POLICY: &str =
     include_str!("../../fixtures/claude/builtins/git_block_no_verify.rego");
 const CLAUDE_ENFORCE_FULL_FILE_READ_POLICY: &str =
-    include_str!("../../fixtures/claude/builtins/enforce_full_file_read.rego");
+    include_str!("../../fixtures/claude/builtins/claude_code_enforce_full_file_read.rego");
 
 // Cursor builtin policies (only compatible ones)
-const CURSOR_ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../fixtures/cursor/builtins/always_inject_on_prompt.rego");
+// Note: Cursor doesn't have always_inject_on_prompt (Claude Code only)
 const CURSOR_GLOBAL_FILE_LOCK_POLICY: &str =
     include_str!("../../fixtures/cursor/builtins/global_file_lock.rego");
 const CURSOR_GIT_PRE_CHECK_POLICY: &str =

@@ -621,7 +621,7 @@ builtins:
   cupcake_exec_protection:
     enabled: true
 
-  enforce_full_file_read:
+  claude_code_enforce_full_file_read:
     enabled: true
     max_lines: 2000
 ```

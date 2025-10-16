@@ -436,8 +436,8 @@ All built-in policies are implemented for both harnesses with harness-specific l
 | `sensitive_data_protection` | ✅ Yes | ✅ Yes | Blocks SSH keys, credentials |
 | `cupcake_exec_protection` | ✅ Yes | ✅ Yes | Prevents cupcake manipulation |
 | `global_file_lock` | ✅ Yes | ✅ Yes | Blocks all file modifications |
-| `enforce_full_file_read` | ✅ Yes | ✅ Yes | Requires full file reads |
-| `always_inject_on_prompt` | ✅ Yes | ✅ Yes | Adds context to prompts |
+| `claude_code_enforce_full_file_read` | ✅ Yes | ✅ Yes | Requires full file reads |
+| `claude_code_always_inject_on_prompt` | ✅ Yes | ✅ Yes | Adds context to prompts |
 | `git_pre_check` | ✅ Yes | ✅ Yes | Validates before git operations |
 | `post_edit_check` | ✅ Yes | ✅ Yes | Validates after edits |
 | `rulebook_security_guardrails` | ✅ Yes | ✅ Yes | Protects .cupcake directory |

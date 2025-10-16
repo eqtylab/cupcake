@@ -1,4 +1,6 @@
-# Cupcake Policy Engine - Cursor Interactive Walkthrough
+# Cupcake - Welcome Walkthrough (Cursor)
+
+Cupcake has native support for [Cursor Agent](https://cursor.com/agents). Thank you to the Cursor team for enabling this integration by maintaining [Hooks](https://cursor.com/docs/agent/hooks)!
 
 This walkthrough demonstrates Cupcake's policy enforcement in action with Cursor hooks.
 
@@ -37,11 +39,13 @@ _These are development requirements. The production software will manage these d
 Run the setup script:
 
 **Unix/macOS/Linux:**
+
 ```bash
 ./setup.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
@@ -63,11 +67,13 @@ This runs `cupcake init --harness cursor`, and some scaffolding to create:
 ♻️ Reset anytime with:
 
 **Unix/macOS/Linux:**
+
 ```bash
 ./cleanup.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File cleanup.ps1
 ```
@@ -316,13 +322,13 @@ Explore the policy files in `.cupcake/policies/cursor/` to understand how this p
 
 ## Differences from Claude Code
 
-| Feature | Cursor | Claude Code |
-|---------|--------|-------------|
-| Hook configuration | `~/.cursor/hooks.json` | `.claude/settings.json` |
-| Event format | `beforeShellExecution` | `PreToolUse` |
-| Agent feedback | Separate `userMessage`/`agentMessage` | Single `stopReason` |
-| File content access | Direct in event | Via tool response |
-| Context injection | Not supported | `additionalContext` |
+| Feature             | Cursor                                | Claude Code             |
+| ------------------- | ------------------------------------- | ----------------------- |
+| Hook configuration  | `~/.cursor/hooks.json`                | `.claude/settings.json` |
+| Event format        | `beforeShellExecution`                | `PreToolUse`            |
+| Agent feedback      | Separate `userMessage`/`agentMessage` | Single `stopReason`     |
+| File content access | Direct in event                       | Via tool response       |
+| Context injection   | Not supported                         | `additionalContext`     |
 
 See [Harness Comparison](../../docs/user-guide/harnesses/harness-comparison.md) for full details.
 
@@ -338,9 +344,7 @@ Check `~/.cursor/hooks.json` exists and contains:
 {
   "version": 1,
   "hooks": {
-    "beforeShellExecution": [
-      { "command": "cupcake eval --harness cursor" }
-    ]
+    "beforeShellExecution": [{ "command": "cupcake eval --harness cursor" }]
   }
 }
 ```

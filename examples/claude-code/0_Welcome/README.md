@@ -1,4 +1,8 @@
-# Cupcake Policy Engine - Interactive Walkthrough
+# Cupcake - Welcome Walkthrough (Claude Code)
+
+Cupcake has native support for [Claude Code](https://www.claude.com/product/claude-code). Thank you to the Claude Code team for enabling this integration by maintaining [Hooks](https://docs.claude.com/en/docs/claude-code/hooks)!
+
+> Fun fact: The cupcake team issued the [original feature request for Hooks in Claude Code](https://github.com/anthropics/claude-code/issues/712)!
 
 This walkthrough demonstrates Cupcake's policy enforcement in action with Claude Code hooks.
 
@@ -37,11 +41,13 @@ _These are development requirements. The production software will manage these d
 Run the setup script:
 
 **Unix/macOS/Linux:**
+
 ```bash
 ./setup.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
@@ -62,11 +68,13 @@ This runs `cupcake init`, and some scaffolding to create:
 ♻️ Reset anytime with:
 
 **Unix/macOS/Linux:**
+
 ```bash
 ./cleanup.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File cleanup.ps1
 ```

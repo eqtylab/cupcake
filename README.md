@@ -21,6 +21,8 @@
 
 Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **Open Policy Agent (OPA) Rego**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
 
+Cupcake is developed by @eqtylab and in collaboration with @trailofbits.
+
 ## Why Cupcake?
 
 Modern agents are powerful but inconsistent at following operational and security rules, especially as prompts grow. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
@@ -45,10 +47,10 @@ Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 
 Cupcake provides native integrations for multiple AI coding agents:
 
-| Harness | Status | Integration Guide |
-|---------|--------|-------------------|
+| Harness                                   | Status             | Integration Guide                                         |
+| ----------------------------------------- | ------------------ | --------------------------------------------------------- |
 | **[Claude Code](https://claude.ai/code)** | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md) |
-| **[Cursor](https://cursor.com)** | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md) |
+| **[Cursor](https://cursor.com)**          | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)      |
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
 
@@ -80,7 +82,7 @@ Cupcake policies can influence agents in two primary ways:
 
 - **Feedback (when blocking)**: When a policy blocks an action, you can provide explanatory messages that help the agent understand what went wrong and how to fix it. For Cursor, policies can provide separate messages for users (`reason`) and agents (`agent_context`) to optimize both experiences.
 
-- **Context injection (when allowing)**: Claude Code supports injecting additional context alongside allowed actions (e.g., "Remember: you're on the main branch"). This helps guide agent behavior without blocking. *Note: Cursor does not support context injection.*
+- **Context injection (when allowing)**: Claude Code supports injecting additional context alongside allowed actions (e.g., "Remember: you're on the main branch"). This helps guide agent behavior without blocking. _Note: Cursor does not support context injection._
 
 See [Writing Policies](./docs/user-guide/policies/writing-policies.md) for details on using these capabilities.
 

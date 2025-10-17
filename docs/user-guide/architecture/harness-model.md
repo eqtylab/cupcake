@@ -2,6 +2,8 @@
 
 Cupcake uses a **harness-specific architecture** that provides first-class support for multiple AI coding agents (Claude Code, Cursor, etc.) without compromising on simplicity or power.
 
+[https://excalidraw.com/#room=2331833bcb24d9f35a25,-TMNhQhHqtWayRMJam4ZIg](https://excalidraw.com/#room=2331833bcb24d9f35a25,-TMNhQhHqtWayRMJam4ZIg)
+
 ## Overview
 
 A **harness** in Cupcake refers to the AI coding agent platform that invokes policy evaluation. Each harness has:
@@ -29,6 +31,7 @@ cupcake eval < event.json  # ERROR: --harness flag required
 ```
 
 **Why?** Explicit harness selection:
+
 - Eliminates debugging confusion ("which event format is this?")
 - Prevents subtle bugs from mis-detection
 - Makes the data flow transparent
@@ -49,6 +52,7 @@ Events flow through Cupcake in their **native format** - no translation or norma
 ```
 
 **Example: Cursor Event (Unchanged)**
+
 ```json
 {
   "hook_event_name": "beforeShellExecution",
@@ -60,6 +64,7 @@ Events flow through Cupcake in their **native format** - no translation or norma
 This native event is passed directly to the policy. No `tool_name` translation. No `tool_input` wrapping.
 
 **Benefits:**
+
 - Policies can access **100% of event data** (no information loss)
 - Debugging is straightforward (input JSON == what policy sees)
 - New harnesses are easier to add (no normalization layer to maintain)
@@ -89,6 +94,7 @@ cupcake eval --harness cursor
 ```
 
 **Benefits:**
+
 - No policy conflicts between harnesses
 - Clear organization
 - Easy to see which rules apply to which agent
@@ -132,6 +138,7 @@ enum HarnessType {
 Each harness has dedicated event structures matching its native JSON format:
 
 **Cursor Example:**
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "hook_event_name")]
@@ -154,6 +161,7 @@ pub struct BeforeShellExecutionPayload {
 ```
 
 **Claude Code Example:**
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "hook_event_name")]
@@ -211,6 +219,7 @@ The engine output is **harness-agnostic** (standard decision types).
 Each harness has response builders that translate generic decisions into harness-specific JSON:
 
 **Cursor Response Builder:**
+
 ```rust
 impl CursorResponseBuilder {
     pub fn build_response(
@@ -235,6 +244,7 @@ impl CursorResponseBuilder {
 ```
 
 **Claude Code Response Builder:**
+
 ```rust
 impl ClaudeHarness {
     pub fn format_response(
@@ -317,6 +327,7 @@ Here's the complete flow for a Cursor event:
 Policies are written for a **specific harness**, accessing native event fields:
 
 **Cursor Policy:** `.cupcake/policies/cursor/block_rm.rego`
+
 ```rego
 package cursor.policies.block_rm
 
@@ -328,6 +339,7 @@ deny contains decision if {
 ```
 
 **Claude Policy:** `.cupcake/policies/claude/block_rm.rego`
+
 ```rego
 package claude.policies.block_rm
 
@@ -343,6 +355,7 @@ deny contains decision if {
 To reduce duplication, extract common logic into shared modules:
 
 **Common Module:** `.cupcake/policies/common/utils.rego`
+
 ```rego
 package common.utils
 
@@ -354,6 +367,7 @@ is_dangerous_rm_command(cmd) {
 ```
 
 **Cursor Policy (Using Shared):**
+
 ```rego
 package cursor.policies.block_rm
 import data.common.utils.is_dangerous_rm_command
@@ -366,6 +380,7 @@ deny contains decision if {
 ```
 
 **Claude Policy (Using Shared):**
+
 ```rego
 package claude.policies.block_rm
 import data.common.utils.is_dangerous_rm_command
@@ -378,6 +393,7 @@ deny contains decision if {
 ```
 
 This pattern:
+
 - Avoids duplication of business logic
 - Maintains harness-specific field access
 - Makes policies easier to maintain
@@ -436,6 +452,7 @@ The architecture makes adding new harnesses straightforward:
 5. **Implement `HarnessConfig` trait** for `cupcake init` support
 
 No changes needed to:
+
 - The engine core
 - Existing harness implementations
 - The routing system
@@ -491,14 +508,14 @@ No changes needed to:
 
 An alternative architecture would normalize all events to a common format. Here's why we didn't:
 
-| Aspect | Normalization | Harness-Specific (Cupcake) |
-|--------|---------------|----------------------------|
-| Event access | Limited to normalized fields | Full native event access |
-| Debugging | "What got normalized to what?" | Input JSON == policy input |
-| Performance | Translation overhead | Direct pass-through |
-| Maintainability | Normalization layer to maintain | Independent harness modules |
-| Feature parity | Limited by common denominator | Each harness's full feature set |
-| Policy portability | High (same policy for all) | Medium (shared modules pattern) |
+| Aspect             | Normalization                   | Harness-Specific (Cupcake)      |
+| ------------------ | ------------------------------- | ------------------------------- |
+| Event access       | Limited to normalized fields    | Full native event access        |
+| Debugging          | "What got normalized to what?"  | Input JSON == policy input      |
+| Performance        | Translation overhead            | Direct pass-through             |
+| Maintainability    | Normalization layer to maintain | Independent harness modules     |
+| Feature parity     | Limited by common denominator   | Each harness's full feature set |
+| Policy portability | High (same policy for all)      | Medium (shared modules pattern) |
 
 The harness-specific model trades some portability for **simplicity, power, and debuggability**.
 
@@ -516,6 +533,7 @@ The harness-specific model trades some portability for **simplicity, power, and 
 ## Technical Deep Dive
 
 For implementation details, see:
+
 - [Developer: Policy Routing System](../../developer/policy-routing-system.md)
 - [Source: Event Structures](https://github.com/eqtylab/cupcake/tree/main/cupcake-core/src/harness/events)
 - [Source: Response Builders](https://github.com/eqtylab/cupcake/tree/main/cupcake-core/src/harness/response)

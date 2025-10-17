@@ -142,6 +142,10 @@ struct Cli {
     /// Override OPA binary path
     #[clap(long, global = true)]
     opa_path: Option<PathBuf>,
+
+    /// Override debug output directory (default: .cupcake/debug)
+    #[clap(long, global = true)]
+    debug_dir: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -330,7 +334,7 @@ async fn main() -> Result<()> {
                 debug_routing: cli.debug_routing,
             };
 
-            eval_command(policy_dir, strict, cli.debug_files, engine_config).await
+            eval_command(policy_dir, strict, cli.debug_files, cli.debug_dir, engine_config).await
         }
         Command::Verify { harness, policy_dir } => verify_command(harness.into(), policy_dir).await,
         Command::Init {
@@ -352,6 +356,7 @@ async fn eval_command(
     policy_dir: PathBuf,
     strict: bool,
     debug_files_enabled: bool,
+    debug_dir: Option<PathBuf>,
     engine_config: engine::EngineConfig,
 ) -> Result<()> {
     debug!(
@@ -414,6 +419,7 @@ async fn eval_command(
             hook_event_json.clone(),
             trace_id,
             true, // enabled
+            debug_dir.clone(),
         ))
     } else {
         None

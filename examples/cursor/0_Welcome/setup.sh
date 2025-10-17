@@ -36,34 +36,39 @@ echo "✅ Added cupcake to PATH for this session"
 cd examples/cursor/0_Welcome
 
 # Initialize Cupcake project with Cursor harness
-echo "Initializing Cupcake project for Cursor..."
+# This creates both claude/ and cursor/ subdirectories (allowing dual-harness usage)
+# and automatically configures hooks at ~/.cursor/hooks.json
+echo "Initializing Cupcake project..."
 cupcake init --harness cursor
-echo "✅ Project initialized with Cursor harness"
+echo "✅ Cupcake project initialized"
 
 # Copy Cursor-specific example policies from fixtures
+# These are demo policies specific to this walkthrough
 echo "Copying Cursor-specific example policies..."
-mkdir -p .cupcake/policies/cursor
 cp ../../fixtures/cursor/security_policy.rego .cupcake/policies/cursor/
 cp ../../fixtures/cursor/file_protection.rego .cupcake/policies/cursor/
 cp ../../fixtures/cursor/mcp_protection.rego .cupcake/policies/cursor/
 cp ../../fixtures/cursor/prompt_filter.rego .cupcake/policies/cursor/
 echo "✅ Cursor-specific policies copied"
 
-# Copy system aggregation policy
-echo "Copying system aggregation policy..."
-mkdir -p .cupcake/policies/system
-cp ../../fixtures/system/evaluate.rego .cupcake/policies/system/
-echo "✅ System policy copied"
+# No need to manually compile policies - the engine compiles them automatically
+# The engine only compiles .cupcake/policies/cursor/ when --harness cursor is used
+echo "✅ Policies ready (engine will compile on first run)"
 
-# Compile policies to WASM
-echo "Compiling policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
-echo "✅ Policies compiled to bundle.tar.gz"
-
-# Create Cursor hooks configuration
-echo "Setting up Cursor hooks integration..."
+# Override hooks configuration to use absolute paths and enable logging
+# (cupcake init already configured hooks, but we want absolute paths to both
+# the binary, policy directory, OPA, and debug dir since Cursor doesn't inherit shell environment)
+echo "Configuring Cursor hooks with absolute paths..."
 CUPCAKE_PATH="$(realpath ../../../target/release/cupcake)"
+POLICY_DIR="$(pwd)/.cupcake"
+OPA_PATH="$(which opa)"
+DEBUG_DIR="$(pwd)/.cupcake/debug"
 HOOKS_FILE="$HOME/.cursor/hooks.json"
+
+echo "   Cupcake binary: $CUPCAKE_PATH"
+echo "   Policy directory: $POLICY_DIR"
+echo "   OPA binary: $OPA_PATH"
+echo "   Debug directory: $DEBUG_DIR"
 
 # Create .cursor directory if it doesn't exist
 mkdir -p "$HOME/.cursor"
@@ -74,39 +79,39 @@ if [ -f "$HOOKS_FILE" ]; then
     cp "$HOOKS_FILE" "$HOOKS_FILE.backup.$(date +%Y%m%d_%H%M%S)"
 fi
 
-# Create Cursor hooks configuration
+# Create Cursor hooks configuration with absolute paths and debug enabled
 cat > "$HOOKS_FILE" << EOF
 {
   "version": 1,
   "hooks": {
     "beforeShellExecution": [
       {
-        "command": "$CUPCAKE_PATH eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_PATH eval --harness cursor --policy-dir $POLICY_DIR --opa-path $OPA_PATH --debug-dir $DEBUG_DIR --log-level info --debug-files"
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "$CUPCAKE_PATH eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_PATH eval --harness cursor --policy-dir $POLICY_DIR --opa-path $OPA_PATH --debug-dir $DEBUG_DIR --log-level info --debug-files"
       }
     ],
     "afterFileEdit": [
       {
-        "command": "$CUPCAKE_PATH eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_PATH eval --harness cursor --policy-dir $POLICY_DIR --opa-path $OPA_PATH --debug-dir $DEBUG_DIR --log-level info --debug-files"
       }
     ],
     "beforeReadFile": [
       {
-        "command": "$CUPCAKE_PATH eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_PATH eval --harness cursor --policy-dir $POLICY_DIR --opa-path $OPA_PATH --debug-dir $DEBUG_DIR --log-level info --debug-files"
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": "$CUPCAKE_PATH eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_PATH eval --harness cursor --policy-dir $POLICY_DIR --opa-path $OPA_PATH --debug-dir $DEBUG_DIR --log-level info --debug-files"
       }
     ],
     "stop": [
       {
-        "command": "$CUPCAKE_PATH eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_PATH eval --harness cursor --policy-dir $POLICY_DIR --opa-path $OPA_PATH --debug-dir $DEBUG_DIR --log-level info --debug-files"
       }
     ]
   }
@@ -159,7 +164,7 @@ echo "   - 'read my SSH key' (blocks sensitive file access)"
 echo "   - 'run sudo apt update' (blocks sudo with guidance)"
 echo ""
 echo "Test policies manually:"
-echo "cupcake eval --harness cursor < test-events/shell-rm.json"
+echo "cupcake eval --harness cursor --policy-dir .cupcake < test-events/shell-rm.json"
 echo ""
 echo "View active policies:"
-echo "cupcake inspect --harness cursor"
+echo "cupcake inspect --policy-dir .cupcake --table"

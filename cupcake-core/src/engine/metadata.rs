@@ -155,8 +155,9 @@ pub fn validate_routing_directive(directive: &RoutingDirective, package_name: &s
         ));
     }
 
-    // Validate known Claude Code event types
+    // Validate known event types (both Claude Code and Cursor harness)
     let valid_events = [
+        // Claude Code events
         "PreToolUse",
         "PostToolUse",
         "UserPromptSubmit",
@@ -165,6 +166,13 @@ pub fn validate_routing_directive(directive: &RoutingDirective, package_name: &s
         "Notification",
         "PreCompact",
         "SessionStart",
+        // Cursor events
+        "beforeShellExecution",
+        "beforeMCPExecution",
+        "afterFileEdit",
+        "beforeReadFile",
+        "beforeSubmitPrompt",
+        "stop",
     ];
 
     for event in &directive.required_events {

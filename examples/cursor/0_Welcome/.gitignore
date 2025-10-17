@@ -1,12 +1,14 @@
-# Cupcake
-.cupcake/debug/
-.cupcake/trust/
+# Cupcake generated files (created by setup.sh)
+.cupcake/
 bundle.tar.gz
 
-# Test artifacts
+# Test artifacts (created by setup.sh)
 test-events/
 screenshots/*.png
 screenshots/*.jpg
+
+# Bug: $(pwd) directory created by shell expansion error
+$(pwd)/
 
 # IDE
 .idea/

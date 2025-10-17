@@ -100,15 +100,15 @@ impl HarnessConfig for CursorHarness {
         "Cursor"
     }
 
-    fn settings_path(&self, global: bool) -> PathBuf {
-        if global {
-            dirs::home_dir()
-                .unwrap_or_else(|| PathBuf::from("~"))
-                .join(".cursor")
-                .join("hooks.json")
-        } else {
-            Path::new(".cursor").join("hooks.json")
-        }
+    fn settings_path(&self, _global: bool) -> PathBuf {
+        // Cursor hooks MUST always be in ~/.cursor/hooks.json (global)
+        // Cursor does not support project-level hooks like Claude Code does.
+        // The hooks are always read from the user's home directory.
+        // Reference: https://cursor.com/docs/agent/hooks.md
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("~"))
+            .join(".cursor")
+            .join("hooks.json")
     }
 
     fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
@@ -124,7 +124,7 @@ impl HarnessConfig for CursorHarness {
         };
 
         // Cursor's hook configuration format - official hooks.json structure
-        // Reference: https://docs.cursor.com/context/rules/hooks
+        // Reference: https://cursor.com/docs/agent/hooks.md
         Ok(json!({
             "version": 1,
             "hooks": {
@@ -303,8 +303,10 @@ pub async fn configure_harness(
                 println!("   - Added beforeSubmitPrompt hook for prompt validation");
                 println!("   - Added stop hook for cleanup");
                 println!();
-                println!("   {} will now evaluate all actions against your Cupcake policies.",
-                    harness.name());
+                println!(
+                    "   {} will now evaluate all actions against your Cupcake policies.",
+                    harness.name()
+                );
             }
         }
     }
@@ -371,7 +373,9 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     eprintln!("         \"matcher\": \"*\",");
     eprintln!("         \"hooks\": [{{");
     eprintln!("           \"type\": \"command\",");
-    eprintln!("           \"command\": \"cupcake eval --harness claude --policy-dir {policy_path}\"");
+    eprintln!(
+        "           \"command\": \"cupcake eval --harness claude --policy-dir {policy_path}\""
+    );
     eprintln!("         }}]");
     eprintln!("       }}]");
     eprintln!("     }}");
@@ -387,11 +391,8 @@ fn print_cursor_manual_instructions(policy_dir: &Path, global: bool) {
         ".cupcake".to_string()
     };
 
-    let settings_path = if global {
-        "~/.cursor/hooks.json"
-    } else {
-        ".cursor/hooks.json"
-    };
+    // Cursor hooks are always in ~/.cursor/hooks.json
+    let settings_path = "~/.cursor/hooks.json";
 
     eprintln!();
     eprintln!("   To manually configure, add this to your {settings_path}:");

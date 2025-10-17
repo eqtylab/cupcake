@@ -48,26 +48,28 @@ The `init` command automatically configures Cursor by adding hooks to `~/.cursor
   "version": 1,
   "hooks": {
     "beforeShellExecution": [
-      { "command": "cupcake eval --harness cursor" }
+      { "command": "cupcake eval --harness cursor --policy-dir .cupcake" }
     ],
     "beforeMCPExecution": [
-      { "command": "cupcake eval --harness cursor" }
+      { "command": "cupcake eval --harness cursor --policy-dir .cupcake" }
     ],
     "afterFileEdit": [
-      { "command": "cupcake eval --harness cursor" }
+      { "command": "cupcake eval --harness cursor --policy-dir .cupcake" }
     ],
     "beforeReadFile": [
-      { "command": "cupcake eval --harness cursor" }
+      { "command": "cupcake eval --harness cursor --policy-dir .cupcake" }
     ],
     "beforeSubmitPrompt": [
-      { "command": "cupcake eval --harness cursor" }
+      { "command": "cupcake eval --harness cursor --policy-dir .cupcake" }
     ],
     "stop": [
-      { "command": "cupcake eval --harness cursor" }
+      { "command": "cupcake eval --harness cursor --policy-dir .cupcake" }
     ]
   }
 }
 ```
+
+**Important**: While Cursor can sometimes resolve relative paths like `.cupcake` from the workspace root, this behavior is not guaranteed (Cursor may spawn hooks with empty working directory `cwd=""`). For reliable production setups, use absolute paths as shown in the [Troubleshooting](#troubleshooting) section.
 
 ### 4. Start Using Cursor
 
@@ -242,11 +244,14 @@ Cursor policies access event data differently than Claude Code:
 
 | Field | Claude Code | Cursor |
 |-------|-------------|--------|
-| Event type | `input.hook_event_name` (camelCase) | `input.hook_event_name` (camelCase) |
+| Event type | `PreToolUse`, `PostToolUse`, `UserPromptSubmit` | `beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt` |
+| Hook field name | `input.hook_event_name` (camelCase) | `input.hook_event_name` (camelCase) |
 | Shell command | `input.tool_input.command` | `input.command` |
 | File path | `input.tool_input.file_path` | `input.file_path` |
 | File content | N/A | `input.file_content` |
 | Prompt | `input.prompt` | `input.prompt` |
+
+**Note**: Cupcake validates both Claude Code and Cursor event names in policy metadata, so you won't see warnings regardless of which harness you're targeting.
 
 **Example: Same policy for both harnesses**
 
@@ -476,7 +481,14 @@ Create a test event file `test-event.json`:
 Run evaluation:
 
 ```bash
+# Basic evaluation
 cupcake eval --harness cursor < test-event.json
+
+# With policy directory specified
+cupcake eval --harness cursor --policy-dir .cupcake < test-event.json
+
+# With debug output
+cupcake eval --harness cursor --policy-dir .cupcake --debug-files --debug-dir .cupcake/debug < test-event.json
 ```
 
 Expected output:
@@ -494,11 +506,52 @@ Expected output:
 cupcake eval --harness cursor --debug-files < test-event.json
 ```
 
-This creates `.cupcake/debug/` with detailed evaluation logs.
+This creates `.cupcake/debug/` with detailed evaluation logs showing:
+- Routing decisions (which policies matched)
+- Signal execution results
+- WASM evaluation output
+- Final synthesized decision
+- Response sent to Cursor
+
+**Specify custom debug directory:**
+```bash
+cupcake eval --harness cursor --debug-files --debug-dir /tmp/cupcake-debug < test-event.json
+```
+
+The `--debug-dir` flag is useful when:
+- Testing from a different working directory
+- Using absolute paths in production setups
+- Debugging hook execution issues
 
 ---
 
 ## Troubleshooting
+
+### Debug Files Not Created
+
+If `--debug-files` is enabled but no debug output appears in `.cupcake/debug/`:
+
+**Problem**: Cursor spawns hooks with an empty working directory (`cwd=""`), causing relative paths to fail.
+
+**Solution**: Use absolute paths for production setups:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [{
+      "command": "/usr/local/bin/cupcake eval --harness cursor --policy-dir /home/user/myproject/.cupcake --debug-dir /home/user/myproject/.cupcake/debug --debug-files"
+    }]
+  }
+}
+```
+
+**Key flags for absolute path setups:**
+- `--policy-dir`: Absolute path to `.cupcake` directory
+- `--debug-dir`: Absolute path to debug output directory
+- `--opa-path`: Absolute path to OPA binary (if not in PATH)
+
+See `examples/cursor/0_Welcome/setup.sh` for a complete production setup example.
 
 ### Cursor Isn't Calling Cupcake
 
@@ -510,8 +563,9 @@ cat ~/.cursor/hooks.json
 **Verify hook configuration:**
 - Ensure `version` field is set to `1`
 - Verify `hooks` object exists with event arrays
-- Check that command paths are correct
+- Check that command paths are correct (use absolute paths if relative paths fail)
 - Ensure `--harness cursor` flag is present
+- Confirm `--policy-dir` points to correct location
 
 ### Policies Not Loading
 

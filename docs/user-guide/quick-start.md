@@ -6,21 +6,21 @@ Get Cupcake running with your AI coding agent by choosing your platform below.
 
 Cupcake integrates with two AI coding agents:
 
-### 🤖 Claude Code (Anthropic)
+### Claude Code (Anthropic)
 - **Best for**: Command-line workflows, integrated development
 - **Integration**: Claude CLI with hooks system
 - **Events**: PreToolUse, PostToolUse, UserPromptSubmit, and more
 - **Context injection**: Full support for adding guidance to agent context
 
-👉 [**Get Started with Claude Code**](./harnesses/claude-code.md)
+[**Get Started with Claude Code**](./harnesses/claude-code.md)
 
-### 🎯 Cursor (Cursor.com)
+### Cursor (Cursor.com)
 - **Best for**: VS Code-style editor experience
 - **Integration**: Global hooks at `~/.cursor/hooks.json`
 - **Events**: beforeShellExecution, afterFileEdit, beforeReadFile, and more
 - **Agent feedback**: Separate messages for users and AI agent
 
-👉 [**Get Started with Cursor**](./harnesses/cursor.md)
+[**Get Started with Cursor**](./harnesses/cursor.md)
 
 ---
 
@@ -41,7 +41,7 @@ cd examples/claude-code/0_Welcome
 - Git workflow enforcement
 - Debug file analysis
 
-📖 [Claude Code Example README](../../examples/claude-code/0_Welcome/README.md)
+[Claude Code Example README](../../examples/claude-code/0_Welcome/README.md)
 
 ### Cursor Walkthrough
 ```bash
@@ -57,7 +57,7 @@ cd examples/cursor/0_Welcome
 - Prompt filtering
 - Debug file analysis
 
-📖 [Cursor Example README](../../examples/cursor/0_Welcome/README.md)
+[Cursor Example README](../../examples/cursor/0_Welcome/README.md)
 
 ---
 
@@ -188,8 +188,8 @@ For detailed troubleshooting, see your platform's integration guide:
 
 ## Getting Help
 
-- 📖 [Full Documentation](../README.md)
-- 💬 [GitHub Issues](https://github.com/eqtylab/cupcake-rego/issues)
-- 🔍 [Examples Directory](../../examples/)
+- [Full Documentation](../README.md)
+- [GitHub Issues](https://github.com/eqtylab/cupcake-rego/issues)
+- [Examples Directory](../../examples/)
 
-**You're ready to start building intelligent policies for your AI agent!** 🎉
+You're ready to start building intelligent policies for your AI agent!

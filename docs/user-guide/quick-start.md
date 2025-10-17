@@ -1,156 +1,195 @@
-# Quick Start Guide - 5 Minutes to Your First Policy
+# Quick Start Guide
 
-Get Cupcake running with your AI agent in just 5 minutes.
+Get Cupcake running with your AI coding agent by choosing your platform below.
 
-## 1. Install Cupcake (1 minute)
+## Choose Your Platform
 
-### macOS/Linux
+Cupcake integrates with two AI coding agents:
 
+### 🤖 Claude Code (Anthropic)
+- **Best for**: Command-line workflows, integrated development
+- **Integration**: Claude CLI with hooks system
+- **Events**: PreToolUse, PostToolUse, UserPromptSubmit, and more
+- **Context injection**: Full support for adding guidance to agent context
+
+👉 [**Get Started with Claude Code**](./harnesses/claude-code.md)
+
+### 🎯 Cursor (Cursor.com)
+- **Best for**: VS Code-style editor experience
+- **Integration**: Global hooks at `~/.cursor/hooks.json`
+- **Events**: beforeShellExecution, afterFileEdit, beforeReadFile, and more
+- **Agent feedback**: Separate messages for users and AI agent
+
+👉 [**Get Started with Cursor**](./harnesses/cursor.md)
+
+---
+
+## Interactive Walkthrough Examples
+
+Want a guided experience? Check out our interactive examples:
+
+### Claude Code Walkthrough
 ```bash
-curl -sSL https://raw.githubusercontent.com/eqtylab/cupcake/v0.1.6/scripts/install.sh | bash
+cd examples/claude-code/0_Welcome
+./setup.sh
+```
+
+**What you'll learn:**
+- Policy evaluation flow
+- Command blocking in action
+- File protection policies
+- Git workflow enforcement
+- Debug file analysis
+
+📖 [Claude Code Example README](../../examples/claude-code/0_Welcome/README.md)
+
+### Cursor Walkthrough
+```bash
+cd examples/cursor/0_Welcome
+./setup.sh
+```
+
+**What you'll learn:**
+- Cursor hook configuration
+- Shell command protection
+- MCP tool control
+- File read protection
+- Prompt filtering
+- Debug file analysis
+
+📖 [Cursor Example README](../../examples/cursor/0_Welcome/README.md)
+
+---
+
+## Installation
+
+Before running examples, install Cupcake:
+
+### From Source (Recommended for Development)
+```bash
+git clone https://github.com/eqtylab/cupcake-rego.git
+cd cupcake-rego/cupcake-rewrite
+cargo build --release
+
+# Add to PATH
+export PATH="$(pwd)/target/release:$PATH"
+```
+
+### From Releases
+```bash
+# Download latest binary
+curl -LO https://github.com/eqtylab/cupcake-rego/releases/latest/download/cupcake-$(uname -s)-$(uname -m)
+
+# Make executable
+chmod +x cupcake-*
+mv cupcake-* /usr/local/bin/cupcake
 ```
 
 ### Verify Installation
-
 ```bash
 cupcake --version
 ```
 
-## 2. Initialize Your Project (1 minute)
+---
 
-### Basic Setup
+## Quick Commands Reference
 
+Once you've chosen your platform and completed setup:
+
+### Verify Configuration
 ```bash
-# In your project directory
-cupcake init --harness claude --builtins git_pre_check,protected_paths
-```
-
-This command:
-
-- Creates `.cupcake/` directory structure
-- Configures Claude Code integration automatically
-- Enables two useful builtin policies
-
-### What You Get
-
-```
-.cupcake/
-├── rulebook.yml       # Configuration with enabled builtins
-├── policies/           # Your custom policies go here
-├── signals/            # External data scripts
-└── actions/            # Response scripts
-```
-
-## 3. Test Your Setup (1 minute)
-
-```bash
-# Verify your configuration
 cupcake verify --policy-dir .cupcake
-
-# See what policies are active
-cupcake inspect --policy-dir .cupcake
 ```
 
-You should see:
-
-- git_pre_check policy enabled
-- protected_paths policy enabled
-- Claude Code hooks configured
-
-## 4. Try It Out (2 minutes)
-
-With Claude Code:
-
-1. Open your project in Claude
-2. Ask Claude to edit a protected file:
-   ```
-   "Edit the file /etc/hosts"
-   ```
-3. Cupcake will block this with: "System path modification blocked by policy"
-
-Test git protection:
-
-1. Ask Claude to commit without tests:
-   ```
-   "Commit these changes with message 'quick fix'"
-   ```
-2. Cupcake will run validation before allowing the commit
-
-## 5. Customize Your Policies (Optional)
-
-### Enable More Builtins
-
-Edit `.cupcake/rulebook.yml`:
-
-```yaml
-builtins:
-  global_file_lock:
-    enabled: true # Prevent ALL file modifications
-
-  post_edit_check:
-    by_extension:
-      "py":
-        command: "python -m py_compile"
-        message: "Python syntax error"
+### Inspect Active Policies
+```bash
+cupcake inspect --policy-dir .cupcake --table
 ```
 
-### Write a Custom Policy
+### Test a Policy
+```bash
+# Create test event
+echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' > test.json
 
-Create `.cupcake/policies/no-sudo.rego`:
+# Claude Code evaluation
+cupcake eval --harness claude < test.json
 
-```rego
-# METADATA
-# scope: package
-# title: No Sudo Commands Policy
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
-package cupcake.policies.no_sudo
-
-import rego.v1
-
-deny contains decision if {
-    contains(input.tool_input.command, "sudo")
-    decision := {
-        "reason": "Sudo commands require explicit approval",
-        "severity": "HIGH",
-        "rule_id": "NO-SUDO"
-    }
-}
+# Cursor evaluation
+cupcake eval --harness cursor < test.json
 ```
 
-## Next Steps
-
-**Learn More:**
-
-- [Writing Policies](./policies/writing-policies.md) - Create custom rules
-- [Builtin Policies](./policies/builtin-policies-reference.md) - 11 pre-built policies
-- [Signals & Actions](./configuration/signals.md) - Dynamic responses
-
-**Common Tasks:**
-
-- `cupcake init --builtins global_file_lock` - Read-only session
-- `cupcake init --global` - Machine-wide policies
-- `cupcake trust init && cupcake trust update` - Enable script trust
-
-## Troubleshooting
-
-**"Command not found: cupcake"**
-
-- Add to PATH: `echo 'export PATH="$HOME/.cupcake/bin:$PATH"' >> ~/.zshrc`
-- Restart terminal or run: `source ~/.zshrc`
-
-**"Policy not firing"**
-
-- Check enabled: `cupcake inspect --policy-dir .cupcake`
-- Enable debug: `cupcake eval --log-level debug`
-
-**"Claude Code not responding to policies"**
-
-- Verify hooks: `cat .claude/settings.json`
-- Restart Claude Code after configuration changes
+### Enable Debug Logging
+```bash
+cupcake eval --harness claude --debug-files --log-level info
+```
 
 ---
 
-**You're ready!** Cupcake is now protecting your codebase with intelligent policies.
+## Next Steps
+
+**Learn the Fundamentals:**
+- [Writing Policies](./policies/writing-policies.md) - Create custom rules in Rego
+- [Built-in Policies Reference](./policies/builtin-policies-reference.md) - 11 pre-built policies
+- [Harness Comparison](./harnesses/harness-comparison.md) - Claude Code vs Cursor
+
+**Advanced Configuration:**
+- [Signals](./configuration/signals.md) - Gather dynamic data for policies
+- [Actions](./configuration/actions.md) - Execute commands on policy decisions
+- [Trust System](./cli/trust.md) - Script integrity verification
+
+**Architecture:**
+- [Harness Model](./architecture/harness-model.md) - How harness integration works
+- [Hybrid Model](./architecture/hybrid-model.md) - Rego + Rust architecture
+
+---
+
+## Common Issues
+
+### "Command not found: cupcake"
+Add to PATH and restart terminal:
+```bash
+echo 'export PATH="$HOME/.cupcake/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Policy Not Firing
+Check if policy is enabled:
+```bash
+cupcake inspect --policy-dir .cupcake
+```
+
+Enable debug mode to see evaluation:
+```bash
+cupcake eval --harness claude --log-level debug
+```
+
+### Claude Code / Cursor Not Responding
+**Claude Code:**
+```bash
+# Verify hooks configured
+cat .claude/settings.json
+
+# Restart Claude Code after config changes
+```
+
+**Cursor:**
+```bash
+# Check global hooks
+cat ~/.cursor/hooks.json
+
+# Restart Cursor completely (Cmd+Q, reopen)
+```
+
+For detailed troubleshooting, see your platform's integration guide:
+- [Claude Code Troubleshooting](./harnesses/claude-code.md#troubleshooting)
+- [Cursor Troubleshooting](./harnesses/cursor.md#troubleshooting)
+
+---
+
+## Getting Help
+
+- 📖 [Full Documentation](../README.md)
+- 💬 [GitHub Issues](https://github.com/eqtylab/cupcake-rego/issues)
+- 🔍 [Examples Directory](../../examples/)
+
+**You're ready to start building intelligent policies for your AI agent!** 🎉

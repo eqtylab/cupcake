@@ -19,7 +19,7 @@
 - **Trigger alerts** when agents repeatedly violate rules.
 - **Boost performance** by moving rules out of prompts (context) and into a dedicated enforcement layer (zero-context)
 
-Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **Open Policy Agent (OPA) Rego**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
+Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
 
 Cupcake is developed by @eqtylab and in collaboration with @trailofbits.
 

@@ -13,7 +13,7 @@ cupcake init [OPTIONS]
 ### Options
 
 - `--global` - Initialize machine-wide configuration
-- `--harness <TYPE>` - Configure agent integration (claude)
+- `--harness <TYPE>` - Configure agent integration (claude, cursor)
 - `--builtins <LIST>` - Enable specific builtins (comma-separated)
 
 ### Examples
@@ -23,7 +23,7 @@ cupcake init [OPTIONS]
 cupcake init
 
 # With Claude Code integration
-cupcake init --harness claude
+cupcake init --harness claude # or cursor
 
 # Enable specific builtins
 cupcake init --builtins git_pre_check,protected_paths

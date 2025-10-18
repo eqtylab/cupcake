@@ -12,12 +12,14 @@ use tempfile::TempDir;
 #[tokio::test]
 #[cfg(feature = "deterministic-tests")]
 async fn test_protected_paths_read_write_distinction() -> Result<()> {
-    // Create a temporary directory for test
+    // Create a temporary directory for test with harness-specific structure
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
-    let builtins_dir = policies_dir.join("builtins");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
+    let builtins_dir = claude_dir.join("builtins");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
@@ -26,8 +28,8 @@ async fn test_protected_paths_read_write_distinction() -> Result<()> {
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
-    // Use the actual protected_paths policy
-    let protected_policy = include_str!("../../fixtures/builtins/protected_paths.rego");
+    // Use the actual protected_paths policy from Claude fixtures
+    let protected_policy = include_str!("../../fixtures/claude/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
 
     // Create rulebook with protected_paths configuration
@@ -49,7 +51,10 @@ builtins:
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
@@ -68,7 +73,7 @@ builtins:
 
     let decision = engine.evaluate(&write_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should mention protected: {reason}"
@@ -113,7 +118,7 @@ builtins:
 
     let decision = engine.evaluate(&edit_event, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should mention protected: {reason}"
@@ -137,7 +142,7 @@ builtins:
 
     let decision = engine.evaluate(&secret_write, None).await?;
     match decision {
-        cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+        cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
             assert!(
                 reason.contains("protected"),
                 "Should mention protected: {reason}"
@@ -177,8 +182,10 @@ async fn test_protected_paths_bash_whitelist() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
-    let builtins_dir = policies_dir.join("builtins");
+    // Use Claude harness-specific directory
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
+    let builtins_dir = claude_dir.join("builtins");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
@@ -186,7 +193,7 @@ async fn test_protected_paths_bash_whitelist() -> Result<()> {
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
-    let protected_policy = include_str!("../../fixtures/builtins/protected_paths.rego");
+    let protected_policy = include_str!("../../fixtures/claude/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
 
     let rulebook_content = r#"
@@ -203,7 +210,10 @@ builtins:
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(empty_global.path().to_path_buf()),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
@@ -260,7 +270,7 @@ builtins:
 
         let decision = engine.evaluate(&bash_event, None).await?;
         match decision {
-            cupcake_core::engine::decision::FinalDecision::Halt { reason } => {
+            cupcake_core::engine::decision::FinalDecision::Halt { reason, .. } => {
                 assert!(
                     reason.contains("read operations allowed"),
                     "Should mention only read allowed for '{cmd}': {reason}"

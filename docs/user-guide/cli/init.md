@@ -124,14 +124,14 @@ The `--builtins` flag allows you to enable specific builtin policies during init
 
 **Project-level builtins** (for use with `cupcake init`):
 
-- `always_inject_on_prompt` - Adds context to every user prompt
+- `claude_code_always_inject_on_prompt` - Adds context to every user prompt
 - `global_file_lock` - Prevents ALL file modifications session-wide
 - `git_pre_check` - Validates before git operations
 - `post_edit_check` - Runs checks after file edits
 - `rulebook_security_guardrails` - Protects `.cupcake/` from modification
 - `protected_paths` - User-defined read-only paths
 - `git_block_no_verify` - Prevents bypassing commit hooks
-- `enforce_full_file_read` - Requires complete file reads under size limit
+- `claude_code_enforce_full_file_read` - Requires complete file reads under size limit
 
 **Global builtins** (for use with `cupcake init --global`):
 
@@ -172,7 +172,7 @@ If you specify an invalid builtin name, Cupcake will show an error with all vali
 ```bash
 $ cupcake init --builtins invalid_name
 Error: Unknown builtin 'invalid_name'. Valid project builtins are:
-always_inject_on_prompt, global_file_lock, git_pre_check, ...
+claude_code_always_inject_on_prompt, global_file_lock, git_pre_check, ...
 ```
 
 ## Harness Integration

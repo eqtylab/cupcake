@@ -56,11 +56,15 @@ fn test_init_creates_correct_directory_structure() -> Result<()> {
     assert!(cupcake_dir.exists(), ".cupcake directory should exist");
     assert!(cupcake_dir.is_dir(), ".cupcake should be a directory");
 
-    // Verify all required subdirectories exist
+    // Verify all required subdirectories exist (harness-specific structure)
     let expected_dirs = vec![
         "policies",
-        "policies/system",
-        "policies/builtins",
+        "policies/claude",
+        "policies/claude/system",
+        "policies/claude/builtins",
+        "policies/cursor",
+        "policies/cursor/system",
+        "policies/cursor/builtins",
         "signals",
         "actions",
     ];
@@ -86,17 +90,28 @@ fn test_init_creates_all_required_files() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
     let cupcake_dir = project_path.join(".cupcake");
 
-    // List of all files that should be created
+    // List of all files that should be created (harness-specific structure)
     let expected_files = vec![
         "rulebook.yml",
-        "policies/system/evaluate.rego",
         "policies/example.rego",
-        "policies/builtins/always_inject_on_prompt.rego",
-        "policies/builtins/global_file_lock.rego",
-        "policies/builtins/protected_paths.rego",
-        "policies/builtins/git_pre_check.rego",
-        "policies/builtins/post_edit_check.rego",
-        "policies/builtins/rulebook_security_guardrails.rego",
+        // Claude harness files
+        "policies/claude/system/evaluate.rego",
+        "policies/claude/builtins/claude_code_always_inject_on_prompt.rego",
+        "policies/claude/builtins/claude_code_enforce_full_file_read.rego",
+        "policies/claude/builtins/git_block_no_verify.rego",
+        "policies/claude/builtins/git_pre_check.rego",
+        "policies/claude/builtins/global_file_lock.rego",
+        "policies/claude/builtins/post_edit_check.rego",
+        "policies/claude/builtins/protected_paths.rego",
+        "policies/claude/builtins/rulebook_security_guardrails.rego",
+        // Cursor harness files
+        "policies/cursor/system/evaluate.rego",
+        "policies/cursor/builtins/git_block_no_verify.rego",
+        "policies/cursor/builtins/git_pre_check.rego",
+        "policies/cursor/builtins/global_file_lock.rego",
+        "policies/cursor/builtins/post_edit_check.rego",
+        "policies/cursor/builtins/protected_paths.rego",
+        "policies/cursor/builtins/rulebook_security_guardrails.rego",
     ];
 
     for file_name in expected_files {
@@ -143,8 +158,8 @@ fn test_rulebook_yml_content() -> Result<()> {
 
     // Verify all four builtins are documented
     assert!(
-        content.contains("always_inject_on_prompt:"),
-        "rulebook.yml should document always_inject_on_prompt builtin"
+        content.contains("claude_code_always_inject_on_prompt:"),
+        "rulebook.yml should document claude_code_always_inject_on_prompt builtin"
     );
     assert!(
         content.contains("global_file_lock:"),
@@ -161,7 +176,7 @@ fn test_rulebook_yml_content() -> Result<()> {
 
     // Verify examples are commented out
     assert!(
-        content.contains("# always_inject_on_prompt:"),
+        content.contains("# claude_code_always_inject_on_prompt:"),
         "Builtin examples should be commented out by default"
     );
 
@@ -172,7 +187,8 @@ fn test_rulebook_yml_content() -> Result<()> {
 #[test]
 fn test_system_evaluate_policy_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    let evaluate_path = project_path.join(".cupcake/policies/system/evaluate.rego");
+    // Check Claude harness evaluate.rego (both harnesses have the same content)
+    let evaluate_path = project_path.join(".cupcake/policies/claude/system/evaluate.rego");
 
     let content = fs::read_to_string(&evaluate_path)?;
 
@@ -243,7 +259,8 @@ fn test_system_evaluate_policy_content() -> Result<()> {
 #[test]
 fn test_builtin_policies_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    let builtins_dir = project_path.join(".cupcake/policies/builtins");
+    // Check Claude harness builtins (most comprehensive set)
+    let builtins_dir = project_path.join(".cupcake/policies/claude/builtins");
 
     // Test global_file_lock.rego
     let global_lock_path = builtins_dir.join("global_file_lock.rego");
@@ -277,16 +294,16 @@ fn test_builtin_policies_content() -> Result<()> {
         "post_edit_check.rego should have correct package"
     );
 
-    // Test always_inject_on_prompt.rego
-    let inject_path = builtins_dir.join("always_inject_on_prompt.rego");
+    // Test claude_code_always_inject_on_prompt.rego
+    let inject_path = builtins_dir.join("claude_code_always_inject_on_prompt.rego");
     let content = fs::read_to_string(&inject_path)?;
     assert!(
-        content.contains("package cupcake.policies.builtins.always_inject_on_prompt"),
-        "always_inject_on_prompt.rego should have correct package"
+        content.contains("package cupcake.policies.builtins.claude_code_always_inject_on_prompt"),
+        "claude_code_always_inject_on_prompt.rego should have correct package"
     );
     assert!(
         content.contains("add_context contains"),
-        "always_inject_on_prompt.rego should use add_context verb"
+        "claude_code_always_inject_on_prompt.rego should use add_context verb"
     );
 
     // Test protected_paths.rego
@@ -368,7 +385,11 @@ async fn test_init_creates_valid_engine_structure() -> Result<()> {
 
     // Try to create an engine with the initialized structure
     // This verifies that all policies compile and the structure is valid
-    let engine = cupcake_core::engine::Engine::new(&project_path).await?;
+    let engine = cupcake_core::engine::Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await?;
 
     // Verify we can evaluate a simple input
     let test_input = serde_json::json!({
@@ -411,7 +432,7 @@ fn test_init_file_permissions() -> Result<()> {
     );
 
     // Check a policy file permissions
-    let policy_path = cupcake_dir.join("policies/system/evaluate.rego");
+    let policy_path = cupcake_dir.join("policies/claude/system/evaluate.rego");
     let file_metadata = fs::metadata(&policy_path)?;
     let file_perms = file_metadata.permissions();
     let file_mode = file_perms.mode() & 0o777;
@@ -504,15 +525,21 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 11 files (rulebook.yml + 10 policies)
-    // Policies: evaluate.rego, example.rego, and 8 builtins
+    // We should have exactly 18 files in harness-specific structure:
+    // - 1 rulebook.yml
+    // - 1 example.rego
+    // - Claude: 1 evaluate.rego + 8 builtins = 9 files
+    // - Cursor: 1 evaluate.rego + 6 builtins = 7 files (no always_inject_on_prompt)
+    // Total: 1 + 1 + 9 + 7 = 18 files
     assert_eq!(
-        file_count, 11,
-        "Should have exactly 11 files (rulebook.yml + 10 policies)"
+        file_count, 18,
+        "Should have exactly 18 files (1 rulebook + 1 example + 9 claude + 7 cursor)"
     );
 
-    // We should have exactly 5 directories (policies, policies/system, policies/builtins, signals, actions)
-    assert_eq!(dir_count, 5, "Should have exactly 5 directories");
+    // We should have exactly 9 directories:
+    // actions, signals, policies, policies/claude, policies/claude/system, policies/claude/builtins,
+    // policies/cursor, policies/cursor/system, policies/cursor/builtins
+    assert_eq!(dir_count, 9, "Should have exactly 9 directories");
 
     Ok(())
 }

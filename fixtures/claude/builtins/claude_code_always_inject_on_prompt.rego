@@ -7,7 +7,7 @@
 #   id: BUILTIN-INJECT-PROMPT
 #   routing:
 #     required_events: ["UserPromptSubmit"]
-package cupcake.policies.builtins.always_inject_on_prompt
+package cupcake.policies.builtins.claude_code_always_inject_on_prompt
 
 import rego.v1
 

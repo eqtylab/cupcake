@@ -7,7 +7,7 @@
 #   id: BUILTIN-ENFORCE-FULL-READ
 #   routing:
 #     required_events: ["PreToolUse"]
-package cupcake.policies.builtins.enforce_full_file_read
+package cupcake.policies.builtins.claude_code_enforce_full_file_read
 
 import rego.v1
 
@@ -44,7 +44,7 @@ has_partial_read_params if {
 # Get configured message from builtin config
 get_configured_message := msg if {
     # Direct access to builtin config (no signal execution needed)
-    msg := input.builtin_config.enforce_full_file_read.message
+    msg := input.builtin_config.claude_code_enforce_full_file_read.message
 } else := msg if {
     # Fallback to default message
     msg := "Please read the entire file first (files under 2000 lines must be read completely)"
@@ -55,7 +55,7 @@ get_configured_message := msg if {
 # and only enforce full reads for files under the threshold
 get_max_lines_threshold := lines if {
     # Direct access to builtin config (no signal execution needed)
-    lines := input.builtin_config.enforce_full_file_read.max_lines
+    lines := input.builtin_config.claude_code_enforce_full_file_read.max_lines
 } else := lines if {
     # Default to 2000 lines
     lines := 2000

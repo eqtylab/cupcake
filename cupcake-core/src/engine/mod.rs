@@ -181,8 +181,12 @@ pub use metadata::{PolicyMetadata, RoutingDirective};
 
 /// Configuration for engine initialization
 /// Provides optional overrides for engine behavior via CLI flags
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EngineConfig {
+    /// The AI coding agent harness type (REQUIRED)
+    /// Determines which event schema and response format to use
+    pub harness: crate::harness::types::HarnessType,
+
     /// Override WASM maximum memory (in bytes)
     /// If None, uses default 10MB with 1MB-100MB enforcement
     pub wasm_max_memory: Option<usize>,
@@ -198,6 +202,19 @@ pub struct EngineConfig {
     /// Enable routing diagnostics debug output
     /// If true, writes routing maps to .cupcake/debug/routing/
     pub debug_routing: bool,
+}
+
+impl EngineConfig {
+    /// Create a new EngineConfig with required harness parameter
+    pub fn new(harness: crate::harness::types::HarnessType) -> Self {
+        Self {
+            harness,
+            wasm_max_memory: None,
+            opa_path: None,
+            global_config: None,
+            debug_routing: false,
+        }
+    }
 }
 
 /// Represents a discovered policy unit with its metadata
@@ -261,11 +278,14 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Create a new engine instance with the given project path using default configuration
+    /// Create a new engine instance with the given project path and harness type
     /// Accepts either project root or .cupcake/ directory
     /// For CLI flag overrides, use `new_with_config()`
-    pub async fn new(project_path: impl AsRef<Path>) -> Result<Self> {
-        Self::new_with_config(project_path, EngineConfig::default()).await
+    pub async fn new(
+        project_path: impl AsRef<Path>,
+        harness: crate::harness::types::HarnessType,
+    ) -> Result<Self> {
+        Self::new_with_config(project_path, EngineConfig::new(harness)).await
     }
 
     /// Create a new engine instance with custom configuration
@@ -353,10 +373,25 @@ impl Engine {
             info!("Enabled builtins: {:?}", enabled_builtins);
         }
 
-        // Step 1: Scan for .rego files in policies directory with builtin filtering
+        // Determine harness-specific policies subdirectory
+        let harness_subdir = match self.config.harness {
+            crate::harness::types::HarnessType::ClaudeCode => "claude",
+            crate::harness::types::HarnessType::Cursor => "cursor",
+        };
+        let harness_policies_dir = self.paths.policies.join(harness_subdir);
+        info!(
+            "Scanning harness-specific policies for: {:?} at {:?}",
+            self.config.harness, harness_policies_dir
+        );
+
+        // Step 1: Scan for .rego files in harness-specific directory with builtin filtering
         let policy_files =
-            scanner::scan_policies_with_filter(&self.paths.policies, &enabled_builtins).await?;
-        info!("Found {} policy files", policy_files.len());
+            scanner::scan_policies_with_filter(&harness_policies_dir, &enabled_builtins).await?;
+        info!(
+            "Found {} policy files in {} harness directory",
+            policy_files.len(),
+            harness_subdir
+        );
 
         // Step 2: Parse selectors and build policy units
         for path in policy_files {
@@ -455,12 +490,29 @@ impl Engine {
             .map(|g| g.builtins.enabled_builtins())
             .unwrap_or_default();
 
-        // Scan for global policies
-        if global_policies_path.exists() {
-            let global_policy_files =
-                scanner::scan_policies_with_filter(global_policies_path, &global_enabled_builtins)
-                    .await?;
-            info!("Found {} global policy files", global_policy_files.len());
+        // Determine harness-specific global policies subdirectory
+        let harness_subdir = match self.config.harness {
+            crate::harness::types::HarnessType::ClaudeCode => "claude",
+            crate::harness::types::HarnessType::Cursor => "cursor",
+        };
+        let harness_global_policies_dir = global_policies_path.join(harness_subdir);
+
+        // Scan for global policies in harness-specific directory
+        if harness_global_policies_dir.exists() {
+            info!(
+                "Scanning global harness-specific policies for: {:?} at {:?}",
+                self.config.harness, harness_global_policies_dir
+            );
+            let global_policy_files = scanner::scan_policies_with_filter(
+                &harness_global_policies_dir,
+                &global_enabled_builtins,
+            )
+            .await?;
+            info!(
+                "Found {} global policy files in {} harness directory",
+                global_policy_files.len(),
+                harness_subdir
+            );
 
             // Parse global policies
             for path in global_policy_files {
@@ -849,7 +901,7 @@ impl Engine {
 
             // Early termination on global blocking decisions
             match &global_decision {
-                decision::FinalDecision::Halt { reason } => {
+                decision::FinalDecision::Halt { reason, .. } => {
                     info!("Global policy HALT - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
@@ -867,7 +919,7 @@ impl Engine {
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
-                decision::FinalDecision::Deny { reason } => {
+                decision::FinalDecision::Deny { reason, .. } => {
                     info!("Global policy DENY - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
@@ -882,7 +934,7 @@ impl Engine {
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
-                decision::FinalDecision::Block { reason } => {
+                decision::FinalDecision::Block { reason, .. } => {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
@@ -1498,7 +1550,7 @@ impl Engine {
 
         // Execute actions based on decision type
         match final_decision {
-            decision::FinalDecision::Halt { reason } => {
+            decision::FinalDecision::Halt { reason, .. } => {
                 info!("Executing actions for HALT decision: {}", reason);
                 info!(
                     "Number of halt decisions in set: {}",
@@ -1507,7 +1559,7 @@ impl Engine {
                 self.execute_rule_specific_actions(&decision_set.halts, rulebook, &working_dir)
                     .await;
             }
-            decision::FinalDecision::Deny { reason } => {
+            decision::FinalDecision::Deny { reason, .. } => {
                 info!("Executing actions for DENY decision: {}", reason);
 
                 // Execute general denial actions
@@ -1519,7 +1571,7 @@ impl Engine {
                 self.execute_rule_specific_actions(&decision_set.denials, rulebook, &working_dir)
                     .await;
             }
-            decision::FinalDecision::Block { reason } => {
+            decision::FinalDecision::Block { reason, .. } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
                 self.execute_rule_specific_actions(&decision_set.blocks, rulebook, &working_dir)
                     .await;
@@ -1632,7 +1684,7 @@ impl Engine {
 
         // Execute actions based on decision type, capturing execution details
         match final_decision {
-            decision::FinalDecision::Halt { reason } => {
+            decision::FinalDecision::Halt { reason, .. } => {
                 info!("Executing actions for HALT decision: {}", reason);
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.halts,
@@ -1642,7 +1694,7 @@ impl Engine {
                 )
                 .await;
             }
-            decision::FinalDecision::Deny { reason } => {
+            decision::FinalDecision::Deny { reason, .. } => {
                 info!("Executing actions for DENY decision: {}", reason);
 
                 // Execute general denial actions
@@ -1664,7 +1716,7 @@ impl Engine {
                 )
                 .await;
             }
-            decision::FinalDecision::Block { reason } => {
+            decision::FinalDecision::Block { reason, .. } => {
                 info!("Executing actions for BLOCK decision: {}", reason);
                 self.execute_rule_specific_actions_with_debug(
                     &decision_set.blocks,

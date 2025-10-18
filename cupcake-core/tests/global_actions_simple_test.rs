@@ -21,8 +21,9 @@ async fn test_global_halt_with_actions_simple() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Create simple global rulebook with inline action (no script file)
     let rulebook_content = r#"signals: {}
@@ -39,7 +40,7 @@ builtins: {}
 
     // Create global policy that halts
     fs::write(
-        global_paths.policies.join("halt_policy.rego"),
+        global_paths.policies.join("claude/halt_policy.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -71,7 +72,10 @@ halt contains decision if {
     );
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -110,8 +114,9 @@ async fn test_global_block_terminates_early() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Create global rulebook
     let rulebook_content = r#"signals: {}
@@ -123,7 +128,7 @@ builtins: {}
 
     // Create global policy that blocks
     fs::write(
-        global_paths.policies.join("block_policy.rego"),
+        global_paths.policies.join("claude/block_policy.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -150,7 +155,9 @@ block contains decision if {
 
     // Create project policy that would allow (should not execute due to early termination)
     fs::write(
-        project_dir.path().join(".cupcake/policies/allow_all.rego"),
+        project_dir
+            .path()
+            .join(".cupcake/policies/claude/allow_all.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -176,7 +183,10 @@ allow_override contains decision if {
     eprintln!("Project config at: {:?}", project_dir.path());
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

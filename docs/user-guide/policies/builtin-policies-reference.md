@@ -6,21 +6,21 @@ Cupcake provides 11 builtin policies that implement common security patterns wit
 
 | Builtin                        | Scope   | Purpose                        | Blocks                            |
 | ------------------------------ | ------- | ------------------------------ | --------------------------------- |
-| `always_inject_on_prompt`      | Project | Add context to every prompt    | Nothing                           |
+| `claude_code_always_inject_on_prompt`      | Project | Add context to every prompt    | Nothing                           |
 | `global_file_lock`             | Project | Prevent ALL file writes        | All writes                        |
 | `git_pre_check`                | Project | Validate before git operations | Git ops if checks fail            |
 | `post_edit_check`              | Project | Validate after file edits      | Future edits if checks fail       |
 | `rulebook_security_guardrails` | Project | Protect `.cupcake/` directory  | Reads & writes to protected paths |
 | `protected_paths`              | Project | User-defined read-only paths   | Writes to specified paths         |
 | `git_block_no_verify`          | Project | Prevent bypassing hooks        | `--no-verify` flag                |
-| `enforce_full_file_read`       | Project | Require full file reads        | Partial reads of small files      |
+| `claude_code_enforce_full_file_read`       | Project | Require full file reads        | Partial reads of small files      |
 | `system_protection`            | Global  | Protect OS paths               | Writes to system directories      |
 | `sensitive_data_protection`    | Global  | Protect credentials            | Reads of sensitive files          |
 | `cupcake_exec_protection`      | Global  | Block cupcake execution        | Direct cupcake binary calls       |
 
 ## Project-Level Builtins
 
-### always_inject_on_prompt
+### claude_code_always_inject_on_prompt
 
 Injects additional context with every user prompt. Useful for project guidelines, coding standards, or reminders.
 
@@ -28,7 +28,7 @@ Injects additional context with every user prompt. Useful for project guidelines
 
 ```yaml
 builtins:
-  always_inject_on_prompt:
+  claude_code_always_inject_on_prompt:
     context:
       # Static text
       - "Follow SOLID principles"
@@ -177,7 +177,7 @@ builtins:
 
 ---
 
-### enforce_full_file_read
+### claude_code_enforce_full_file_read
 
 Requires reading entire files under a configurable line limit.
 
@@ -185,7 +185,7 @@ Requires reading entire files under a configurable line limit.
 
 ```yaml
 builtins:
-  enforce_full_file_read:
+  claude_code_enforce_full_file_read:
     max_lines: 2000 # Files under this must be read completely
     message: "Please read the entire file first"
 ```

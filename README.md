@@ -13,25 +13,27 @@
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Cupcake** is a **policy enforcement** and **early-warning** layer for AI agents—strengthening security and reliability **without consuming model context**.
+**Cupcake** is a **policy enforcement** and **early-warning** layer for AI agents—strengthening performance, reliability, and security **without consuming model context**.
 
 - **Deterministic rule‑following** for your agents.
 - **Trigger alerts** when agents repeatedly violate rules.
-- **Boost performance** by moving rules out of prompts (context) and into a dedicated enforcement layer (zero-context)
+- **Boost performance** by moving rules out of context and into a guaranteed enforcement layer (zero-context)
 
-Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **Open Policy Agent (OPA) Rego**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
+Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
+
+Cupcake is developed by [EQTYLab](https://eqtylab.io/) and in collaboration with [Trail of Bits](https://www.trailofbits.com/).
 
 ## Why Cupcake?
 
 Modern agents are powerful but inconsistent at following operational and security rules, especially as prompts grow. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
 
-- **Agent‑agnostic design** with first‑class support for **Claude Code hooks**.
+- **Multi-harness support** with first‑class integrations for **Claude Code** and **Cursor**.
 - **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
 - **Enterprise‑ready** controls: allow/deny/review, audit trails, and proactive warnings.
 
 ## How it Works
 
-Cupcake integrates with environments like **Claude Code** through lightweight hooks that monitor operations such as shell commands or file edits. Policies are **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation.
+Cupcake integrates with AI coding agents like **Claude Code** and **Cursor** through lightweight hooks that monitor operations such as shell commands, file edits, and tool calls. Policies are **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation.
 
 Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file, call a tool), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
 
@@ -40,6 +42,19 @@ Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run
 ```text
 Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 ```
+
+## Supported Harnesses
+
+Cupcake provides native integrations for multiple AI coding agents:
+
+| Harness                                   | Status             | Integration Guide                                         |
+| ----------------------------------------- | ------------------ | --------------------------------------------------------- |
+| **[Claude Code](https://claude.ai/code)** | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md) |
+| **[Cursor](https://cursor.com)**          | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)      |
+
+Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
+
+**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
 
 ### Core Capabilities
 
@@ -60,6 +75,16 @@ Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 
 - **Signals (real‑time context)**
   Pull facts from the environment (current Git branch, changed files, deployment target, etc.) and make policy decisions on them.
+
+### Influencing Agent Behavior
+
+Cupcake policies can influence agents in two primary ways:
+
+- **Feedback (when blocking)**: When a policy blocks an action, you can provide explanatory messages that help the agent understand what went wrong and how to fix it. For Cursor, policies can provide separate messages for users (`reason`) and agents (`agent_context`) to optimize both experiences.
+
+- **Context injection (when allowing)**: Claude Code supports injecting additional context alongside allowed actions (e.g., "Remember: you're on the main branch"). This helps guide agent behavior without blocking. _Note: Cursor does not support context injection._
+
+See [Writing Policies](./docs/user-guide/policies/writing-policies.md) for details on using these capabilities.
 
 ## Architecture
 
@@ -96,7 +121,7 @@ See the full [Security Model](./docs/SECURITY.md).
 No. Policies run outside the model and return structured decisions.
 
 **Is Cupcake tied to a specific model?**
-No. It’s agent‑agnostic; Claude Code support ships first.
+No. Cupcake supports multiple AI coding agents with harness-specific integrations.
 
 **How fast is evaluation?**
 Sub‑millisecond for cached policies in typical setups.

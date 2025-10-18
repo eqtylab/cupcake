@@ -2,6 +2,8 @@
 
 This document provides a comprehensive technical overview of Cupcake's architecture, design principles, and core components.
 
+[https://excalidraw.com/#room=2331833bcb24d9f35a25,-TMNhQhHqtWayRMJam4ZIg](https://excalidraw.com/#room=2331833bcb24d9f35a25,-TMNhQhHqtWayRMJam4ZIg)
+
 ## Table of Contents
 
 - [The Hybrid Model](#the-hybrid-model)

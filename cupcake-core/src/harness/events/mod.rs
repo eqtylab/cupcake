@@ -1,13 +1,15 @@
 //! Abstract event layer for multi-agent support
 //!
 //! This module provides the top-level abstraction for handling events
-//! from different AI coding agents. Currently supports Claude Code,
+//! from different AI coding agents. Currently supports Claude Code and Cursor,
 //! but designed for extensibility.
 
 pub mod claude_code;
+pub mod cursor;
 
 // Re-export commonly used types
 pub use claude_code::{ClaudeCodeEvent, CommonEventData, CompactTrigger, SessionSource};
+pub use cursor::{CommonCursorData, CursorEvent};
 
 use serde::{Deserialize, Serialize};
 

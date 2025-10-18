@@ -68,6 +68,57 @@ Your policies focus purely on business logic. The engine handles:
 - **Prioritization**: Halt > Deny > Ask > Allow (enforced by engine)
 - **API Mapping**: Correct Claude Code JSON responses
 
+### 4. Influencing Agent Behavior
+
+Policies can influence AI agents in two ways:
+
+#### Feedback (when blocking)
+
+When you block an action, provide messages that help the agent understand and self-correct:
+
+```rego
+deny contains decision if {
+    contains(input.tool_input.command, "rm -rf /")
+    decision := {
+        "reason": "Dangerous command blocked",  // User-facing message
+        "severity": "HIGH",
+        "rule_id": "SAFETY-001"
+    }
+}
+```
+
+**For Cursor only**, you can provide separate messages for users and agents:
+
+```rego
+deny contains decision if {
+    contains(input.command, "rm -rf /")
+    decision := {
+        "reason": "Command blocked for safety",  // User sees this
+        "agent_context": "rm -rf / detected. This recursively deletes from root. Use 'trash' command or specify a subdirectory. See policy SAFETY-001.",  // Agent sees this
+        "severity": "HIGH",
+        "rule_id": "SAFETY-001"
+    }
+}
+```
+
+**Terminology:**
+- **Feedback**: Explanatory messages when blocking (both harnesses)
+- **Agent message** / **Agent context**: Technical details for the agent (Cursor-specific field: `agent_context`)
+- **Permission decision reason**: Feedback to agent (Claude Code term for same concept)
+
+#### Context injection (when allowing)
+
+**Claude Code only** - inject additional context to guide agent behavior without blocking:
+
+```rego
+add_context contains reminder if {
+    input.signals.git_branch == "main"
+    reminder := "⚠️ You're on the main branch. Run tests before committing."
+}
+```
+
+**Note**: Cursor does not support context injection. The `add_context` verb only affects Claude Code.
+
 ## Writing Policies
 
 ### Basic Security Policy
@@ -268,45 +319,6 @@ Test with Cupcake:
 ```bash
 # Test specific scenario
 echo '{"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "sudo rm -rf /"}}' | cupcake eval --policy-dir .cupcake/policies
-```
-
-## Migration from Old Format
-
-If you have policies using the old `selector := {}` format:
-
-**Old (deprecated):**
-
-```rego
-selector := {
-    "event": "PreToolUse",
-    "tools": ["Bash"]
-}
-
-deny if {
-    input.event.tool_name == "Bash"
-    contains(input.event.tool_input.command, "sudo")
-}
-```
-
-**New (current):**
-
-```rego
-# METADATA
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
-
-deny contains decision if {
-    # No need to check tool_name - routing guaranteed it
-    contains(input.tool_input.command, "sudo")
-
-    decision := {
-        "reason": "Sudo requires approval",
-        "severity": "HIGH",
-        "rule_id": "SUDO-001"
-    }
-}
 ```
 
 ## Advanced Topics

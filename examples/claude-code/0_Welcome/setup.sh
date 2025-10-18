@@ -24,7 +24,7 @@ fi
 
 # Build Cupcake binary
 echo "Building Cupcake binary..."
-cd ../..
+cd ../../..
 cargo build --release
 echo "✅ Build complete"
 
@@ -32,8 +32,8 @@ echo "✅ Build complete"
 export PATH="$(pwd)/target/release:$PATH"
 echo "✅ Added cupcake to PATH for this session"
 
-# Return to eval directory
-cd eval/0_Claude-Code-Welcome1
+# Return to examples directory
+cd examples/claude-code/0_Welcome
 
 # Initialize Cupcake project
 echo "Initializing Cupcake project..."
@@ -42,9 +42,9 @@ echo "✅ Project initialized"
 
 # Copy example policies
 echo "Copying example policies..."
-cp ../fixtures/security_policy.rego .cupcake/policies/
-cp ../fixtures/git_workflow.rego .cupcake/policies/
-cp ../fixtures/context_injection.rego .cupcake/policies/
+cp ../../fixtures/security_policy.rego .cupcake/policies/
+cp ../../fixtures/git_workflow.rego .cupcake/policies/
+cp ../../fixtures/context_injection.rego .cupcake/policies/
 echo "✅ Example policies copied"
 
 # Builtins are now pre-configured in the base template
@@ -60,7 +60,7 @@ echo "Setting up Claude Code hooks integration..."
 mkdir -p .claude
 
 # Create Claude Code settings with direct cargo command (like working demo)
-MANIFEST_PATH="$(realpath ../../Cargo.toml)"
+MANIFEST_PATH="$(realpath ../../../Cargo.toml)"
 OPA_DIR="$(dirname "$(which opa)")"
 
 cat > .claude/settings.json << EOF
@@ -120,7 +120,7 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Run 'export PATH=\"$(realpath ../../target/release):\$PATH\"' to add cupcake to your shell PATH"
+echo "1. Run 'export PATH=\"$(realpath ../../../target/release):\$PATH\"' to add cupcake to your shell PATH"
 echo "2. Start Claude Code in this directory"
 echo "3. Try running commands that trigger policies"
 echo ""

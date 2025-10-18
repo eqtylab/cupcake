@@ -166,12 +166,21 @@ impl GlobalPaths {
     pub fn initialize(&self) -> Result<()> {
         info!("Initializing global configuration at {:?}", self.root);
 
-        // Create directory structure
+        // Create directory structure with harness-specific subdirectories
         std::fs::create_dir_all(&self.root).context("Failed to create global config root")?;
         std::fs::create_dir_all(&self.policies)
             .context("Failed to create global policies directory")?;
-        std::fs::create_dir_all(self.policies.join("system"))
-            .context("Failed to create global policies/system directory")?;
+
+        // Create harness-specific subdirectories for Claude and Cursor
+        std::fs::create_dir_all(self.policies.join("claude").join("system"))
+            .context("Failed to create global policies/claude/system directory")?;
+        std::fs::create_dir_all(self.policies.join("claude").join("builtins"))
+            .context("Failed to create global policies/claude/builtins directory")?;
+        std::fs::create_dir_all(self.policies.join("cursor").join("system"))
+            .context("Failed to create global policies/cursor/system directory")?;
+        std::fs::create_dir_all(self.policies.join("cursor").join("builtins"))
+            .context("Failed to create global policies/cursor/builtins directory")?;
+
         std::fs::create_dir_all(&self.signals)
             .context("Failed to create global signals directory")?;
         std::fs::create_dir_all(&self.actions)
@@ -180,7 +189,7 @@ impl GlobalPaths {
         // Create minimal rulebook if it doesn't exist
         if !self.rulebook.exists() {
             let rulebook_content = r#"# Global Cupcake Configuration
-# 
+#
 # This configuration applies to ALL Cupcake projects on this machine.
 # Global policies have absolute precedence and cannot be overridden.
 
@@ -195,51 +204,8 @@ builtins: {}
                 .context("Failed to create global rulebook.yml")?;
         }
 
-        // Create the global system evaluate policy
-        let evaluate_policy_path = self.policies.join("system").join("evaluate.rego");
-        if !evaluate_policy_path.exists() {
-            let evaluate_content = r#"# METADATA
-# scope: package
-# title: Global System Aggregation Policy
-# authors: ["Cupcake Engine"]
-package cupcake.global.system
-
-import rego.v1
-
-# Collect all decision verbs from the global policy hierarchy
-halts := collect_verbs("halt")
-denials := collect_verbs("deny") 
-blocks := collect_verbs("block")
-asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
-add_context := collect_verbs("add_context")
-
-# Global evaluation entrypoint
-evaluate := {
-    "halts": halts,
-    "denials": denials,
-    "blocks": blocks,
-    "asks": asks,
-    "allow_overrides": allow_overrides,
-    "add_context": add_context
-}
-
-# Collect all instances of a decision verb across global policies
-collect_verbs(verb_name) := result if {
-    verb_sets := [value |
-        walk(data.cupcake.global.policies, [path, value])
-        path[count(path) - 1] == verb_name
-    ]
-    all_decisions := [decision |
-        some verb_set in verb_sets
-        some decision in verb_set
-    ]
-    result := all_decisions
-}
-"#;
-            std::fs::write(&evaluate_policy_path, evaluate_content)
-                .context("Failed to create global evaluate.rego")?;
-        }
+        // Note: System evaluate policies are created by init_global_config()
+        // in a harness-specific manner (claude/ and cursor/ subdirectories)
 
         Ok(())
     }
@@ -344,27 +310,30 @@ mod tests {
         // Check all directories exist
         assert!(global_paths.root.exists());
         assert!(global_paths.policies.exists());
-        assert!(global_paths.policies.join("system").exists());
+        // Harness-specific subdirectories
+        assert!(global_paths.policies.join("claude").join("system").exists());
+        assert!(global_paths
+            .policies
+            .join("claude")
+            .join("builtins")
+            .exists());
+        assert!(global_paths.policies.join("cursor").join("system").exists());
+        assert!(global_paths
+            .policies
+            .join("cursor")
+            .join("builtins")
+            .exists());
         assert!(global_paths.signals.exists());
         assert!(global_paths.actions.exists());
 
-        // Check files exist
+        // Check rulebook exists
         assert!(global_paths.rulebook.exists());
-        assert!(global_paths
-            .policies
-            .join("system")
-            .join("evaluate.rego")
-            .exists());
 
         // Verify rulebook content
         let rulebook_content = std::fs::read_to_string(&global_paths.rulebook).unwrap();
         assert!(rulebook_content.contains("Global Cupcake Configuration"));
 
-        // Verify evaluate.rego content
-        let evaluate_content =
-            std::fs::read_to_string(global_paths.policies.join("system").join("evaluate.rego"))
-                .unwrap();
-        assert!(evaluate_content.contains("package cupcake.global.system"));
-        assert!(evaluate_content.contains("Global System Aggregation Policy"));
+        // Note: System evaluate.rego files are created by init_global_config() in main.rs,
+        // not by initialize(). This test only verifies the directory structure.
     }
 }

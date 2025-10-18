@@ -63,20 +63,30 @@ fn test_global_config_initialization() -> Result<()> {
     // Should now be initialized
     assert!(global_paths.is_initialized());
 
-    // Verify structure
+    // Verify structure with harness-specific directories
     assert!(global_paths.policies.exists());
-    assert!(global_paths.policies.join("system").exists());
+    assert!(global_paths.policies.join("claude").join("system").exists());
+    assert!(global_paths
+        .policies
+        .join("claude")
+        .join("builtins")
+        .exists());
+    assert!(global_paths.policies.join("cursor").join("system").exists());
+    assert!(global_paths
+        .policies
+        .join("cursor")
+        .join("builtins")
+        .exists());
     assert!(global_paths.signals.exists());
     assert!(global_paths.actions.exists());
     assert!(global_paths.rulebook.exists());
 
-    // Verify evaluate.rego was created with correct namespace
-    let evaluate_path = global_paths.policies.join("system").join("evaluate.rego");
-    assert!(evaluate_path.exists());
+    // Verify rulebook content
+    let rulebook_content = std::fs::read_to_string(&global_paths.rulebook)?;
+    assert!(rulebook_content.contains("Global Cupcake Configuration"));
 
-    let evaluate_content = std::fs::read_to_string(&evaluate_path)?;
-    assert!(evaluate_content.contains("package cupcake.global.system"));
-    assert!(evaluate_content.contains("walk(data.cupcake.global.policies"));
+    // Note: System evaluate.rego files are created by init_global_config() in main.rs,
+    // not by initialize(). This test only verifies the directory structure.
 
     Ok(())
 }

@@ -312,9 +312,17 @@ mod tests {
         assert!(global_paths.policies.exists());
         // Harness-specific subdirectories
         assert!(global_paths.policies.join("claude").join("system").exists());
-        assert!(global_paths.policies.join("claude").join("builtins").exists());
+        assert!(global_paths
+            .policies
+            .join("claude")
+            .join("builtins")
+            .exists());
         assert!(global_paths.policies.join("cursor").join("system").exists());
-        assert!(global_paths.policies.join("cursor").join("builtins").exists());
+        assert!(global_paths
+            .policies
+            .join("cursor")
+            .join("builtins")
+            .exists());
         assert!(global_paths.signals.exists());
         assert!(global_paths.actions.exists());
 

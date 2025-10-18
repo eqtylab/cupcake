@@ -122,7 +122,12 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
             }
         }
 
-        let engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
+        let engine = runtime
+            .block_on(Engine::new(
+                temp_dir.path(),
+                cupcake_core::harness::types::HarnessType::ClaudeCode,
+            ))
+            .unwrap();
 
         let safe_event = json!({
             "hookEventName": "PreToolUse",
@@ -150,7 +155,12 @@ fn benchmark_single_evaluation(c: &mut Criterion) {
 
     c.bench_function("single_evaluation_deny", |b| {
         let temp_dir = create_test_policy_dir();
-        let engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
+        let engine = runtime
+            .block_on(Engine::new(
+                temp_dir.path(),
+                cupcake_core::harness::types::HarnessType::ClaudeCode,
+            ))
+            .unwrap();
 
         let dangerous_event = json!({
             "hookEventName": "PreToolUse",
@@ -187,7 +197,12 @@ fn benchmark_complete_pipeline(c: &mut Criterion) {
 
     c.bench_function("complete_pipeline", |b| {
         let temp_dir = create_test_policy_dir();
-        let engine = runtime.block_on(Engine::new(temp_dir.path())).unwrap();
+        let engine = runtime
+            .block_on(Engine::new(
+                temp_dir.path(),
+                cupcake_core::harness::types::HarnessType::ClaudeCode,
+            ))
+            .unwrap();
 
         let event_str = r#"{
             "hook_event_name": "PreToolUse",

@@ -121,7 +121,7 @@ async fn test_engine_without_trust() -> Result<()> {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -156,7 +156,7 @@ async fn test_engine_with_trust_no_manifest() -> Result<()> {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let _engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -195,7 +195,7 @@ async fn test_engine_with_valid_trust() -> Result<()> {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -257,7 +257,7 @@ deny contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project.path(), config).await?;
 
@@ -293,9 +293,9 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(empty_global.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed without trust
@@ -312,9 +312,9 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(empty_global.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed with trust
@@ -330,9 +330,9 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(empty_global.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should still succeed

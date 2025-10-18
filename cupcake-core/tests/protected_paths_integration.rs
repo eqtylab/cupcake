@@ -54,7 +54,7 @@ builtins:
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
@@ -213,7 +213,7 @@ builtins:
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 

@@ -18,7 +18,11 @@ async fn test_engine_without_global_config() -> Result<()> {
     test_helpers::create_test_project(project_dir.path())?;
 
     // Engine should initialize without global config
-    let engine = Engine::new(project_dir.path(), cupcake_core::harness::types::HarnessType::ClaudeCode).await?;
+    let engine = Engine::new(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await?;
 
     // Verify basic evaluation works
     let input = serde_json::json!({
@@ -73,7 +77,7 @@ add_context contains "Global policy active"
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -118,7 +122,9 @@ test_value := "global"
 
     // Create conflicting project policy (same base name but project namespace)
     fs::write(
-        project_dir.path().join(".cupcake/policies/claude/conflict.rego"),
+        project_dir
+            .path()
+            .join(".cupcake/policies/claude/conflict.rego"),
         r#"package cupcake.policies.conflict
 
 import rego.v1
@@ -133,7 +139,7 @@ test_value := "project"
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

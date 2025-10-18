@@ -348,7 +348,9 @@ add_context contains msg if {
 "#;
 
     fs::write(
-        project_dir.path().join(".cupcake/policies/cursor/edit.rego"),
+        project_dir
+            .path()
+            .join(".cupcake/policies/cursor/edit.rego"),
         policy_content,
     )?;
 
@@ -439,7 +441,10 @@ add_context contains msg if {
                 assert_eq!(context.len(), 1);
                 assert_eq!(context[0], format!("Audit: {} tool used", tool));
             }
-            _ => panic!("Expected Allow with context for {}, got: {:?}", tool, decision),
+            _ => panic!(
+                "Expected Allow with context for {}, got: {:?}",
+                tool, decision
+            ),
         }
     }
 

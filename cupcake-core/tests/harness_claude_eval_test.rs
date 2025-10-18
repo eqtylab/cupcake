@@ -196,10 +196,7 @@ ask contains decision if {
     // Verify Ask decision
     match decision {
         FinalDecision::Ask { reason, .. } => {
-            assert_eq!(
-                reason,
-                "Modifying important file"
-            );
+            assert_eq!(reason, "Modifying important file");
         }
         _ => panic!("Expected Ask decision, got: {:?}", decision),
     }

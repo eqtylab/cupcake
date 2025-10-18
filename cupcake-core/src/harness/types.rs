@@ -60,8 +60,7 @@ impl std::str::FromStr for HarnessType {
             "claude" | "claudecode" | "claude-code" => Ok(HarnessType::ClaudeCode),
             "cursor" => Ok(HarnessType::Cursor),
             _ => Err(format!(
-                "Unknown harness type: '{}'. Valid options: claude, cursor",
-                s
+                "Unknown harness type: '{s}'. Valid options: claude, cursor"
             )),
         }
     }
@@ -73,12 +72,30 @@ mod tests {
 
     #[test]
     fn test_harness_type_parsing() {
-        assert_eq!("claude".parse::<HarnessType>().unwrap(), HarnessType::ClaudeCode);
-        assert_eq!("claudecode".parse::<HarnessType>().unwrap(), HarnessType::ClaudeCode);
-        assert_eq!("claude-code".parse::<HarnessType>().unwrap(), HarnessType::ClaudeCode);
-        assert_eq!("cursor".parse::<HarnessType>().unwrap(), HarnessType::Cursor);
-        assert_eq!("CLAUDE".parse::<HarnessType>().unwrap(), HarnessType::ClaudeCode);
-        assert_eq!("CURSOR".parse::<HarnessType>().unwrap(), HarnessType::Cursor);
+        assert_eq!(
+            "claude".parse::<HarnessType>().unwrap(),
+            HarnessType::ClaudeCode
+        );
+        assert_eq!(
+            "claudecode".parse::<HarnessType>().unwrap(),
+            HarnessType::ClaudeCode
+        );
+        assert_eq!(
+            "claude-code".parse::<HarnessType>().unwrap(),
+            HarnessType::ClaudeCode
+        );
+        assert_eq!(
+            "cursor".parse::<HarnessType>().unwrap(),
+            HarnessType::Cursor
+        );
+        assert_eq!(
+            "CLAUDE".parse::<HarnessType>().unwrap(),
+            HarnessType::ClaudeCode
+        );
+        assert_eq!(
+            "CURSOR".parse::<HarnessType>().unwrap(),
+            HarnessType::Cursor
+        );
     }
 
     #[test]

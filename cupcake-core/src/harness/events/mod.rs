@@ -9,7 +9,7 @@ pub mod cursor;
 
 // Re-export commonly used types
 pub use claude_code::{ClaudeCodeEvent, CommonEventData, CompactTrigger, SessionSource};
-pub use cursor::{CursorEvent, CommonCursorData};
+pub use cursor::{CommonCursorData, CursorEvent};
 
 use serde::{Deserialize, Serialize};
 

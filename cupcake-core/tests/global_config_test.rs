@@ -66,9 +66,17 @@ fn test_global_config_initialization() -> Result<()> {
     // Verify structure with harness-specific directories
     assert!(global_paths.policies.exists());
     assert!(global_paths.policies.join("claude").join("system").exists());
-    assert!(global_paths.policies.join("claude").join("builtins").exists());
+    assert!(global_paths
+        .policies
+        .join("claude")
+        .join("builtins")
+        .exists());
     assert!(global_paths.policies.join("cursor").join("system").exists());
-    assert!(global_paths.policies.join("cursor").join("builtins").exists());
+    assert!(global_paths
+        .policies
+        .join("cursor")
+        .join("builtins")
+        .exists());
     assert!(global_paths.signals.exists());
     assert!(global_paths.actions.exists());
     assert!(global_paths.rulebook.exists());

@@ -334,9 +334,19 @@ async fn main() -> Result<()> {
                 debug_routing: cli.debug_routing,
             };
 
-            eval_command(policy_dir, strict, cli.debug_files, cli.debug_dir, engine_config).await
+            eval_command(
+                policy_dir,
+                strict,
+                cli.debug_files,
+                cli.debug_dir,
+                engine_config,
+            )
+            .await
         }
-        Command::Verify { harness, policy_dir } => verify_command(harness.into(), policy_dir).await,
+        Command::Verify {
+            harness,
+            policy_dir,
+        } => verify_command(harness.into(), policy_dir).await,
         Command::Init {
             global,
             harness,
@@ -394,8 +404,8 @@ async fn eval_command(
     debug!("Parsing hook event from stdin");
 
     // Parse the JSON event based on harness type
-    let mut hook_event_json: serde_json::Value = serde_json::from_str(&stdin_buffer)
-        .context("Failed to parse hook event JSON")?;
+    let mut hook_event_json: serde_json::Value =
+        serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
     // Add hookEventName field for the engine if not present (for routing compatibility)
     // The engine routing needs this field
@@ -458,12 +468,15 @@ async fn eval_command(
     let response = match harness_type {
         cupcake_core::harness::types::HarnessType::ClaudeCode => {
             // Re-parse to get original event structure for response formatting
-            let event = serde_json::from_str::<harness::events::claude_code::ClaudeCodeEvent>(&stdin_buffer)?;
+            let event = serde_json::from_str::<harness::events::claude_code::ClaudeCodeEvent>(
+                &stdin_buffer,
+            )?;
             harness::ClaudeHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::Cursor => {
             // Re-parse Cursor event for response formatting
-            let event = serde_json::from_str::<harness::events::cursor::CursorEvent>(&stdin_buffer)?;
+            let event =
+                serde_json::from_str::<harness::events::cursor::CursorEvent>(&stdin_buffer)?;
             harness::CursorHarness::format_response(&event, &decision)?
         }
     };
@@ -1063,9 +1076,18 @@ import rego.v1
 
     // Deploy Claude global builtin policies
     let claude_global_builtins = vec![
-        ("system_protection.rego", CLAUDE_GLOBAL_SYSTEM_PROTECTION_POLICY),
-        ("sensitive_data_protection.rego", CLAUDE_GLOBAL_SENSITIVE_DATA_POLICY),
-        ("cupcake_exec_protection.rego", CLAUDE_GLOBAL_CUPCAKE_EXEC_POLICY),
+        (
+            "system_protection.rego",
+            CLAUDE_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            CLAUDE_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            CLAUDE_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
     ];
 
     for (filename, content) in claude_global_builtins {
@@ -1074,9 +1096,18 @@ import rego.v1
 
     // Deploy Cursor global builtin policies
     let cursor_global_builtins = vec![
-        ("system_protection.rego", CURSOR_GLOBAL_SYSTEM_PROTECTION_POLICY),
-        ("sensitive_data_protection.rego", CURSOR_GLOBAL_SENSITIVE_DATA_POLICY),
-        ("cupcake_exec_protection.rego", CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY),
+        (
+            "system_protection.rego",
+            CURSOR_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            CURSOR_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
     ];
 
     for (filename, content) in cursor_global_builtins {
@@ -1172,7 +1203,10 @@ async fn init_project_config(
         // Deploy harness-specific builtin policies
         // Claude Code builtins - all builtins available
         let claude_builtins = vec![
-            ("claude_code_always_inject_on_prompt.rego", CLAUDE_ALWAYS_INJECT_POLICY),
+            (
+                "claude_code_always_inject_on_prompt.rego",
+                CLAUDE_ALWAYS_INJECT_POLICY,
+            ),
             ("global_file_lock.rego", CLAUDE_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CLAUDE_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CLAUDE_POST_EDIT_CHECK_POLICY),
@@ -1181,7 +1215,10 @@ async fn init_project_config(
                 CLAUDE_RULEBOOK_SECURITY_POLICY,
             ),
             ("protected_paths.rego", CLAUDE_PROTECTED_PATHS_POLICY),
-            ("git_block_no_verify.rego", CLAUDE_GIT_BLOCK_NO_VERIFY_POLICY),
+            (
+                "git_block_no_verify.rego",
+                CLAUDE_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
             (
                 "claude_code_enforce_full_file_read.rego",
                 CLAUDE_ENFORCE_FULL_FILE_READ_POLICY,
@@ -1204,7 +1241,10 @@ async fn init_project_config(
                 CURSOR_RULEBOOK_SECURITY_POLICY,
             ),
             ("protected_paths.rego", CURSOR_PROTECTED_PATHS_POLICY),
-            ("git_block_no_verify.rego", CURSOR_GIT_BLOCK_NO_VERIFY_POLICY),
+            (
+                "git_block_no_verify.rego",
+                CURSOR_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
             // Note: enforce_full_file_read intentionally NOT included - incompatible with Cursor
         ];
 

@@ -106,7 +106,12 @@ deny contains decision if {
 
     fs::write(claude_dir.join("edge_test.rego"), edge_policy).unwrap();
 
-    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     // Test Case 1-3: Shell commands
     let event1 = json!({
@@ -232,7 +237,12 @@ deny contains decision if {
 
     fs::write(claude_dir.join("fallback_test.rego"), fallback_policy).unwrap();
 
-    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",

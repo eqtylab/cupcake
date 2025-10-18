@@ -25,7 +25,10 @@ async fn test_global_action_execution_logs() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Verify system evaluate policy was created
-    let sys_eval = global_paths.policies.join("claude/system").join("evaluate.rego");
+    let sys_eval = global_paths
+        .policies
+        .join("claude/system")
+        .join("evaluate.rego");
     assert!(
         sys_eval.exists(),
         "System evaluate policy not created at {sys_eval:?}"
@@ -78,7 +81,7 @@ halt contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -134,7 +137,10 @@ async fn test_global_action_working_directory_issue() -> Result<()> {
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Verify system evaluate policy was created
-    let sys_eval2 = global_paths.policies.join("claude/system").join("evaluate.rego");
+    let sys_eval2 = global_paths
+        .policies
+        .join("claude/system")
+        .join("evaluate.rego");
     assert!(
         sys_eval2.exists(),
         "System evaluate policy not created at {sys_eval2:?}"
@@ -186,7 +192,7 @@ deny contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

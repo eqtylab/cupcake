@@ -11,14 +11,15 @@ use tracing::debug;
 /// Cursor's implementation is limited to a boolean continue flag.
 pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) -> Value {
     // Log if context would have been injected (for debugging)
-    if let EngineDecision::Allow { reason } = decision {
-        if let Some(ref msg) = reason {
-            if !msg.is_empty() {
-                debug!(
-                    "Context injection not supported by Cursor's beforeSubmitPrompt; dropping context: {}",
-                    msg
-                );
-            }
+    if let EngineDecision::Allow {
+        reason: Some(ref msg),
+    } = decision
+    {
+        if !msg.is_empty() {
+            debug!(
+                "Context injection not supported by Cursor's beforeSubmitPrompt; dropping context: {}",
+                msg
+            );
         }
     }
 
@@ -31,7 +32,9 @@ pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) ->
             // Block prompt submission
             // Note: Ask is treated as block since we can't prompt user at this stage
             if matches!(decision, EngineDecision::Ask { .. }) {
-                debug!("Ask decision on beforeSubmitPrompt not supported by Cursor; blocking instead");
+                debug!(
+                    "Ask decision on beforeSubmitPrompt not supported by Cursor; blocking instead"
+                );
             }
             json!({ "continue": false })
         }

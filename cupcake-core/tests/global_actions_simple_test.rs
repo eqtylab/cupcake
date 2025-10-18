@@ -75,7 +75,7 @@ halt contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -155,7 +155,9 @@ block contains decision if {
 
     // Create project policy that would allow (should not execute due to early termination)
     fs::write(
-        project_dir.path().join(".cupcake/policies/claude/allow_all.rego"),
+        project_dir
+            .path()
+            .join(".cupcake/policies/claude/allow_all.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -184,7 +186,7 @@ allow_override contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

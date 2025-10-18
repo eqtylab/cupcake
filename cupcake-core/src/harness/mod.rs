@@ -110,7 +110,8 @@ impl CursorHarness {
         let agent_messages = Self::extract_agent_messages(decision);
 
         // 3. Use Cursor's response builder with agent messages
-        let response = CursorResponseBuilder::build_response(&engine_decision, event, agent_messages);
+        let response =
+            CursorResponseBuilder::build_response(&engine_decision, event, agent_messages);
 
         // 4. Return as JSON Value
         Ok(response)

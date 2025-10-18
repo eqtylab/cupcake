@@ -45,7 +45,7 @@ impl BindingEngine {
         // Parse harness string
         let harness_type: crate::harness::types::HarnessType = harness
             .parse()
-            .map_err(|e| format!("Invalid harness type '{}': {}", harness, e))?;
+            .map_err(|e| format!("Invalid harness type '{harness}': {e}"))?;
 
         // Create a current_thread runtime for FFI compatibility
         // This avoids thread-local storage issues with multi-threaded runtime

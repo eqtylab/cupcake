@@ -29,7 +29,8 @@ async fn test_rulebook_security_blocks_cupcake_file_edits() -> Result<()> {
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     // Use the actual rulebook security policy
-    let rulebook_policy = include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
+    let rulebook_policy =
+        include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
     fs::write(
         builtins_dir.join("rulebook_security_guardrails.rego"),
         rulebook_policy,
@@ -54,7 +55,7 @@ builtins:
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
@@ -173,7 +174,8 @@ async fn test_rulebook_security_blocks_bash_cupcake_commands() -> Result<()> {
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
-    let rulebook_policy = include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
+    let rulebook_policy =
+        include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
     fs::write(
         builtins_dir.join("rulebook_security_guardrails.rego"),
         rulebook_policy,
@@ -193,7 +195,7 @@ builtins:
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
@@ -251,7 +253,8 @@ async fn test_rulebook_security_blocks_read_operations() -> Result<()> {
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
-    let rulebook_policy = include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
+    let rulebook_policy =
+        include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
     fs::write(
         builtins_dir.join("rulebook_security_guardrails.rego"),
         rulebook_policy,
@@ -272,7 +275,7 @@ builtins:
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 

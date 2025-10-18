@@ -102,9 +102,11 @@ deny contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
-    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
+    let engine = Engine::new_with_config(&project_path, config)
+        .await
+        .unwrap();
 
     // Create event that will trigger the deny rule
     let event = json!({
@@ -215,9 +217,11 @@ halt contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
-    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
+    let engine = Engine::new_with_config(&project_path, config)
+        .await
+        .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -308,9 +312,11 @@ deny contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
-    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
+    let engine = Engine::new_with_config(&project_path, config)
+        .await
+        .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -399,9 +405,11 @@ deny contains decision if {
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
-        debug_routing: false
+        debug_routing: false,
     };
-    let engine = Engine::new_with_config(&project_path, config).await.unwrap();
+    let engine = Engine::new_with_config(&project_path, config)
+        .await
+        .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",

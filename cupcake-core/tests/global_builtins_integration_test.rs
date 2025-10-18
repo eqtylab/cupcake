@@ -128,9 +128,9 @@ builtins: {}
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -179,9 +179,9 @@ builtins: {}
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -224,9 +224,9 @@ builtins: {}
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -346,9 +346,9 @@ builtins:
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 
@@ -490,9 +490,9 @@ builtins:
         let config = cupcake_core::engine::EngineConfig {
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
-        wasm_max_memory: None,
-        opa_path: None,
-        debug_routing: false
+            wasm_max_memory: None,
+            opa_path: None,
+            debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
 

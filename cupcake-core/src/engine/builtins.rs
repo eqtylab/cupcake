@@ -302,8 +302,10 @@ impl BuiltinsConfig {
         // Validate claude_code_always_inject_on_prompt
         if let Some(config) = &self.claude_code_always_inject_on_prompt {
             if config.enabled && config.context.is_empty() {
-                errors
-                    .push("claude_code_always_inject_on_prompt: enabled but no context configured".to_string());
+                errors.push(
+                    "claude_code_always_inject_on_prompt: enabled but no context configured"
+                        .to_string(),
+                );
             }
 
             for (idx, source) in config.context.iter().enumerate() {
@@ -392,7 +394,8 @@ impl BuiltinsConfig {
         // Validate claude_code_enforce_full_file_read
         if let Some(config) = &self.claude_code_enforce_full_file_read {
             if config.enabled && config.max_lines == 0 {
-                errors.push("claude_code_enforce_full_file_read: max_lines cannot be 0".to_string());
+                errors
+                    .push("claude_code_enforce_full_file_read: max_lines cannot be 0".to_string());
             }
         }
 
@@ -804,9 +807,18 @@ global_file_lock:
 
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
 
-        assert!(config.claude_code_always_inject_on_prompt.as_ref().unwrap().enabled);
+        assert!(
+            config
+                .claude_code_always_inject_on_prompt
+                .as_ref()
+                .unwrap()
+                .enabled
+        );
         assert!(!config.global_file_lock.as_ref().unwrap().enabled);
-        assert_eq!(config.enabled_builtins(), vec!["claude_code_always_inject_on_prompt"]);
+        assert_eq!(
+            config.enabled_builtins(),
+            vec!["claude_code_always_inject_on_prompt"]
+        );
     }
 
     #[test]
@@ -826,7 +838,13 @@ git_pre_check:
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
 
         // Both should default to enabled=true
-        assert!(config.claude_code_always_inject_on_prompt.as_ref().unwrap().enabled);
+        assert!(
+            config
+                .claude_code_always_inject_on_prompt
+                .as_ref()
+                .unwrap()
+                .enabled
+        );
         assert!(config.git_pre_check.as_ref().unwrap().enabled);
 
         let enabled = config.enabled_builtins();

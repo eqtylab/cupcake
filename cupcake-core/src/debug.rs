@@ -100,7 +100,12 @@ impl DebugCapture {
     ///
     /// `enabled`: Whether debug file writing is enabled (from --debug-files CLI flag)
     /// `debug_dir`: Optional override for debug output directory (defaults to .cupcake/debug)
-    pub fn new(event: Value, trace_id: String, enabled: bool, debug_dir: Option<std::path::PathBuf>) -> Self {
+    pub fn new(
+        event: Value,
+        trace_id: String,
+        enabled: bool,
+        debug_dir: Option<std::path::PathBuf>,
+    ) -> Self {
         Self {
             enabled,
             event_received: event,
@@ -143,7 +148,10 @@ impl DebugCapture {
     /// Write the debug capture to a file
     fn write_debug_file(&self) -> Result<()> {
         // Use provided debug_dir or default to .cupcake/debug
-        let debug_dir = self.debug_dir.as_deref().unwrap_or_else(|| Path::new(".cupcake/debug"));
+        let debug_dir = self
+            .debug_dir
+            .as_deref()
+            .unwrap_or_else(|| Path::new(".cupcake/debug"));
 
         // Create debug directory if it doesn't exist
         if !debug_dir.exists() {

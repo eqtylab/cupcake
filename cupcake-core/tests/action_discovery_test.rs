@@ -81,7 +81,12 @@ deny contains decision if {
     fs::write(claude_dir.join("discovery_test.rego"), test_policy).unwrap();
 
     // Initialize engine (this should trigger discovery)
-    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     // Trigger the policy
     let event = json!({
@@ -196,7 +201,12 @@ deny contains decision if {
 
     fs::write(claude_dir.join("override_test.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -295,7 +305,12 @@ deny contains decision if {
 
     fs::write(claude_dir.join("subdir_test.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path, cupcake_core::harness::types::HarnessType::ClaudeCode).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",

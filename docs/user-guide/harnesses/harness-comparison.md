@@ -20,8 +20,10 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 | **Prompt Filtering** | Yes (UserPromptSubmit) | Yes (beforeSubmitPrompt) |
 | **MCP Tool Control** | No | Yes (beforeMCPExecution) |
 | **Post-Action Hooks** | Yes (PostToolUse) | Yes (afterFileEdit) |
-| **Context Injection** | Yes (persistent context) | Yes (via agentMessage) |
+| **Context Injection** | Yes (persistent context) | No¹ |
 | **Configuration File** | `.claude/settings.json` | `~/.cursor/hooks.json` |
+
+¹ Cursor's `agentMessage` provides agent-specific feedback when blocking, but does not support context injection.
 
 ---
 
@@ -426,7 +428,7 @@ deny contains decision if {
 
 ## Built-in Policy Support
 
-All built-in policies are implemented for both harnesses with harness-specific logic:
+Most built-in policies are implemented for both harnesses with harness-specific logic:
 
 | Builtin | Claude Code | Cursor | Notes |
 |---------|-------------|--------|-------|
@@ -436,13 +438,13 @@ All built-in policies are implemented for both harnesses with harness-specific l
 | `sensitive_data_protection` | ✅ Yes | ✅ Yes | Blocks SSH keys, credentials |
 | `cupcake_exec_protection` | ✅ Yes | ✅ Yes | Prevents cupcake manipulation |
 | `global_file_lock` | ✅ Yes | ✅ Yes | Blocks all file modifications |
-| `claude_code_enforce_full_file_read` | ✅ Yes | ✅ Yes | Requires full file reads |
-| `claude_code_always_inject_on_prompt` | ✅ Yes | ✅ Yes | Adds context to prompts |
+| `claude_code_enforce_full_file_read` | ✅ Yes | ❌ No (Claude-only) | Requires full file reads |
+| `claude_code_always_inject_on_prompt` | ✅ Yes | ❌ No (Claude-only) | Adds context to prompts |
 | `git_pre_check` | ✅ Yes | ✅ Yes | Validates before git operations |
 | `post_edit_check` | ✅ Yes | ✅ Yes | Validates after edits |
 | `rulebook_security_guardrails` | ✅ Yes | ✅ Yes | Protects .cupcake directory |
 
-All builtins are configured identically in `.cupcake/rulebook.yml` regardless of harness.
+All builtins are configured identically in `.cupcake/rulebook.yml` regardless of harness. Claude-specific builtins are ignored when using Cursor.
 
 ---
 

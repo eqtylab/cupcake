@@ -330,7 +330,7 @@ Explore the policy files in `.cupcake/policies/cursor/` to understand how this p
 | File content access | Direct in event                       | Via tool response       |
 | Context injection   | Not supported                         | `additionalContext`     |
 
-See [Harness Comparison](../../docs/user-guide/harnesses/harness-comparison.md) for full details.
+See [Harness Comparison](../../../docs/user-guide/harnesses/harness-comparison.md) for full details.
 
 ---
 
@@ -370,4 +370,4 @@ Check `.cupcake/debug/` for detailed logs.
 3. Configure signals for dynamic context
 4. Set up actions for automated responses
 
-For more information, see the [Cursor Integration Guide](../../docs/user-guide/harnesses/cursor.md).
+For more information, see the [Cursor Integration Guide](../../../docs/user-guide/harnesses/cursor.md).

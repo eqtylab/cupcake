@@ -362,7 +362,7 @@ import rego.v1
 
 add_context contains msg if {
     input.hook_event_name == "SessionStart"
-    input.source == "Startup"
+    input.source == "startup"
     msg := "Session started from startup"
 }
 "#;
@@ -379,7 +379,7 @@ add_context contains msg if {
 
     let event = json!({
         "hook_event_name": "SessionStart",
-        "source": "Startup",
+        "source": "startup",
         "session_id": "test-session",
         "cwd": "/tmp"
     });

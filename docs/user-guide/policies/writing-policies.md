@@ -1,23 +1,26 @@
 # Writing Policies for Cupcake
 
-## Quick Start
+## Policy Template
 
-Cupcake policies are simple, declarative rules that focus on your business logic. The engine handles all the complexity of routing, aggregation, and response formatting.
+Every policy follows this pattern:
 
 ```rego
 # METADATA
 # scope: package
-# title: My Security Policy
 # custom:
 #   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
+#     required_events: ["PreToolUse"]     # Event types this policy handles
+#     required_tools: ["Bash"]            # Tools to monitor (optional)
 package cupcake.policies.my_security
 
 import rego.v1
 
-# Your business logic - that's it!
 deny contains decision if {
+    # Always check the event type first
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
+
+    # Your security logic
     contains(input.tool_input.command, "rm -rf")
 
     decision := {
@@ -28,109 +31,25 @@ deny contains decision if {
 }
 ```
 
-## Core Concepts
+## Decision Verbs
 
-### 1. Metadata-Driven Routing
-
-Instead of writing routing logic in your policies, you declare what events and tools you care about in OPA metadata:
-
-```yaml
-# METADATA
-# scope: package
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]     # Which Claude Code events to handle
-#     required_tools: ["Bash", "Shell"]   # Which tools to monitor (optional)
-#     required_signals: ["git_status"]    # External context needed (optional)
-```
-
-**The engine guarantees**: If your policy is evaluating, the event and tool already match your requirements. You don't need to check them again.
-
-### 2. Decision Verbs
-
-Cupcake uses modern Rego v1.0 syntax with decision "verbs" that express your intent clearly:
-
-| Verb             | Purpose              | Claude Code Behavior                  |
+| Verb             | Purpose              | Effect                                |
 | ---------------- | -------------------- | ------------------------------------- |
 | `halt`           | Emergency stop       | Terminates entire session             |
-| `deny`           | Block action         | Prevents tool execution with feedback |
+| `deny`           | Block action         | Prevents execution with feedback      |
 | `block`          | Block (post-action)  | Provides corrective feedback          |
 | `ask`            | Request confirmation | Prompts user before proceeding        |
 | `allow_override` | Explicit permission  | Allows with logged reason             |
-| `add_context`    | Inject information   | Adds context to Claude's awareness    |
+| `add_context`    | Inject guidance      | Adds context to agent (Claude only)   |
 
-### 3. Trust-Based Evaluation
+## Examples
 
-Your policies focus purely on business logic. The engine handles:
-
-- **Routing**: Only relevant policies execute (O(1) lookup)
-- **Aggregation**: All decisions collected automatically
-- **Prioritization**: Halt > Deny > Ask > Allow (enforced by engine)
-- **API Mapping**: Correct Claude Code JSON responses
-
-### 4. Influencing Agent Behavior
-
-Policies can influence AI agents in two ways:
-
-#### Feedback (when blocking)
-
-When you block an action, provide messages that help the agent understand and self-correct:
-
-```rego
-deny contains decision if {
-    contains(input.tool_input.command, "rm -rf /")
-    decision := {
-        "reason": "Dangerous command blocked",  // User-facing message
-        "severity": "HIGH",
-        "rule_id": "SAFETY-001"
-    }
-}
-```
-
-**For Cursor only**, you can provide separate messages for users and agents:
-
-```rego
-deny contains decision if {
-    contains(input.command, "rm -rf /")
-    decision := {
-        "reason": "Command blocked for safety",  // User sees this
-        "agent_context": "rm -rf / detected. This recursively deletes from root. Use 'trash' command or specify a subdirectory. See policy SAFETY-001.",  // Agent sees this
-        "severity": "HIGH",
-        "rule_id": "SAFETY-001"
-    }
-}
-```
-
-**Terminology:**
-- **Feedback**: Explanatory messages when blocking (both harnesses)
-- **Agent message** / **Agent context**: Technical details for the agent (Cursor-specific field: `agent_context`)
-- **Permission decision reason**: Feedback to agent (Claude Code term for same concept)
-
-#### Context injection (when allowing)
-
-**Claude Code only** - inject additional context to guide agent behavior without blocking:
-
-```rego
-add_context contains reminder if {
-    input.signals.git_branch == "main"
-    reminder := "⚠️ You're on the main branch. Run tests before committing."
-}
-```
-
-**Note**: Cursor does not support context injection. The `add_context` verb only affects Claude Code.
-
-## Writing Policies
-
-### Basic Security Policy
+### Shell Command Protection
 
 ```rego
 # METADATA
 # scope: package
-# title: Bash Command Security
-# authors: ["Security Team"]
 # custom:
-#   severity: HIGH
-#   id: BASH-SEC
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
@@ -138,8 +57,9 @@ package cupcake.policies.bash_security
 
 import rego.v1
 
-# Block dangerous commands
 deny contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
     contains(input.tool_input.command, "sudo")
 
     decision := {
@@ -149,8 +69,9 @@ deny contains decision if {
     }
 }
 
-# Warn about risky patterns
 ask contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
     regex.match(`curl.*\|.*sh`, input.tool_input.command)
 
     decision := {
@@ -159,14 +80,9 @@ ask contains decision if {
         "rule_id": "BASH-SEC-002"
     }
 }
-
-# Add helpful context
-add_context contains "⚠️ Production environment detected" if {
-    contains(input.cwd, "/prod")
-}
 ```
 
-### Multi-Tool Policy
+### File Protection
 
 ```rego
 # METADATA
@@ -174,19 +90,19 @@ add_context contains "⚠️ Production environment detected" if {
 # custom:
 #   routing:
 #     required_events: ["PreToolUse"]
-#     required_tools: ["Write", "Edit", "MultiEdit"]
+#     required_tools: ["Write", "Edit"]
 package cupcake.policies.file_protection
 
 import rego.v1
 
-# Protect sensitive directories
 deny contains decision if {
-    # No need to check event or tool - engine guarantees it's a file operation
+    input.hook_event_name == "PreToolUse"
+    input.tool_name in ["Write", "Edit"]
+
     sensitive_paths := [".ssh", ".aws", ".env", "secrets"]
     some path in sensitive_paths
     contains(input.tool_input.file_path, path)
 
-    # Note: sprintf doesn't work in WASM, use concat instead
     decision := {
         "reason": concat("", ["Cannot modify files in sensitive directory: ", path]),
         "severity": "HIGH",
@@ -195,7 +111,7 @@ deny contains decision if {
 }
 ```
 
-### Using Signals (External Context)
+### Git Safety with Signals
 
 ```rego
 # METADATA
@@ -204,13 +120,14 @@ deny contains decision if {
 #   routing:
 #     required_events: ["PreToolUse"]
 #     required_tools: ["Bash"]
-#     required_signals: ["git_branch", "git_status"]
+#     required_signals: ["git_branch"]
 package cupcake.policies.git_safety
 
 import rego.v1
 
-# Prevent commits on main branch
 deny contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
     contains(input.tool_input.command, "git commit")
     input.signals.git_branch == "main"
 
@@ -220,138 +137,132 @@ deny contains decision if {
         "rule_id": "GIT-001"
     }
 }
-
-# Warn about uncommitted changes
-add_context contains warning if {
-    contains(input.tool_input.command, "git checkout")
-    input.signals.git_status.has_changes
-
-    warning := "Warning: You have uncommitted changes that will be lost"
-}
 ```
 
-## What Cupcake Provides Automatically
-
-### 1. Automatic Policy Discovery
-
-Drop a `.rego` file in the policies directory - Cupcake automatically:
-
-- Discovers and loads it
-- Parses metadata for routing
-- Includes it in the aggregation
-- No registration or configuration needed
-
-### 2. System Aggregation Policy
-
-Cupcake provides `cupcake.system.evaluate` that automatically:
+### Cursor-Specific Events
 
 ```rego
-# You never write this - Cupcake provides it
-evaluate := {
-    "halts": [h | h := data.cupcake.policies..halt[_]],
-    "denials": [d | d := data.cupcake.policies..deny[_]],
-    "asks": [a | a := data.cupcake.policies..ask[_]],
-    # ... all decision verbs
+# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["beforeShellExecution"]
+package cupcake.policies.cursor.shell
+
+import rego.v1
+
+deny contains decision if {
+    input.hook_event_name == "beforeShellExecution"
+    contains(input.command, "rm -rf")
+
+    decision := {
+        "reason": "Destructive command blocked",
+        "agent_context": "Use 'trash' command or be more specific about what to delete",
+        "severity": "HIGH",
+        "rule_id": "CURSOR-SHELL-001"
+    }
 }
 ```
 
-This uses OPA's `walk()` function to recursively find ALL decisions across ALL policies.
+### Multi-Event Policy
 
-### 3. Input Structure
+```rego
+# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PreToolUse", "PostToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.command_audit
 
-Cupcake provides a consistent input structure:
+import rego.v1
+
+# Log all commands before execution
+add_context contains msg if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
+    msg := concat("", ["Executing: ", input.tool_input.command])
+}
+
+# Check for failures after execution
+deny contains decision if {
+    input.hook_event_name == "PostToolUse"
+    input.tool_name == "Bash"
+    input.tool_response.exit_code != 0
+    contains(input.tool_input.command, "deploy")
+
+    decision := {
+        "reason": "Deployment command failed - manual intervention required",
+        "severity": "HIGH",
+        "rule_id": "DEPLOY-001"
+    }
+}
+```
+
+## Input Structure
+
+Your policies receive this input:
 
 ```json
 {
   "hook_event_name": "PreToolUse",
   "tool_name": "Bash",
   "tool_input": {
-    "command": "rm -rf /tmp/cache"
+    "command": "git status"
   },
   "session_id": "abc-123",
   "cwd": "/home/user/project",
   "signals": {
-    // Your requested signals appear here
+    "git_branch": "main",
+    "git_status": "clean"
   }
 }
 ```
 
-### 4. Decision Prioritization
+## Decision Object Fields
 
-Cupcake automatically enforces priority (you don't implement this):
+| Field           | Required | Description                                     |
+| --------------- | -------- | ----------------------------------------------- |
+| `reason`        | Yes      | User-facing explanation                        |
+| `rule_id`       | Yes      | Unique identifier for this rule                |
+| `severity`      | Yes      | HIGH, MEDIUM, or LOW                           |
+| `agent_context` | No       | Technical guidance for agent (Cursor only)     |
+| `question`      | No       | Question to ask user (required for `ask` verb) |
 
-1. **Halt** - Stops everything immediately
-2. **Deny/Block** - Prevents or corrects action
-3. **Ask** - Requests user confirmation
-4. **Allow** - Proceeds (with optional context)
-
-## Best Practices
-
-### DO
-
-- **Trust the routing** - Don't re-check event types or tool names
-- **Use decision verbs** - `deny contains`, `halt contains`, etc.
-- **Provide clear reasons** - Users and Claude need to understand why
-- **Use severity levels** - HIGH, MEDIUM, LOW for proper aggregation
-- **Include rule IDs** - For debugging and audit trails
-
-### DON'T
-
-- **Don't check routing conditions** - The engine already did this
-- **Don't write aggregation logic** - Cupcake handles this automatically
-- **Don't worry about priority** - The synthesis layer handles conflicts
-- **Don't format responses** - Cupcake generates Claude Code JSON
-
-## Testing Policies
-
-Test policies directly with OPA:
+## Testing Your Policies
 
 ```bash
-# Test a specific decision verb
-opa eval -d .cupcake/policies -i input.json "data.cupcake.policies.bash_security.deny"
+# Test a specific policy
+echo '{"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "sudo rm -rf /"}}' | \
+  cupcake eval --harness claude --policy-dir .cupcake/policies
 
-# Test the full aggregation
-opa eval -d .cupcake/policies -i input.json "data.cupcake.system.evaluate"
+# Test with OPA directly
+opa eval -d .cupcake/policies -i event.json "data.cupcake.policies.bash_security.deny"
 ```
 
-Test with Cupcake:
+## File Organization
 
-```bash
-# Test specific scenario
-echo '{"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "sudo rm -rf /"}}' | cupcake eval --policy-dir .cupcake/policies
+```
+.cupcake/
+├── policies/
+│   ├── claude/           # Claude Code policies
+│   │   ├── system/       # System entrypoint (provided)
+│   │   ├── git.rego
+│   │   └── files.rego
+│   └── cursor/           # Cursor policies
+│       ├── system/       # System entrypoint (provided)
+│       ├── shell.rego
+│       └── database.rego
+├── rulebook.yml          # Configuration
+└── signals/              # Signal scripts
 ```
 
-## Advanced Topics
+## Quick Reference
 
-### Dynamic Policy Loading
+1. **Declare events** in metadata header
+2. **Check event type** as first condition in rule
+3. **Return decision object** with reason, severity, and rule_id
+4. **Use `concat`** for string formatting (not sprintf)
+5. **Access signals** via `input.signals.<name>`
 
-Policies can be loaded from external sources at runtime. The engine will automatically recompile when policies change.
-
-### Performance Optimization
-
-- Policies are compiled to WASM for near-native performance
-- Routing provides O(1) lookup - only relevant policies execute
-- Signals are fetched in parallel and cached
-
-### Custom Signals
-
-Implement custom signals by adding them to your rulebook.yml:
-
-```yaml
-signals:
-  git_branch:
-    command: "git branch --show-current"
-  database_status:
-    script: "./scripts/check_db.sh"
-```
-
-## Summary
-
-Cupcake policies are simple by design. You write the business logic, Cupcake handles everything else:
-
-1. Declare what you care about (metadata)
-2. Write your rules (decision verbs)
-3. Drop in the policies directory
-4. Cupcake does the rest
-
-The engine is intelligent so your policies don't have to be.
+That's it. Drop your `.rego` files in the policies directory and Cupcake handles the rest.

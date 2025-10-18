@@ -1,10 +1,13 @@
 //! Integration tests for Cursor harness-specific evaluation
 //!
-//! These tests verify the complete evaluation flow for Cursor:
+//! These tests verify the complete evaluation flow for Cursor using NATIVE event formats:
 //! - Engine initialization with explicit Cursor harness
-//! - Event processing with Cursor-specific event format
+//! - Event processing with Cursor-native event schema (beforeShellExecution, afterFileEdit, etc.)
 //! - Decision synthesis
 //! - Response formatting matching Cursor hook expectations
+//!
+//! IMPORTANT: These tests use Cursor's native event structure, NOT Claude Code normalized events.
+//! Cursor events have different names and field structures than Claude Code.
 
 mod test_helpers;
 
@@ -22,20 +25,20 @@ async fn test_cursor_harness_deny_shell_execution() -> Result<()> {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Create a deny policy for dangerous commands
+    // Create a deny policy for dangerous commands using Cursor's native event structure
     let policy_content = r#"# METADATA
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
+#     required_events: ["beforeShellExecution"]
 package cupcake.policies.test_shell_deny
 
 import rego.v1
 
 deny contains decision if {
-    input.tool_name == "Bash"
-    contains(input.tool_input.command, "rm -rf /")
+    input.hook_event_name == "beforeShellExecution"
+    # Access command directly (Cursor's native field structure)
+    contains(input.command, "rm -rf /")
     decision := {
         "rule_id": "CURSOR-SHELL-DENY-001",
         "reason": "Dangerous command blocked",
@@ -55,14 +58,11 @@ deny contains decision if {
     let config = EngineConfig::new(HarnessType::Cursor);
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
-    // Create Cursor-style event (normalized to PreToolUse with tool_name: Bash)
-    // Cursor's beforeShellExecution maps to PreToolUse
+    // Create Cursor's native beforeShellExecution event
     let event = json!({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Bash",
-        "tool_input": {
-            "command": "rm -rf /"
-        },
+        "hook_event_name": "beforeShellExecution",
+        "command": "rm -rf /",
+        "cwd": "/home/user/project",
         "conversation_id": "cursor-conv-123",
         "generation_id": "cursor-gen-456",
         "workspace_roots": ["/home/user/project"]
@@ -88,17 +88,19 @@ async fn test_cursor_harness_halt_on_prompt() -> Result<()> {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Create a halt policy for prompts
+    // Create a halt policy for prompts using Cursor's native event
     let policy_content = r#"# METADATA
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["UserPromptSubmit"]
+#     required_events: ["beforeSubmitPrompt"]
 package cupcake.policies.test_prompt_halt
 
 import rego.v1
 
 halt contains decision if {
+    input.hook_event_name == "beforeSubmitPrompt"
+    # Access prompt directly (Cursor's native field)
     contains(input.prompt, "dangerous")
     decision := {
         "rule_id": "CURSOR-PROMPT-HALT-001",
@@ -118,10 +120,11 @@ halt contains decision if {
     let config = EngineConfig::new(HarnessType::Cursor);
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
-    // Cursor beforeSubmitPrompt -> UserPromptSubmit
+    // Cursor's native beforeSubmitPrompt event
     let event = json!({
-        "hook_event_name": "UserPromptSubmit",
+        "hook_event_name": "beforeSubmitPrompt",
         "prompt": "do something dangerous",
+        "attachments": [],
         "conversation_id": "cursor-conv-123",
         "generation_id": "cursor-gen-456",
         "workspace_roots": ["/home/user/project"]
@@ -146,20 +149,20 @@ async fn test_cursor_harness_ask_file_read() -> Result<()> {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Create an ask policy for file reads
+    // Create an ask policy for file reads using Cursor's native event
     let policy_content = r#"# METADATA
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Read"]
+#     required_events: ["beforeReadFile"]
 package cupcake.policies.test_file_read_ask
 
 import rego.v1
 
 ask contains decision if {
-    input.tool_name == "Read"
-    contains(input.tool_input.file_path, ".env")
+    input.hook_event_name == "beforeReadFile"
+    # Access file_path directly (Cursor's native field)
+    contains(input.file_path, ".env")
     decision := {
         "rule_id": "CURSOR-READ-ASK-001",
         "reason": "Accessing sensitive file",
@@ -179,13 +182,12 @@ ask contains decision if {
     let config = EngineConfig::new(HarnessType::Cursor);
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
-    // Cursor beforeReadFile -> PreToolUse with tool_name: Read
+    // Cursor's native beforeReadFile event
     let event = json!({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Read",
-        "tool_input": {
-            "file_path": "/home/user/.env"
-        },
+        "hook_event_name": "beforeReadFile",
+        "file_path": "/home/user/.env",
+        "content": "SECRET_KEY=abc123\nAPI_TOKEN=xyz789",
+        "attachments": [],
         "conversation_id": "cursor-conv-123",
         "generation_id": "cursor-gen-456",
         "workspace_roots": ["/home/user/project"]
@@ -216,12 +218,13 @@ async fn test_cursor_harness_context_injection_limitations() -> Result<()> {
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["UserPromptSubmit"]
+#     required_events: ["beforeSubmitPrompt"]
 package cupcake.policies.test_context
 
 import rego.v1
 
 add_context contains msg if {
+    input.hook_event_name == "beforeSubmitPrompt"
     input.prompt
     msg := "This is context from Cupcake"
 }
@@ -238,8 +241,9 @@ add_context contains msg if {
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     let event = json!({
-        "hook_event_name": "UserPromptSubmit",
+        "hook_event_name": "beforeSubmitPrompt",
         "prompt": "test prompt",
+        "attachments": [],
         "conversation_id": "cursor-conv-123",
         "generation_id": "cursor-gen-456",
         "workspace_roots": ["/home/user/project"]
@@ -267,20 +271,20 @@ async fn test_cursor_harness_mcp_execution() -> Result<()> {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Create policy for MCP execution (Cursor-specific feature)
+    // Create policy for MCP execution using Cursor's native event
     let policy_content = r#"# METADATA
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["MCP"]
+#     required_events: ["beforeMCPExecution"]
 package cupcake.policies.test_mcp
 
 import rego.v1
 
 deny contains decision if {
-    input.tool_name == "MCP"
-    input.tool_input.server_name == "untrusted-server"
+    input.hook_event_name == "beforeMCPExecution"
+    # Access Cursor's MCP fields directly
+    input.server_name == "untrusted-server"
     decision := {
         "rule_id": "CURSOR-MCP-DENY-001",
         "reason": "Untrusted MCP server blocked",
@@ -297,13 +301,13 @@ deny contains decision if {
     let config = EngineConfig::new(HarnessType::Cursor);
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
-    // Cursor beforeMCPExecution -> PreToolUse with tool_name: MCP
+    // Cursor's native beforeMCPExecution event
     let event = json!({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "MCP",
+        "hook_event_name": "beforeMCPExecution",
+        "server_name": "untrusted-server",
+        "tool_name": "dangerous_tool",
         "tool_input": {
-            "server_name": "untrusted-server",
-            "tool_name": "dangerous_tool"
+            "param1": "value1"
         },
         "conversation_id": "cursor-conv-123",
         "generation_id": "cursor-gen-456",
@@ -329,21 +333,21 @@ async fn test_cursor_harness_file_edit_post_hook() -> Result<()> {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Create policy for file edit validation (post-hook)
+    // Create policy for file edit validation using Cursor's native post-hook event
     let policy_content = r#"# METADATA
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["PostToolUse"]
-#     required_tools: ["Edit"]
+#     required_events: ["afterFileEdit"]
 package cupcake.policies.test_edit_validation
 
 import rego.v1
 
 add_context contains msg if {
-    input.tool_name == "Edit"
-    input.tool_input.file_path
-    msg := concat("", ["File edited: ", input.tool_input.file_path])
+    input.hook_event_name == "afterFileEdit"
+    # Access file_path directly (Cursor's native field)
+    input.file_path
+    msg := concat("", ["File edited: ", input.file_path])
 }
 "#;
 
@@ -357,18 +361,10 @@ add_context contains msg if {
     let config = EngineConfig::new(HarnessType::Cursor);
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
-    // Cursor afterFileEdit -> PostToolUse with tool_name: Edit
+    // Cursor's native afterFileEdit event
     let event = json!({
-        "hook_event_name": "PostToolUse",
-        "tool_name": "Edit",
-        "tool_input": {
-            "file_path": "/home/user/project/src/main.rs",
-            "old_string": "old",
-            "new_string": "new"
-        },
-        "tool_response": {
-            "success": true
-        },
+        "hook_event_name": "afterFileEdit",
+        "file_path": "/home/user/project/src/main.rs",
         "conversation_id": "cursor-conv-123",
         "generation_id": "cursor-gen-456",
         "workspace_roots": ["/home/user/project"]
@@ -394,18 +390,19 @@ async fn test_cursor_harness_wildcard_routing() -> Result<()> {
     let project_dir = TempDir::new()?;
     test_helpers::create_test_project(project_dir.path())?;
 
-    // Create wildcard policy (matches any tool)
+    // Create wildcard policy that matches all beforeShellExecution events
     let wildcard_policy = r#"# METADATA
 # scope: package
 # custom:
 #   routing:
-#     required_events: ["PreToolUse"]
+#     required_events: ["beforeShellExecution"]
 package cupcake.policies.wildcard_audit
 
 import rego.v1
 
 add_context contains msg if {
-    msg := concat("", ["Audit: ", input.tool_name, " tool used"])
+    input.hook_event_name == "beforeShellExecution"
+    msg := concat("", ["Audit: shell command '", input.command, "' executed"])
 }
 "#;
 
@@ -419,16 +416,14 @@ add_context contains msg if {
     let config = EngineConfig::new(HarnessType::Cursor);
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
-    // Test with different tools - wildcard should match all
-    let tools = vec!["Bash", "Read", "Write", "Edit", "MCP"];
+    // Test with different commands - wildcard should match all shell executions
+    let commands = vec!["ls -la", "git status", "npm install", "cargo build"];
 
-    for tool in tools {
+    for command in commands {
         let event = json!({
-            "hook_event_name": "PreToolUse",
-            "tool_name": tool,
-            "tool_input": {
-                "command": "test"
-            },
+            "hook_event_name": "beforeShellExecution",
+            "command": command,
+            "cwd": "/home/user/project",
             "conversation_id": "cursor-conv-123",
             "generation_id": "cursor-gen-456",
             "workspace_roots": ["/home/user/project"]
@@ -439,13 +434,83 @@ add_context contains msg if {
         match decision {
             FinalDecision::Allow { context } => {
                 assert_eq!(context.len(), 1);
-                assert_eq!(context[0], format!("Audit: {} tool used", tool));
+                assert_eq!(
+                    context[0],
+                    format!("Audit: shell command '{}' executed", command)
+                );
             }
             _ => panic!(
-                "Expected Allow with context for {}, got: {:?}",
-                tool, decision
+                "Expected Allow with context for '{}', got: {:?}",
+                command, decision
             ),
         }
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cursor_harness_separate_user_agent_messages() -> Result<()> {
+    test_helpers::init_test_logging();
+
+    let project_dir = TempDir::new()?;
+    test_helpers::create_test_project(project_dir.path())?;
+
+    // Create policy that uses agent_context for Cursor's dual-message capability
+    let policy_content = r#"# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["beforeShellExecution"]
+package cupcake.policies.test_dual_message
+
+import rego.v1
+
+deny contains decision if {
+    input.hook_event_name == "beforeShellExecution"
+    contains(input.command, "sudo")
+    decision := {
+        "rule_id": "CURSOR-SUDO-DENY-001",
+        "reason": "Sudo commands are not allowed",
+        "agent_context": "The command contains 'sudo' which requires elevated privileges. Consider using Docker containers or adjusting file permissions instead. See security policy CURSOR-SUDO-DENY-001 for details.",
+        "severity": "HIGH"
+    }
+}
+"#;
+
+    fs::write(
+        project_dir
+            .path()
+            .join(".cupcake/policies/cursor/dual_message.rego"),
+        policy_content,
+    )?;
+
+    let config = EngineConfig::new(HarnessType::Cursor);
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
+
+    let event = json!({
+        "hook_event_name": "beforeShellExecution",
+        "command": "sudo apt update",
+        "cwd": "/home/user/project",
+        "conversation_id": "cursor-conv-123",
+        "generation_id": "cursor-gen-456",
+        "workspace_roots": ["/home/user/project"]
+    });
+
+    let decision = engine.evaluate(&event, None).await?;
+
+    // Verify Deny decision with agent messages
+    match decision {
+        FinalDecision::Deny {
+            reason,
+            agent_messages,
+        } => {
+            assert_eq!(reason, "Sudo commands are not allowed");
+            assert_eq!(agent_messages.len(), 1);
+            assert!(agent_messages[0].contains("elevated privileges"));
+            assert!(agent_messages[0].contains("Docker containers"));
+        }
+        _ => panic!("Expected Deny decision, got: {:?}", decision),
     }
 
     Ok(())

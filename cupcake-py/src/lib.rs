@@ -27,7 +27,7 @@ use pyo3::prelude::*;
 /// # Or explicitly specify harness
 /// engine = PolicyEngine(".cupcake", harness="cursor")
 ///
-/// result = engine.evaluate('{"hookEventName": "PreToolUse", "tool_name": "Bash"}')
+/// result = engine.evaluate('{"hook_event_name": "PreToolUse", "tool_name": "Bash"}')
 /// ```
 #[pyclass(name = "PolicyEngine")]
 struct PyPolicyEngine {

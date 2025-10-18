@@ -346,7 +346,7 @@ package cupcake.global.policies.block_test
 import rego.v1
 
 block contains decision if {
-    input.source == "Startup"
+    input.source == "startup"
     decision := {
         "rule_id": "GLOBAL-BLOCK-001",
         "reason": "Global policy blocked session start",
@@ -397,7 +397,7 @@ allow_override contains decision if {
     // Test: Trigger global BLOCK
     let input = serde_json::json!({
         "hook_event_name": "SessionStart",
-        "source": "Startup"
+        "source": "startup"
     });
 
     let decision = engine.evaluate(&input, None).await?;

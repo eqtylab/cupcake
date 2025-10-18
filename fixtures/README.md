@@ -16,8 +16,8 @@ const CLAUDE_ALWAYS_INJECT_POLICY: &str =
 // ... and all other builtins
 
 // Cursor builtin policies
-const CURSOR_ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../fixtures/cursor/builtins/claude_code_always_inject_on_prompt.rego");
+const CURSOR_GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/git_block_no_verify.rego");
 // ... and all other builtins
 ```
 

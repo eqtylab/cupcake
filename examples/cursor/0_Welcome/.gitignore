@@ -7,9 +7,6 @@ test-events/
 screenshots/*.png
 screenshots/*.jpg
 
-# Bug: $(pwd) directory created by shell expansion error
-$(pwd)/
-
 # IDE
 .idea/
 .vscode/

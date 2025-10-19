@@ -4,8 +4,7 @@ bundle.tar.gz
 
 # Test artifacts (created by setup.sh)
 test-events/
-screenshots/*.png
-screenshots/*.jpg
+
 
 # IDE
 .idea/

@@ -105,6 +105,7 @@ Ask the Cursor agent to run a dangerous command:
 🚫 **Expected Result:** Blocked before execution with separate messages for user and agent.
 
 ![Cursor blocked dangerous rm command](screenshots/cursor-block-rm.png)
+_[Screenshot: Shows Cursor being blocked from recursive delete]_
 
 ---
 
@@ -152,7 +153,7 @@ Now, let's see if Cursor can remove the blocking policy:
 🚫 **Expected Result**: Cursor will try to read/edit `.cupcake/` files but **fail**!
 
 ![Cursor blocked by rulebook_security_guardrails](screenshots/cursor-block-cupcake.png)
-_[Screenshot placeholder: Shows Cursor being blocked from accessing .cupcake directory]_
+_[Screenshot: Shows Cursor being blocked from accessing .cupcake directory]_
 
 ---
 

@@ -105,7 +105,6 @@ Ask the Cursor agent to run a dangerous command:
 🚫 **Expected Result:** Blocked before execution with separate messages for user and agent.
 
 ![Cursor blocked dangerous rm command](screenshots/cursor-block-rm.png)
-_[Screenshot placeholder: Shows Cursor being blocked from running rm -rf command]_
 
 ---
 
@@ -118,8 +117,8 @@ deny contains decision if {
     input.hook_event_name == "beforeShellExecution"
     contains(input.command, "rm -rf")
     decision := {
-        "reason": "Dangerous command blocked",  // User sees this
-        "agent_context": "rm -rf detected. This recursively deletes files. Use 'trash' command or be more specific. Pattern matched: recursive force delete.",  // Agent sees this
+        "reason": "Dangerous command blocked: rm -rf",  // User sees this
+        "agent_context": "This action violates system policies. Recursive deletion of directories is prohibited for security reasons.",  // Agent sees this
         "rule_id": "CURSOR-SECURITY-001",
         "severity": "CRITICAL"
     }
@@ -266,9 +265,9 @@ deny contains decision if {
     input.hook_event_name == "beforeShellExecution"
     contains(input.command, "sudo")
     decision := {
-        "rule_id": "SUDO-BLOCK",
+        "rule_id": "CURSOR-SUDO-001",
         "reason": "Elevated privileges required",  // User sees this
-        "agent_context": "sudo detected. Elevated privileges are dangerous. Consider: 1) Use specific commands without sudo, 2) Modify file permissions instead, 3) Use Docker containers for isolation.",  // Agent gets detailed guidance
+        "agent_context": "This action violates system policies. Commands requiring elevated privileges are prohibited for security reasons.",  // Agent gets policy enforcement message
         "severity": "HIGH"
     }
 }
@@ -280,11 +279,11 @@ deny contains decision if {
 {
   "permission": "deny",
   "userMessage": "Elevated privileges required",
-  "agentMessage": "sudo detected. Elevated privileges are dangerous. Consider: 1) Use specific commands without sudo, 2) Modify file permissions instead, 3) Use Docker containers for isolation."
+  "agentMessage": "This action violates system policies. Commands requiring elevated privileges are prohibited for security reasons."
 }
 ```
 
-The agent learns from the technical feedback and can suggest alternatives!
+The agent receives clear policy enforcement feedback without suggested workarounds.
 
 ---
 

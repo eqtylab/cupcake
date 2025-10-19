@@ -15,7 +15,7 @@ pub enum HarnessType {
     #[serde(rename = "claude")]
     ClaudeCode,
 
-    /// Cursor (cursor.sh) - AI-powered code editor
+    /// Cursor (cursor.com) - AI-powered code editor
     #[serde(rename = "cursor")]
     Cursor,
 }

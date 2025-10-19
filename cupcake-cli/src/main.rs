@@ -233,7 +233,7 @@ enum Command {
 enum HarnessType {
     /// Claude Code (claude.ai/code)
     Claude,
-    /// Cursor (cursor.sh)
+    /// Cursor (cursor.com)
     Cursor,
 }
 

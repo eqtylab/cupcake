@@ -127,7 +127,7 @@ The `HarnessType` enum defines supported harnesses:
 #[derive(Debug, Clone, ValueEnum)]
 enum HarnessType {
     Claude,   // Claude Code (claude.ai/code)
-    Cursor,   // Cursor (cursor.sh)
+    Cursor,   // Cursor (cursor.com)
 }
 ```
 

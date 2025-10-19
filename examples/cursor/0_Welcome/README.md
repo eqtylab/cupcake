@@ -302,26 +302,6 @@ When done testing:
 
 ---
 
-## Policy Management
-
-### View Active Policies
-
-```bash
-cupcake inspect --harness cursor
-```
-
-![Cupcake inspect output](screenshots/cursor-inspect.png)
-_[Screenshot placeholder: Shows cupcake inspect output with Cursor policies]_
-
-### Test Policies
-
-```bash
-# Test with sample event
-echo '{"hook_event_name": "beforeShellExecution", "command": "rm -rf /"}' | cupcake eval --harness cursor
-```
-
----
-
 ## Key Takeaways
 
 1. **Policies work transparently** - No changes needed to Cursor itself
@@ -331,57 +311,3 @@ echo '{"hook_event_name": "beforeShellExecution", "command": "rm -rf /"}' | cupc
 5. **AI-resistant** - Agents cannot easily bypass security policies
 
 Explore the policy files in `.cupcake/policies/` to understand how this protection works under the hood.
-
----
-
-## Differences from Claude Code
-
-| Feature             | Cursor                                | Claude Code             |
-| ------------------- | ------------------------------------- | ----------------------- |
-| Hook configuration  | `~/.cursor/hooks.json`                | `.claude/settings.json` |
-| Event format        | `beforeShellExecution`                | `PreToolUse`            |
-| Agent feedback      | Separate `userMessage`/`agentMessage` | Single `stopReason`     |
-| File content access | Direct in event                       | Via tool response       |
-| Context injection   | Not supported                         | `additionalContext`     |
-
-See [Harness Comparison](../../../docs/user-guide/harnesses/harness-comparison.md) for full details.
-
----
-
-## Troubleshooting
-
-### Hooks Not Firing
-
-Check `~/.cursor/hooks.json` exists and contains:
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "beforeShellExecution": [{ "command": "cupcake eval --harness cursor" }]
-  }
-}
-```
-
-### View Hook Execution
-
-Cursor Settings → Hooks tab shows execution status and errors.
-
-### Debug Policy Evaluation
-
-```bash
-cupcake eval --harness cursor --debug-files < test-event.json
-```
-
-Check `.cupcake/debug/` for detailed logs.
-
----
-
-## Next Steps
-
-1. Explore `.cupcake/policies/cursor/` to see policy implementations
-2. Try writing custom policies for your workflow
-3. Configure signals for dynamic context
-4. Set up actions for automated responses
-
-For more information, see the [Cursor Integration Guide](../../../docs/user-guide/harnesses/cursor.md).

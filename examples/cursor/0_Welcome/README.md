@@ -15,9 +15,9 @@ This walkthrough demonstrates Cupcake's policy enforcement in action with Cursor
   - [Step 2: Understanding the Block](#step-2-understanding-the-block)
   - [Step 3: The Challenge - Bypass Attempt](#step-3-the-challenge---bypass-attempt)
   - [Step 4: Built-in Protection Explained](#step-4-built-in-protection-explained)
-  - [Step 5: File Protection Demo](#step-5-file-protection-demo)
-  - [Step 6: MCP Tool Protection](#step-6-mcp-tool-protection)
-  - [Step 7: Agent Feedback Mechanism](#step-7-agent-feedback-mechanism)
+  - [Step 5: Centralized Rule Management](#step-5-centralized-rule-management)
+  - [Step 6: MCP Database Protection Demo](#step-6-mcp-database-protection-demo)
+  - [Step 7: External Context with Signals](#step-7-introducing-external-context-for-more-effective-policy-evaluation)
 - [Key Takeaways](#key-takeaways)
 
 ## Prerequisites
@@ -193,98 +193,112 @@ _[Screenshot placeholder: Shows git --no-verify being blocked]_
 
 ---
 
-### Step 5: File Protection Demo
+### Step 5: Centralized Rule Management
 
-Cursor's file access can be controlled at a granular level:
+Part of the benefit of using a centralized policy enforcement layer is the ability to have a well managed model over rules.
+So far, you've seen two rules in action. Let's see all of the rules cupcake loads at runtime:
 
-**Test reading sensitive files:**
-
-```
-> read the contents of ~/.ssh/id_rsa
-```
-
-🚫 **Expected Result**: Blocked by `sensitive_data_protection` builtin.
-
-**Test modifying system files:**
-
-```
-> add a new entry to /etc/hosts
+```bash
+cupcake inspect --harness cursor # will show the policies currently loaded
 ```
 
-🚫 **Expected Result**: Blocked by `protected_paths` builtin.
+```bash
+cupcake inspect --harness cursor --table # shows a compact table format
+```
 
-![Cursor file protection demo](screenshots/cursor-file-protection.png)
-_[Screenshot placeholder: Shows file access being blocked]_
+![cupcake inspect shows the current policies](screenshots/cursor-inspect.png)
+_[Screenshot placeholder: Shows cupcake inspect output]_
+
+Later on, we cover how to `verify` and `test` policies.
 
 ---
 
-### Step 6: MCP Tool Protection
+## Step 6: MCP Database Protection Demo
 
-Cursor supports MCP (Model Context Protocol) tools. Cupcake can protect these too:
+This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers. This capability expands to any MCP.
 
-### Setup MCP Demo (Optional)
+### Setup the Database Demo
 
-⚠️ Requires Docker for database demo.
+⚠️ Requires Docker.
+
+Run the MCP setup script to create a PostgreSQL database with appointment data:
 
 ```bash
-./mcp_setup.sh  # Sets up PostgreSQL with sample data
+./mcp_setup.sh # docker must be running for this to work
 ```
 
-### Test MCP Protection
-
-**Allowed Operations:**
-
-```
-> query all records from the database
-```
-
-**Blocked Operations:**
-
-```
-> delete all records older than 30 days
-```
-
-🚫 **Expected Result**: Dangerous database operations blocked.
-
-![Cursor MCP protection](screenshots/cursor-mcp-protection.png)
-_[Screenshot placeholder: Shows MCP database operations being blocked]_
-
-♻️ Cleanup when done:
+♻️ Reset anytime with:
 
 ```bash
 ./mcp_cleanup.sh
 ```
 
----
+This will:
 
-### Step 7: Agent Feedback Mechanism
+- Start a PostgreSQL Docker container with appointment data
+- Install a policy that prevents database deletions and last-minute cancellations
+- Configure Cursor to access the database via MCP
 
-Cursor's unique feature is **separate user and agent messages**. This helps the AI learn:
+### Test Database Protection
 
-```rego
-deny contains decision if {
-    input.hook_event_name == "beforeShellExecution"
-    contains(input.command, "sudo")
-    decision := {
-        "rule_id": "CURSOR-SUDO-001",
-        "reason": "Elevated privileges required",  // User sees this
-        "agent_context": "This action violates system policies. Commands requiring elevated privileges are prohibited for security reasons.",  // Agent gets policy enforcement message
-        "severity": "HIGH"
-    }
-}
+After restarting Cursor, try these scenarios:
+
+**Allowed Operations:**
+
+```
+> Show me all appointments in the database
 ```
 
-**Result in Cursor:**
+**Blocked Operations:**
 
-```json
-{
-  "permission": "deny",
-  "userMessage": "Elevated privileges required",
-  "agentMessage": "This action violates system policies. Commands requiring elevated privileges are prohibited for security reasons."
-}
+```
+> Cancel the appointment for Sarah Johnson
+# Blocked - appointment is within 24 hours
+
+> Delete all appointments older than 30 days
+# Blocked - no deletions allowed on production data
 ```
 
-The agent receives clear policy enforcement feedback without suggested workarounds.
+![Cursor MCP protection demo](screenshots/cursor-mcp-demo.png)
+_[Screenshot placeholder: Shows MCP database operations being blocked]_
+
+### So How Did That Work?
+
+The appointment cancellation was blocked using **signals** - external scripts that provide runtime data to policies.
+
+## Step 7: Introducing external context for more effective policy evaluation.
+
+Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Cursor event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the appointment's ID (from the agent tool call parameter) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Cursor from executing the action.
+
+```
+Cursor                  Cupcake Engine                  Signal Script              Database
+     |                         |                               |                        |
+     |--beforeMCPExecution---->|                               |                        |
+     |  (SQL: UPDATE...id=1)   |                               |                        |
+     |                         |--Pipe event JSON via stdin-->|                        |
+     |                         |                               |--Query appointment---->|
+     |                         |                               |<---Time: 17 hours------|
+     |                         |<--{within_24_hours: true}----|                        |
+     |                         |                               |                        |
+     |                    [Policy evaluates]                   |                        |
+     |<---DENY: within 24hrs---|                               |                        |
+```
+
+The signal (`check_appointment_time.py`) dynamically extracts the appointment ID from the SQL, queries the database, and returns whether it's within 24 hours. This enables policies to make real-time decisions based on actual data - no hardcoded values.
+
+### When to use signals
+
+1. Use signals anytime you want to enrich an agent event with deeper context and information you can only get at a point in time.
+
+2. Signals also allow you to do advanced guard railing. Cupcake itself does not intend to be a scanning or classifier type of system, such as NVIDIA NeMo or Invariant guardrails. However, you can use those types of guardrails (LLM-based evaluations, AI as a judge, AI classifiers, etc.) to evaluate the tool calls and ultimately make the decision on whether to allow or deny. Cupcake is simple in that it can accept outputs from the advance guardrail systems as the decision. The Cupcake policy is simple in those cases.
+
+### Cleanup
+
+When done testing:
+
+```bash
+./mcp_cleanup.sh
+```
 
 ---
 
@@ -310,13 +324,13 @@ echo '{"hook_event_name": "beforeShellExecution", "command": "rm -rf /"}' | cupc
 
 ## Key Takeaways
 
-1. **Cursor-specific integration** - Uses native Cursor hooks and event format
-2. **Differentiated feedback** - Separate messages for users and AI agents
-3. **Complete coverage** - Shell commands, file access, MCP tools, prompts
-4. **Built-in protection** - Critical paths protected by default
-5. **AI learning** - Agent receives technical guidance to self-correct
+1. **Policies work transparently** - No changes needed to Cursor itself
+2. **Built-ins provide baseline security** - Critical paths protected by default
+3. **Layered protection** - Global policies + project policies + built-ins
+4. **Real-time enforcement** - Commands blocked before execution
+5. **AI-resistant** - Agents cannot easily bypass security policies
 
-Explore the policy files in `.cupcake/policies/cursor/` to understand how this protection works.
+Explore the policy files in `.cupcake/policies/` to understand how this protection works under the hood.
 
 ---
 

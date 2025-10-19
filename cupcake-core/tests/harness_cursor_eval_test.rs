@@ -179,7 +179,15 @@ ask contains decision if {
         policy_content,
     )?;
 
-    let config = EngineConfig::new(HarnessType::Cursor);
+    // Disable global config to avoid interference from global builtins
+    let empty_global = TempDir::new()?;
+    let config = EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: HarnessType::Cursor,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
+    };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     // Cursor's native beforeReadFile event
@@ -485,7 +493,15 @@ deny contains decision if {
         policy_content,
     )?;
 
-    let config = EngineConfig::new(HarnessType::Cursor);
+    // Disable global config to avoid interference from global builtins
+    let empty_global = TempDir::new()?;
+    let config = EngineConfig {
+        global_config: Some(empty_global.path().to_path_buf()),
+        harness: HarnessType::Cursor,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
+    };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
     let event = json!({

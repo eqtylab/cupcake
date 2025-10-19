@@ -75,7 +75,7 @@ deny contains decision if {
         FinalDecision::Deny { reason, .. } => {
             assert_eq!(reason, "Dangerous command blocked");
         }
-        _ => panic!("Expected Deny decision, got: {:?}", decision),
+        _ => panic!("Expected Deny decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -136,7 +136,7 @@ halt contains decision if {
         FinalDecision::Halt { reason, .. } => {
             assert_eq!(reason, "Dangerous prompt blocked");
         }
-        _ => panic!("Expected Halt decision, got: {:?}", decision),
+        _ => panic!("Expected Halt decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -207,7 +207,7 @@ ask contains decision if {
         FinalDecision::Ask { reason, .. } => {
             assert_eq!(reason, "Accessing sensitive file");
         }
-        _ => panic!("Expected Ask decision, got: {:?}", decision),
+        _ => panic!("Expected Ask decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -266,7 +266,7 @@ add_context contains msg if {
             assert_eq!(context.len(), 1);
             assert_eq!(context[0], "This is context from Cupcake");
         }
-        _ => panic!("Expected Allow with context, got: {:?}", decision),
+        _ => panic!("Expected Allow with context, got: {decision:?}"),
     }
 
     Ok(())
@@ -328,7 +328,7 @@ deny contains decision if {
         FinalDecision::Deny { reason, .. } => {
             assert_eq!(reason, "Untrusted MCP server blocked");
         }
-        _ => panic!("Expected Deny decision, got: {:?}", decision),
+        _ => panic!("Expected Deny decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -385,7 +385,7 @@ add_context contains msg if {
             assert_eq!(context.len(), 1);
             assert_eq!(context[0], "File edited: /home/user/project/src/main.rs");
         }
-        _ => panic!("Expected Allow with context, got: {:?}", decision),
+        _ => panic!("Expected Allow with context, got: {decision:?}"),
     }
 
     Ok(())
@@ -444,13 +444,10 @@ add_context contains msg if {
                 assert_eq!(context.len(), 1);
                 assert_eq!(
                     context[0],
-                    format!("Audit: shell command '{}' executed", command)
+                    format!("Audit: shell command '{command}' executed")
                 );
             }
-            _ => panic!(
-                "Expected Allow with context for '{}', got: {:?}",
-                command, decision
-            ),
+            _ => panic!("Expected Allow with context for '{command}', got: {decision:?}"),
         }
     }
 
@@ -526,7 +523,7 @@ deny contains decision if {
             assert!(agent_messages[0].contains("elevated privileges"));
             assert!(agent_messages[0].contains("Docker containers"));
         }
-        _ => panic!("Expected Deny decision, got: {:?}", decision),
+        _ => panic!("Expected Deny decision, got: {decision:?}"),
     }
 
     Ok(())

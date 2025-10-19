@@ -1226,9 +1226,9 @@ async fn init_project_config(
         ];
 
         for (filename, content) in claude_builtins {
-            let path = format!(".cupcake/policies/claude/builtins/{}", filename);
+            let path = format!(".cupcake/policies/claude/builtins/{filename}");
             fs::write(&path, content)
-                .with_context(|| format!("Failed to create Claude builtin: {}", filename))?;
+                .with_context(|| format!("Failed to create Claude builtin: {filename}"))?;
         }
 
         // Cursor builtins - only compatible ones (no always_inject or enforce_full_file_read)
@@ -1249,9 +1249,9 @@ async fn init_project_config(
         ];
 
         for (filename, content) in cursor_builtins {
-            let path = format!(".cupcake/policies/cursor/builtins/{}", filename);
+            let path = format!(".cupcake/policies/cursor/builtins/{filename}");
             fs::write(&path, content)
-                .with_context(|| format!("Failed to create Cursor builtin: {}", filename))?;
+                .with_context(|| format!("Failed to create Cursor builtin: {filename}"))?;
         }
 
         // Write a simple example policy

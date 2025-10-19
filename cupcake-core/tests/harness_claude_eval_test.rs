@@ -75,7 +75,7 @@ deny contains decision if {
         FinalDecision::Deny { reason, .. } => {
             assert_eq!(reason, "Dangerous command blocked");
         }
-        _ => panic!("Expected Deny decision, got: {:?}", decision),
+        _ => panic!("Expected Deny decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -134,7 +134,7 @@ halt contains decision if {
         FinalDecision::Halt { reason, .. } => {
             assert_eq!(reason, "Dangerous prompt blocked");
         }
-        _ => panic!("Expected Halt decision, got: {:?}", decision),
+        _ => panic!("Expected Halt decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -198,7 +198,7 @@ ask contains decision if {
         FinalDecision::Ask { reason, .. } => {
             assert_eq!(reason, "Modifying important file");
         }
-        _ => panic!("Expected Ask decision, got: {:?}", decision),
+        _ => panic!("Expected Ask decision, got: {decision:?}"),
     }
 
     Ok(())
@@ -252,7 +252,7 @@ add_context contains msg if {
             assert_eq!(context.len(), 1);
             assert_eq!(context[0], "This is additional context from Cupcake");
         }
-        _ => panic!("Expected Allow with context, got: {:?}", decision),
+        _ => panic!("Expected Allow with context, got: {decision:?}"),
     }
 
     Ok(())
@@ -338,7 +338,7 @@ add_context contains msg if {
         FinalDecision::Deny { reason, .. } => {
             assert_eq!(reason, "Specific Edit policy fired");
         }
-        _ => panic!("Expected Deny from specific policy, got: {:?}", decision),
+        _ => panic!("Expected Deny from specific policy, got: {decision:?}"),
     }
 
     Ok(())
@@ -391,7 +391,7 @@ add_context contains msg if {
             assert_eq!(context.len(), 1);
             assert_eq!(context[0], "Session started from startup");
         }
-        _ => panic!("Expected Allow with context, got: {:?}", decision),
+        _ => panic!("Expected Allow with context, got: {decision:?}"),
     }
 
     Ok(())

@@ -59,7 +59,7 @@ Blocks prompts containing potential secrets:
 
 ### beforeReadFile / afterFileEdit
 - File path in `input.file_path` (direct)
-- `file_content` available in event for read operations
+- `content` available in event for read operations (beforeReadFile only)
 - Cursor provides file content before the operation
 
 ### beforeMCPExecution

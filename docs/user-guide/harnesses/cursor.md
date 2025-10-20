@@ -130,7 +130,7 @@ Each event has a specific JSON structure. Here are the key events:
   "generation_id": "gen_456",
   "workspace_roots": ["/path/to/project"],
   "file_path": "/path/to/file.txt",
-  "file_content": "file contents here...",
+  "content": "file contents here...",
   "attachments": [
     {
       "type": "rule",
@@ -248,7 +248,7 @@ Cursor policies access event data differently than Claude Code:
 | Hook field name | `input.hook_event_name` (camelCase) | `input.hook_event_name` (camelCase) |
 | Shell command | `input.tool_input.command` | `input.command` |
 | File path | `input.tool_input.file_path` | `input.file_path` |
-| File content | N/A | `input.file_content` |
+| File content | N/A | `input.content` |
 | Prompt | `input.prompt` | `input.prompt` |
 
 **Note**: Cupcake validates both Claude Code and Cursor event names in policy metadata, so you won't see warnings regardless of which harness you're targeting.
@@ -356,7 +356,7 @@ deny contains decision if {
 
     # Check if file content has syntax errors
     # (In practice, you'd use a signal to run pylint)
-    not valid_python_syntax(input.file_content)
+    not valid_python_syntax(input.content)
 
     decision := {
         "rule_id": "EDIT-VALIDATE-001",

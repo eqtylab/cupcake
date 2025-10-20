@@ -282,7 +282,7 @@ Claude Code policies access event data differently than Cursor:
 | Event type | `input.hook_event_name` | `input.hook_event_name` |
 | Shell command | `input.tool_input.command` | `input.command` |
 | File path | `input.tool_input.file_path` | `input.file_path` |
-| File content | Via tool_input (Write) or tool_response (Read) | `input.file_content` |
+| File content | Via tool_input (Write) or tool_response (Read) | `input.content` |
 | Prompt | `input.prompt` | `input.prompt` |
 | Session ID | `input.session_id` | `input.conversation_id` |
 

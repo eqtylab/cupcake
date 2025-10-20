@@ -106,7 +106,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 {
   "hook_event_name": "beforeReadFile",
   "file_path": "/path/to/file.txt",
-  "file_content": "actual file contents here...",
+  "content": "actual file contents here...",
   "conversation_id": "conv_123",
   "generation_id": "gen_456",
   "workspace_roots": ["/working/dir"],
@@ -114,7 +114,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 }
 ```
 
-**Key Difference**: Cursor provides full `file_content` in the event, enabling content-based policies without signals.
+**Key Difference**: Cursor provides full `content` field in the event, enabling content-based policies without signals.
 
 ### Prompt Submission
 
@@ -345,7 +345,7 @@ Context injection is not supported in Cursor hooks. You can only provide `userMe
 |------------|-------------|--------|
 | Block file reads | ✅ Yes (via PreToolUse) | ✅ Yes (via beforeReadFile) |
 | Block file writes | ✅ Yes (via PreToolUse) | ✅ Yes (via beforeShellExecution) |
-| Access file content in policy | ❌ No (needs signal) | ✅ Yes (via `file_content` field) |
+| Access file content in policy | ❌ No (needs signal) | ✅ Yes (via `content` field) |
 | Post-edit validation | ✅ Yes (via PostToolUse) | ✅ Yes (via afterFileEdit) |
 
 ### MCP Tool Control
@@ -461,7 +461,7 @@ All builtins are configured identically in `.cupcake/rulebook.yml` regardless of
 ### Choose Cursor If:
 
 - ✅ You use Cursor as your primary code editor
-- ✅ You need content-based file policies (access to `file_content`)
+- ✅ You need content-based file policies (access to `content`)
 - ✅ You want to control MCP tool execution
 - ✅ You prefer IDE-integrated AI workflows
 - ✅ You need global hook configuration across all projects
@@ -592,7 +592,7 @@ Debug files are written to `.cupcake/debug/` in both cases.
 - Hook not firing: Check `~/.cursor/hooks.json` exists and has correct structure
 - Wrong file: Hooks must be in `hooks.json` NOT `settings.json`
 - Policies not loading: Ensure policies are in `policies/cursor/` not `policies/claude/`
-- File content missing: Only `beforeReadFile` provides `file_content` field
+- File content missing: Only `beforeReadFile` provides `content` field
 
 ---
 

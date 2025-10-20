@@ -252,7 +252,7 @@ $fileReadEvent = @'
   "generation_id": "gen-002",
   "workspace_roots": ["C:\\Users\\user"],
   "file_path": "C:\\Users\\user\\.ssh\\id_rsa",
-  "file_content": "-----BEGIN OPENSSH PRIVATE KEY-----",
+  "content": "-----BEGIN OPENSSH PRIVATE KEY-----",
   "attachments": []
 }
 '@

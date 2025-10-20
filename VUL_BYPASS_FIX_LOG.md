@@ -318,3 +318,17 @@ Simple log of work conducted to address Trail of Bits bypass vulnerabilities.
 - All core fixes now preserved in version control
 
 **Next steps**: Phase 4 adversarial testing to validate fixes work against bypass attempts
+
+**00:15 - Fixed helper library integration**
+- Issue: test_init_creates_valid_engine_structure failing with "undefined function data.cupcake.helpers.commands.has_verb"
+- Root cause: `cupcake init` wasn't creating helper library files
+- Fixes applied:
+  - Added HELPERS_COMMANDS and HELPERS_PATHS constants in main.rs
+  - Create .cupcake/policies/helpers/ directory during init
+  - Write helpers to disk during both project and global init
+  - Modified compiler.rs to copy helpers directory to temp compilation directory
+  - Updated test expectations: 18 → 20 files, 9 → 10 directories
+- Commit: ccbb968
+- All tests passing: 146/146 ✅
+
+**Status**: All core vulnerability fixes complete and tested. Ready for Phase 4 adversarial testing.

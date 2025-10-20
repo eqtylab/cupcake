@@ -28,16 +28,16 @@ cd ../../..
 cargo build --release
 echo "✅ Build complete"
 
-# Add to PATH for this session
-export PATH="$(pwd)/target/release:$PATH"
-echo "✅ Added cupcake to PATH for this session"
+# Store the cupcake binary path
+CUPCAKE_BIN="$(pwd)/target/release/cupcake"
+echo "✅ Using cupcake binary at: $CUPCAKE_BIN"
 
 # Return to examples directory
 cd examples/claude-code/0_Welcome
 
-# Initialize Cupcake project
+# Initialize Cupcake project using the explicit path
 echo "Initializing Cupcake project..."
-cupcake init
+"$CUPCAKE_BIN" init
 echo "✅ Project initialized"
 
 # Copy example policies
@@ -120,7 +120,8 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Run 'export PATH=\"$(realpath ../../../target/release):\$PATH\"' to add cupcake to your shell PATH"
+echo "1. To add cupcake to your PATH, run:"
+echo "   export PATH=\"$(realpath ../../../target/release):\$PATH\""
 echo "2. Start Claude Code in this directory"
 echo "3. Try running commands that trigger policies"
 echo ""

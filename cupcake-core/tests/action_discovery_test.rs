@@ -12,10 +12,11 @@ async fn test_action_discovery_from_directory() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
-    // Create .cupcake directory structure
+    // Create .cupcake directory structure with harness-specific paths
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
 
     fs::create_dir_all(&system_dir).unwrap();
@@ -77,10 +78,15 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("discovery_test.rego"), test_policy).unwrap();
+    fs::write(claude_dir.join("discovery_test.rego"), test_policy).unwrap();
 
     // Initialize engine (this should trigger discovery)
-    let engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     // Trigger the policy
     let event = json!({
@@ -127,7 +133,8 @@ async fn test_discovery_with_rulebook_precedence() {
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
 
     fs::create_dir_all(&system_dir).unwrap();
@@ -192,9 +199,14 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("override_test.rego"), policy).unwrap();
+    fs::write(claude_dir.join("override_test.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",
@@ -229,7 +241,8 @@ async fn test_action_discovery_ignores_subdirs() {
 
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
-    let system_dir = policies_dir.join("system");
+    let claude_dir = policies_dir.join("claude");
+    let system_dir = claude_dir.join("system");
     let actions_dir = cupcake_dir.join("actions");
     let subdir = actions_dir.join("subdir");
 
@@ -290,9 +303,14 @@ deny contains decision if {
 }
 "#;
 
-    fs::write(policies_dir.join("subdir_test.rego"), policy).unwrap();
+    fs::write(claude_dir.join("subdir_test.rego"), policy).unwrap();
 
-    let engine = Engine::new(&project_path).await.unwrap();
+    let engine = Engine::new(
+        &project_path,
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await
+    .unwrap();
 
     let event = json!({
         "hookEventName": "PreToolUse",

@@ -21,8 +21,13 @@ use pyo3::prelude::*;
 /// ```python
 /// from cupcake.cupcake_native import PolicyEngine
 ///
+/// # Default to Claude Code harness
 /// engine = PolicyEngine(".cupcake")
-/// result = engine.evaluate('{"hookEventName": "PreToolUse", "tool_name": "Bash"}')
+///
+/// # Or explicitly specify harness
+/// engine = PolicyEngine(".cupcake", harness="cursor")
+///
+/// result = engine.evaluate('{"hook_event_name": "PreToolUse", "tool_name": "Bash"}')
 /// ```
 #[pyclass(name = "PolicyEngine")]
 struct PyPolicyEngine {
@@ -35,12 +40,15 @@ impl PyPolicyEngine {
     ///
     /// Args:
     ///     path (str): Path to the project directory or .cupcake folder
+    ///     harness (str, optional): Harness type ('claude' or 'cursor'). Defaults to 'claude'.
     ///
     /// Raises:
     ///     RuntimeError: If engine initialization fails
     #[new]
-    fn new(path: String) -> PyResult<Self> {
-        let engine = BindingEngine::new(&path).map_err(PyRuntimeError::new_err)?;
+    #[pyo3(signature = (path, harness=None))]
+    fn new(path: String, harness: Option<String>) -> PyResult<Self> {
+        let harness_str = harness.as_deref().unwrap_or("claude");
+        let engine = BindingEngine::new(&path, harness_str).map_err(PyRuntimeError::new_err)?;
         Ok(Self { inner: engine })
     }
 

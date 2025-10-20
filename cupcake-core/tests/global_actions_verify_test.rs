@@ -20,11 +20,15 @@ async fn test_global_action_execution_logs() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Verify system evaluate policy was created
-    let sys_eval = global_paths.policies.join("system").join("evaluate.rego");
+    let sys_eval = global_paths
+        .policies
+        .join("claude/system")
+        .join("evaluate.rego");
     assert!(
         sys_eval.exists(),
         "System evaluate policy not created at {sys_eval:?}"
@@ -46,7 +50,7 @@ builtins: {}
 
     // Create global policy that triggers the action
     fs::write(
-        global_paths.policies.join("test_policy.rego"),
+        global_paths.policies.join("claude/test_policy.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -74,7 +78,10 @@ halt contains decision if {
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -125,11 +132,15 @@ async fn test_global_action_working_directory_issue() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Verify system evaluate policy was created
-    let sys_eval2 = global_paths.policies.join("system").join("evaluate.rego");
+    let sys_eval2 = global_paths
+        .policies
+        .join("claude/system")
+        .join("evaluate.rego");
     assert!(
         sys_eval2.exists(),
         "System evaluate policy not created at {sys_eval2:?}"
@@ -150,7 +161,7 @@ builtins: {}
 
     // Create global policy
     fs::write(
-        global_paths.policies.join("wd_policy.rego"),
+        global_paths.policies.join("claude/wd_policy.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -178,7 +189,10 @@ deny contains decision if {
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

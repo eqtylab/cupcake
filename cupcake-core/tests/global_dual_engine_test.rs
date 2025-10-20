@@ -18,7 +18,11 @@ async fn test_engine_without_global_config() -> Result<()> {
     test_helpers::create_test_project(project_dir.path())?;
 
     // Engine should initialize without global config
-    let engine = Engine::new(project_dir.path()).await?;
+    let engine = Engine::new(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )
+    .await?;
 
     // Verify basic evaluation works
     let input = serde_json::json!({
@@ -45,15 +49,16 @@ async fn test_engine_with_global_config() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Use helper to create global structure
     test_helpers::create_test_global_config(&global_paths.root)?;
 
     // Create a simple global policy
     fs::write(
-        global_paths.policies.join("test_global.rego"),
+        global_paths.policies.join("claude/test_global.rego"),
         r#"package cupcake.global.policies.test
 
 import rego.v1
@@ -69,7 +74,10 @@ add_context contains "Global policy active"
     // Engine should initialize with both configs
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -92,13 +100,14 @@ async fn test_namespace_isolation() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
     test_helpers::create_test_global_config(&global_paths.root)?;
 
     // Create conflicting global policy (same name but global namespace)
     fs::write(
-        global_paths.policies.join("conflict.rego"),
+        global_paths.policies.join("claude/conflict.rego"),
         r#"package cupcake.global.policies.conflict
 
 import rego.v1
@@ -113,7 +122,9 @@ test_value := "global"
 
     // Create conflicting project policy (same base name but project namespace)
     fs::write(
-        project_dir.path().join(".cupcake/policies/conflict.rego"),
+        project_dir
+            .path()
+            .join(".cupcake/policies/claude/conflict.rego"),
         r#"package cupcake.policies.conflict
 
 import rego.v1
@@ -125,7 +136,10 @@ test_value := "project"
     // Engine should handle both without namespace collision
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

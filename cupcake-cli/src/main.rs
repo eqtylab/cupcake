@@ -142,12 +142,20 @@ struct Cli {
     /// Override OPA binary path
     #[clap(long, global = true)]
     opa_path: Option<PathBuf>,
+
+    /// Override debug output directory (default: .cupcake/debug)
+    #[clap(long, global = true)]
+    debug_dir: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
 enum Command {
     /// Evaluate a hook event against policies
     Eval {
+        /// The AI coding agent harness type (REQUIRED)
+        #[clap(long, value_enum)]
+        harness: HarnessType,
+
         /// Directory containing policy files
         #[clap(long, default_value = "./policies")]
         policy_dir: PathBuf,
@@ -163,6 +171,10 @@ enum Command {
 
     /// Verify the engine configuration and policies
     Verify {
+        /// The AI coding agent harness type (REQUIRED)
+        #[clap(long, value_enum)]
+        harness: HarnessType,
+
         /// Directory containing policy files
         #[clap(long, default_value = "./policies")]
         policy_dir: PathBuf,
@@ -221,7 +233,17 @@ enum Command {
 enum HarnessType {
     /// Claude Code (claude.ai/code)
     Claude,
-    // Future harnesses can be added here
+    /// Cursor (cursor.com)
+    Cursor,
+}
+
+impl From<HarnessType> for cupcake_core::harness::types::HarnessType {
+    fn from(ht: HarnessType) -> Self {
+        match ht {
+            HarnessType::Claude => cupcake_core::harness::types::HarnessType::ClaudeCode,
+            HarnessType::Cursor => cupcake_core::harness::types::HarnessType::Cursor,
+        }
+    }
 }
 
 /// Initialize tracing with CLI flags
@@ -287,6 +309,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Eval {
+            harness,
             policy_dir,
             debug,
             strict,
@@ -304,15 +327,26 @@ async fn main() -> Result<()> {
 
             // Build engine config from CLI flags
             let engine_config = engine::EngineConfig {
+                harness: harness.into(), // Convert CLI HarnessType to core HarnessType
                 wasm_max_memory: Some(cli.wasm_max_memory.bytes),
                 opa_path: cli.opa_path.clone(),
                 global_config: cli.global_config.clone(),
                 debug_routing: cli.debug_routing,
             };
 
-            eval_command(policy_dir, strict, cli.debug_files, engine_config).await
+            eval_command(
+                policy_dir,
+                strict,
+                cli.debug_files,
+                cli.debug_dir,
+                engine_config,
+            )
+            .await
         }
-        Command::Verify { policy_dir } => verify_command(policy_dir).await,
+        Command::Verify {
+            harness,
+            policy_dir,
+        } => verify_command(harness.into(), policy_dir).await,
         Command::Init {
             global,
             harness,
@@ -332,12 +366,16 @@ async fn eval_command(
     policy_dir: PathBuf,
     strict: bool,
     debug_files_enabled: bool,
+    debug_dir: Option<PathBuf>,
     engine_config: engine::EngineConfig,
 ) -> Result<()> {
     debug!(
         "Initializing Cupcake engine with policies from: {:?}",
         policy_dir
     );
+
+    // Get the harness type from engine_config for later use
+    let harness_type = engine_config.harness;
 
     // Initialize the engine with configuration - MUST succeed or we exit
     let engine = match engine::Engine::new_with_config(&policy_dir, engine_config).await {
@@ -357,27 +395,30 @@ async fn eval_command(
     };
 
     // Read hook event from stdin
-    let mut buffer = String::new();
+    let mut stdin_buffer = String::new();
     io::stdin()
-        .read_to_string(&mut buffer)
+        .read_to_string(&mut stdin_buffer)
         .context("Failed to read hook event from stdin")?;
 
-    // Parse the Claude Code event using the harness
-    let event = harness::ClaudeHarness::parse_event(&buffer)
-        .context("Failed to parse Claude Code event")?;
+    info!("Processing harness: {:?}", harness_type);
+    debug!("Parsing hook event from stdin");
 
-    debug!("Processing {} hook event", event.event_name());
+    // Parse the JSON event based on harness type
+    let mut hook_event_json: serde_json::Value =
+        serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
-    // Convert to JSON Value for the engine
-    let mut hook_event_json = serde_json::to_value(&event)?;
-
-    // Add hookEventName field for the engine
-    // The engine expects camelCase but ClaudeCodeEvent uses snake_case
+    // Add hookEventName field for the engine if not present (for routing compatibility)
+    // The engine routing needs this field
     if let Some(obj) = hook_event_json.as_object_mut() {
-        obj.insert(
-            "hookEventName".to_string(),
-            serde_json::Value::String(event.event_name().to_string()),
-        );
+        if !obj.contains_key("hookEventName") && !obj.contains_key("hook_event_name") {
+            // Extract event name from the JSON
+            if let Some(event_name) = obj.get("hook_event_name").and_then(|v| v.as_str()) {
+                obj.insert(
+                    "hookEventName".to_string(),
+                    serde_json::Value::String(event_name.to_string()),
+                );
+            }
+        }
     }
 
     // Create debug capture if enabled via CLI flag
@@ -388,6 +429,7 @@ async fn eval_command(
             hook_event_json.clone(),
             trace_id,
             true, // enabled
+            debug_dir.clone(),
         ))
     } else {
         None
@@ -413,7 +455,7 @@ async fn eval_command(
             }
 
             // On error, return a safe "allow" with no modifications
-            // This ensures we don't break Claude Code on engine failures
+            // This ensures we don't break the agent on engine failures
             println!("{{}}");
             if strict {
                 std::process::exit(1);
@@ -422,8 +464,22 @@ async fn eval_command(
         }
     };
 
-    // Format response using ClaudeHarness
-    let response = harness::ClaudeHarness::format_response(&event, &decision)?;
+    // Format response based on harness type from engine config
+    let response = match harness_type {
+        cupcake_core::harness::types::HarnessType::ClaudeCode => {
+            // Re-parse to get original event structure for response formatting
+            let event = serde_json::from_str::<harness::events::claude_code::ClaudeCodeEvent>(
+                &stdin_buffer,
+            )?;
+            harness::ClaudeHarness::format_response(&event, &decision)?
+        }
+        cupcake_core::harness::types::HarnessType::Cursor => {
+            // Re-parse Cursor event for response formatting
+            let event =
+                serde_json::from_str::<harness::events::cursor::CursorEvent>(&stdin_buffer)?;
+            harness::CursorHarness::format_response(&event, &decision)?
+        }
+    };
 
     // Capture the response in debug if enabled
     if let Some(ref mut debug) = debug_capture {
@@ -448,10 +504,14 @@ async fn eval_command(
     Ok(())
 }
 
-async fn verify_command(policy_dir: PathBuf) -> Result<()> {
+async fn verify_command(
+    harness: cupcake_core::harness::types::HarnessType,
+    policy_dir: PathBuf,
+) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
 
     info!("Verifying Cupcake engine configuration...");
+    info!("Harness type: {:?}", harness);
     info!("Policy directory: {:?}", policy_dir);
 
     // Check for global configuration
@@ -491,7 +551,7 @@ async fn verify_command(policy_dir: PathBuf) -> Result<()> {
 
     // Initialize the engine - MUST succeed or we exit
     println!("\n=== Project Configuration ===");
-    let engine = match engine::Engine::new(&policy_dir).await {
+    let engine = match engine::Engine::new(&policy_dir, harness).await {
         Ok(e) => {
             println!("✅ Engine initialized successfully");
             e
@@ -849,12 +909,67 @@ async fn init_global_config(
     // Initialize the directory structure
     global_paths.initialize()?;
 
-    // Create system evaluate policy for global namespace
-    let system_dir = global_paths.policies.join("system");
-    fs::create_dir_all(&system_dir)?;
+    // Create harness-specific system evaluate policies
+    // Claude system evaluate
+    let claude_system_dir = global_paths.policies.join("claude").join("system");
+    fs::create_dir_all(&claude_system_dir)?;
 
     fs::write(
-        system_dir.join("evaluate.rego"),
+        claude_system_dir.join("evaluate.rego"),
+        r#"# METADATA
+# scope: package
+# custom:
+#   entrypoint: true
+# title: Global System Evaluation Aggregator
+# description: |
+#   This is the global namespace system evaluation policy.
+#   It aggregates decision verbs from all global policies.
+package cupcake.global.system
+
+import rego.v1
+
+# Aggregate all decision verbs from global policies
+halts := collect_verbs("halt")
+denials := collect_verbs("deny")
+blocks := collect_verbs("block")
+asks := collect_verbs("ask")
+allow_overrides := collect_verbs("allow_override")
+add_context := collect_verbs("add_context")
+
+# Main evaluation entrypoint
+evaluate := {
+    "halts": halts,
+    "denials": denials,
+    "blocks": blocks,
+    "asks": asks,
+    "allow_overrides": allow_overrides,
+    "add_context": add_context
+}
+
+# Default implementation returns empty array
+default collect_verbs(_) := []
+
+# Collect all instances of a specific verb from all policies
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.global.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
+}
+"#,
+    )?;
+
+    // Cursor system evaluate
+    let cursor_system_dir = global_paths.policies.join("cursor").join("system");
+    fs::create_dir_all(&cursor_system_dir)?;
+
+    fs::write(
+        cursor_system_dir.join("evaluate.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -953,25 +1068,51 @@ import rego.v1
     let rulebook_content = generate_global_rulebook(builtins.as_deref());
     fs::write(global_paths.rulebook.clone(), rulebook_content)?;
 
-    // Create builtins directory for global builtin policies
-    let builtins_dir = global_paths.policies.join("builtins");
-    fs::create_dir_all(&builtins_dir)?;
+    // Create harness-specific builtin directories for global builtin policies
+    let claude_builtins_dir = global_paths.policies.join("claude").join("builtins");
+    let cursor_builtins_dir = global_paths.policies.join("cursor").join("builtins");
+    fs::create_dir_all(&claude_builtins_dir)?;
+    fs::create_dir_all(&cursor_builtins_dir)?;
 
-    // Deploy the three global builtin policies
-    fs::write(
-        builtins_dir.join("system_protection.rego"),
-        GLOBAL_SYSTEM_PROTECTION_POLICY,
-    )?;
+    // Deploy Claude global builtin policies
+    let claude_global_builtins = vec![
+        (
+            "system_protection.rego",
+            CLAUDE_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            CLAUDE_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            CLAUDE_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
+    ];
 
-    fs::write(
-        builtins_dir.join("sensitive_data_protection.rego"),
-        GLOBAL_SENSITIVE_DATA_POLICY,
-    )?;
+    for (filename, content) in claude_global_builtins {
+        fs::write(claude_builtins_dir.join(filename), content)?;
+    }
 
-    fs::write(
-        builtins_dir.join("cupcake_exec_protection.rego"),
-        GLOBAL_CUPCAKE_EXEC_POLICY,
-    )?;
+    // Deploy Cursor global builtin policies
+    let cursor_global_builtins = vec![
+        (
+            "system_protection.rego",
+            CURSOR_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            CURSOR_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
+    ];
+
+    for (filename, content) in cursor_global_builtins {
+        fs::write(cursor_builtins_dir.join(filename), content)?;
+    }
 
     println!("✅ Initialized global Cupcake configuration");
     println!("   Location:      {:?}", global_paths.root);
@@ -1022,11 +1163,16 @@ async fn init_project_config(
     } else {
         info!("Initializing Cupcake project structure...");
 
-        // Create directories
-        fs::create_dir_all(".cupcake/policies/system")
-            .context("Failed to create .cupcake/policies/system directory")?;
-        fs::create_dir_all(".cupcake/policies/builtins")
-            .context("Failed to create .cupcake/policies/builtins directory")?;
+        // Create harness-specific directories for both Claude Code and Cursor
+        // This allows projects to work with either harness
+        fs::create_dir_all(".cupcake/policies/claude/system")
+            .context("Failed to create .cupcake/policies/claude/system directory")?;
+        fs::create_dir_all(".cupcake/policies/claude/builtins")
+            .context("Failed to create .cupcake/policies/claude/builtins directory")?;
+        fs::create_dir_all(".cupcake/policies/cursor/system")
+            .context("Failed to create .cupcake/policies/cursor/system directory")?;
+        fs::create_dir_all(".cupcake/policies/cursor/builtins")
+            .context("Failed to create .cupcake/policies/cursor/builtins directory")?;
         fs::create_dir_all(".cupcake/signals")
             .context("Failed to create .cupcake/signals directory")?;
         fs::create_dir_all(".cupcake/actions")
@@ -1042,61 +1188,71 @@ async fn init_project_config(
         fs::write(".cupcake/rulebook.yml", rulebook_content)
             .context("Failed to create rulebook.yml file")?;
 
-        // Write the authoritative system evaluate policy
+        // Write the authoritative system evaluate policy to both harness directories
         fs::write(
-            ".cupcake/policies/system/evaluate.rego",
+            ".cupcake/policies/claude/system/evaluate.rego",
             SYSTEM_EVALUATE_TEMPLATE,
         )
-        .context("Failed to create system evaluate.rego file")?;
-
-        // Write all builtin policies
+        .context("Failed to create Claude system evaluate.rego file")?;
         fs::write(
-            ".cupcake/policies/builtins/always_inject_on_prompt.rego",
-            ALWAYS_INJECT_POLICY,
+            ".cupcake/policies/cursor/system/evaluate.rego",
+            SYSTEM_EVALUATE_TEMPLATE,
         )
-        .context("Failed to create always_inject_on_prompt.rego")?;
+        .context("Failed to create Cursor system evaluate.rego file")?;
 
-        fs::write(
-            ".cupcake/policies/builtins/global_file_lock.rego",
-            GLOBAL_FILE_LOCK_POLICY,
-        )
-        .context("Failed to create global_file_lock.rego")?;
+        // Deploy harness-specific builtin policies
+        // Claude Code builtins - all builtins available
+        let claude_builtins = vec![
+            (
+                "claude_code_always_inject_on_prompt.rego",
+                CLAUDE_ALWAYS_INJECT_POLICY,
+            ),
+            ("global_file_lock.rego", CLAUDE_GLOBAL_FILE_LOCK_POLICY),
+            ("git_pre_check.rego", CLAUDE_GIT_PRE_CHECK_POLICY),
+            ("post_edit_check.rego", CLAUDE_POST_EDIT_CHECK_POLICY),
+            (
+                "rulebook_security_guardrails.rego",
+                CLAUDE_RULEBOOK_SECURITY_POLICY,
+            ),
+            ("protected_paths.rego", CLAUDE_PROTECTED_PATHS_POLICY),
+            (
+                "git_block_no_verify.rego",
+                CLAUDE_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
+            (
+                "claude_code_enforce_full_file_read.rego",
+                CLAUDE_ENFORCE_FULL_FILE_READ_POLICY,
+            ),
+        ];
 
-        fs::write(
-            ".cupcake/policies/builtins/git_pre_check.rego",
-            GIT_PRE_CHECK_POLICY,
-        )
-        .context("Failed to create git_pre_check.rego")?;
+        for (filename, content) in claude_builtins {
+            let path = format!(".cupcake/policies/claude/builtins/{filename}");
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to create Claude builtin: {filename}"))?;
+        }
 
-        fs::write(
-            ".cupcake/policies/builtins/post_edit_check.rego",
-            POST_EDIT_CHECK_POLICY,
-        )
-        .context("Failed to create post_edit_check.rego")?;
+        // Cursor builtins - only compatible ones (no always_inject or enforce_full_file_read)
+        let cursor_builtins = vec![
+            ("global_file_lock.rego", CURSOR_GLOBAL_FILE_LOCK_POLICY),
+            ("git_pre_check.rego", CURSOR_GIT_PRE_CHECK_POLICY),
+            ("post_edit_check.rego", CURSOR_POST_EDIT_CHECK_POLICY),
+            (
+                "rulebook_security_guardrails.rego",
+                CURSOR_RULEBOOK_SECURITY_POLICY,
+            ),
+            ("protected_paths.rego", CURSOR_PROTECTED_PATHS_POLICY),
+            (
+                "git_block_no_verify.rego",
+                CURSOR_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
+            // Note: enforce_full_file_read intentionally NOT included - incompatible with Cursor
+        ];
 
-        fs::write(
-            ".cupcake/policies/builtins/rulebook_security_guardrails.rego",
-            RULEBOOK_SECURITY_POLICY,
-        )
-        .context("Failed to create rulebook_security_guardrails.rego")?;
-
-        fs::write(
-            ".cupcake/policies/builtins/protected_paths.rego",
-            PROTECTED_PATHS_POLICY,
-        )
-        .context("Failed to create protected_paths.rego")?;
-
-        fs::write(
-            ".cupcake/policies/builtins/git_block_no_verify.rego",
-            GIT_BLOCK_NO_VERIFY_POLICY,
-        )
-        .context("Failed to create git_block_no_verify.rego")?;
-
-        fs::write(
-            ".cupcake/policies/builtins/enforce_full_file_read.rego",
-            ENFORCE_FULL_FILE_READ_POLICY,
-        )
-        .context("Failed to create enforce_full_file_read.rego")?;
+        for (filename, content) in cursor_builtins {
+            let path = format!(".cupcake/policies/cursor/builtins/{filename}");
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to create Cursor builtin: {filename}"))?;
+        }
 
         // Write a simple example policy
         fs::write(".cupcake/policies/example.rego", EXAMPLE_POLICY_TEMPLATE)
@@ -1618,27 +1774,59 @@ deny contains decision if {
 // Include rulebook.yml template directly from base-config.yml
 const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
 
-// Include authoritative builtin policies from fixtures
-const ALWAYS_INJECT_POLICY: &str =
-    include_str!("../../fixtures/builtins/always_inject_on_prompt.rego");
-const GLOBAL_FILE_LOCK_POLICY: &str = include_str!("../../fixtures/builtins/global_file_lock.rego");
-const GIT_PRE_CHECK_POLICY: &str = include_str!("../../fixtures/builtins/git_pre_check.rego");
-const POST_EDIT_CHECK_POLICY: &str = include_str!("../../fixtures/builtins/post_edit_check.rego");
-const RULEBOOK_SECURITY_POLICY: &str =
-    include_str!("../../fixtures/builtins/rulebook_security_guardrails.rego");
-const PROTECTED_PATHS_POLICY: &str = include_str!("../../fixtures/builtins/protected_paths.rego");
-const GIT_BLOCK_NO_VERIFY_POLICY: &str =
-    include_str!("../../fixtures/builtins/git_block_no_verify.rego");
-const ENFORCE_FULL_FILE_READ_POLICY: &str =
-    include_str!("../../fixtures/builtins/enforce_full_file_read.rego");
+// Include authoritative builtin policies from harness-specific fixtures
 
-// Global builtin policies embedded in the binary
-const GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
-    include_str!("../../fixtures/global_builtins/system_protection.rego");
-const GLOBAL_SENSITIVE_DATA_POLICY: &str =
-    include_str!("../../fixtures/global_builtins/sensitive_data_protection.rego");
-const GLOBAL_CUPCAKE_EXEC_POLICY: &str =
-    include_str!("../../fixtures/global_builtins/cupcake_exec_protection.rego");
+// Claude Code builtin policies
+const CLAUDE_ALWAYS_INJECT_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/claude_code_always_inject_on_prompt.rego");
+const CLAUDE_GLOBAL_FILE_LOCK_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/global_file_lock.rego");
+const CLAUDE_GIT_PRE_CHECK_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/git_pre_check.rego");
+const CLAUDE_POST_EDIT_CHECK_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/post_edit_check.rego");
+const CLAUDE_RULEBOOK_SECURITY_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
+const CLAUDE_PROTECTED_PATHS_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/protected_paths.rego");
+const CLAUDE_GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/git_block_no_verify.rego");
+const CLAUDE_ENFORCE_FULL_FILE_READ_POLICY: &str =
+    include_str!("../../fixtures/claude/builtins/claude_code_enforce_full_file_read.rego");
+
+// Cursor builtin policies (only compatible ones)
+// Note: Cursor doesn't have always_inject_on_prompt (Claude Code only)
+const CURSOR_GLOBAL_FILE_LOCK_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/global_file_lock.rego");
+const CURSOR_GIT_PRE_CHECK_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/git_pre_check.rego");
+const CURSOR_POST_EDIT_CHECK_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/post_edit_check.rego");
+const CURSOR_RULEBOOK_SECURITY_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/rulebook_security_guardrails.rego");
+const CURSOR_PROTECTED_PATHS_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/protected_paths.rego");
+const CURSOR_GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../fixtures/cursor/builtins/git_block_no_verify.rego");
+// Note: enforce_full_file_read is NOT available for Cursor (incompatible)
+
+// Global builtin policies embedded in the binary - harness-specific
+
+// Claude Code global builtins
+const CLAUDE_GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/claude/system_protection.rego");
+const CLAUDE_GLOBAL_SENSITIVE_DATA_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/claude/sensitive_data_protection.rego");
+const CLAUDE_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/claude/cupcake_exec_protection.rego");
+
+// Cursor global builtins
+const CURSOR_GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/cursor/system_protection.rego");
+const CURSOR_GLOBAL_SENSITIVE_DATA_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/cursor/sensitive_data_protection.rego");
+const CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/cursor/cupcake_exec_protection.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

@@ -265,7 +265,7 @@ Example: A policy with `required_events: ["PostToolUse"]` will match all PostToo
 
 Eleven builtins provide common patterns without writing Rego:
 
-- **always_inject_on_prompt** - Adds context to every user prompt
+- **claude_code_always_inject_on_prompt** - Adds context to every user prompt
 - **global_file_lock** - Blocks all file modifications globally
 - **git_pre_check** - Validates before git operations
 - **post_edit_check** - Runs validation after file edits
@@ -275,7 +275,7 @@ Eleven builtins provide common patterns without writing Rego:
 - **system_protection** - Protects system directories from access
 - **sensitive_data_protection** - Blocks access to sensitive files (SSH keys, etc.)
 - **cupcake_exec_protection** - Prevents execution of cupcake commands
-- **enforce_full_file_read** - Enforces reading entire files under configurable line limit
+- **claude_code_enforce_full_file_read** - Enforces reading entire files under configurable line limit
 
 Configure in `.cupcake/rulebook.yml` under `builtins:` section. See `fixtures/init/base-config.yml` for template.
 

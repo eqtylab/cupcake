@@ -11,13 +11,15 @@ mod integration_tests {
 
     /// Test helper to check if we can create an engine (skips test if not)
     async fn try_create_test_engine() -> Option<Engine> {
+        use crate::harness::types::HarnessType;
+
         // Try to find a valid policy directory
         let candidates = vec!["./examples", "../examples", "../../examples"];
 
         for dir in candidates {
             let path = Path::new(dir);
             if path.join(".cupcake/policies").exists() {
-                if let Ok(engine) = Engine::new(path).await {
+                if let Ok(engine) = Engine::new(path, HarnessType::ClaudeCode).await {
                     return Some(engine);
                 }
             }
@@ -44,7 +46,7 @@ mod integration_tests {
         });
 
         let trace_id = "test-allow-123".to_string();
-        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true));
+        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true, None));
 
         let _decision = engine
             .evaluate(&event, debug_capture.as_mut())
@@ -80,7 +82,7 @@ mod integration_tests {
         });
 
         let trace_id = "test-deny-456".to_string();
-        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true));
+        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true, None));
 
         let _decision = engine
             .evaluate(&event, debug_capture.as_mut())
@@ -141,7 +143,7 @@ mod integration_tests {
         });
 
         let trace_id = "test-error-789".to_string();
-        let mut debug = DebugCapture::new(event, trace_id, true);
+        let mut debug = DebugCapture::new(event, trace_id, true, None);
 
         // Simulate errors during evaluation
         debug.add_error("Signal execution failed: timeout".to_string());
@@ -159,7 +161,7 @@ mod integration_tests {
             "session_id": "format-test"
         });
 
-        let mut debug = DebugCapture::new(event, "format-test-abc".to_string(), true);
+        let mut debug = DebugCapture::new(event, "format-test-abc".to_string(), true, None);
 
         // Populate with sample data
         debug.routed = true;
@@ -200,8 +202,8 @@ mod performance_tests {
         // Measure overhead of creating debug capture when disabled
         let start = Instant::now();
         for _ in 0..10000 {
-            let debug = DebugCapture::new(event.clone(), trace_id.clone(), false); // disabled
-                                                                                   // This should be essentially free when disabled
+            let debug = DebugCapture::new(event.clone(), trace_id.clone(), false, None); // disabled
+                                                                                         // This should be essentially free when disabled
             let _ = debug.write_if_enabled();
         }
         let disabled_duration = start.elapsed();
@@ -225,7 +227,7 @@ mod performance_tests {
     #[test]
     fn test_bounded_memory_usage() {
         let event = json!({"large": "x".repeat(1000)});
-        let mut debug = DebugCapture::new(event, "memory-test".to_string(), true);
+        let mut debug = DebugCapture::new(event, "memory-test".to_string(), true, None);
 
         // Add many items to test memory bounds
         for i in 0..1000 {

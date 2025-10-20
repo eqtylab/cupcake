@@ -31,6 +31,9 @@ pub struct DebugCapture {
     /// When the event was received
     pub timestamp: SystemTime,
 
+    /// Debug output directory (defaults to .cupcake/debug if not specified)
+    pub debug_dir: Option<std::path::PathBuf>,
+
     /// Did we find matching policies?
     pub routed: bool,
 
@@ -96,12 +99,19 @@ impl DebugCapture {
     /// Create a new debug capture for an event
     ///
     /// `enabled`: Whether debug file writing is enabled (from --debug-files CLI flag)
-    pub fn new(event: Value, trace_id: String, enabled: bool) -> Self {
+    /// `debug_dir`: Optional override for debug output directory (defaults to .cupcake/debug)
+    pub fn new(
+        event: Value,
+        trace_id: String,
+        enabled: bool,
+        debug_dir: Option<std::path::PathBuf>,
+    ) -> Self {
         Self {
             enabled,
             event_received: event,
             trace_id,
             timestamp: SystemTime::now(),
+            debug_dir,
             routed: false,
             matched_policies: Vec::new(),
             signals_configured: Vec::new(),
@@ -137,8 +147,13 @@ impl DebugCapture {
 
     /// Write the debug capture to a file
     fn write_debug_file(&self) -> Result<()> {
+        // Use provided debug_dir or default to .cupcake/debug
+        let debug_dir = self
+            .debug_dir
+            .as_deref()
+            .unwrap_or_else(|| Path::new(".cupcake/debug"));
+
         // Create debug directory if it doesn't exist
-        let debug_dir = Path::new(".cupcake/debug");
         if !debug_dir.exists() {
             fs::create_dir_all(debug_dir)?;
         }
@@ -317,19 +332,19 @@ impl DebugCapture {
         output.push_str("----- Synthesis -----\n");
         if let Some(ref final_decision) = self.final_decision {
             match final_decision {
-                FinalDecision::Halt { reason } => {
+                FinalDecision::Halt { reason, .. } => {
                     output.push_str(&format!("Final Decision: Halt\nReason: {reason}\n"));
                 }
-                FinalDecision::Deny { reason } => {
+                FinalDecision::Deny { reason, .. } => {
                     output.push_str(&format!("Final Decision: Deny\nReason: {reason}\n"));
                 }
-                FinalDecision::Block { reason } => {
+                FinalDecision::Block { reason, .. } => {
                     output.push_str(&format!("Final Decision: Block\nReason: {reason}\n"));
                 }
-                FinalDecision::Ask { reason } => {
+                FinalDecision::Ask { reason, .. } => {
                     output.push_str(&format!("Final Decision: Ask\nReason: {reason}\n"));
                 }
-                FinalDecision::AllowOverride { reason } => {
+                FinalDecision::AllowOverride { reason, .. } => {
                     output.push_str(&format!(
                         "Final Decision: AllowOverride\nReason: {reason}\n"
                     ));
@@ -428,7 +443,7 @@ mod unit_tests {
             "session_id": "test-session"
         });
 
-        let capture = DebugCapture::new(event.clone(), "test-trace-123".to_string(), true);
+        let capture = DebugCapture::new(event.clone(), "test-trace-123".to_string(), true, None);
 
         assert!(capture.enabled);
         assert_eq!(capture.trace_id, "test-trace-123");
@@ -441,7 +456,7 @@ mod unit_tests {
     #[test]
     fn test_add_error() {
         let event = json!({});
-        let mut capture = DebugCapture::new(event, "trace-id".to_string(), false);
+        let mut capture = DebugCapture::new(event, "trace-id".to_string(), false, None);
 
         capture.add_error("Test error".to_string());
         assert_eq!(capture.errors.len(), 1);
@@ -456,7 +471,7 @@ mod unit_tests {
             "session_id": "test-session"
         });
 
-        let mut capture = DebugCapture::new(event, "trace-123".to_string(), true);
+        let mut capture = DebugCapture::new(event, "trace-123".to_string(), true, None);
         capture.routed = true;
         capture.matched_policies.push("test.policy".to_string());
         capture.add_error("Test error".to_string());
@@ -482,7 +497,7 @@ mod unit_tests {
             "hook_event_name": "PreToolUse",
             "tool_name": "Bash"
         });
-        let capture = DebugCapture::new(event, "test_trace".to_string(), true);
+        let capture = DebugCapture::new(event, "test_trace".to_string(), true, None);
 
         // Should write and not error
         let result = capture.write_if_enabled();

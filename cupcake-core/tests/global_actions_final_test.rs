@@ -18,8 +18,9 @@ async fn test_global_action_creates_marker_file() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Create a marker file path
     let marker_file = global_dir.path().join("action_executed.marker");
@@ -55,7 +56,7 @@ builtins: {{}}
 
     // Create global policy
     fs::write(
-        global_paths.policies.join("marker_policy.rego"),
+        global_paths.policies.join("claude/marker_policy.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -83,7 +84,10 @@ halt contains decision if {
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 
@@ -141,8 +145,9 @@ async fn test_global_deny_on_any_denial_action() -> Result<()> {
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
+    // Create global config structure with evaluate.rego
+    test_helpers::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    global_paths.initialize()?;
 
     // Create a marker file path
     let marker_file = global_dir.path().join("deny_action.marker");
@@ -177,7 +182,7 @@ builtins: {{}}
 
     // Create global policy that denies
     fs::write(
-        global_paths.policies.join("deny_policy.rego"),
+        global_paths.policies.join("claude/deny_policy.rego"),
         r#"# METADATA
 # scope: package
 # custom:
@@ -206,7 +211,10 @@ deny contains decision if {
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
         global_config: Some(global_root),
-        ..Default::default()
+        harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
+        wasm_max_memory: None,
+        opa_path: None,
+        debug_routing: false,
     };
     let engine = Engine::new_with_config(project_dir.path(), config).await?;
 

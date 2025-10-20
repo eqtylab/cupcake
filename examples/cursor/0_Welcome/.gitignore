@@ -1,0 +1,21 @@
+# Cupcake generated files (created by setup.sh)
+.cupcake/
+bundle.tar.gz
+
+# Test artifacts (created by setup.sh)
+test-events/
+
+
+# IDE
+.idea/
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Backup files
+*.backup.*
+
+# MCP
+.mcp/node_modules/
+.mcp/package-lock.json

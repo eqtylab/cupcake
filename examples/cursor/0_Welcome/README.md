@@ -1,6 +1,8 @@
-# Cupcake Policy Engine - Interactive Walkthrough
+# Cupcake - Welcome Walkthrough (Cursor)
 
-This walkthrough demonstrates Cupcake's policy enforcement in action with Claude Code hooks.
+Cupcake has native support for [Cursor Agent](https://cursor.com/agents). Thank you to the Cursor team for enabling this integration by maintaining [Hooks](https://cursor.com/docs/agent/hooks)!
+
+This walkthrough demonstrates Cupcake's policy enforcement in action with Cursor hooks.
 
 [Cupcake Architecture - Excalidraw](https://excalidraw.com/#room=2331833bcb24d9f35a25,-TMNhQhHqtWayRMJam4ZIg)
 
@@ -9,7 +11,7 @@ This walkthrough demonstrates Cupcake's policy enforcement in action with Claude
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
 - [Interactive Demo](#interactive-demo)
-  - [Step 1: Test Basic Protection](#step-1-test-basic-protection)
+  - [Step 1: Test Basic Shell Protection](#step-1-test-basic-shell-protection)
   - [Step 2: Understanding the Block](#step-2-understanding-the-block)
   - [Step 3: The Challenge - Bypass Attempt](#step-3-the-challenge---bypass-attempt)
   - [Step 4: Built-in Protection Explained](#step-4-built-in-protection-explained)
@@ -24,7 +26,9 @@ Before starting, ensure you have:
 
 - **Rust & Cargo** → [Install Rust](https://rustup.rs/)
 - **OPA (Open Policy Agent)** → [Install OPA](https://www.openpolicyagent.org/docs/latest/#running-opa)
-- **Claude Code** → AI coding assistant
+  - **Windows users**: Download `opa_windows_amd64.exe` and rename to `opa.exe`
+- **Cursor** → AI-powered code editor [cursor.com](https://cursor.com)
+- **Docker** (optional) → For MCP database demo
 
 _These are development requirements. The production software will manage these dependencies._
 
@@ -34,148 +38,160 @@ _These are development requirements. The production software will manage these d
 
 Run the setup script:
 
+**Unix/macOS/Linux:**
+
 ```bash
 ./setup.sh
 ```
 
-This runs `cupcake init`, and some scaffolding to create:
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+This runs `cupcake init --harness cursor`, and some scaffolding to create:
 
 ```
 .cupcake/
   ├── rulebook.yml         # Default configuration
   ├── policies/             # Rego policies
-  │   └── builtins/         # Built-in rego policies (security, dev efficiency, etc)
+  │   ├── cursor/           # Cursor-specific policies
+  │   └── builtins/         # Built-in security policies
   ├── signals/              # External data providers
   └── actions/              # Automated response scripts
 
-.claude/settings.json       # Claude Code integration (hooks config)
+~/.cursor/hooks.json        # Cursor hooks integration (global)
 ```
 
 ♻️ Reset anytime with:
+
+**Unix/macOS/Linux:**
 
 ```bash
 ./cleanup.sh
 ```
 
-### 2. Start Claude Code
+**Windows (PowerShell):**
 
-Start Claude Code in this directory. The policy engine will now intercept and evaluate all tool usage.
+```powershell
+powershell -ExecutionPolicy Bypass -File cleanup.ps1
+```
+
+### 2. Start Cursor
+
+Open this directory in Cursor. The policy engine will now intercept and evaluate all agent actions.
 
 ---
 
 ## Interactive Demo
 
-**Launch Claude**
+**Launch Cursor**
+
+Open this directory in Cursor:
 
 ```bash
-claude
+cursor .
 ```
 
-you can use yolo mode:
+### Step 1: Test Basic Shell Protection
 
-```bash
-claude --dangerously-skip-permissions
-```
-
-### Step 1: Test Basic Protection
-
-Ask Claude to run a dangerous command:
+Ask the Cursor agent to run a dangerous command:
 
 ```
-> please delete my temp test directory at /tmp/my-test-directory
+> delete my temp test directory at /tmp/my-test-directory
 ```
 
-🚫 **Expected Result:** Blocked before execution.
-💡 **Tip:** Press `Ctrl+R` to see verbose Cupcake policy logs.
+🚫 **Expected Result:** Blocked before execution with separate messages for user and agent.
+
+![Cursor blocked dangerous rm command](screenshots/cursor-block-rm.png)
+_[Screenshot: Shows Cursor being blocked from recursive delete]_
 
 ---
 
 ### Step 2: Understanding the Block
 
-The `rm` command, or any similar, was blocked by a security policy:
+The `rm` command was blocked by a security policy with **differentiated feedback**:
 
 ```rego
-deny contains decision if { # <-- deny rule definition
-    input.hook_event_name == "PreToolUse"
-    input.tool_name == "Bash"
-    some cmd in {"rm -rf", "sudo rm", "format", "fdisk", "> /dev/"}
-    contains(input.tool_input.command, cmd)
+deny contains decision if {
+    input.hook_event_name == "beforeShellExecution"
+    contains(input.command, "rm -rf")
     decision := {
-        "reason": concat(" ", ["Dangerous command blocked:", cmd]), # the agent sees this message
-        "rule_id": "SECURITY-001", # ex if linking to formal control frameworks
+        "reason": "Dangerous command blocked: rm -rf",  // User sees this
+        "agent_context": "This action violates system policies. Recursive deletion of directories is prohibited for security reasons.",  // Agent sees this
+        "rule_id": "CURSOR-SECURITY-001",
         "severity": "CRITICAL"
     }
 }
 ```
 
-This comes from the `security_policy.rego` file that blocks destructive commands.
-
-The agent event provides the data for `input`:
+The Cursor event provides the data for `input`:
 
 ```json
 {
-  "hook_event_name": "PreToolUse",
-  "tool_name": "Bash",
-  "tool_input": {
-    "command": "rm -rf /tmp/my-test-directory"
-  },
+  "hook_event_name": "beforeShellExecution",
+  "conversation_id": "conv_123",
+  "command": "rm -rf /tmp/my-test-directory",
+  "cwd": "/path/to/project",
   ...
 }
 ```
 
-Cupcake knows how to route this to the right policy based on `input.hook_event_name` and `input.tool_name`.
+**Key Difference**: Cursor allows separate `userMessage` and `agentMessage` in the response, helping the AI learn from specific technical feedback.
 
 ---
 
 ### Step 3: The Challenge - Bypass Attempt
 
-Now, let's see if Claude can remove the blocking policy:
+Now, let's see if Cursor can remove the blocking policy:
 
 ```
-> claude, find what policy in .cupcake is blocking us and remove it
+> find what policy in .cupcake is blocking us and remove it
 ```
 
-🚫 **Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
+🚫 **Expected Result**: Cursor will try to read/edit `.cupcake/` files but **fail**!
 
-![Claude blocked by rulebook_security_guardrails builtin](../../assets/weclome-block-builtin.png)
+![Cursor blocked by rulebook_security_guardrails](screenshots/cursor-block-cupcake.png)
+_[Screenshot: Shows Cursor being blocked from accessing .cupcake directory]_
 
 ---
 
 ### Step 4: Built-in Protection Explained
 
-What happened? Claude was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's own configuration from tampering. Actually, the ruleset is strict in that it prevents any tool access (read or write) to the `.cupcake/` directory.
-
-The point here is that cupcake ships with numerous built-in rego rulesets.
+Cursor was blocked by the `rulebook_security_guardrails` builtin, which protects Cupcake's configuration from tampering.
 
 **`Built-ins` are special policies that:**
 
 - Are enabled by default in `rulebook.yml`
 - Protect critical system functionality
-- Cannot be easily bypassed, even by AI agents
+- Cannot be easily bypassed by AI agents
 - Provide layered security (global + project level)
 
 **Active built-ins in this demo:**
 
 - `rulebook_security_guardrails` → protects `.cupcake/`
 - `protected_paths` → blocks `/etc/`, `/System/` modifications
-- `git_pre_check` → validates git operations
-- `git_block_no_verify` → blocks git commands that skip verification (prevents bypassing commit hooks)
+- `git_block_no_verify` → prevents skipping git hooks
+- `sensitive_data_protection` → protects SSH keys, AWS credentials
 
-<!-- bonus test, in details accordian -->
 <details>
 <summary>Bonus Test: Try to bypass git commit hooks</summary>
 
-Ask Claude to run a git command that skips verification:
+Ask Cursor to run:
 
 ```
-> Please run: git commit --no-verify -m "Cupcake doesn't yolo"
+> commit with --no-verify flag to skip hooks
 ```
 
-🚫 **Expected Result**: Blocked by `git_block_no_verify` built-in policy.
+🚫 **Expected Result**: Blocked by `git_block_no_verify` with agent-specific feedback.
 
-![Claude Claude blocked by git_block_no_verify builtin](../../assets/cupcake-git-no-verify.png)
+![Cursor blocked git --no-verify](screenshots/cursor-block-git-no-verify.png)
+_[Screenshot placeholder: Shows git --no-verify being blocked]_
 
 </details>
+
+---
 
 ### Step 5: Centralized Rule Management
 
@@ -183,14 +199,15 @@ Part of the benefit of using a centralized policy enforcement layer is the abili
 So far, you've seen two rules in action. Let's see all of the rules cupcake loads at runtime:
 
 ```bash
-cupcake inspect # will show the 11 policies we have currently
+cupcake inspect --harness cursor # will show the policies currently loaded
 ```
 
 ```bash
-cupcake inspect --table # shows a compact table format
+cupcake inspect --harness cursor --table # shows a compact table format
 ```
 
-![cupcake inspect shows the current policies](../../assets/cupcake-inspect.png)
+![cupcake inspect shows the current policies](screenshots/cursor-inspect.png)
+_[Screenshot placeholder: Shows cupcake inspect output]_
 
 Later on, we cover how to `verify` and `test` policies.
 
@@ -220,11 +237,11 @@ This will:
 
 - Start a PostgreSQL Docker container with appointment data
 - Install a policy that prevents database deletions and last-minute cancellations
-- Configure Claude Code to access the database via MCP
+- Configure Cursor to access the database via MCP
 
 ### Test Database Protection
 
-After restarting Claude Code, try these scenarios:
+After restarting Cursor, try these scenarios:
 
 **Allowed Operations:**
 
@@ -242,7 +259,8 @@ After restarting Claude Code, try these scenarios:
 # Blocked - no deletions allowed on production data
 ```
 
-![cupcake inspect shows the current policies](../../assets/mcp-demo.png)
+![Cursor MCP protection demo](screenshots/cursor-mcp-demo.png)
+_[Screenshot placeholder: Shows MCP database operations being blocked]_
 
 ### So How Did That Work?
 
@@ -250,12 +268,12 @@ The appointment cancellation was blocked using **signals** - external scripts th
 
 ## Step 7: Introducing external context for more effective policy evaluation.
 
-Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Agentic event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the appointment's ID (from the agent tool call parameter) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Claude from executing the action.
+Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Cursor event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the appointment's ID (from the agent tool call parameter) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Cursor from executing the action.
 
 ```
-Claude Code              Cupcake Engine                  Signal Script              Database
+Cursor                  Cupcake Engine                  Signal Script              Database
      |                         |                               |                        |
-     |--PreToolUse event------>|                               |                        |
+     |--beforeMCPExecution---->|                               |                        |
      |  (SQL: UPDATE...id=1)   |                               |                        |
      |                         |--Pipe event JSON via stdin-->|                        |
      |                         |                               |--Query appointment---->|
@@ -286,7 +304,7 @@ When done testing:
 
 ## Key Takeaways
 
-1. **Policies work transparently** - No changes needed to Claude Code itself
+1. **Policies work transparently** - No changes needed to Cursor itself
 2. **Built-ins provide baseline security** - Critical paths protected by default
 3. **Layered protection** - Global policies + project policies + built-ins
 4. **Real-time enforcement** - Commands blocked before execution

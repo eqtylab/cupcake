@@ -104,7 +104,7 @@ echo "✅ Database setup complete"
 
 # Copy the appointment time check signal
 echo "Installing appointment time check signal..."
-cp ../fixtures/check_appointment_time.py .cupcake/
+cp ../../fixtures/check_appointment_time.py .cupcake/
 chmod +x .cupcake/check_appointment_time.py
 
 # Debug what's in the rulebook
@@ -150,8 +150,8 @@ with open(rulebook_path, 'w') as f:
 print("✅ Signal configuration added to rulebook.yml")
 EOF
 
-# Copy the appointment policy from fixtures
-cp ../fixtures/appointment_policy.rego .cupcake/policies/
+# Copy the appointment policy from fixtures to Claude Code policies directory
+cp ../../fixtures/appointment_policy.rego .cupcake/policies/claude/
 echo "✅ Appointment policy installed"
 
 # Create CLAUDE.md with database instructions
@@ -187,9 +187,9 @@ CREATE TABLE appointments (
 EOF
 echo "✅ CLAUDE.md created"
 
-# Recompile policies
-echo "Recompiling policies with new appointment rules..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
+# Recompile policies (only Claude Code policies)
+echo "Recompiling Claude Code policies with new appointment rules..."
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/
 echo "✅ Policies compiled"
 
 # Create .mcp.json for project-level MCP configuration

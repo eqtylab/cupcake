@@ -24,35 +24,34 @@ fi
 
 # Build Cupcake binary
 echo "Building Cupcake binary..."
-cd ../..
+cd ../../..
 cargo build --release
 echo "✅ Build complete"
 
-# Add to PATH for this session
-export PATH="$(pwd)/target/release:$PATH"
-echo "✅ Added cupcake to PATH for this session"
+# Store the cupcake binary path
+CUPCAKE_BIN="$(pwd)/target/release/cupcake"
+echo "✅ Using cupcake binary at: $CUPCAKE_BIN"
 
-# Return to eval directory
-cd eval/0_Claude-Code-Welcome1
+# Return to examples directory
+cd examples/cursor/0_Welcome
 
-# Initialize Cupcake project
-echo "Initializing Cupcake project..."
-cupcake init
+# Initialize Cupcake project using the explicit path
+echo "Initializing Cupcake project with Cursor harness..."
+"$CUPCAKE_BIN" init --harness cursor
 echo "✅ Project initialized"
 
-# Copy example policies
+# Copy example policies to Cursor policies directory
 echo "Copying example policies..."
-cp ../fixtures/security_policy.rego .cupcake/policies/
-cp ../fixtures/git_workflow.rego .cupcake/policies/
-cp ../fixtures/context_injection.rego .cupcake/policies/
-echo "✅ Example policies copied"
+cp ../../fixtures/cursor/security_policy.rego .cupcake/policies/cursor/
+cp ../../fixtures/git_workflow.rego .cupcake/policies/cursor/
+echo "✅ Example policies copied (context_injection skipped - not supported by Cursor)"
 
 # Builtins are now pre-configured in the base template
 echo "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)"
 
-# Compile policies to WASM
-echo "Compiling policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
+# Compile policies to WASM (only Cursor policies)
+echo "Compiling Cursor policies to WASM..."
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/
 echo "✅ Policies compiled to bundle.tar.gz"
 
 # Create Claude Code settings directory and hooks integration
@@ -60,7 +59,7 @@ echo "Setting up Claude Code hooks integration..."
 mkdir -p .claude
 
 # Create Claude Code settings with direct cargo command (like working demo)
-MANIFEST_PATH="$(realpath ../../Cargo.toml)"
+MANIFEST_PATH="$(realpath ../../../Cargo.toml)"
 OPA_DIR="$(dirname "$(which opa)")"
 
 cat > .claude/settings.json << EOF
@@ -120,7 +119,8 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Run 'export PATH=\"$(realpath ../../target/release):\$PATH\"' to add cupcake to your shell PATH"
+echo "1. To add cupcake to your PATH, run:"
+echo "   export PATH=\"$(realpath ../../../target/release):\$PATH\""
 echo "2. Start Claude Code in this directory"
 echo "3. Try running commands that trigger policies"
 echo ""

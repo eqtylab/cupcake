@@ -7,6 +7,7 @@
 #   id: BUILTIN-ENFORCE-FULL-READ
 #   routing:
 #     required_events: ["PreToolUse"]
+#     required_tools: ["Read"]
 package cupcake.policies.builtins.claude_code_enforce_full_file_read
 
 import rego.v1

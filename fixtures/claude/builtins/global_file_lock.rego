@@ -7,6 +7,7 @@
 #   id: BUILTIN-GLOBAL-FILE-LOCK
 #   routing:
 #     required_events: ["PreToolUse"]
+#     required_tools: ["Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "Task"]
 package cupcake.policies.builtins.global_file_lock
 
 import rego.v1

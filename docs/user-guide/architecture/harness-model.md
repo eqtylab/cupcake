@@ -329,7 +329,7 @@ Policies are written for a **specific harness**, accessing native event fields:
 **Cursor Policy:** `.cupcake/policies/cursor/block_rm.rego`
 
 ```rego
-package cursor.policies.block_rm
+package cupcake.policies.cursor.block_rm
 
 deny contains decision if {
     input.hook_event_name == "beforeShellExecution"
@@ -341,7 +341,7 @@ deny contains decision if {
 **Claude Policy:** `.cupcake/policies/claude/block_rm.rego`
 
 ```rego
-package claude.policies.block_rm
+package cupcake.policies.claude.block_rm
 
 deny contains decision if {
     input.tool_name == "Bash"
@@ -369,7 +369,7 @@ is_dangerous_rm_command(cmd) {
 **Cursor Policy (Using Shared):**
 
 ```rego
-package cursor.policies.block_rm
+package cupcake.policies.cursor.block_rm
 import data.common.utils.is_dangerous_rm_command
 
 deny contains decision if {
@@ -382,7 +382,7 @@ deny contains decision if {
 **Claude Policy (Using Shared):**
 
 ```rego
-package claude.policies.block_rm
+package cupcake.policies.claude.block_rm
 import data.common.utils.is_dangerous_rm_command
 
 deny contains decision if {

@@ -195,7 +195,7 @@ Policies for Cursor are written in Rego and placed in `.cupcake/policies/cursor/
 # custom:
 #   routing:
 #     required_events: ["beforeShellExecution"]
-package cursor.policies.block_dangerous_commands
+package cupcake.policies.cursor.block_dangerous_commands
 
 import rego.v1
 
@@ -285,7 +285,7 @@ deny contains decision if {
 # custom:
 #   routing:
 #     required_events: ["beforeShellExecution"]
-package cursor.policies.builtins.git_block_no_verify
+package cupcake.policies.cursor.builtins.git_block_no_verify
 
 import rego.v1
 
@@ -311,7 +311,7 @@ deny contains decision if {
 # custom:
 #   routing:
 #     required_events: ["beforeReadFile"]
-package cursor.policies.protect_secrets
+package cupcake.policies.cursor.protect_secrets
 
 import rego.v1
 
@@ -346,7 +346,7 @@ deny contains decision if {
 # custom:
 #   routing:
 #     required_events: ["afterFileEdit"]
-package cursor.policies.validate_edits
+package cupcake.policies.cursor.validate_edits
 
 import rego.v1
 
@@ -380,7 +380,7 @@ valid_python_syntax(content) if {
 # custom:
 #   routing:
 #     required_events: ["beforeSubmitPrompt"]
-package cursor.policies.prompt_compliance
+package cupcake.policies.cursor.prompt_compliance
 
 import rego.v1
 

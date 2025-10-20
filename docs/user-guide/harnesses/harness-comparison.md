@@ -397,7 +397,7 @@ deny contains decision if {
 
 **Cursor Policy** (`.cupcake/policies/cursor/block_rm.rego`):
 ```rego
-package cursor.policies.block_rm
+package cupcake.policies.cursor.block_rm
 
 import rego.v1
 import data.common.dangerous_commands.is_dangerous_rm
@@ -491,7 +491,7 @@ cp .cupcake/policies/claude/my_policy.rego \
 package cupcake.policies.my_policy
 
 # After (Cursor)
-package cursor.policies.my_policy
+package cupcake.policies.cursor.my_policy
 ```
 
 **Step 3**: Update event and field access

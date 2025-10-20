@@ -72,7 +72,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --log-level info",
+            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude-code --log-level info",
             "timeout": 120,
             "env": {
               "PATH": "$OPA_DIR:\$PATH"
@@ -83,11 +83,11 @@ cat > .claude/settings.json << EOF
     ],
     "PostToolUse": [
       {
-        "matcher": "*", 
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --log-level info",
+            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude-code --log-level info",
             "timeout": 120,
             "env": {
               "PATH": "$OPA_DIR:\$PATH"
@@ -101,7 +101,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --log-level info",
+            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude-code --log-level info",
             "timeout": 120,
             "env": {
               "PATH": "$OPA_DIR:\$PATH"

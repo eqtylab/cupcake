@@ -150,8 +150,8 @@ with open(rulebook_path, 'w') as f:
 print("✅ Signal configuration added to rulebook.yml")
 EOF
 
-# Copy the appointment policy from fixtures
-cp ../../fixtures/appointment_policy.rego .cupcake/policies/
+# Copy the appointment policy from fixtures to Cursor policies directory
+cp ../../fixtures/appointment_policy.rego .cupcake/policies/cursor/
 echo "✅ Appointment policy installed"
 
 # Create CLAUDE.md with database instructions

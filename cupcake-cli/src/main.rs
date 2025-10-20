@@ -1071,8 +1071,14 @@ import rego.v1
     // Create harness-specific builtin directories for global builtin policies
     let claude_builtins_dir = global_paths.policies.join("claude").join("builtins");
     let cursor_builtins_dir = global_paths.policies.join("cursor").join("builtins");
+    let helpers_dir = global_paths.policies.join("helpers");
     fs::create_dir_all(&claude_builtins_dir)?;
     fs::create_dir_all(&cursor_builtins_dir)?;
+    fs::create_dir_all(&helpers_dir)?;
+
+    // Write helper library (shared by both harnesses)
+    fs::write(helpers_dir.join("commands.rego"), HELPERS_COMMANDS)?;
+    fs::write(helpers_dir.join("paths.rego"), HELPERS_PATHS)?;
 
     // Deploy Claude global builtin policies
     let claude_global_builtins = vec![
@@ -1167,12 +1173,30 @@ async fn init_project_config(
         // This allows projects to work with either harness
         fs::create_dir_all(".cupcake/policies/claude/system")
             .context("Failed to create .cupcake/policies/claude/system directory")?;
+
+        // Set Unix permissions on .cupcake directory (TOB-EQTY-LAB-CUPCAKE-4)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(cupcake_dir)?.permissions();
+            perms.set_mode(0o700); // Owner: rwx, Group: ---, Other: ---
+            fs::set_permissions(cupcake_dir, perms)
+                .context("Failed to set permissions on .cupcake directory")?;
+            info!(".cupcake directory permissions set to 0o700 (owner-only access)");
+        }
+
+        #[cfg(not(unix))]
+        {
+            eprintln!("Warning: .cupcake directory permissions should be restricted manually on non-Unix systems");
+        }
         fs::create_dir_all(".cupcake/policies/claude/builtins")
             .context("Failed to create .cupcake/policies/claude/builtins directory")?;
         fs::create_dir_all(".cupcake/policies/cursor/system")
             .context("Failed to create .cupcake/policies/cursor/system directory")?;
         fs::create_dir_all(".cupcake/policies/cursor/builtins")
             .context("Failed to create .cupcake/policies/cursor/builtins directory")?;
+        fs::create_dir_all(".cupcake/policies/helpers")
+            .context("Failed to create .cupcake/policies/helpers directory")?;
         fs::create_dir_all(".cupcake/signals")
             .context("Failed to create .cupcake/signals directory")?;
         fs::create_dir_all(".cupcake/actions")
@@ -1199,6 +1223,18 @@ async fn init_project_config(
             SYSTEM_EVALUATE_TEMPLATE,
         )
         .context("Failed to create Cursor system evaluate.rego file")?;
+
+        // Write helper library (shared by both harnesses)
+        fs::write(
+            ".cupcake/policies/helpers/commands.rego",
+            HELPERS_COMMANDS,
+        )
+        .context("Failed to create helpers/commands.rego file")?;
+        fs::write(
+            ".cupcake/policies/helpers/paths.rego",
+            HELPERS_PATHS,
+        )
+        .context("Failed to create helpers/paths.rego file")?;
 
         // Deploy harness-specific builtin policies
         // Claude Code builtins - all builtins available
@@ -1827,6 +1863,10 @@ const CURSOR_GLOBAL_SENSITIVE_DATA_POLICY: &str =
     include_str!("../../fixtures/global_builtins/cursor/sensitive_data_protection.rego");
 const CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
     include_str!("../../fixtures/global_builtins/cursor/cupcake_exec_protection.rego");
+
+// Helper library (shared by both harnesses)
+const HELPERS_COMMANDS: &str = include_str!("../../fixtures/helpers/commands.rego");
+const HELPERS_PATHS: &str = include_str!("../../fixtures/helpers/paths.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

@@ -20,13 +20,21 @@ async fn test_rulebook_security_blocks_cupcake_file_edits() -> Result<()> {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let builtins_dir = claude_dir.join("builtins");
+    let helpers_dir = policies_dir.join("helpers");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
+    fs::create_dir_all(&helpers_dir)?;
 
     // Use the authoritative system evaluation policy
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
+    // Write helper library (required by refactored builtins)
+    let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
+    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
+    fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
+    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     // Use the actual rulebook security policy
     let rulebook_policy =
@@ -167,12 +175,20 @@ async fn test_rulebook_security_blocks_bash_cupcake_commands() -> Result<()> {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let builtins_dir = claude_dir.join("builtins");
+    let helpers_dir = policies_dir.join("helpers");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
+    fs::create_dir_all(&helpers_dir)?;
 
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
+    // Write helper library (required by refactored builtins)
+    let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
+    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
+    fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
+    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
@@ -246,12 +262,20 @@ async fn test_rulebook_security_blocks_read_operations() -> Result<()> {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let builtins_dir = claude_dir.join("builtins");
+    let helpers_dir = policies_dir.join("helpers");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
+    fs::create_dir_all(&helpers_dir)?;
 
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
+    // Write helper library (required by refactored builtins)
+    let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
+    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
+    fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
+    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");

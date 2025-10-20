@@ -40,12 +40,11 @@ echo "Initializing Cupcake project with Cursor harness..."
 "$CUPCAKE_BIN" init --harness cursor
 echo "✅ Project initialized"
 
-# Copy example policies
+# Copy example policies to Cursor policies directory
 echo "Copying example policies..."
-cp ../../fixtures/security_policy.rego .cupcake/policies/
-cp ../../fixtures/git_workflow.rego .cupcake/policies/
-cp ../../fixtures/context_injection.rego .cupcake/policies/
-echo "✅ Example policies copied"
+cp ../../fixtures/cursor/security_policy.rego .cupcake/policies/cursor/
+cp ../../fixtures/git_workflow.rego .cupcake/policies/cursor/
+echo "✅ Example policies copied (context_injection skipped - not supported by Cursor)"
 
 # Builtins are now pre-configured in the base template
 echo "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)"

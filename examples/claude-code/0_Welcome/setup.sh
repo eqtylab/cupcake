@@ -40,11 +40,11 @@ echo "Initializing Cupcake project..."
 "$CUPCAKE_BIN" init
 echo "✅ Project initialized"
 
-# Copy example policies
+# Copy example policies to Claude Code policies directory
 echo "Copying example policies..."
-cp ../../fixtures/security_policy.rego .cupcake/policies/
-cp ../../fixtures/git_workflow.rego .cupcake/policies/
-cp ../../fixtures/context_injection.rego .cupcake/policies/
+cp ../../fixtures/security_policy.rego .cupcake/policies/claude/
+cp ../../fixtures/git_workflow.rego .cupcake/policies/claude/
+cp ../../fixtures/context_injection.rego .cupcake/policies/claude/
 echo "✅ Example policies copied"
 
 # Builtins are now pre-configured in the base template

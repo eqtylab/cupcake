@@ -123,7 +123,7 @@ echo '{"passing": false, "coverage": 85.5}'
         .unwrap();
 
     let event = json!({
-        "hookEventName": "PreToolUse",
+        "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
         "tool_input": {
             "command": "deploy --production"

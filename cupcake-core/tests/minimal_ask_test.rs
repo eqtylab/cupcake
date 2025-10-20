@@ -91,7 +91,7 @@ ask contains decision if {
         .unwrap();
 
     let event = json!({
-        "hookEventName": "PreToolUse",
+        "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
         "tool_input": {
             "command": "echo test"

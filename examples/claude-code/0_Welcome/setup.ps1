@@ -53,18 +53,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "✅ Project initialized" -ForegroundColor Green
 
-# Copy example policies
+# Copy example policies to Claude Code policies directory
 Write-Host "`nCopying example policies..."
-Copy-Item -Path "..\..\fixtures\security_policy.rego" -Destination ".cupcake\policies\" -Force
-Copy-Item -Path "..\..\fixtures\git_workflow.rego" -Destination ".cupcake\policies\" -Force
-Copy-Item -Path "..\..\fixtures\context_injection.rego" -Destination ".cupcake\policies\" -Force
+Copy-Item -Path "..\..\fixtures\security_policy.rego" -Destination ".cupcake\policies\claude\" -Force
+Copy-Item -Path "..\..\fixtures\git_workflow.rego" -Destination ".cupcake\policies\claude\" -Force
+Copy-Item -Path "..\..\fixtures\context_injection.rego" -Destination ".cupcake\policies\claude\" -Force
 Write-Host "✅ Example policies copied" -ForegroundColor Green
 
 Write-Host "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)" -ForegroundColor Green
 
-# Compile policies to WASM
-Write-Host "`nCompiling policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
+# Compile policies to WASM (only Claude Code policies)
+Write-Host "`nCompiling Claude Code policies to WASM..."
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Policy compilation failed" -ForegroundColor Red
     exit 1
@@ -89,7 +89,7 @@ $settingsContent = @"
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --log-level info",
+            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info",
             "timeout": 120,
             "env": {
               "PATH": "$opaDir;%PATH%"
@@ -104,7 +104,7 @@ $settingsContent = @"
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --log-level info",
+            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info",
             "timeout": 120,
             "env": {
               "PATH": "$opaDir;%PATH%"
@@ -118,7 +118,7 @@ $settingsContent = @"
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --log-level info",
+            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info",
             "timeout": 120,
             "env": {
               "PATH": "$opaDir;%PATH%"

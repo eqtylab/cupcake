@@ -332,3 +332,18 @@ Simple log of work conducted to address Trail of Bits bypass vulnerabilities.
 - All tests passing: 146/146 ✅
 
 **Status**: All core vulnerability fixes complete and tested. Ready for Phase 4 adversarial testing.
+
+**00:30 - Fixed integration tests**
+- Issue: 5 integration tests failing with helper library import errors
+- Tests affected:
+  - test_protected_paths_read_write_distinction
+  - test_protected_paths_bash_whitelist
+  - test_rulebook_security_blocks_cupcake_file_edits
+  - test_rulebook_security_blocks_bash_cupcake_commands
+  - test_rulebook_security_blocks_read_operations
+- Root cause: Tests use `include_str!()` to embed policies at compile time, but weren't creating helper files
+- Fix: Added helpers_dir creation and helper file writes to all 5 test functions
+- Commit: fe91fc4
+- All tests passing ✅
+
+**Status**: All core fixes complete, all tests passing (149/149). Ready for Phase 4.

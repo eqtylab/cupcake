@@ -122,3 +122,305 @@ graph TD
 
     style LibCode fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
+
+---
+
+## Additional Security Fixes (2025-10)
+
+### Addressed Vulnerabilities
+
+#### TOB-EQTY-LAB-CUPCAKE-3: String Matching Bypass via Spacing/Obfuscation
+
+**Vulnerability**: Policies using basic string matching (`contains()`) could be bypassed through command obfuscation techniques:
+- Extra spaces: `rm  -rf .cupcake` (double space)
+- Tabs: `rm\t-rf .cupcake`
+- Leading/trailing spaces: `  rm -rf .cupcake  `
+
+**Fix Implementation**: Helper Library with Regex Anchoring
+
+We created a centralized helper library (`fixtures/helpers/`) with secure regex-based primitives:
+
+```rego
+# helpers/commands.rego
+has_verb(command, verb) if {
+    # Matches verb at word boundaries
+    pattern := concat("", ["(^|\\s)", verb, "(\\s|$)"])
+    regex.match(pattern, command)
+}
+
+has_dangerous_verb(command, verb_set) if {
+    some verb in verb_set
+    has_verb(command, verb)
+}
+```
+
+**Usage in Builtins**:
+```rego
+# Before (vulnerable):
+contains(cmd, "rm")  # Bypassed by "rman" or embedded "rm"
+
+# After (secure):
+commands.has_verb(cmd, "rm")  # Only matches "rm" as a word
+```
+
+**Applied to**:
+- `rulebook_security_guardrails.rego`
+- `git_block_no_verify.rego`
+- `protected_paths.rego`
+- `system_protection.rego`
+- `sensitive_data_protection.rego`
+- `cupcake_exec_protection.rego`
+
+#### TOB-EQTY-LAB-CUPCAKE-2: Cross-Tool Bypass
+
+**Vulnerability**: Policies that only specified certain tools in metadata could be bypassed using other tools:
+- Policy blocks `Bash` access to file → Use `Read` tool instead
+- Policy blocks `Write` to path → Use `Edit` or `MultiEdit` instead
+
+**Fix Implementation**: Expanded Tool Coverage
+
+We expanded the `required_tools` metadata in all builtin policies to cover all relevant tools:
+
+```rego
+# METADATA
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Read", "Write", "Edit", "MultiEdit",
+#                      "NotebookEdit", "Bash", "Grep", "Glob"]
+```
+
+**Wildcard Policies**: Policies that omit `required_tools` match ALL tools for the specified events.
+
+**Applied to**:
+- `protected_paths.rego` - Blocks all file modification tools
+- `rulebook_security_guardrails.rego` - Blocks all tools accessing .cupcake
+- `system_protection.rego` - Blocks all tools accessing system directories
+- `sensitive_data_protection.rego` - Blocks all tools accessing sensitive files
+
+#### TOB-EQTY-LAB-CUPCAKE-4: Symlink Path Bypass
+
+**Vulnerability**: Attackers could create symlinks to protected directories and then operate on the symlinks:
+```bash
+ln -s .cupcake /tmp/link
+rm -rf /tmp/link/*  # Deletes .cupcake contents
+```
+
+**Fix Implementation**: Multi-Layer Defense
+
+1. **Policy-Level Blocking**:
+```rego
+# helpers/commands.rego
+creates_symlink(command) if {
+    has_verb(command, "ln")
+    contains(command, "-s")
+}
+
+symlink_involves_path(command, protected_path) if {
+    creates_symlink(command)
+    contains(command, protected_path)
+}
+```
+
+2. **Unix Permissions** (Defense-in-Depth):
+```rust
+// cupcake-cli/src/main.rs (init command)
+#[cfg(unix)]
+{
+    use std::os::unix::fs::PermissionsExt;
+    let mut perms = fs::metadata(&cupcake_dir)?.permissions();
+    perms.set_mode(0o700); // Owner-only access
+    fs::set_permissions(&cupcake_dir, perms)?;
+}
+```
+
+**Applied to**:
+- `rulebook_security_guardrails.rego` - Blocks symlink creation to .cupcake
+- `protected_paths.rego` - Blocks symlinks to protected paths
+- Unix file permissions on `.cupcake/` directory (0o700)
+
+---
+
+## Helper Library API
+
+### commands.rego
+
+```rego
+# Check if command contains a verb as a word (not substring)
+has_verb(command, verb)
+
+# Check if command contains any verb from a set
+has_dangerous_verb(command, verb_set)
+
+# Check if command creates a symlink
+creates_symlink(command)
+
+# Check if symlink command involves a protected path
+symlink_involves_path(command, protected_path)
+
+# Check if command has output redirection
+has_output_redirect(command)
+
+# Check if command has dangerous redirect to path
+has_dangerous_redirect(command, path)
+
+# Extract command verb (first word)
+extract_verb(command)
+```
+
+### paths.rego
+
+```rego
+# Check if file path targets a protected path
+targets_protected(file_path, protected_path)
+
+# Normalize path (remove ./, //, etc.)
+normalize(file_path)
+
+# Check if path matches glob pattern
+matches_glob(path, pattern)
+
+# Check if path is under directory
+is_under_directory(file_path, directory)
+
+# Check if accessing path directly
+accesses_path(file_path, protected_path)
+
+# Check if modifying path
+modifies_path(tool_name, file_path, protected_path)
+```
+
+---
+
+## Security Best Practices
+
+### For Policy Authors
+
+**Always use helper functions** instead of basic string matching:
+
+```rego
+# ❌ VULNERABLE - Can be bypassed with spacing
+deny if {
+    input.tool_name == "Bash"
+    contains(input.tool_input.command, "rm -rf")
+}
+
+# ✅ SECURE - Uses regex anchoring
+import data.cupcake.helpers.commands
+
+deny if {
+    input.tool_name == "Bash"
+    commands.has_verb(input.tool_input.command, "rm")
+    contains(input.tool_input.command, "-rf")
+}
+```
+
+### Tool Coverage
+
+When protecting resources, **always specify all relevant tools**:
+
+```rego
+# ❌ INCOMPLETE - Only blocks Bash
+# METADATA
+# custom:
+#   routing:
+#     required_tools: ["Bash"]
+
+# ✅ COMPREHENSIVE - Blocks all file tools
+# METADATA
+# custom:
+#   routing:
+#     required_tools: ["Read", "Write", "Edit", "MultiEdit",
+#                      "NotebookEdit", "Bash", "Grep", "Glob"]
+```
+
+Or use wildcard policies (no `required_tools`) to match ALL tools.
+
+### Path Normalization
+
+Always normalize paths before comparison:
+
+```rego
+# ❌ VULNERABLE - Bypassed by ./production.env
+deny if {
+    input.tool_input.file_path == "production.env"
+}
+
+# ✅ SECURE - Handles ./, //, path variations
+import data.cupcake.helpers.paths
+
+deny if {
+    normalized := paths.normalize(input.tool_input.file_path)
+    normalized == "production.env"
+}
+```
+
+---
+
+## Testing Security
+
+### Adversarial Test Suites
+
+Three comprehensive test suites validate our security fixes:
+
+1. **adversarial_string_matching.rs**
+   - Tests spacing/obfuscation bypasses
+   - Validates regex anchoring in helpers
+   - Demonstrates vulnerability in user policies without helpers
+
+2. **adversarial_cross_tool.rs**
+   - Tests cross-tool bypass scenarios
+   - Validates expanded metadata coverage
+   - Tests wildcard policy behavior
+
+3. **adversarial_symlink.rs**
+   - Tests symlink-based bypasses
+   - Validates symlink detection
+   - Tests Unix permission defenses
+
+Run tests with:
+```bash
+cargo test adversarial --features deterministic-tests
+```
+
+### Security Validation Checklist
+
+- [ ] All string matching uses helper functions with regex anchoring
+- [ ] All resource protection includes comprehensive tool lists
+- [ ] Symlink operations are detected and blocked
+- [ ] Paths are normalized before comparison
+- [ ] File permissions restrict access (Unix only)
+- [ ] Tests pass with spacing/obfuscation attempts
+- [ ] Tests pass with cross-tool attempts
+- [ ] Tests pass with symlink attempts
+
+---
+
+## Limitations
+
+### User Policy Protection
+
+**Current Limitation**: The helper library protects builtin policies, but user-written policies remain vulnerable if they use basic `contains()`:
+
+```rego
+# User policy without helpers - STILL VULNERABLE
+deny if {
+    contains(cmd, "rm -rf /important")  # Bypassed by "rm  -rf"
+}
+```
+
+**Mitigation Options**:
+
+1. **Education**: Document best practices and provide examples
+2. **Linting**: Warn when policies use `contains()` for command matching
+3. **Future**: Engine-level preprocessing to normalize inputs (not yet implemented)
+
+### Engine-Level Preprocessing
+
+**Not Implemented**: Rust engine-level command normalization would protect all policies automatically. This would require:
+
+1. Preprocessing layer in `engine/mod.rs`
+2. Command normalization before WASM evaluation
+3. ~2 days implementation effort
+
+Currently, protection relies on policies using the helper library.

@@ -88,3 +88,6 @@ cupcake-core/.cupcake/
 cupcake-cli/.cupcake/
 
 analyze_markdown_inventory.py
+
+# AgentBeam temporary directories
+.agentbeam-*

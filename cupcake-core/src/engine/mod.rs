@@ -873,21 +873,42 @@ impl Engine {
     ) -> Result<decision::FinalDecision> {
         let eval_start = Instant::now();
 
-        // Extract event info from input for routing
+        // STEP 0: ALWAYS PREPROCESS - Self-Defending Engine Architecture
+        // The Engine never accepts raw, unpreprocessed input. This provides
+        // defense-in-depth by ensuring ALL paths (CLI, FFI, tests) are protected
+        // from TOB-3 (spacing bypass) and TOB-4 (symlink bypass) attacks.
+        //
+        // This preprocessing is:
+        // - Automatic: No caller action required
+        // - Universal: Protects all policies (builtin and custom)
+        // - Idempotent: Safe to call multiple times (e.g., if CLI also preprocesses)
+        // - Fast: ~30-100μs overhead (<0.1% of total evaluation time)
+        //
+        // See TOB4_IMPLEMENTATION_LOG.md Phase 4 for architectural rationale.
+        let mut safe_input = input.clone();
+        let preprocess_config = crate::preprocessing::PreprocessConfig::default();
+        crate::preprocessing::preprocess_input(
+            &mut safe_input,
+            &preprocess_config,
+            self.config.harness,
+        );
+        trace!("Input preprocessing completed (self-defending engine)");
+
+        // STEP 1: Extract event info from SAFE input for routing
         // Try both camelCase and snake_case for compatibility
-        let event_name = input
+        let event_name = safe_input
             .get("hookEventName")
-            .or_else(|| input.get("hook_event_name"))
+            .or_else(|| safe_input.get("hook_event_name"))
             .and_then(|v| v.as_str())
             .context("Missing hookEventName/hook_event_name in input")?;
 
-        let tool_name = input.get("tool_name").and_then(|v| v.as_str());
+        let tool_name = safe_input.get("tool_name").and_then(|v| v.as_str());
 
         // Set span fields
         let current_span = tracing::Span::current();
         current_span.record("event_name", event_name);
         current_span.record("tool_name", tool_name);
-        if let Some(session_id) = trace::extract_session_id(input) {
+        if let Some(session_id) = trace::extract_session_id(&safe_input) {
             current_span.record("session_id", session_id.as_str());
         }
 
@@ -897,7 +918,7 @@ impl Engine {
         if self.global_wasm_runtime.is_some() {
             debug!("Phase 1: Evaluating global policies");
             let (global_decision, global_decision_set) =
-                self.evaluate_global(input, event_name, tool_name).await?;
+                self.evaluate_global(&safe_input, event_name, tool_name).await?;
 
             // Early termination on global blocking decisions
             match &global_decision {
@@ -988,7 +1009,7 @@ impl Engine {
 
         // Step 2: Gather Signals - collect all required signals from matched policies
         let enriched_input = self
-            .gather_signals(input, &matched_policies, debug_capture.as_deref_mut())
+            .gather_signals(&safe_input, &matched_policies, debug_capture.as_deref_mut())
             .await?;
 
         // Step 3: Evaluate using single aggregation entrypoint with enriched input

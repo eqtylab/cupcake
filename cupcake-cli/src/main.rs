@@ -407,6 +407,12 @@ async fn eval_command(
     let mut hook_event_json: serde_json::Value =
         serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
+    // Apply input preprocessing to normalize adversarial patterns
+    // This protects all policies (user and builtin) from spacing bypasses
+    let preprocess_config = cupcake_core::preprocessing::PreprocessConfig::default();
+    cupcake_core::preprocessing::preprocess_input(&mut hook_event_json, &preprocess_config, harness_type);
+    debug!("Input preprocessing completed");
+
     // Add hookEventName field for the engine if not present (for routing compatibility)
     // The engine routing needs this field
     if let Some(obj) = hook_event_json.as_object_mut() {

@@ -30,7 +30,10 @@ halt contains decision if {
 	input.tool_name in file_operation_tools
 
 	# Check if any parameter contains .cupcake/ (case-insensitive)
-	file_path := get_file_path_from_tool_input
+	# TOB-4 fix: Prefer canonical path (input.resolved_file_path) when available,
+	# but fall back to raw tool_input fields for pattern-based tools (Glob/Grep)
+	# that don't have file paths that can be canonicalized
+	file_path := get_file_path_with_preprocessing_fallback
 	file_path != ""
 	targets_cupcake_directory(file_path)
 
@@ -213,6 +216,19 @@ get_file_path_from_tool_input := path if {
 } else := path if {
 	path := input.params.pattern
 } else := ""
+
+# TOB-4 aware path extraction: Prefer canonical path from preprocessing,
+# fall back to raw tool_input for tools that can't be canonicalized (Glob/Grep patterns)
+get_file_path_with_preprocessing_fallback := path if {
+	# First choice: Use canonical path from Rust preprocessing (TOB-4 defense)
+	# This is guaranteed to be provided for tools with file_path fields
+	path := input.resolved_file_path
+	path != null
+} else := path if {
+	# Fallback: For pattern-based tools (Glob/Grep) that don't have file paths,
+	# use the raw input fields (pattern/path can contain directory references)
+	path := get_file_path_from_tool_input
+}
 
 # Helper: Get list of protected paths from builtin config
 get_protected_paths := paths if {

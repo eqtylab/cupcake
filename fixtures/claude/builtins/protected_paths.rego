@@ -15,18 +15,44 @@ import data.cupcake.helpers.paths
 import rego.v1
 
 # Block WRITE operations on protected paths (but allow reads)
+# For regular tools (Edit, Write, NotebookEdit)
 halt contains decision if {
 	input.hook_event_name == "PreToolUse"
 
-	# Check for file WRITING tools only (not Read, Grep, Glob)
-	write_tools := {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-	input.tool_name in write_tools
+	# Check for SINGLE-file writing tools only
+	single_file_tools := {"Edit", "Write", "NotebookEdit"}
+	input.tool_name in single_file_tools
 
 	# Get the file path from tool input
-	file_path := get_file_path_from_tool_input
-	file_path != ""
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
+	file_path != null
 
 	# Check if path matches any protected path
+	is_protected_path(file_path)
+
+	# Get configured message from signals
+	message := get_configured_message
+
+	decision := {
+		"rule_id": "BUILTIN-PROTECTED-PATHS",
+		"reason": concat("", [message, " (", file_path, ")"]),
+		"severity": "HIGH",
+	}
+}
+
+# Block WRITE operations on protected paths - MultiEdit special handling
+# MultiEdit has an array of edits, each with their own resolved_file_path
+halt contains decision if {
+	input.hook_event_name == "PreToolUse"
+	input.tool_name == "MultiEdit"
+
+	# Check each edit in the edits array
+	some edit in input.tool_input.edits
+	file_path := edit.resolved_file_path
+	file_path != null
+
+	# Check if THIS edit's path matches any protected path
 	is_protected_path(file_path)
 
 	# Get configured message from signals
@@ -85,24 +111,63 @@ is_protected_path(path) if {
 	path_matches(path, protected_path)
 }
 
-# Path matching logic (supports exact, directory prefix, and glob patterns)
+# Path matching logic (supports exact, directory prefix, filename, and glob patterns)
 path_matches(path, pattern) if {
 	# Exact match (case-insensitive)
 	lower(path) == lower(pattern)
 }
 
 path_matches(path, pattern) if {
-	# Directory prefix match - pattern ends with / means "anything inside"
+	# Filename match - pattern is just a filename (no path separators)
+	# Matches if the canonical path ends with the filename
+	not contains(pattern, "/")
+	not contains(pattern, "\\")
+	endswith(lower(path), concat("/", [lower(pattern)]))
+}
+
+path_matches(path, pattern) if {
+	# Filename match for Windows paths
+	not contains(pattern, "/")
+	not contains(pattern, "\\")
+	endswith(lower(path), concat("\\", [lower(pattern)]))
+}
+
+path_matches(path, pattern) if {
+	# Directory prefix match - absolute pattern (starts with /)
+	# Pattern: "/absolute/path/" matches "/absolute/path/file.txt"
 	endswith(pattern, "/")
+	startswith(pattern, "/")
 	startswith(lower(path), lower(pattern))
 }
 
 path_matches(path, pattern) if {
-	# Directory match without trailing slash
-	# If pattern is "src/legacy", match "src/legacy/file.js"
+	# Directory prefix match - relative pattern
+	# Pattern: "src/legacy/" should match "/tmp/project/src/legacy/file.rs"
+	# This handles canonical absolute paths against relative pattern configs
+	endswith(pattern, "/")
+	not startswith(pattern, "/")
+
+	# Check if the pattern appears in the path as a directory component
+	# We need to match "/src/legacy/" not just any "src/legacy/" substring
+	contains(lower(path), concat("/", [lower(pattern)]))
+}
+
+path_matches(path, pattern) if {
+	# Directory match without trailing slash - absolute pattern
+	# If pattern is "/absolute/path/src/legacy", match "/absolute/path/src/legacy/file.js"
 	not endswith(pattern, "/")
+	startswith(pattern, "/")
 	prefix := concat("", [lower(pattern), "/"])
 	startswith(lower(path), prefix)
+}
+
+path_matches(path, pattern) if {
+	# Directory match without trailing slash - relative pattern
+	# If pattern is "src/legacy", match "/tmp/project/src/legacy/file.js"
+	not endswith(pattern, "/")
+	not startswith(pattern, "/")
+	prefix := concat("/", [lower(pattern), "/"])
+	contains(lower(path), prefix)
 }
 
 path_matches(path, pattern) if {

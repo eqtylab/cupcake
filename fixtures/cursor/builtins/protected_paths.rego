@@ -17,7 +17,8 @@ deny contains decision if {
 	input.hook_event_name == "afterFileEdit"
 
 	# Get the file path from Cursor's raw schema
-	file_path := input.file_path
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
 
 	# Get the list of protected paths from builtin config
 	protected_list := input.builtin_config.protected_paths.paths
@@ -42,3 +43,4 @@ is_protected(file_path, protected_list) if {
 	some protected_path in protected_list
 	paths.targets_protected(file_path, protected_path)
 }
+

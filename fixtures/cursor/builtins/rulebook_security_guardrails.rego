@@ -19,7 +19,8 @@ halt contains decision if {
 	input.hook_event_name == "beforeReadFile"
 
 	# Get the file path from Cursor's raw schema
-	file_path := input.file_path
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
 
 	# Check if file is in .cupcake directory
 	contains(file_path, ".cupcake")
@@ -36,7 +37,8 @@ deny contains decision if {
 	input.hook_event_name == "afterFileEdit"
 
 	# Get the file path from Cursor's raw schema
-	file_path := input.file_path
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
 
 	# Check if file is in .cupcake directory
 	contains(file_path, ".cupcake")
@@ -84,3 +86,4 @@ deny contains decision if {
 		"severity": "CRITICAL",
 	}
 }
+

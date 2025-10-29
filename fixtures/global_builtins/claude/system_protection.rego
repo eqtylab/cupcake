@@ -26,8 +26,9 @@ halt contains decision if {
 	input.tool_name in file_operation_tools
 
 	# Get the file path from tool input
-	file_path := get_file_path_from_tool_input
-	file_path != ""
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
+	file_path != null
 
 	# Check if targeting protected system path
 	targets_system_path(file_path)
@@ -164,3 +165,4 @@ get_file_path_from_tool_input := path if {
 	path := edit.file_path
 	targets_system_path(path) # Return first system path found
 } else := ""
+

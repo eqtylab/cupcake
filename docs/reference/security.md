@@ -33,6 +33,122 @@ Replaced all ambient environment variable configuration with explicit CLI flags 
 
 **Migration**: See `docs/user-guide/cli/commands-reference.md` for new CLI flag usage.
 
+#### TOB-EQTY-LAB-CUPCAKE-3 (High) - Spacing Bypass
+
+**Issue**: Bash command policies could be bypassed through spacing variations. For example, a policy blocking `rm -rf /important` would fail to catch:
+- `rm  -rf /important` (double space)
+- `rm   -rf   /important` (triple spaces)
+- `rm\t-rf /important` (tab character)
+- `  rm -rf /important` (leading spaces)
+
+**Root Cause**: Naive Rego policies using basic string matching (`contains(cmd, "rm -rf")`) are vulnerable to spacing variations that execute identically in the shell but don't match the exact string pattern.
+
+**Fix**: Rust-level input preprocessing automatically normalizes all Bash commands before policy evaluation. Whitespace normalization:
+- Collapses consecutive whitespace to single spaces
+- Converts tabs/newlines to spaces
+- Trims leading/trailing whitespace
+- Preserves quoted content exactly (critical for correctness)
+
+**Security Properties**:
+- Universal protection for all policies (no policy changes needed)
+- < 100μs overhead per command
+- Always-on by default
+- Auditability: All transformations logged at DEBUG level
+
+**Testing**: 8 adversarial tests validate protection against spacing bypass attacks.
+
+#### TOB-EQTY-LAB-CUPCAKE-2 (High) - Cross-Tool Script Execution Bypass
+
+**Issue**: Write tool creates a script with dangerous commands, Bash executes it. Policies checking only the Bash command miss the dangerous content inside the script.
+
+**Example Attack**:
+```bash
+# Step 1: AI creates script via Write tool
+echo '#!/bin/bash
+rm -rf .cupcake' > deploy.sh
+
+# Step 2: AI executes script via Bash tool
+./deploy.sh
+
+# Naive policy only sees "./deploy.sh" - misses the dangerous commands inside!
+```
+
+**Fix**: Script inspection preprocessing. When enabled, detects script execution patterns and loads actual script content for policy evaluation.
+
+**Detection Patterns**:
+- Direct execution: `./script.sh`, `/path/to/script.sh`
+- Shell interpreters: `bash script.sh`, `sh -x script.sh`
+- Language interpreters: `python script.py`, `node app.js`, `ruby script.rb`
+
+**Injected Fields**:
+- `input.executed_script_content` - Actual script contents
+- `input.executed_script_path` - Path to script
+- `input.script_inspection_performed` - Boolean flag
+
+**Configuration**: Opt-in via `PreprocessConfig::with_script_inspection()` (~1ms overhead per script execution).
+
+**Testing**: 11 unit tests + 3 integration tests validate script detection and content inspection.
+
+#### TOB-EQTY-LAB-CUPCAKE-4 (Critical) - Symlink Bypass
+
+**Issue**: Symlinks to protected paths bypass path-based protection policies.
+
+**Example Attack**:
+```bash
+# Create symlink to protected directory
+ln -s .cupcake/policies/ innocent_dir
+
+# Write through symlink - old policies would miss this!
+Write("innocent_dir/evil.rego", malicious_content)
+```
+
+**Fix**: Automatic symlink resolution in preprocessing (always-on). For all file operations, the engine:
+1. Detects if file path is a symlink (~15μs)
+2. Resolves to canonical target path (~15μs)
+3. Injects enriched metadata into input
+
+**Injected Fields**:
+- `input.resolved_file_path` - Canonical target path (always present)
+- `input.original_file_path` - Original path provided
+- `input.is_symlink` - Boolean flag
+
+**Protected Builtins** (automatically use resolved paths):
+- `rulebook_security_guardrails` - Protects `.cupcake/`
+- `protected_paths` - User-configured paths
+- `system_protection` - OS critical paths
+- `sensitive_data_protection` - Credentials, SSH keys
+
+**Performance**: ~30μs per file operation (negligible impact).
+
+**Cross-Platform**: Full support on Unix/Linux/macOS/Windows.
+
+**Testing**: 8 unit tests + 8 integration tests validate symlink detection and resolution.
+
+### Input Preprocessing Architecture
+
+All TOB-2, TOB-3, and TOB-4 fixes are implemented via the **self-defending engine** architecture where preprocessing runs automatically inside `Engine.evaluate()` before policy evaluation.
+
+**Preprocessing Pipeline**:
+```
+Input Event → Preprocessing (Rust) → Enriched Event → Routing → Policy Evaluation (WASM)
+```
+
+**Key Benefits**:
+- Universal protection across all entry points (CLI, FFI, tests)
+- Defense-in-depth at engine level
+- No policy changes required
+- Idempotent and safe to call multiple times
+
+**Configuration**: See `docs/reference/input-preprocessing.md` for complete details on preprocessing behavior and policy integration.
+
+**Summary Table**:
+
+| Vulnerability | Severity | Status | Fix Type | Automatic | Performance |
+|--------------|----------|--------|----------|-----------|-------------|
+| TOB-3 Spacing | High | ✅ Fixed | Normalization | Always-on | <100μs |
+| TOB-2 Script | High | ✅ Fixed | Script inspection | Opt-in | ~1ms |
+| TOB-4 Symlink | Critical | ✅ Fixed | Symlink resolution | Always-on | ~30μs |
+
 ---
 
 ## WASM Sandbox Model

@@ -122,9 +122,6 @@ halt contains decision if {
 
     let decision = engine.evaluate(&input, None).await?;
 
-    // Debug: Print what decision we actually got
-    eprintln!("Global HALT test - Decision received: {decision:?}");
-
     // Verify HALT decision
     assert!(
         matches!(decision, FinalDecision::Halt { .. }),
@@ -132,7 +129,14 @@ halt contains decision if {
     );
 
     // Wait longer for async action execution to complete
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    // Actions run in detached tokio::spawn tasks, so we need to wait and retry
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+    // Give the spawned task more time to complete by yielding
+    for _ in 0..10 {
+        tokio::task::yield_now().await;
+    }
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     // Verify action was executed
     let log_file = std::path::Path::new("/tmp/cupcake_test_actions.log");
@@ -258,8 +262,13 @@ deny contains decision if {
     // Verify DENY decision
     assert!(matches!(decision, FinalDecision::Deny { .. }));
 
-    // Wait for async action
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    // Wait for async action execution to complete
+    // Actions run in detached tokio::spawn tasks, so we need to wait and retry
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    for _ in 0..10 {
+        tokio::task::yield_now().await;
+    }
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     // Verify action was executed
     let log_file = std::path::Path::new("/tmp/cupcake_test_deny.log");
@@ -405,8 +414,13 @@ allow_override contains decision if {
     // Verify BLOCK decision (and that it terminated early, not allowing project policy)
     assert!(matches!(decision, FinalDecision::Block { .. }));
 
-    // Wait for async action
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    // Wait for async action execution to complete
+    // Actions run in detached tokio::spawn tasks, so we need to wait and retry
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    for _ in 0..10 {
+        tokio::task::yield_now().await;
+    }
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     // Verify action was executed
     let log_file = std::path::Path::new("/tmp/cupcake_test_block.log");

@@ -28,9 +28,7 @@ async fn test_blocks_symlink_creation_to_cupcake() -> Result<()> {
 
     // Helper library includes symlink detection
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
@@ -117,9 +115,7 @@ async fn test_protected_paths_block_symlinks() -> Result<()> {
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let protected_policy = include_str!("../../fixtures/claude/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;
@@ -255,9 +251,7 @@ async fn test_blocks_hardlink_creation() -> Result<()> {
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
@@ -347,11 +341,11 @@ async fn test_path_traversal_symlink_attacks() -> Result<()> {
 package cupcake.policies.claude.path_traversal
 
 import rego.v1
-import data.cupcake.helpers.paths as paths
 
 deny contains decision if {
     input.tool_name == "Write"
-    normalized := paths.normalize(input.tool_input.file_path)
+    # Use resolved_file_path from preprocessing instead of helper
+    normalized := input.resolved_file_path
     contains(normalized, "sensitive")
 
     decision := {
@@ -380,9 +374,6 @@ deny contains decision if {
     // Write helper library (should be under policies directory)
     let helpers_dir = policies_dir.join("helpers");
     fs::create_dir_all(&helpers_dir)?;
-
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
@@ -476,9 +467,7 @@ async fn test_allows_normal_symlinks() -> Result<()> {
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");

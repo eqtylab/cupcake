@@ -32,9 +32,7 @@ async fn test_rulebook_security_blocks_cupcake_file_edits() -> Result<()> {
 
     // Write helper library (required by refactored builtins)
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     // Use the actual rulebook security policy
     let rulebook_policy =
@@ -186,9 +184,7 @@ async fn test_rulebook_security_blocks_bash_cupcake_commands() -> Result<()> {
 
     // Write helper library (required by refactored builtins)
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
@@ -273,9 +269,7 @@ async fn test_rulebook_security_blocks_read_operations() -> Result<()> {
 
     // Write helper library (required by refactored builtins)
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");

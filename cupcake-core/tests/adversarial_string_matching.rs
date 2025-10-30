@@ -29,9 +29,7 @@ async fn test_blocks_rm_with_extra_spaces() -> Result<()> {
 
     // Write helper library (CRITICAL for fixing spacing bypass)
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     // Use the actual rulebook security policy with helper library
     let rulebook_policy =
@@ -122,9 +120,7 @@ async fn test_blocks_obfuscated_commands() -> Result<()> {
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let rulebook_policy =
         include_str!("../../fixtures/claude/builtins/rulebook_security_guardrails.rego");
@@ -215,9 +211,7 @@ async fn test_blocks_git_no_verify_with_spacing() -> Result<()> {
 
     // Write helper library
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     // Use the actual git_block_no_verify policy
     let git_policy = include_str!("../../fixtures/claude/builtins/git_block_no_verify.rego");
@@ -336,9 +330,7 @@ async fn test_protected_paths_blocks_obfuscated_writes() -> Result<()> {
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
 
     let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    let helpers_paths = include_str!("../../fixtures/helpers/paths.rego");
     fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
-    fs::write(helpers_dir.join("paths.rego"), helpers_paths)?;
 
     let protected_policy = include_str!("../../fixtures/claude/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;

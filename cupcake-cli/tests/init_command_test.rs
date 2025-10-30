@@ -525,16 +525,16 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 20 files in harness-specific structure:
+    // We should have exactly 19 files in harness-specific structure:
     // - 1 rulebook.yml
     // - 1 example.rego
-    // - 2 helpers (commands.rego, paths.rego)
+    // - 1 helper (commands.rego)
     // - Claude: 1 evaluate.rego + 8 builtins = 9 files
     // - Cursor: 1 evaluate.rego + 6 builtins = 7 files (no always_inject_on_prompt)
-    // Total: 1 + 1 + 2 + 9 + 7 = 20 files
+    // Total: 1 + 1 + 1 + 9 + 7 = 19 files
     assert_eq!(
-        file_count, 20,
-        "Should have exactly 20 files (1 rulebook + 1 example + 2 helpers + 9 claude + 7 cursor)"
+        file_count, 19,
+        "Should have exactly 19 files (1 rulebook + 1 example + 1 helper + 9 claude + 7 cursor)"
     );
 
     // We should have exactly 10 directories:

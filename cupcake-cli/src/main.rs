@@ -1084,7 +1084,6 @@ import rego.v1
 
     // Write helper library (shared by both harnesses)
     fs::write(helpers_dir.join("commands.rego"), HELPERS_COMMANDS)?;
-    fs::write(helpers_dir.join("paths.rego"), HELPERS_PATHS)?;
 
     // Deploy Claude global builtin policies
     let claude_global_builtins = vec![
@@ -1236,11 +1235,6 @@ async fn init_project_config(
             HELPERS_COMMANDS,
         )
         .context("Failed to create helpers/commands.rego file")?;
-        fs::write(
-            ".cupcake/policies/helpers/paths.rego",
-            HELPERS_PATHS,
-        )
-        .context("Failed to create helpers/paths.rego file")?;
 
         // Deploy harness-specific builtin policies
         // Claude Code builtins - all builtins available
@@ -1872,7 +1866,6 @@ const CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
 
 // Helper library (shared by both harnesses)
 const HELPERS_COMMANDS: &str = include_str!("../../fixtures/helpers/commands.rego");
-const HELPERS_PATHS: &str = include_str!("../../fixtures/helpers/paths.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:
 // - Simple CLI interface: cupcake eval

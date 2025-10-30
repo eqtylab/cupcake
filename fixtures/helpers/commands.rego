@@ -47,32 +47,3 @@ has_output_redirect(command) if {
 	regex.match(pattern, command)
 }
 
-# Detect command substitution patterns that could bypass detection
-# Matches: $(cmd), `cmd`, ${cmd}
-has_command_substitution(command) if {
-	substitution_patterns := [
-		`\$\(`, # $(...)
-		"`", # backticks
-		`\$\{`, # ${...}
-	]
-	some pattern in substitution_patterns
-	contains(command, pattern)
-}
-
-# Detect inline function definitions that could bypass detection
-# Matches: function foo() { ... }
-has_inline_function(command) if {
-	regex.match(`function\s+\w+\s*\(`, command)
-}
-
-# Check if command contains environment variable manipulation
-# Matches: export, unset, ENV=value
-has_env_manipulation(command) if {
-	env_patterns := [
-		`(^|\s)export(\s|$)`,
-		`(^|\s)unset(\s|$)`,
-		`\w+=`, # VAR=value
-	]
-	some pattern in env_patterns
-	regex.match(pattern, command)
-}

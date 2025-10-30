@@ -9,7 +9,6 @@
 #     required_events: ["afterFileEdit"]
 package cupcake.policies.builtins.protected_paths
 
-import data.cupcake.helpers.paths
 import rego.v1
 
 # Block file edits to protected paths
@@ -39,8 +38,10 @@ deny contains decision if {
 }
 
 # Check if a file path starts with any protected path
+# Now uses resolved_file_path directly (canonical, absolute path from preprocessing)
 is_protected(file_path, protected_list) if {
 	some protected_path in protected_list
-	paths.targets_protected(file_path, protected_path)
+	# Case-insensitive check for protected path match
+	startswith(lower(file_path), lower(protected_path))
 }
 

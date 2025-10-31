@@ -9,6 +9,8 @@ progress_logs
 bundle.tar.gz
 *_bundle.tar.gz
 *.wasm
+.manifest
+data.json
 **/.cupcake/.manifest
 **/.cupcake/data.json
 **/.cupcake/optimized/

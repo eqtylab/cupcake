@@ -306,9 +306,8 @@ mod tests {
             event["executed_script_path"].as_str().unwrap(),
             "./deploy.sh"
         );
-        assert_eq!(
-            event["script_inspection_performed"].as_bool().unwrap(),
-            true
+        assert!(
+            event["script_inspection_performed"].as_bool().unwrap()
         );
     }
 }

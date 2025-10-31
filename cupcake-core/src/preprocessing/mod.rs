@@ -225,7 +225,7 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
     let cwd: Option<std::path::PathBuf> = input
         .get("cwd")
         .and_then(|v| v.as_str())
-        .map(|s| std::path::PathBuf::from(s));
+        .map(std::path::PathBuf::from);
 
     // Extract file path based on tool and harness type
     let file_path_opt = match harness {

@@ -7,7 +7,10 @@ progress_logs
 
 # OPA build artifacts
 bundle.tar.gz
+*_bundle.tar.gz
 *.wasm
+.manifest
+data.json
 **/.cupcake/.manifest
 **/.cupcake/data.json
 **/.cupcake/optimized/
@@ -88,3 +91,9 @@ cupcake-core/.cupcake/
 cupcake-cli/.cupcake/
 
 analyze_markdown_inventory.py
+
+# AgentBeam temporary directories
+.agentbeam-*
+
+
+notes.note

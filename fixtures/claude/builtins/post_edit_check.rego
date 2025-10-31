@@ -7,6 +7,7 @@
 #   id: BUILTIN-POST-EDIT
 #   routing:
 #     required_events: ["PostToolUse"]
+#     required_tools: ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 package cupcake.policies.builtins.post_edit_check
 
 import rego.v1

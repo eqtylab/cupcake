@@ -42,6 +42,100 @@ deny contains decision if {
 | `allow_override` | Explicit permission  | Allows with logged reason             |
 | `add_context`    | Inject guidance      | Adds context to agent (Claude only)   |
 
+## Automatic Input Preprocessing
+
+Cupcake automatically preprocesses all input before your policies evaluate it. This provides security defenses against common bypass techniques without requiring any action from policy authors.
+
+### What You Get Automatically
+
+#### 1. Resolved File Paths
+
+For all file operations (Edit, Write, Read, etc.), Cupcake adds:
+- `resolved_file_path` - The canonical, absolute path to the file
+- `original_file_path` - The original path for reference
+- `is_symlink` - Boolean flag indicating if the path is a symbolic link
+
+**Example:** Instead of parsing paths yourself, use the preprocessed field:
+```rego
+# ✅ GOOD - Use the preprocessed canonical path
+deny contains decision if {
+    contains(input.resolved_file_path, "/sensitive")
+    # ...
+}
+
+# ❌ AVOID - Don't parse paths manually
+deny contains decision if {
+    contains(input.tool_input.file_path, "/sensitive")  # May miss symlinks!
+    # ...
+}
+```
+
+#### 2. Normalized Whitespace
+
+All Bash commands have their whitespace automatically normalized:
+- Multiple spaces collapsed to single space
+- Unicode spaces converted to ASCII
+- Tabs/newlines converted to spaces
+- Content within quotes preserved exactly
+
+**Example:** Both of these commands will be normalized to the same string:
+```bash
+"rm   -rf   /tmp"     # Multiple spaces
+"rm　-rf　/tmp"       # Unicode spaces
+# Both become: "rm -rf /tmp"
+```
+
+#### 3. Symlink Detection
+
+When a file path is actually a symbolic link, Cupcake:
+- Resolves it to the actual target path in `resolved_file_path`
+- Sets `is_symlink: true` flag
+- Preserves the original link name in `original_file_path`
+
+**Example:** Detecting symlink bypass attempts:
+```rego
+# Automatically protected from symlink bypasses
+deny contains decision if {
+    input.is_symlink
+    contains(input.resolved_file_path, ".cupcake")
+    decision := {
+        "reason": "Symlink to Cupcake directory detected",
+        "severity": "HIGH",
+        "rule_id": "SYMLINK-001"
+    }
+}
+```
+
+### Special Cases
+
+#### MultiEdit Tool
+
+For `MultiEdit`, each edit in the array gets its own preprocessing:
+```rego
+deny contains decision if {
+    input.tool_name == "MultiEdit"
+    some edit in input.tool_input.edits
+
+    # Each edit has its own resolved_file_path
+    contains(edit.resolved_file_path, "/protected")
+
+    decision := {
+        "reason": "Cannot edit protected file",
+        "severity": "HIGH",
+        "rule_id": "MULTI-001"
+    }
+}
+```
+
+#### Pattern-Based Tools
+
+Tools like `Glob` and `Grep` use patterns, not file paths, so they don't get path resolution:
+```rego
+# Glob patterns are NOT resolved (they're patterns, not paths)
+input.tool_name == "Glob"
+input.tool_input.pattern == "**/*.js"  # This stays as-is
+```
+
 ## Examples
 
 ### Shell Command Protection

@@ -31,7 +31,8 @@ halt contains decision if {
 	input.hook_event_name == "afterFileEdit"
 
 	# Get the file path from Cursor's raw schema
-	file_path := input.file_path
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
 
 	# Check if targeting protected system path
 	targets_system_path(file_path)
@@ -134,3 +135,4 @@ references_system_path(cmd) if {
 	some indicator in system_indicators
 	contains(cmd, indicator)
 }
+

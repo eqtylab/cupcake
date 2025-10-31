@@ -917,8 +917,9 @@ impl Engine {
         // PHASE 1: Evaluate global policies first (if they exist)
         if self.global_wasm_runtime.is_some() {
             debug!("Phase 1: Evaluating global policies");
-            let (global_decision, global_decision_set) =
-                self.evaluate_global(&safe_input, event_name, tool_name).await?;
+            let (global_decision, global_decision_set) = self
+                .evaluate_global(&safe_input, event_name, tool_name)
+                .await?;
 
             // Early termination on global blocking decisions
             match &global_decision {

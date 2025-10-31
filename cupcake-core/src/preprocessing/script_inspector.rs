@@ -95,7 +95,11 @@ impl ScriptInspector {
 
         match fs::read_to_string(&resolved_path) {
             Ok(content) => {
-                debug!("Successfully loaded script: {:?} ({} bytes)", resolved_path, content.len());
+                debug!(
+                    "Successfully loaded script: {:?} ({} bytes)",
+                    resolved_path,
+                    content.len()
+                );
                 Some(content)
             }
             Err(e) => {
@@ -143,18 +147,18 @@ impl ScriptInspector {
 fn is_likely_script(path: &str) -> bool {
     // Common script extensions
     let script_extensions = [
-        ".sh", ".bash", ".zsh", ".fish", ".ksh",  // Shell scripts
-        ".py", ".pyw",                             // Python
-        ".js", ".mjs", ".cjs",                     // JavaScript
-        ".rb",                                     // Ruby
-        ".pl", ".pm",                              // Perl
-        ".php",                                    // PHP
-        ".lua",                                    // Lua
-        ".r", ".R",                                // R
-        ".jl",                                     // Julia
-        ".tcl",                                    // Tcl
-        ".awk",                                    // AWK
-        ".sed",                                    // Sed
+        ".sh", ".bash", ".zsh", ".fish", ".ksh", // Shell scripts
+        ".py", ".pyw", // Python
+        ".js", ".mjs", ".cjs", // JavaScript
+        ".rb",  // Ruby
+        ".pl", ".pm",  // Perl
+        ".php", // PHP
+        ".lua", // Lua
+        ".r", ".R",   // R
+        ".jl",  // Julia
+        ".tcl", // Tcl
+        ".awk", // AWK
+        ".sed", // Sed
     ];
 
     // Check extensions
@@ -173,9 +177,19 @@ fn is_likely_script(path: &str) -> bool {
     // Common scriptnames without extensions
     matches!(
         base_name,
-        "configure" | "install" | "build" | "deploy" | "setup" |
-        "bootstrap" | "run" | "test" | "clean" | "make" |
-        "gradlew" | "mvnw" | "manage"  // Build tool wrappers
+        "configure"
+            | "install"
+            | "build"
+            | "deploy"
+            | "setup"
+            | "bootstrap"
+            | "run"
+            | "test"
+            | "clean"
+            | "make"
+            | "gradlew"
+            | "mvnw"
+            | "manage" // Build tool wrappers
     )
 }
 
@@ -242,7 +256,10 @@ mod tests {
         // Regular commands
         assert_eq!(ScriptInspector::detect_script_execution("ls -la"), None);
         assert_eq!(ScriptInspector::detect_script_execution("git status"), None);
-        assert_eq!(ScriptInspector::detect_script_execution("rm -rf test"), None);
+        assert_eq!(
+            ScriptInspector::detect_script_execution("rm -rf test"),
+            None
+        );
         assert_eq!(ScriptInspector::detect_script_execution("echo hello"), None);
     }
 

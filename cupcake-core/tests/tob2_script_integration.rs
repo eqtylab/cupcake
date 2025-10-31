@@ -134,11 +134,7 @@ echo "Deployment complete!"
 
     // Step 6: Apply preprocessing WITH script inspection
     let preprocess_config = PreprocessConfig::with_script_inspection();
-    preprocess_input(
-        &mut bash_event,
-        &preprocess_config,
-        HarnessType::ClaudeCode,
-    );
+    preprocess_input(&mut bash_event, &preprocess_config, HarnessType::ClaudeCode);
 
     // Verify script content was loaded
     assert!(
@@ -161,7 +157,9 @@ echo "Deployment complete!"
                 reason.contains("Script contains command to delete .cupcake"),
                 "Policy should detect the dangerous command in the script. Got: {reason}"
             );
-            println!("✅ TOB-2 FIXED: Policy successfully blocked script with hidden 'rm -rf .cupcake'");
+            println!(
+                "✅ TOB-2 FIXED: Policy successfully blocked script with hidden 'rm -rf .cupcake'"
+            );
         }
         _ => {
             panic!(
@@ -249,12 +247,8 @@ deny contains decision if {
     });
 
     // Apply preprocessing WITHOUT script inspection
-    let preprocess_config = PreprocessConfig::minimal();  // No script inspection!
-    preprocess_input(
-        &mut bash_event,
-        &preprocess_config,
-        HarnessType::ClaudeCode,
-    );
+    let preprocess_config = PreprocessConfig::minimal(); // No script inspection!
+    preprocess_input(&mut bash_event, &preprocess_config, HarnessType::ClaudeCode);
 
     // Verify NO script content was attached
     assert!(
@@ -291,8 +285,14 @@ async fn test_various_script_execution_patterns() -> Result<()> {
     // Create various test scripts
     let scripts = vec![
         ("deploy.sh", "#!/bin/bash\nrm -rf .cupcake"),
-        ("script.py", "#!/usr/bin/env python3\nimport shutil\nshutil.rmtree('.cupcake')"),
-        ("app.js", "const fs = require('fs');\nfs.rmSync('.cupcake', {recursive: true});"),
+        (
+            "script.py",
+            "#!/usr/bin/env python3\nimport shutil\nshutil.rmtree('.cupcake')",
+        ),
+        (
+            "app.js",
+            "const fs = require('fs');\nfs.rmSync('.cupcake', {recursive: true});",
+        ),
     ];
 
     for (filename, content) in &scripts {
@@ -326,12 +326,15 @@ async fn test_various_script_execution_patterns() -> Result<()> {
             assert!(
                 path.contains(expected_script),
                 "Command '{}' should detect script '{}'",
-                command, expected_script
+                command,
+                expected_script
             );
 
             let content = event["executed_script_content"].as_str().unwrap();
             assert!(
-                content.contains(".cupcake") || content.contains("rmtree") || content.contains("rmSync"),
+                content.contains(".cupcake")
+                    || content.contains("rmtree")
+                    || content.contains("rmSync"),
                 "Script content should contain dangerous operations"
             );
         }

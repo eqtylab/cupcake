@@ -48,8 +48,15 @@ fn test_tob4_cupcake_symlink_bypass_blocked() {
     preprocess_input(&mut event, &preprocess_config, HarnessType::ClaudeCode);
 
     // Verify symlink was detected and resolved
-    assert_eq!(event["is_symlink"], json!(true), "Symlink should be detected");
-    assert!(event.get("resolved_file_path").is_some(), "Should have resolved path");
+    assert_eq!(
+        event["is_symlink"],
+        json!(true),
+        "Symlink should be detected"
+    );
+    assert!(
+        event.get("resolved_file_path").is_some(),
+        "Should have resolved path"
+    );
 
     let resolved = event["resolved_file_path"].as_str().unwrap();
     assert!(
@@ -188,14 +195,21 @@ fn test_tob4_dangling_symlink_to_cupcake() {
     let temp_dir = TempDir::new().unwrap();
 
     // Create symlink to .cupcake directory that doesn't exist yet
-    let nonexistent_cupcake = temp_dir.path().join(".cupcake").join("policies").join("evil.rego");
+    let nonexistent_cupcake = temp_dir
+        .path()
+        .join(".cupcake")
+        .join("policies")
+        .join("evil.rego");
     let symlink_path = temp_dir.path().join("safe.rego");
 
     // Create dangling symlink
     symlink(&nonexistent_cupcake, &symlink_path).unwrap();
 
     // Verify the symlink exists but target doesn't
-    assert!(symlink_path.symlink_metadata().is_ok(), "Symlink should exist");
+    assert!(
+        symlink_path.symlink_metadata().is_ok(),
+        "Symlink should exist"
+    );
     assert!(!nonexistent_cupcake.exists(), "Target should not exist");
 
     // Try to write through the dangling symlink
@@ -214,7 +228,11 @@ fn test_tob4_dangling_symlink_to_cupcake() {
     preprocess_input(&mut event, &preprocess_config, HarnessType::ClaudeCode);
 
     // Verify symlink was detected
-    assert_eq!(event["is_symlink"], json!(true), "Dangling symlink should be detected");
+    assert_eq!(
+        event["is_symlink"],
+        json!(true),
+        "Dangling symlink should be detected"
+    );
 
     // Verify resolved path contains .cupcake (even though target doesn't exist)
     let resolved = event["resolved_file_path"].as_str().unwrap();
@@ -249,12 +267,22 @@ fn test_tob4_regular_file_not_flagged() {
     preprocess_input(&mut event, &preprocess_config, HarnessType::ClaudeCode);
 
     // TOB-4 always-on: Verify regular files ARE canonicalized
-    assert_eq!(event["is_symlink"], json!(false), "Regular file should be marked as NOT a symlink");
-    assert!(event.get("resolved_file_path").is_some(), "Should ALWAYS have canonical path");
+    assert_eq!(
+        event["is_symlink"],
+        json!(false),
+        "Regular file should be marked as NOT a symlink"
+    );
+    assert!(
+        event.get("resolved_file_path").is_some(),
+        "Should ALWAYS have canonical path"
+    );
 
     // Verify the canonical path is absolute
     let resolved = event["resolved_file_path"].as_str().unwrap();
-    assert!(resolved.starts_with("/") || resolved.contains(":\\"), "Canonical path should be absolute");
+    assert!(
+        resolved.starts_with("/") || resolved.contains(":\\"),
+        "Canonical path should be absolute"
+    );
 }
 
 /// Test that symlink resolution can be disabled

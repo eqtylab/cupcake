@@ -222,8 +222,8 @@ mod tests {
         symlink(&target_path, &link_path).unwrap();
 
         // Resolve relative to cwd
-        let resolved = SymlinkResolver::resolve_path(Path::new(link_name), Some(temp_dir.path()))
-            .unwrap();
+        let resolved =
+            SymlinkResolver::resolve_path(Path::new(link_name), Some(temp_dir.path())).unwrap();
         assert_eq!(resolved, fs::canonicalize(&target_path).unwrap());
     }
 
@@ -240,7 +240,9 @@ mod tests {
         let resolved = SymlinkResolver::resolve_path(&link_path, None);
         assert!(resolved.is_some());
         let resolved_path = resolved.unwrap();
-        assert!(resolved_path.to_string_lossy().contains("nonexistent_target"));
+        assert!(resolved_path
+            .to_string_lossy()
+            .contains("nonexistent_target"));
     }
 
     #[test]
@@ -251,7 +253,9 @@ mod tests {
         let result = SymlinkResolver::resolve_path(nonexistent_path, None);
         if let Some(resolved) = result {
             // Should be /tmp/this_path_does_not_exist_12345 (canonical parent + filename)
-            assert!(resolved.to_string_lossy().contains("this_path_does_not_exist_12345"));
+            assert!(resolved
+                .to_string_lossy()
+                .contains("this_path_does_not_exist_12345"));
         } else {
             // Only returns None if parent doesn't exist either
             panic!("Expected Some(path) due to parent directory fallback");

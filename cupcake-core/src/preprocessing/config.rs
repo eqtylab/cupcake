@@ -51,8 +51,8 @@ pub struct PreprocessConfig {
 impl Default for PreprocessConfig {
     fn default() -> Self {
         Self {
-            normalize_whitespace: true,  // Enable by default for security
-            audit_transformations: true, // Enable audit trail by default
+            normalize_whitespace: true,      // Enable by default for security
+            audit_transformations: true,     // Enable audit trail by default
             enable_script_inspection: false, // Opt-in for script inspection (performance consideration)
             enable_symlink_resolution: true, // Enable by default (performance is negligible ~30μs)
         }

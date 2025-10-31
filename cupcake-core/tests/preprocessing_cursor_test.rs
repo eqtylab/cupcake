@@ -29,11 +29,11 @@ fn test_cursor_before_shell_execution_basic_normalization() {
 #[test]
 fn test_cursor_multiple_spaces_patterns() {
     let test_cases = vec![
-        ("ls  -la", "ls -la"),                    // Double space
+        ("ls  -la", "ls -la"),                                  // Double space
         ("git   commit   -m   'test'", "git commit -m 'test'"), // Triple spaces
-        ("  npm install  ", "npm install"),       // Leading/trailing
-        ("docker\trun\tnginx", "docker run nginx"), // Tabs
-        ("echo\n\nhello", "echo hello"),          // Newlines
+        ("  npm install  ", "npm install"),                     // Leading/trailing
+        ("docker\trun\tnginx", "docker run nginx"),             // Tabs
+        ("echo\n\nhello", "echo hello"),                        // Newlines
     ];
 
     for (input_cmd, expected) in test_cases {
@@ -49,7 +49,8 @@ fn test_cursor_multiple_spaces_patterns() {
         assert_eq!(
             event["command"].as_str().unwrap(),
             expected,
-            "Failed for input: '{}'", input_cmd
+            "Failed for input: '{}'",
+            input_cmd
         );
     }
 }
@@ -162,7 +163,7 @@ fn test_cursor_script_execution_detection() {
     let config = PreprocessConfig {
         normalize_whitespace: true,
         audit_transformations: false,
-        enable_script_inspection: false,  // Not testing script inspection in this test
+        enable_script_inspection: false, // Not testing script inspection in this test
         enable_symlink_resolution: false, // Not testing symlink resolution in this test
     };
 

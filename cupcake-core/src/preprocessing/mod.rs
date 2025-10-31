@@ -92,16 +92,19 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
         }
     };
 
-    trace!("Preprocessing input for harness: {}, tool: {}, event: {}", harness, tool_name, event_name);
+    trace!(
+        "Preprocessing input for harness: {}, tool: {}, event: {}",
+        harness,
+        tool_name,
+        event_name
+    );
 
     // Apply tool-specific preprocessing based on the tool type
     match tool_name {
-        "Bash" if config.normalize_whitespace => {
-            match harness {
-                HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
-                HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
-            }
-        }
+        "Bash" if config.normalize_whitespace => match harness {
+            HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
+            HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
+        },
         // Future: Add other tool-specific preprocessing
         // "Task" => preprocess_task_prompt(input, config),
         // "WebFetch" => preprocess_url(input, config),
@@ -135,7 +138,10 @@ fn preprocess_claude_bash_command(input: &mut Value, config: &PreprocessConfig) 
                     *command_value = Value::String(normalized.clone());
 
                     if config.audit_transformations {
-                        debug!("Normalized Claude Code Bash command: '{}' → '{}'", original, normalized);
+                        debug!(
+                            "Normalized Claude Code Bash command: '{}' → '{}'",
+                            original, normalized
+                        );
                     }
                 } else {
                     normalized = original;
@@ -163,7 +169,10 @@ fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig)
                 *command_value = Value::String(normalized.clone());
 
                 if config.audit_transformations {
-                    debug!("Normalized Cursor shell command: '{}' → '{}'", original, normalized);
+                    debug!(
+                        "Normalized Cursor shell command: '{}' → '{}'",
+                        original, normalized
+                    );
                 }
             } else {
                 normalized = original;
@@ -226,15 +235,15 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
                 // Try different field names based on tool type
                 // NOTE: Glob 'pattern' field is intentionally excluded - patterns like
                 // "src/**/*.rs" are not file paths and should not be canonicalized
-                tool_input.get("file_path")
+                tool_input
+                    .get("file_path")
                     .or_else(|| tool_input.get("path"))
                     .or_else(|| tool_input.get("notebook_path"))
             })
         }
         HarnessType::Cursor => {
             // Cursor structure: input.<field> (direct at root)
-            input.get("file_path")
-                .or_else(|| input.get("path"))
+            input.get("file_path").or_else(|| input.get("path"))
         }
     };
 
@@ -283,7 +292,11 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
 }
 
 /// Resolve and attach a single file path's canonical form
-fn resolve_and_attach_single_path(target: &mut Value, path_str: &str, cwd: Option<&std::path::Path>) {
+fn resolve_and_attach_single_path(
+    target: &mut Value,
+    path_str: &str,
+    cwd: Option<&std::path::Path>,
+) {
     let path = std::path::Path::new(path_str);
 
     // TOB-4: ALWAYS canonicalize paths (not just symlinks)
@@ -302,15 +315,16 @@ fn resolve_and_attach_single_path(target: &mut Value, path_str: &str, cwd: Optio
 
         debug!(
             "Canonicalized path: {} -> {:?} (symlink: {})",
-            path_str,
-            resolved_path,
-            is_symlink
+            path_str, resolved_path, is_symlink
         );
     } else {
         // FALLBACK: Path doesn't exist (e.g., Write creating new file)
         // Still provide a resolved path by manually joining CWD + path
         // This ensures policies ALWAYS have resolved_file_path available
-        trace!("Could not canonicalize path: {} (file/parent doesn't exist)", path_str);
+        trace!(
+            "Could not canonicalize path: {} (file/parent doesn't exist)",
+            path_str
+        );
 
         let fallback_path = if path.is_absolute() {
             path.to_path_buf()
@@ -318,7 +332,10 @@ fn resolve_and_attach_single_path(target: &mut Value, path_str: &str, cwd: Optio
             cwd.join(path)
         } else {
             // No CWD provided - use current directory
-            std::env::current_dir().ok().map(|c| c.join(path)).unwrap_or_else(|| path.to_path_buf())
+            std::env::current_dir()
+                .ok()
+                .map(|c| c.join(path))
+                .unwrap_or_else(|| path.to_path_buf())
         };
 
         // Attach metadata with fallback path (is_symlink = false since we couldn't verify)
@@ -326,8 +343,7 @@ fn resolve_and_attach_single_path(target: &mut Value, path_str: &str, cwd: Optio
 
         debug!(
             "Using fallback path resolution: {} -> {:?} (non-existent)",
-            path_str,
-            fallback_path
+            path_str, fallback_path
         );
     }
 }
@@ -370,10 +386,7 @@ mod tests {
         let config = PreprocessConfig::default();
         preprocess_input(&mut input, &config, HarnessType::Cursor);
 
-        assert_eq!(
-            input["command"].as_str().unwrap(),
-            "rm -rf .cupcake"
-        );
+        assert_eq!(input["command"].as_str().unwrap(), "rm -rf .cupcake");
         // Other fields unchanged
         assert_eq!(input["cwd"].as_str().unwrap(), "/tmp");
     }
@@ -577,7 +590,14 @@ mod tests {
         preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
 
         // Always-on approach: Regular files SHOULD have canonical path metadata
-        assert_eq!(input["is_symlink"], json!(false), "Regular file should be marked as NOT a symlink");
-        assert!(input.get("resolved_file_path").is_some(), "Should ALWAYS have canonical path");
+        assert_eq!(
+            input["is_symlink"],
+            json!(false),
+            "Regular file should be marked as NOT a symlink"
+        );
+        assert!(
+            input.get("resolved_file_path").is_some(),
+            "Should ALWAYS have canonical path"
+        );
     }
 }

@@ -126,7 +126,11 @@ deny contains decision if {
         }
     });
 
-    preprocess_input(&mut exact_event, &PreprocessConfig::default(), HarnessType::ClaudeCode);
+    preprocess_input(
+        &mut exact_event,
+        &PreprocessConfig::default(),
+        HarnessType::ClaudeCode,
+    );
     let decision = engine.evaluate(&exact_event, None).await?;
 
     match decision {
@@ -202,7 +206,11 @@ deny contains decision if {
     });
 
     // Apply preprocessing
-    preprocess_input(&mut quote_event, &PreprocessConfig::default(), HarnessType::ClaudeCode);
+    preprocess_input(
+        &mut quote_event,
+        &PreprocessConfig::default(),
+        HarnessType::ClaudeCode,
+    );
 
     // Check normalization: outside quotes normalized, inside preserved
     let normalized = quote_event["tool_input"]["command"].as_str().unwrap();
@@ -258,9 +266,18 @@ async fn test_preprocessing_edge_cases() -> Result<()> {
         "Read tool paths should preserve spaces"
     );
     // But symlink resolution metadata should be added
-    assert!(read_tool.get("resolved_file_path").is_some(), "Should have resolved_file_path");
-    assert!(read_tool.get("original_file_path").is_some(), "Should have original_file_path");
-    assert!(read_tool.get("is_symlink").is_some(), "Should have is_symlink flag");
+    assert!(
+        read_tool.get("resolved_file_path").is_some(),
+        "Should have resolved_file_path"
+    );
+    assert!(
+        read_tool.get("original_file_path").is_some(),
+        "Should have original_file_path"
+    );
+    assert!(
+        read_tool.get("is_symlink").is_some(),
+        "Should have is_symlink flag"
+    );
 
     // Missing tool_input
     let mut missing = json!({

@@ -410,7 +410,11 @@ async fn eval_command(
     // Apply input preprocessing to normalize adversarial patterns
     // This protects all policies (user and builtin) from spacing bypasses
     let preprocess_config = cupcake_core::preprocessing::PreprocessConfig::default();
-    cupcake_core::preprocessing::preprocess_input(&mut hook_event_json, &preprocess_config, harness_type);
+    cupcake_core::preprocessing::preprocess_input(
+        &mut hook_event_json,
+        &preprocess_config,
+        harness_type,
+    );
     debug!("Input preprocessing completed");
 
     // Add hookEventName field for the engine if not present (for routing compatibility)
@@ -1230,11 +1234,8 @@ async fn init_project_config(
         .context("Failed to create Cursor system evaluate.rego file")?;
 
         // Write helper library (shared by both harnesses)
-        fs::write(
-            ".cupcake/policies/helpers/commands.rego",
-            HELPERS_COMMANDS,
-        )
-        .context("Failed to create helpers/commands.rego file")?;
+        fs::write(".cupcake/policies/helpers/commands.rego", HELPERS_COMMANDS)
+            .context("Failed to create helpers/commands.rego file")?;
 
         // Deploy harness-specific builtin policies
         // Claude Code builtins - all builtins available

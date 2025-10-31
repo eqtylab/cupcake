@@ -9,8 +9,8 @@
 #[cfg(test)]
 mod tests {
     use cupcake_core::harness::types::HarnessType;
-    use cupcake_core::preprocessing::{preprocess_input, PreprocessConfig};
     use cupcake_core::preprocessing::script_inspector::ScriptInspector;
+    use cupcake_core::preprocessing::{preprocess_input, PreprocessConfig};
     use serde_json::json;
     use std::fs;
     use std::path::PathBuf;
@@ -169,7 +169,10 @@ echo "Done!"
         // Create different script files
         let scripts = vec![
             ("deploy.sh", "#!/bin/bash\necho bash script"),
-            ("script.py", "#!/usr/bin/env python3\nprint('python script')"),
+            (
+                "script.py",
+                "#!/usr/bin/env python3\nprint('python script')",
+            ),
             ("app.js", "console.log('node script');"),
             ("script.rb", "puts 'ruby script'"),
         ];
@@ -204,14 +207,17 @@ echo "Done!"
 
             assert!(
                 event.get("executed_script_content").is_some(),
-                "Command '{}' should attach script content", command
+                "Command '{}' should attach script content",
+                command
             );
 
             let attached_path = event["executed_script_path"].as_str().unwrap();
             assert!(
                 attached_path.contains(expected_script),
                 "Command '{}' should detect script '{}', got '{}'",
-                command, expected_script, attached_path
+                command,
+                expected_script,
+                attached_path
             );
         }
     }
@@ -259,6 +265,8 @@ echo "Done!"
 
         // Complex paths
         assert!(ScriptInspector::detect_script_execution("/usr/local/bin/custom.sh").is_some());
-        assert!(ScriptInspector::detect_script_execution("./scripts/nested/deep/build.sh").is_some());
+        assert!(
+            ScriptInspector::detect_script_execution("./scripts/nested/deep/build.sh").is_some()
+        );
     }
 }

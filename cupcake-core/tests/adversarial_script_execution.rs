@@ -207,17 +207,13 @@ echo "Done!"
 
             assert!(
                 event.get("executed_script_content").is_some(),
-                "Command '{}' should attach script content",
-                command
+                "Command '{command}' should attach script content"
             );
 
             let attached_path = event["executed_script_path"].as_str().unwrap();
             assert!(
                 attached_path.contains(expected_script),
-                "Command '{}' should detect script '{}', got '{}'",
-                command,
-                expected_script,
-                attached_path
+                "Command '{command}' should detect script '{expected_script}', got '{attached_path}'"
             );
         }
     }

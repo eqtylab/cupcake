@@ -80,8 +80,7 @@ fn test_tob4_cupcake_symlink_bypass_blocked() {
     let resolved = event["resolved_file_path"].as_str().unwrap();
     assert!(
         resolved.contains(".cupcake"),
-        "Resolved path should contain .cupcake: {}",
-        resolved
+        "Resolved path should contain .cupcake: {resolved}"
     );
 }
 
@@ -123,8 +122,7 @@ fn test_tob4_protected_paths_symlink_bypass_blocked() {
     let resolved = event["resolved_file_path"].as_str().unwrap();
     assert!(
         resolved.contains("protected"),
-        "Resolved path should contain protected directory: {}",
-        resolved
+        "Resolved path should contain protected directory: {resolved}"
     );
 }
 
@@ -165,8 +163,7 @@ fn test_tob4_system_protection_symlink_detection() {
     let resolved = event["resolved_file_path"].as_str().unwrap();
     assert!(
         resolved.contains("passwd"),
-        "Resolved path should contain passwd: {}",
-        resolved
+        "Resolved path should contain passwd: {resolved}"
     );
 }
 
@@ -203,8 +200,7 @@ fn test_tob4_sensitive_data_symlink_detection() {
     let resolved = event["resolved_file_path"].as_str().unwrap();
     assert!(
         resolved.ends_with(".env"),
-        "Resolved path should end with .env: {}",
-        resolved
+        "Resolved path should end with .env: {resolved}"
     );
 }
 
@@ -257,8 +253,7 @@ fn test_tob4_dangling_symlink_to_cupcake() {
     let resolved = event["resolved_file_path"].as_str().unwrap();
     assert!(
         resolved.contains(".cupcake"),
-        "Resolved path should contain .cupcake: {}",
-        resolved
+        "Resolved path should contain .cupcake: {resolved}"
     );
 }
 

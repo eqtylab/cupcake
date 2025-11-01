@@ -6,16 +6,22 @@ use serial_test::serial;
 use std::fs;
 use tempfile::TempDir;
 
-mod test_helpers;
+mod common;
 
 /// Test that engine initializes correctly without global config
 #[tokio::test]
 #[serial]
 async fn test_engine_without_global_config() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     let project_dir = TempDir::new()?;
 
     // Create project structure using helper
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Engine should initialize without global config
     let engine = Engine::new(
@@ -45,16 +51,19 @@ async fn test_engine_without_global_config() -> Result<()> {
 #[tokio::test]
 #[serial]
 async fn test_engine_with_global_config() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Use helper to create global structure
-    test_helpers::create_test_global_config(&global_paths.root)?;
+    common::create_test_global_config(&global_paths.root)?;
 
     // Create a simple global policy
     fs::write(
@@ -69,7 +78,10 @@ add_context contains "Global policy active"
 
     // Create project config
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Engine should initialize with both configs
     let config = cupcake_core::engine::EngineConfig {
@@ -96,14 +108,17 @@ add_context contains "Global policy active"
 #[tokio::test]
 #[serial]
 async fn test_namespace_isolation() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
-    test_helpers::create_test_global_config(&global_paths.root)?;
+    common::create_test_global_config(&global_paths.root)?;
 
     // Create conflicting global policy (same name but global namespace)
     fs::write(
@@ -118,7 +133,10 @@ test_value := "global"
 
     // Create project config
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Create conflicting project policy (same base name but project namespace)
     fs::write(

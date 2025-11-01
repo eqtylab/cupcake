@@ -6,7 +6,8 @@
 //! - Decision synthesis
 //! - Response formatting matching Claude Code hook expectations
 
-mod test_helpers;
+mod common;
+use common::{create_test_project_for_harness, init_test_logging};
 
 use anyhow::Result;
 use cupcake_core::engine::{decision::FinalDecision, Engine, EngineConfig};
@@ -17,11 +18,11 @@ use tempfile::TempDir;
 
 #[tokio::test]
 async fn test_claude_harness_deny_decision() -> Result<()> {
-    test_helpers::init_test_logging();
+    init_test_logging();
 
     // Setup test project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
+    create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create a deny policy for testing
     let policy_content = r#"# METADATA
@@ -83,10 +84,10 @@ deny contains decision if {
 
 #[tokio::test]
 async fn test_claude_harness_halt_decision() -> Result<()> {
-    test_helpers::init_test_logging();
+    init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
+    create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create a halt policy
     let policy_content = r#"# METADATA
@@ -142,10 +143,10 @@ halt contains decision if {
 
 #[tokio::test]
 async fn test_claude_harness_ask_decision() -> Result<()> {
-    test_helpers::init_test_logging();
+    init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
+    create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create an ask policy
     let policy_content = r#"# METADATA
@@ -206,10 +207,10 @@ ask contains decision if {
 
 #[tokio::test]
 async fn test_claude_harness_allow_with_context() -> Result<()> {
-    test_helpers::init_test_logging();
+    init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
+    create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create a context injection policy
     let policy_content = r#"# METADATA
@@ -260,10 +261,10 @@ add_context contains msg if {
 
 #[tokio::test]
 async fn test_claude_harness_routing_specificity() -> Result<()> {
-    test_helpers::init_test_logging();
+    init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
+    create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create specific tool policy
     let specific_policy = r#"# METADATA
@@ -346,10 +347,10 @@ add_context contains msg if {
 
 #[tokio::test]
 async fn test_claude_harness_session_start_event() -> Result<()> {
-    test_helpers::init_test_logging();
+    init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
+    create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     let policy_content = r#"# METADATA
 # scope: package

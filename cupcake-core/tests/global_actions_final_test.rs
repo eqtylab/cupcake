@@ -7,19 +7,22 @@ use serial_test::serial;
 use std::fs;
 use tempfile::TempDir;
 
-mod test_helpers;
+mod common;
 
 /// Use a marker file to prove action executed
 #[tokio::test]
 #[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_action_creates_marker_file() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     // Clean environment first
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create a marker file path
@@ -79,7 +82,10 @@ halt contains decision if {
 
     // Setup project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
@@ -146,7 +152,7 @@ async fn test_global_deny_on_any_denial_action() -> Result<()> {
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create a marker file path
@@ -206,7 +212,10 @@ deny contains decision if {
 
     // Setup project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {

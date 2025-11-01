@@ -325,9 +325,7 @@ async fn test_various_script_execution_patterns() -> Result<()> {
             let path = event["executed_script_path"].as_str().unwrap();
             assert!(
                 path.contains(expected_script),
-                "Command '{}' should detect script '{}'",
-                command,
-                expected_script
+                "Command '{command}' should detect script '{expected_script}'"
             );
 
             let content = event["executed_script_content"].as_str().unwrap();

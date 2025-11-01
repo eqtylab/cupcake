@@ -10,7 +10,7 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
-mod test_helpers;
+mod common;
 
 /// Shared state to track action execution
 static ACTION_LOG: once_cell::sync::Lazy<Arc<Mutex<Vec<String>>>> =
@@ -21,6 +21,9 @@ static ACTION_LOG: once_cell::sync::Lazy<Arc<Mutex<Vec<String>>>> =
 #[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 #[cfg(not(windows))] // Uses /tmp path hardcoded in bash script
 async fn test_global_halt_executes_actions() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     // Clear action log
     ACTION_LOG.lock().unwrap().clear();
 
@@ -29,7 +32,7 @@ async fn test_global_halt_executes_actions() -> Result<()> {
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create global rulebook with action
@@ -102,7 +105,10 @@ halt contains decision if {
 
     // Setup project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Initialize engine with global config
     let config = cupcake_core::engine::EngineConfig {
@@ -167,12 +173,15 @@ halt contains decision if {
 #[serial]
 #[cfg(not(windows))] // Uses /tmp path hardcoded in bash script
 async fn test_global_deny_executes_actions() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create global rulebook with on_any_denial action
@@ -243,7 +252,10 @@ deny contains decision if {
 
     // Setup project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Initialize engine with global config
     let config = cupcake_core::engine::EngineConfig {
@@ -298,12 +310,15 @@ deny contains decision if {
 #[serial]
 #[cfg(not(windows))] // Uses /tmp path hardcoded in bash script
 async fn test_global_block_executes_actions() -> Result<()> {
+    // Initialize test logging
+    common::init_test_logging();
+
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create global rulebook with block action
@@ -374,7 +389,10 @@ block contains decision if {
 
     // Setup project with conflicting allow policy
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Create project policy that would allow (should never run due to global block)
     fs::write(

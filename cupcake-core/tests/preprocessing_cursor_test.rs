@@ -49,8 +49,7 @@ fn test_cursor_multiple_spaces_patterns() {
         assert_eq!(
             event["command"].as_str().unwrap(),
             expected,
-            "Failed for input: '{}'",
-            input_cmd
+            "Failed for input: '{input_cmd}'"
         );
     }
 }

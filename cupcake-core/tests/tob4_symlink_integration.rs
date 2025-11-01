@@ -6,6 +6,22 @@
 //! The key insight: By resolving symlinks in Rust BEFORE policy evaluation,
 //! we provide universal protection that works for ALL policies without requiring
 //! policy authors to implement secure symlink handling.
+//!
+//! ## Windows Compatibility Note
+//!
+//! These tests use conditional compilation to work on both Unix and Windows:
+//! - Unix: Uses `std::os::unix::fs::symlink` for both files and directories
+//! - Windows: Uses `std::os::windows::fs::symlink_file` for files only
+//!
+//! ### Current Limitations on Windows:
+//! 1. Only file symlinks are tested (no directory symlinks)
+//! 2. Tests may fail if run without admin privileges
+//! 3. GitHub Actions runners typically have sufficient permissions
+//!
+//! ### TODO: Future Windows Improvements
+//! - Add separate tests for directory symlinks using `symlink_dir` on Windows
+//! - Handle permission errors gracefully with skip messages
+//! - Consider using `#[cfg(not(windows))]` if symlink tests prove unreliable in CI
 
 use cupcake_core::harness::types::HarnessType;
 use cupcake_core::preprocessing::{preprocess_input, PreprocessConfig};

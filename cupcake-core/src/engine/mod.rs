@@ -885,6 +885,13 @@ impl Engine {
         // - Fast: ~30-100μs overhead (<0.1% of total evaluation time)
         //
         // See TOB4_IMPLEMENTATION_LOG.md Phase 4 for architectural rationale.
+        //
+        // IMPORTANT: This clone is intentional and required for security.
+        // DO NOT OPTIMIZE: The preprocessing defends against adversarial input attacks
+        // (TOB findings) and must never modify the original input. The overhead is
+        // <0.1% of evaluation time. With default config (normalize_whitespace: true,
+        // enable_symlink_resolution: true), preprocessing will always modify the input.
+        // Security takes priority over micro-optimization.
         let mut safe_input = input.clone();
         let preprocess_config = crate::preprocessing::PreprocessConfig::default();
         crate::preprocessing::preprocess_input(

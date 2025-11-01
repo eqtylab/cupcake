@@ -130,6 +130,13 @@ halt contains decision if {
 
     // Wait longer for async action execution to complete
     // Actions run in detached tokio::spawn tasks, so we need to wait and retry
+    //
+    // IMPORTANT: This sleep pattern is intentional and correct.
+    // Actions are fire-and-forget by design - they must not block policy evaluation.
+    // We cannot add synchronization without changing production behavior.
+    // The 2-second total wait is generous for the simple file write being tested.
+    // If tests become flaky under extreme load, increase timeout rather than
+    // adding artificial synchronization that doesn't exist in production.
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     // Give the spawned task more time to complete by yielding

@@ -130,9 +130,7 @@ builtins:
                 "Should block READ to secrets/ (total lockdown): {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for READ to secrets/ (total lockdown), got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for READ to secrets/ (total lockdown), got: {decision:?}"),
     }
 
     // TEST 4: Block Grep operations to custom paths
@@ -149,7 +147,10 @@ builtins:
     });
 
     // Debug: Print input to understand what's being sent
-    eprintln!("DEBUG: Grep input: {}", serde_json::to_string_pretty(&grep_secrets)?);
+    eprintln!(
+        "DEBUG: Grep input: {}",
+        serde_json::to_string_pretty(&grep_secrets)?
+    );
 
     let decision = engine.evaluate(&grep_secrets, None).await?;
 
@@ -186,9 +187,7 @@ builtins:
                 "Should block bash command on secrets/: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for bash command on secrets/, got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for bash command on secrets/, got: {decision:?}"),
     }
 
     let bash_rm_env = json!({
@@ -210,9 +209,7 @@ builtins:
                 "Should block bash rm on .env.production: {reason}"
             );
         }
-        _ => panic!(
-            "Expected Halt for bash rm on .env.production, got: {decision:?}"
-        ),
+        _ => panic!("Expected Halt for bash rm on .env.production, got: {decision:?}"),
     }
 
     // TEST 6: Verify .cupcake still protected (baseline check)
@@ -254,9 +251,7 @@ builtins:
         cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
             // Good - normal files still allowed
         }
-        _ => panic!(
-            "Expected Allow for non-protected file src/main.rs, got: {decision:?}"
-        ),
+        _ => panic!("Expected Allow for non-protected file src/main.rs, got: {decision:?}"),
     }
 
     let read_normal = json!({
@@ -340,7 +335,7 @@ builtins:
         "ln -s secrets/api-key.txt /tmp/key",
         "ln -sf .env.production /tmp/env",
         "ln -s config/database.yml /tmp/db.yml",
-        "ln  -s  secrets/  /tmp/leak",  // Extra spaces
+        "ln  -s  secrets/  /tmp/leak",                 // Extra spaces
         "ln -s secrets/ link && cat link/api-key.txt", // Chained attack
     ];
 
@@ -437,9 +432,7 @@ builtins:
             cupcake_core::engine::decision::FinalDecision::Halt { .. } => {
                 // Good - .cupcake still protected
             }
-            _ => panic!(
-                "Expected Halt for .cupcake symlink (baseline), got: {decision:?}"
-            ),
+            _ => panic!("Expected Halt for .cupcake symlink (baseline), got: {decision:?}"),
         }
     }
 
@@ -468,9 +461,7 @@ builtins:
             cupcake_core::engine::decision::FinalDecision::Allow { .. } => {
                 // Good - normal symlinks allowed
             }
-            _ => panic!(
-                "Normal symlink '{cmd}' should be allowed! Got: {decision:?}"
-            ),
+            _ => panic!("Normal symlink '{cmd}' should be allowed! Got: {decision:?}"),
         }
     }
 

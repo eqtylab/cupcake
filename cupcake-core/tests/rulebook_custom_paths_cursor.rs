@@ -116,7 +116,10 @@ builtins:
         "cwd": temp_dir.path().to_string_lossy()
     });
 
-    eprintln!("DEBUG: Testing shell command: {}", serde_json::to_string_pretty(&shell_cat_secrets)?);
+    eprintln!(
+        "DEBUG: Testing shell command: {}",
+        serde_json::to_string_pretty(&shell_cat_secrets)?
+    );
 
     let decision = engine.evaluate(&shell_cat_secrets, None).await?;
 

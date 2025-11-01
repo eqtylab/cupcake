@@ -889,9 +889,11 @@ impl Engine {
         // IMPORTANT: This clone is intentional and required for security.
         // DO NOT OPTIMIZE: The preprocessing defends against adversarial input attacks
         // (TOB findings) and must never modify the original input. The overhead is
-        // <0.1% of evaluation time. With default config (normalize_whitespace: true,
-        // enable_symlink_resolution: true), preprocessing will always modify the input.
-        // Security takes priority over micro-optimization.
+        // <0.1% of evaluation time. With default config, preprocessing modifies:
+        // - Bash commands: if whitespace normalization needed
+        // - File operations: always (adds resolved_file_path, is_symlink fields)
+        // - Other events: no-op but clone still required for uniform security model
+        // Security and simplicity take priority over micro-optimization.
         let mut safe_input = input.clone();
         let preprocess_config = crate::preprocessing::PreprocessConfig::default();
         crate::preprocessing::preprocess_input(

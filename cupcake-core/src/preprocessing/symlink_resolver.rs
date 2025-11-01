@@ -81,12 +81,13 @@ impl SymlinkResolver {
                     // Return the target path even if it doesn't exist
                     // This allows policies to check the *intended* target
                     //
-                    // NOTE: We intentionally do NOT canonicalize the result because:
+                    // NOTE: We return the raw symlink target without canonicalization:
                     // 1. canonicalize() fails on non-existent paths (dangling symlinks)
-                    // 2. Policies need to see the raw path with "../" components to detect
-                    //    traversal attempts (e.g., "../../.cupcake/secret")
-                    // 3. String-based policy checks will still match protected patterns
-                    //    even in non-canonical paths like "/home/user/../../.cupcake/secret"
+                    // 2. Raw paths preserve "../" components for traversal detection
+                    // 3. IMPORTANT: String-based policy checks WILL match protected patterns
+                    //    in non-canonical paths. For example, "../../../../.cupcake/secret"
+                    //    contains ".cupcake" and will be detected by policies checking for
+                    //    that substring. This was validated in tob4_path_traversal_test.rs
                     return Some(if target.is_absolute() {
                         target
                     } else if let Some(parent) = resolved_path.parent() {
@@ -259,12 +260,15 @@ mod tests {
 
     #[test]
     fn test_resolve_path_returns_none_for_nonexistent() {
-        let nonexistent_path = Path::new("/tmp/this_path_does_not_exist_12345");
-        // Always-on approach: If parent dir exists (/tmp/), will return canonical parent + filename
+        // Use platform-agnostic temp directory (works on Windows, Mac, Linux)
+        let temp_dir = std::env::temp_dir();
+        let nonexistent_path = temp_dir.join("this_path_does_not_exist_12345");
+
+        // Always-on approach: If parent dir exists (temp dir), will return canonical parent + filename
         // This is CORRECT behavior for Write operations to new files
-        let result = SymlinkResolver::resolve_path(nonexistent_path, None);
+        let result = SymlinkResolver::resolve_path(&nonexistent_path, None);
         if let Some(resolved) = result {
-            // Should be /tmp/this_path_does_not_exist_12345 (canonical parent + filename)
+            // Should be <temp_dir>/this_path_does_not_exist_12345 (canonical parent + filename)
             assert!(resolved
                 .to_string_lossy()
                 .contains("this_path_does_not_exist_12345"));

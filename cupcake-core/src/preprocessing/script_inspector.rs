@@ -238,6 +238,12 @@ mod tests {
             None
         );
 
+        // Bash with flags before -c (regression test for false positive concern)
+        assert_eq!(
+            ScriptInspector::detect_script_execution("bash -x -c script.sh"),
+            None
+        );
+
         // Python
         assert_eq!(
             ScriptInspector::detect_script_execution("python3 script.py --verbose"),

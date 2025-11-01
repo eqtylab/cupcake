@@ -23,7 +23,7 @@ async fn test_cursor_harness_deny_shell_execution() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create a deny policy for dangerous commands using Cursor's native event structure
     let policy_content = r#"# METADATA
@@ -86,7 +86,7 @@ async fn test_cursor_harness_halt_on_prompt() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create a halt policy for prompts using Cursor's native event
     let policy_content = r#"# METADATA
@@ -147,7 +147,7 @@ async fn test_cursor_harness_ask_file_read() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create an ask policy for file reads using Cursor's native event
     let policy_content = r#"# METADATA
@@ -218,7 +218,7 @@ async fn test_cursor_harness_context_injection_limitations() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create a context injection policy
     // Note: Cursor has limited context injection support compared to Claude Code
@@ -277,7 +277,7 @@ async fn test_cursor_harness_mcp_execution() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create policy for MCP execution using Cursor's native event
     let policy_content = r#"# METADATA
@@ -339,7 +339,7 @@ async fn test_cursor_harness_file_edit_post_hook() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create policy for file edit validation using Cursor's native post-hook event
     let policy_content = r#"# METADATA
@@ -396,7 +396,7 @@ async fn test_cursor_harness_wildcard_routing() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create wildcard policy that matches all beforeShellExecution events
     let wildcard_policy = r#"# METADATA
@@ -459,7 +459,7 @@ async fn test_cursor_harness_separate_user_agent_messages() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::Cursor)?;
 
     // Create policy that uses agent_context for Cursor's dual-message capability
     let policy_content = r#"# METADATA

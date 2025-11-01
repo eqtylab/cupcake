@@ -1,6 +1,7 @@
 //! Test helper functions for integration tests
 
 use anyhow::Result;
+use cupcake_core::harness::types::HarnessType;
 use std::fs;
 use std::path::Path;
 use std::sync::Once;
@@ -30,6 +31,10 @@ pub fn init_test_logging() {
 }
 
 /// Create a complete cupcake project structure for testing
+///
+/// IMPORTANT: This creates BOTH claude/ and cursor/ directories which can cause
+/// duplicate package errors during compilation. Use `create_test_project_for_harness`
+/// instead when testing a specific harness.
 pub fn create_test_project(project_path: &Path) -> Result<()> {
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
@@ -60,6 +65,43 @@ pub fn create_test_project(project_path: &Path) -> Result<()> {
     let minimal_policy = include_str!("fixtures/minimal_policy.rego");
     fs::write(claude_dir.join("minimal.rego"), minimal_policy)?;
     fs::write(cursor_dir.join("minimal.rego"), minimal_policy)?;
+
+    Ok(())
+}
+
+/// Create a cupcake project structure for a specific harness
+///
+/// This only creates the directory for the specified harness, avoiding
+/// duplicate package errors during compilation.
+pub fn create_test_project_for_harness(project_path: &Path, harness: HarnessType) -> Result<()> {
+    let cupcake_dir = project_path.join(".cupcake");
+    let policies_dir = cupcake_dir.join("policies");
+
+    // Create harness-specific directory structure
+    let harness_name = match harness {
+        HarnessType::ClaudeCode => "claude",
+        HarnessType::Cursor => "cursor",
+    };
+    let harness_dir = policies_dir.join(harness_name);
+    let system_dir = harness_dir.join("system");
+
+    fs::create_dir_all(&system_dir)?;
+    fs::create_dir_all(cupcake_dir.join("signals"))?;
+    fs::create_dir_all(cupcake_dir.join("actions"))?;
+
+    // Create minimal rulebook
+    fs::write(
+        cupcake_dir.join("rulebook.yml"),
+        "signals: {}\nactions: {}\nbuiltins: {}",
+    )?;
+
+    // Use fixture for system policy
+    let system_policy = include_str!("fixtures/system_evaluate.rego");
+    fs::write(system_dir.join("evaluate.rego"), system_policy)?;
+
+    // Add minimal policy to ensure compilation works
+    let minimal_policy = include_str!("fixtures/minimal_policy.rego");
+    fs::write(harness_dir.join("minimal.rego"), minimal_policy)?;
 
     Ok(())
 }

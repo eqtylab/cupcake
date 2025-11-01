@@ -212,6 +212,23 @@ Without the `deterministic-tests` feature, tests will fail due to non-determinis
 
 When tests use `include_str!` to embed policy files at compile time, changes to those policies require recompilation. Run `cargo clean -p cupcake-core` if policy changes aren't being picked up in tests.
 
+### Harness-Specific Testing Requirements
+
+**CRITICAL**: When testing a specific harness (Claude Code or Cursor), you MUST use `create_test_project_for_harness()` instead of `create_test_project()`.
+
+```rust
+// WRONG - Creates both claude/ and cursor/ directories causing duplicate package errors
+test_helpers::create_test_project(project_dir.path())?;
+
+// CORRECT - Creates only the directory for the specific harness
+test_helpers::create_test_project_for_harness(
+    project_dir.path(),
+    HarnessType::Cursor
+)?;
+```
+
+**Why this matters**: The compiler copies all policies preserving their relative paths from `.cupcake/policies/`. If both `claude/` and `cursor/` directories exist with files like `minimal.rego` and `system/evaluate.rego`, OPA compilation fails with "package annotation redeclared" errors because both harness directories get compiled together despite the engine only loading from one.
+
 ### Field Name Mismatch
 
 Claude Code sends events with `hook_event_name` (snake_case) but expects responses with `hookEventName` (camelCase). The engine accepts both formats for compatibility.

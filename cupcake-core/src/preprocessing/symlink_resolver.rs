@@ -80,6 +80,13 @@ impl SymlinkResolver {
                     );
                     // Return the target path even if it doesn't exist
                     // This allows policies to check the *intended* target
+                    //
+                    // NOTE: We intentionally do NOT canonicalize the result because:
+                    // 1. canonicalize() fails on non-existent paths (dangling symlinks)
+                    // 2. Policies need to see the raw path with "../" components to detect
+                    //    traversal attempts (e.g., "../../.cupcake/secret")
+                    // 3. String-based policy checks will still match protected patterns
+                    //    even in non-canonical paths like "/home/user/../../.cupcake/secret"
                     return Some(if target.is_absolute() {
                         target
                     } else if let Some(parent) = resolved_path.parent() {

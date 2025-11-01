@@ -12,9 +12,8 @@ package cupcake.policies.builtins.rulebook_security_guardrails
 import rego.v1
 
 import data.cupcake.helpers.commands
-import data.cupcake.helpers.paths
 
-# Block reading .cupcake directory files
+# Block reading protected path files
 halt contains decision if {
 	input.hook_event_name == "beforeReadFile"
 
@@ -22,17 +21,17 @@ halt contains decision if {
 	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
 	file_path := input.resolved_file_path
 
-	# Check if file is in .cupcake directory
-	contains(file_path, ".cupcake")
+	# Check if file matches any protected path
+	is_protected_path(file_path)
 
 	decision := {
 		"rule_id": "BUILTIN-RULEBOOK-SECURITY-GUARDRAILS",
-		"reason": "Access to .cupcake directory is prohibited. This directory contains security policies and trust data.",
+		"reason": "Access to protected directories is prohibited. These directories contain security-critical data.",
 		"severity": "CRITICAL",
 	}
 }
 
-# Block modifications to .cupcake directory files
+# Block modifications to protected path files
 deny contains decision if {
 	input.hook_event_name == "afterFileEdit"
 
@@ -40,50 +39,101 @@ deny contains decision if {
 	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
 	file_path := input.resolved_file_path
 
-	# Check if file is in .cupcake directory
-	contains(file_path, ".cupcake")
+	# Check if file matches any protected path
+	is_protected_path(file_path)
 
 	decision := {
 		"rule_id": "BUILTIN-RULEBOOK-SECURITY-GUARDRAILS",
-		"reason": "Modifications to .cupcake directory files are not permitted. This directory contains security policies and trust data.",
+		"reason": "Modifications to protected directories are not permitted. These directories contain security-critical data.",
 		"severity": "CRITICAL",
 	}
 }
 
-# Block shell commands that attempt to modify .cupcake directory
+# Block ANY shell commands that reference protected paths (total lockdown)
 deny contains decision if {
 	input.hook_event_name == "beforeShellExecution"
 
 	# Get the command from Cursor's raw schema
 	cmd := lower(input.command)
 
-	# Check if command targets .cupcake directory
-	contains(cmd, ".cupcake")
+	# Check if command references any protected path
+	some protected_path in get_protected_paths
+	contains_protected_reference(cmd, protected_path)
 
-	# Check for dangerous modification commands using helper
-	dangerous_verbs := {"rm", "rmdir", "mv", "cp", "chmod", "chown", "tee", "ln", "touch", "truncate", "dd", "rsync"}
-	commands.has_dangerous_verb(cmd, dangerous_verbs)
+	# NO dangerous verb check - block ALL commands referencing protected paths
 
 	decision := {
 		"rule_id": "BUILTIN-RULEBOOK-SECURITY-GUARDRAILS",
-		"reason": "Shell commands that modify .cupcake directory are not permitted. This directory contains security policies and trust data.",
+		"reason": "Shell commands referencing protected directories are not permitted. These directories contain security-critical data.",
 		"severity": "CRITICAL",
 	}
 }
 
-# Block symlink creation involving .cupcake directory (TOB-EQTY-LAB-CUPCAKE-4)
+# Block symlink creation involving any protected path (TOB-EQTY-LAB-CUPCAKE-4)
 deny contains decision if {
 	input.hook_event_name == "beforeShellExecution"
 
 	command := lower(input.command)
 
-	# Check if command creates symlink involving .cupcake (source OR target)
-	commands.symlink_involves_path(command, ".cupcake")
+	# Check if command creates symlink involving ANY protected path (source OR target)
+	some protected_path in get_protected_paths
+	commands.symlink_involves_path(command, protected_path)
 
 	decision := {
 		"rule_id": "BUILTIN-RULEBOOK-SECURITY-GUARDRAILS",
-		"reason": "Symlink creation involving .cupcake directory is not permitted. This directory contains security policies and trust data.",
+		"reason": "Symlink creation involving protected directories is not permitted. These directories contain security-critical data.",
 		"severity": "CRITICAL",
 	}
+}
+
+# Check if a file path matches any protected path
+is_protected_path(path) if {
+	protected_paths := get_protected_paths
+	some protected_path in protected_paths
+	path_matches(path, protected_path)
+}
+
+# Path matching logic (supports substring and directory matching)
+path_matches(path, pattern) if {
+	# Exact match (case-insensitive)
+	lower(path) == lower(pattern)
+}
+
+path_matches(path, pattern) if {
+	# Substring match - handles both file and directory references
+	lower_path := lower(path)
+	lower_pattern := lower(pattern)
+	contains(lower_path, lower_pattern)
+}
+
+path_matches(path, pattern) if {
+	# Directory match without trailing slash
+	not endswith(pattern, "/")
+	lower_path := lower(path)
+	lower_pattern := lower(pattern)
+	pattern_with_slash := concat("", [lower_pattern, "/"])
+	contains(lower_path, pattern_with_slash)
+}
+
+# Check if command references a protected path
+contains_protected_reference(cmd, protected_path) if {
+	# Direct reference (case-insensitive)
+	contains(cmd, lower(protected_path))
+}
+
+contains_protected_reference(cmd, protected_path) if {
+	# Without trailing slash if it's a directory pattern
+	endswith(protected_path, "/")
+	path_without_slash := substring(lower(protected_path), 0, count(protected_path) - 1)
+	contains(cmd, path_without_slash)
+}
+
+# Get list of protected paths from builtin config
+get_protected_paths := paths if {
+	# Direct access to builtin config
+	paths := input.builtin_config.rulebook_security_guardrails.protected_paths
+} else := paths if {
+	# Default protected paths
+	paths := [".cupcake/"]
 }
 

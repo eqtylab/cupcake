@@ -13,9 +13,8 @@ package cupcake.policies.builtins.rulebook_security_guardrails
 import rego.v1
 
 import data.cupcake.helpers.commands
-import data.cupcake.helpers.paths
 
-# Block ANY tool operations targeting .cupcake/ directory
+# Block ANY tool operations targeting protected paths
 halt contains decision if {
 	input.hook_event_name == "PreToolUse"
 
@@ -29,13 +28,13 @@ halt contains decision if {
 	}
 	input.tool_name in file_operation_tools
 
-	# Check if any parameter contains .cupcake/ (case-insensitive)
+	# Check if any parameter contains a protected path (case-insensitive)
 	# TOB-4 fix: Prefer canonical path (input.resolved_file_path) when available,
 	# but fall back to raw tool_input fields for pattern-based tools (Glob/Grep)
 	# that don't have file paths that can be canonicalized
 	file_path := get_file_path_with_preprocessing_fallback
 	file_path != ""
-	targets_cupcake_directory(file_path)
+	is_protected_path(file_path)
 
 	# Get configured message from signals (fallback to default)
 	message := get_configured_message
@@ -47,137 +46,94 @@ halt contains decision if {
 	}
 }
 
-# Block Bash commands that could modify .cupcake/ directory
+# Block Bash commands that reference any protected path
+# Total lockdown - NO whitelist (unlike protected_paths builtin)
 halt contains decision if {
 	input.hook_event_name == "PreToolUse"
 	input.tool_name == "Bash"
 
-	# Check if command contains patterns that could modify .cupcake/
+	# Check if command references any protected path
 	# Bash tool uses tool_input.command, not params.command
 	command := lower(input.tool_input.command)
-	contains_cupcake_modification_pattern(command)
+
+	# Iterate over all protected paths
+	some protected_path in get_protected_paths
+	contains_protected_reference(command, protected_path)
 
 	message := get_configured_message
 
 	decision := {
 		"rule_id": "BUILTIN-RULEBOOK-SECURITY",
-		"reason": concat("", [message, " (detected .cupcake/ modification in bash command)"]),
+		"reason": concat("", [message, " (detected protected path reference in bash command)"]),
 		"severity": "HIGH",
 	}
 }
 
-# Block symlink creation involving .cupcake directory (TOB-EQTY-LAB-CUPCAKE-4)
+# Block symlink creation involving any protected path (TOB-EQTY-LAB-CUPCAKE-4)
 halt contains decision if {
 	input.hook_event_name == "PreToolUse"
 	input.tool_name == "Bash"
 
 	command := lower(input.tool_input.command)
 
-	# Check if command creates symlink involving .cupcake (source OR target)
-	commands.symlink_involves_path(command, ".cupcake")
+	# Check if command creates symlink involving ANY protected path (source OR target)
+	some protected_path in get_protected_paths
+	commands.symlink_involves_path(command, protected_path)
 
 	message := get_configured_message
 
 	decision := {
 		"rule_id": "BUILTIN-RULEBOOK-SECURITY",
-		"reason": concat("", [message, " (symlink creation involving .cupcake is not permitted)"]),
+		"reason": concat("", [message, " (symlink creation involving protected path is not permitted)"]),
 		"severity": "HIGH",
 	}
 }
 
-# Check if file path targets .cupcake directory (handles various path formats)
-targets_cupcake_directory(file_path) if {
-	# Direct .cupcake/ reference (case-insensitive)
-	lower_path := lower(file_path)
-	contains(lower_path, ".cupcake/")
+# Check if a file path matches any protected path
+is_protected_path(path) if {
+	protected_paths := get_protected_paths
+	some protected_path in protected_paths
+	path_matches(path, protected_path)
 }
 
-targets_cupcake_directory(file_path) if {
-	# Relative path obfuscation: ./././.cupcake/ (case-insensitive)
-	lower_path := lower(file_path)
-	regex.match(`\.+/+\.cupcake/?`, lower_path)
+# Path matching logic (supports substring and directory matching)
+path_matches(path, pattern) if {
+	# Exact match (case-insensitive)
+	lower(path) == lower(pattern)
 }
 
-targets_cupcake_directory(file_path) if {
-	# Absolute paths ending in .cupcake/ (case-insensitive)
-	lower_path := lower(file_path)
-	endswith(lower_path, "/.cupcake")
+path_matches(path, pattern) if {
+	# Substring match - handles both file and directory references
+	# "/full/path/.cupcake/file" matches ".cupcake"
+	# "/full/path/secrets/api.key" matches "secrets/"
+	lower_path := lower(path)
+	lower_pattern := lower(pattern)
+	contains(lower_path, lower_pattern)
 }
 
-targets_cupcake_directory(file_path) if {
-	# Handle path normalization cases (case-insensitive)
-	lower_path := lower(file_path)
-	normalized := regex.replace(lower_path, `/{2,}`, "/") # Replace multiple slashes
-	normalized_clean := regex.replace(normalized, `/\./`, "/") # Remove /./ segments
-	contains(normalized_clean, ".cupcake")
+path_matches(path, pattern) if {
+	# Directory match without trailing slash
+	# Pattern "secrets" should match "/full/path/secrets/file"
+	not endswith(pattern, "/")
+	lower_path := lower(path)
+	lower_pattern := lower(pattern)
+	# Add slash to ensure directory boundary
+	pattern_with_slash := concat("", [lower_pattern, "/"])
+	contains(lower_path, pattern_with_slash)
 }
 
-# Detect Bash command patterns that could access .cupcake/
-# SIMPLE RULE: Block ANY command that mentions .cupcake (case-insensitive)
-contains_cupcake_modification_pattern(cmd) if {
-	contains(cmd, ".cupcake")
+# Check if command references a protected path
+contains_protected_reference(cmd, protected_path) if {
+	# Direct reference (case-insensitive)
+	contains(cmd, lower(protected_path))
 }
 
-# The following rules are kept for documentation and specific pattern detection
-# They're redundant with the blanket rule above but show attack patterns we defend against
-
-contains_cupcake_modification_pattern(cmd) if {
-	contains(cmd, ".cupcake")
-	dangerous_verbs := {"rm", "rmdir", "mv", "cp", "chmod", "chown", "tee", "ln", "touch", "truncate", "dd", "rsync"}
-	commands.has_dangerous_verb(cmd, dangerous_verbs)
-}
-
-contains_cupcake_modification_pattern(cmd) if {
-	# Complex regex patterns that need separate handling
-	contains(cmd, ".cupcake")
-
-	# Regex-based pattern detection for complex commands
-	regex_patterns := [
-		`awk.*>`, # Awk with output redirect
-		`find.*-delete`, # Find with delete flag
-		`find.*-exec`, # Find with exec flag
-	]
-
-	some pattern in regex_patterns
-	regex.match(pattern, cmd)
-}
-
-contains_cupcake_modification_pattern(cmd) if {
-	# Script execution patterns that might target .cupcake/
-	contains(cmd, ".cupcake")
-
-	script_patterns := {
-		"python ", # Python scripts
-		"python3 ", # Python 3 scripts
-		"ruby ", # Ruby scripts
-		"perl ", # Perl scripts
-		"node ", # Node.js scripts
-		"sh ", # Shell scripts
-		"bash ", # Bash scripts
-		"/bin/sh", # Direct shell execution
-		"/bin/bash", # Direct bash execution
-	}
-
-	some pattern in script_patterns
-	contains(cmd, pattern)
-}
-
-contains_cupcake_modification_pattern(cmd) if {
-	# Command substitution or variable expansion targeting .cupcake/
-	contains(cmd, ".cupcake")
-
-	expansion_patterns := {
-		"$(echo", # Command substitution
-		"`echo", # Backtick expansion
-		"${", # Variable expansion
-		"$(", # Command substitution
-		"env ", # Environment variable access
-		"printenv ", # Print environment
-		"eval ", # Dynamic evaluation
-	}
-
-	some pattern in expansion_patterns
-	contains(cmd, pattern)
+contains_protected_reference(cmd, protected_path) if {
+	# Without trailing slash if it's a directory pattern
+	# "secrets/" pattern should also match "secrets" in command
+	endswith(protected_path, "/")
+	path_without_slash := substring(lower(protected_path), 0, count(protected_path) - 1)
+	contains(cmd, path_without_slash)
 }
 
 # Get configured message from builtin config
@@ -220,13 +176,14 @@ get_file_path_from_tool_input := path if {
 # TOB-4 aware path extraction: Prefer canonical path from preprocessing,
 # fall back to raw tool_input for tools that can't be canonicalized (Glob/Grep patterns)
 get_file_path_with_preprocessing_fallback := path if {
-	# First choice: Use canonical path from Rust preprocessing (TOB-4 defense)
-	# This is guaranteed to be provided for tools with file_path fields
-	path := input.resolved_file_path
-	path != null
+	# For Grep/Glob, always use raw paths since they work with patterns/directories
+	input.tool_name in {"Grep", "Glob"}
+	path := get_file_path_from_tool_input
+} else := input.resolved_file_path if {
+	# For other tools, use canonical path from Rust preprocessing (TOB-4 defense)
+	input.resolved_file_path != ""
 } else := path if {
-	# Fallback: For pattern-based tools (Glob/Grep) that don't have file paths,
-	# use the raw input fields (pattern/path can contain directory references)
+	# Final fallback
 	path := get_file_path_from_tool_input
 }
 

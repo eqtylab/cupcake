@@ -292,6 +292,8 @@ Configure in `.cupcake/rulebook.yml` under `builtins:` section. See `fixtures/in
 
 4. **Global Override**: Global builtin configurations override project configurations. This is intentional for organizational policy enforcement.
 
+5. **Grep/Glob Path Handling (Claude Code only)**: In Claude Code harness, Grep and Glob tools operate on directory patterns (`"secrets/"`) not file paths. Policies must use raw `tool_input.path` for these tools instead of waiting for `resolved_file_path` from preprocessing. Cursor harness doesn't have these tools - it uses different events.
+
 ## Rego v1 Migration Checklist
 
 **CRITICAL**: Cupcake uses OPA v1.71.0+ where Rego v1 syntax is the DEFAULT (no import needed).

@@ -84,7 +84,7 @@ impl WhitespaceNormalizer {
                     result.push(' '); // Normalize all whitespace to single space
                     last_was_space = true;
                 }
-                // Skip consecutive whitespace
+                // Consecutive whitespace is implicitly skipped when last_was_space is true
             } else {
                 result.push(ch);
                 last_was_space = false;

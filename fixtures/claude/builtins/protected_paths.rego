@@ -226,7 +226,7 @@ is_whitelisted_read_command(cmd) if {
 
 	# CRITICAL: Exclude sed -i specifically
 	# This check is NOT redundant with lines 188-192. OPA evaluates ALL rule bodies
-	# for is_whitelisted_read_command(). Body 1 (lines 188-192) fails on "sed -i",
+	# for is_whitelisted_read_command(). Body 1 (lines 188-192) explicitly rejects "sed -i",
 	# but OPA continues to evaluate Body 2 (this body). Without this check, "sed -i"
 	# would match the "sed" verb above and incorrectly be whitelisted.
 	# Whitespace variations (sed  -i, sed\t-i) are normalized by preprocessing.

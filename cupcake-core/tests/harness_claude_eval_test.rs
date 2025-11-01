@@ -21,7 +21,7 @@ async fn test_claude_harness_deny_decision() -> Result<()> {
 
     // Setup test project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create a deny policy for testing
     let policy_content = r#"# METADATA
@@ -86,7 +86,7 @@ async fn test_claude_harness_halt_decision() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create a halt policy
     let policy_content = r#"# METADATA
@@ -145,7 +145,7 @@ async fn test_claude_harness_ask_decision() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create an ask policy
     let policy_content = r#"# METADATA
@@ -209,7 +209,7 @@ async fn test_claude_harness_allow_with_context() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create a context injection policy
     let policy_content = r#"# METADATA
@@ -263,7 +263,7 @@ async fn test_claude_harness_routing_specificity() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     // Create specific tool policy
     let specific_policy = r#"# METADATA
@@ -349,7 +349,7 @@ async fn test_claude_harness_session_start_event() -> Result<()> {
     test_helpers::init_test_logging();
 
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    test_helpers::create_test_project_for_harness(project_dir.path(), HarnessType::ClaudeCode)?;
 
     let policy_content = r#"# METADATA
 # scope: package

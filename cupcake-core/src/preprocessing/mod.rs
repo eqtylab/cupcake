@@ -476,7 +476,10 @@ mod tests {
 
     #[test]
     fn test_symlink_resolution_claude_code_write() {
+        #[cfg(unix)]
         use std::os::unix::fs::symlink;
+        #[cfg(windows)]
+        use std::os::windows::fs::symlink_file as symlink;
         use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
@@ -510,7 +513,10 @@ mod tests {
 
     #[test]
     fn test_symlink_resolution_cursor_file_edit() {
+        #[cfg(unix)]
         use std::os::unix::fs::symlink;
+        #[cfg(windows)]
+        use std::os::windows::fs::symlink_file as symlink;
         use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
@@ -539,7 +545,10 @@ mod tests {
 
     #[test]
     fn test_symlink_resolution_disabled() {
+        #[cfg(unix)]
         use std::os::unix::fs::symlink;
+        #[cfg(windows)]
+        use std::os::windows::fs::symlink_file as symlink;
         use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();

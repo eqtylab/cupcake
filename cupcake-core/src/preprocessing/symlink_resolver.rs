@@ -161,8 +161,13 @@ impl SymlinkResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::symlink;
     use tempfile::TempDir;
+
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
+
+    #[cfg(windows)]
+    use std::os::windows::fs::symlink_file as symlink;
 
     #[test]
     fn test_is_symlink_detects_symlink() {

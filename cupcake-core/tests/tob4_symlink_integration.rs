@@ -11,7 +11,10 @@ use cupcake_core::harness::types::HarnessType;
 use cupcake_core::preprocessing::{preprocess_input, PreprocessConfig};
 use serde_json::json;
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
+#[cfg(windows)]
+use std::os::windows::fs::symlink_file as symlink;
 use tempfile::TempDir;
 
 /// Test that symlink to .cupcake/ file is detected and resolved

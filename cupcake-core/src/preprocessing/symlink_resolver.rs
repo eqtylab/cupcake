@@ -78,8 +78,22 @@ impl SymlinkResolver {
                         "Read dangling symlink target: {:?} -> {:?}",
                         resolved_path, target
                     );
-                    // Return the target path even if it doesn't exist
-                    // This allows policies to check the *intended* target
+                    // Return the target path even if it doesn't exist - this is CRITICAL for security:
+                    //
+                    // 1. We CANNOT canonicalize dangling symlink targets - canonicalize() requires
+                    //    the path to exist, which it doesn't for dangling symlinks. This is the
+                    //    whole point of this fallback code path.
+                    //
+                    // 2. The unresolved path is what we want for security - Policies need to see
+                    //    that the symlink points to ../../.cupcake/secret even if that target
+                    //    doesn't exist yet. This shows the attacker's intent.
+                    //
+                    // 3. Policies do string matching - Our policies check if paths contain
+                    //    .cupcake/ or other protected patterns. The path /home/user/../../.cupcake/secret
+                    //    will still match .cupcake/ in the string check.
+                    //
+                    // This allows policies to check the *intended* target and block attacks
+                    // that use dangling symlinks to bypass protection.
                     return Some(if target.is_absolute() {
                         target
                     } else if let Some(parent) = resolved_path.parent() {

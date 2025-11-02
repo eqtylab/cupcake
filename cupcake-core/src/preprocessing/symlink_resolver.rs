@@ -81,13 +81,15 @@ impl SymlinkResolver {
                     // Return the target path even if it doesn't exist
                     // This allows policies to check the *intended* target
                     //
-                    // NOTE: We return the raw symlink target without canonicalization:
+                    // NOTE: We return the raw symlink target joined with the parent directory:
                     // 1. canonicalize() fails on non-existent paths (dangling symlinks)
-                    // 2. Raw paths preserve "../" components for traversal detection
-                    // 3. IMPORTANT: String-based policy checks WILL match protected patterns
-                    //    in non-canonical paths. For example, "../../../../.cupcake/secret"
-                    //    contains ".cupcake" and will be detected by policies checking for
-                    //    that substring. This was validated in tob4_path_traversal_test.rs
+                    // 2. Result is ALWAYS absolute (cwd.join() at line 52 ensures this)
+                    // 3. Path preserves "../" components, e.g., "/tmp/dir/../../.cupcake/secret"
+                    // 4. IMPORTANT: Protected patterns like ".cupcake" are still detectable because:
+                    //    - The substring "/.cupcake/" appears in "/tmp/dir/../../.cupcake/secret"
+                    //    - Builtin policies use path_matches() which handles this correctly
+                    //    - Even with "../", the path never starts with "../" (always absolute)
+                    // 5. Validated in tob4_path_traversal_test.rs
                     return Some(if target.is_absolute() {
                         target
                     } else if let Some(parent) = resolved_path.parent() {

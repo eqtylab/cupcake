@@ -122,6 +122,28 @@ path_matches(path, pattern) if {
 	contains(lower_path, pattern_with_slash)
 }
 
+path_matches(path, pattern) if {
+	# Canonical directory paths don't have trailing slashes
+	# Pattern ".cupcake/" should match canonical path "/tmp/xyz/.cupcake"
+	# This handles the case where preprocessing canonicalizes directory paths
+	endswith(pattern, "/")
+	pattern_without_slash := substring(pattern, 0, count(pattern) - 1)
+	lower_path := lower(path)
+	lower_pattern := lower(pattern_without_slash)
+	# Ensure directory boundary by checking for /{pattern} suffix
+	path_suffix := concat("", ["/", lower_pattern])
+	endswith(lower_path, path_suffix)
+}
+
+path_matches(path, pattern) if {
+	# Protected path with trailing slash should also match without the slash
+	# This handles Glob patterns like ".cupcake*" matching protected path ".cupcake/"
+	# Also handles paths/patterns that reference the directory without trailing slash
+	endswith(pattern, "/")
+	pattern_without_slash := substring(pattern, 0, count(pattern) - 1)
+	contains(lower(path), lower(pattern_without_slash))
+}
+
 # Check if command references a protected path
 contains_protected_reference(cmd, protected_path) if {
 	# Direct reference (case-insensitive)
@@ -174,13 +196,23 @@ get_file_path_from_tool_input := path if {
 } else := ""
 
 # TOB-4 aware path extraction: Prefer canonical path from preprocessing,
-# fall back to raw tool_input for tools that can't be canonicalized (Glob/Grep patterns)
+# fall back to raw tool_input only for Glob (patterns can't be canonicalized)
+#
+# FIXED: GitHub Copilot review - Grep symlink bypass (TOB-4 defense)
+# - Grep's 'path' field now uses canonical paths (closes symlink bypass)
+# - Glob's 'pattern' field still uses raw patterns (can't be canonicalized)
+#
+# TODO: Known Glob limitations (complex pattern parsing required):
+# - Glob(pattern="backup/**/*.rego") where "backup" is symlink to .cupcake
+# - Glob(pattern="**/*.rego") searches symlinks without .cupcake in pattern
+# - Requires pattern parsing before file expansion to fully address
 get_file_path_with_preprocessing_fallback := path if {
-	# For Grep/Glob, always use raw paths since they work with patterns/directories
-	input.tool_name in {"Grep", "Glob"}
+	# For Glob only, use raw pattern since it can't be canonicalized (e.g., "**/*.rs")
+	# Grep's 'path' field CAN be canonicalized, so it goes through TOB-4 defense
+	input.tool_name == "Glob"
 	path := get_file_path_from_tool_input
 } else := input.resolved_file_path if {
-	# For other tools, use canonical path from Rust preprocessing (TOB-4 defense)
+	# For other tools (including Grep), use canonical path from Rust preprocessing (TOB-4 defense)
 	input.resolved_file_path != ""
 } else := path if {
 	# Final fallback

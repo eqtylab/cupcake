@@ -20,8 +20,9 @@ deny contains decision if {
 	input.tool_name in read_tools
 
 	# Get the file path from tool input
-	file_path := get_file_path_from_tool_input
-	file_path != ""
+	# TOB-4 fix: Use canonical path (always provided by Rust preprocessing)
+	file_path := input.resolved_file_path
+	file_path != null
 
 	# Check if file appears to contain sensitive data
 	is_sensitive_file(file_path)
@@ -316,3 +317,4 @@ get_file_path_from_tool_input := path if {
 	input.tool_name == "Grep"
 	path := input.tool_input.path
 } else := ""
+

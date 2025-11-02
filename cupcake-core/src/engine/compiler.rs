@@ -170,6 +170,26 @@ pub async fn compile_policies_with_namespace(
 
     debug!("Policies root: {:?}", policies_root);
 
+    // Copy helpers directory if it exists (required by refactored builtins)
+    let helpers_src = policies_root.join("helpers");
+    if helpers_src.exists() && helpers_src.is_dir() {
+        debug!("Copying helpers directory: {:?}", helpers_src);
+        let helpers_dest = temp_path.join("helpers");
+        tokio::fs::create_dir_all(&helpers_dest).await?;
+
+        // Copy all .rego files from helpers directory
+        let mut helpers_dir = tokio::fs::read_dir(&helpers_src).await?;
+        while let Some(entry) = helpers_dir.next_entry().await? {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("rego") {
+                let file_name = path.file_name().unwrap();
+                let dest_path = helpers_dest.join(file_name);
+                tokio::fs::copy(&path, &dest_path).await?;
+                debug!("Copied helper: {:?} -> {:?}", path, dest_path);
+            }
+        }
+    }
+
     for policy in policies.iter() {
         // Get the relative path from the policies root
         let relative_path = policy

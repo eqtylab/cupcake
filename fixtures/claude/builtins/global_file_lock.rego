@@ -7,9 +7,12 @@
 #   id: BUILTIN-GLOBAL-FILE-LOCK
 #   routing:
 #     required_events: ["PreToolUse"]
+#     required_tools: ["Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "Task"]
 package cupcake.policies.builtins.global_file_lock
 
 import rego.v1
+
+import data.cupcake.helpers.commands
 
 # Block all file write operations when enabled
 halt contains decision if {
@@ -49,22 +52,18 @@ halt contains decision if {
     }
 }
 
-# Helper: Check if bash command contains write patterns
+# Helper: Check if bash command contains write patterns using helper functions
+# This provides proper word-boundary matching and handles edge cases
 contains_write_pattern(cmd) if {
-    write_patterns := {
-        ">",           # Redirect output
-        ">>",          # Append output
-        "tee",         # Write to file
-        "cp ",         # Copy (could overwrite)
-        "mv ",         # Move (could overwrite)
-        "echo.*>",     # Echo with redirect
-        "cat.*>",      # Cat with redirect
-        "sed -i",      # In-place edit
-        "awk.*>",      # Awk with redirect
-    }
-    
-    some pattern in write_patterns
-    contains(cmd, pattern)
+    # Check for output redirection (>, >>, |, tee)
+    commands.has_output_redirect(cmd)
+}
+
+contains_write_pattern(cmd) if {
+    # Check for file copy/move commands with proper word boundaries
+    file_commands := {"cp", "mv"}
+    some command in file_commands
+    commands.has_verb(cmd, command)
 }
 
 # Get configured message (would come from signal in real implementation)

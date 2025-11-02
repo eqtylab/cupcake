@@ -4,14 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Security Principles
 
-Following Trail of Bits audit (2025-09), Cupcake enforces these security principles:
+Cupcake enforces defense-in-depth security principles based on comprehensive security audits:
 
 1. **No Ambient Authority**: Configuration via explicit CLI flags only, never environment variables
 2. **Defense-in-Depth**: Validate security-critical values at parse time and runtime
 3. **Explicit Consent**: Debug output requires explicit CLI flags from user
 4. **Fail-Safe Defaults**: All security limits enforced with safe minimums (e.g., 1MB WASM memory)
+5. **Input Preprocessing**: Automatic normalization at Rust level protects all policies from spacing bypasses
 
 **Rationale**: AI agents can manipulate environment variables through prompts. Explicit CLI flags create an audit trail and prevent bypass attacks.
+
+**Preprocessing Defense**: See `SECURITY_PREPROCESSING.md` for details on how Rust-level preprocessing automatically protects all policies from adversarial spacing patterns.
 
 # Cupcake
 
@@ -49,19 +52,19 @@ You can use the claude code cli functionality to test Cupcake behavior locally. 
 
 Then run: `claude -p "hello world" --model haiku` to create routing map in `.cupcake/debug/`
 
-## Critical Claude Code Hook Integration Issues (FIXED)
+## Critical Claude Code Hook Integration Requirements
 
 ### JSON Response Format Requirements
 
 **CRITICAL**: Claude Code hooks require ONLY valid JSON on stdout. Any other output will cause parsing failure and the hook response will be ignored.
 
-**Fixed Issues (2025-09-03)**:
+**Key Requirements**:
 
-1. **Field Name Casing**: The response field MUST be `hookSpecificOutput` (camelCase), not `hook_specific_output` (snake_case). Fixed in `cupcake-core/src/harness/response/types.rs`.
+1. **Field Name Casing**: The response field MUST be `hookSpecificOutput` (camelCase), not `hook_specific_output` (snake_case). See `cupcake-core/src/harness/response/types.rs`.
 
-2. **Stdout Pollution**: ALL logs, debug output, and banners MUST go to stderr, not stdout. Only the JSON response should go to stdout. Fixed in `cupcake-cli/src/main.rs` by adding `.with_writer(std::io::stderr)` to all tracing subscribers.
+2. **Stdout Pollution**: ALL logs, debug output, and banners MUST go to stderr, not stdout. Only the JSON response should go to stdout. The tracing subscribers in `cupcake-cli/src/main.rs` use `.with_writer(std::io::stderr)`.
 
-Without these fixes, Claude Code will ignore deny decisions and execute dangerous commands despite Cupcake returning a proper deny response.
+Without proper JSON formatting, Claude Code will ignore deny decisions and execute dangerous commands despite Cupcake returning a proper deny response.
 
 ## Hook Event Format Requirements
 
@@ -111,9 +114,9 @@ Only these events support `additionalContext`:
 
 ### Core Dependencies
 
-- **wasmtime**: 35.0 - WebAssembly runtime for executing compiled policies
-- **tokio**: 1.46.1 - Async runtime with multi-threading
-- **serde/serde_json**: 1.0 - JSON serialization/deserialization
+- **wasmtime**: WebAssembly runtime for executing compiled policies
+- **tokio**: Async runtime with multi-threading
+- **serde/serde_json**: JSON serialization/deserialization
 - **OPA v1.0 Rego**: Modern syntax with `import rego.v1`
 
 ## Build and Development Commands
@@ -137,7 +140,7 @@ cargo bench
 cargo run -- eval --log-level debug [args]
 
 # Create a new release (pushes tag to trigger automated workflow)
-git tag v0.1.8 && git push origin v0.1.8
+git tag v[VERSION] && git push origin v[VERSION]
 
 # Enable extensive debugging with policy evaluation tracing
 cargo run -- eval --trace eval [args]      # Shows the main policy evaluation pipeline (routing, signals, WASM, synthesis)
@@ -152,7 +155,7 @@ cargo run -- eval --policy-dir .cupcake/policies
 
 ## Architecture Overview
 
-Cupcake implements the **Hybrid Model** from `NEW_GUIDING_FINAL.md`:
+Cupcake implements a **Hybrid Model**:
 
 - **Rego (WASM)**: Declares policies, evaluates rules, aggregates decision verbs
 - **Rust (Engine)**: Routes events, gathers signals, synthesizes final decisions
@@ -209,6 +212,23 @@ Without the `deterministic-tests` feature, tests will fail due to non-determinis
 
 When tests use `include_str!` to embed policy files at compile time, changes to those policies require recompilation. Run `cargo clean -p cupcake-core` if policy changes aren't being picked up in tests.
 
+### Harness-Specific Testing Requirements
+
+**CRITICAL**: When testing a specific harness (Claude Code or Cursor), you MUST use `create_test_project_for_harness()` instead of `create_test_project()`.
+
+```rust
+// WRONG - Creates both claude/ and cursor/ directories causing duplicate package errors
+test_helpers::create_test_project(project_dir.path())?;
+
+// CORRECT - Creates only the directory for the specific harness
+test_helpers::create_test_project_for_harness(
+    project_dir.path(),
+    HarnessType::Cursor
+)?;
+```
+
+**Why this matters**: The compiler copies all policies preserving their relative paths from `.cupcake/policies/`. If both `claude/` and `cursor/` directories exist with files like `minimal.rego` and `system/evaluate.rego`, OPA compilation fails with "package annotation redeclared" errors because both harness directories get compiled together despite the engine only loading from one.
+
 ### Field Name Mismatch
 
 Claude Code sends events with `hook_event_name` (snake_case) but expects responses with `hookEventName` (camelCase). The engine accepts both formats for compatibility.
@@ -233,15 +253,15 @@ The synthesis layer enforces strict priority: Halt > Deny/Block > Ask > Allow
 
 ## Reference Documents
 
-Critical references in parent directory:
+Additional documentation may be available in the project repository for:
 
-- `../NEW_GUIDING_FINAL.md` - The authoritative architecture specification
-- `../claude-code-docs/` - Claude Code hooks documentation
-- `../cupcake-deprecated/spec/spec_hook_mapping.md` - Decision to JSON mapping
+- Architecture specifications
+- Claude Code hooks documentation
+- Decision to JSON response mapping
 
 ## Policy Development
 
-Policies follow the new metadata-driven format:
+Policies follow a metadata-driven format:
 
 1. Declare routing requirements in metadata
 2. Use decision verbs (`deny contains`, `halt contains`)
@@ -288,6 +308,8 @@ Configure in `.cupcake/rulebook.yml` under `builtins:` section. See `fixtures/in
 3. **Signal Usage**: Signals are only used for dynamic data gathering (e.g., running validation commands). Static config like messages and paths come through `builtin_config`.
 
 4. **Global Override**: Global builtin configurations override project configurations. This is intentional for organizational policy enforcement.
+
+5. **Grep/Glob Path Handling (Claude Code only)**: In Claude Code harness, Grep and Glob tools operate on directory patterns (`"secrets/"`) not file paths. Policies must use raw `tool_input.path` for these tools instead of waiting for `resolved_file_path` from preprocessing. Cursor harness doesn't have these tools - it uses different events.
 
 ## Rego v1 Migration Checklist
 
@@ -448,9 +470,8 @@ package cupcake.policies.example
 - [ ] Test policy compilation with `opa build`
 - [ ] Verify no silent failures in tests
 
-**OPA Version**: v1.71.0+ (Rego v1 is default, no import needed)  
-**Metadata Fix**: ✅ All policies use `scope: package` to avoid detached metadata lint errors  
-**Audit Status**: ✅ All Cupcake policies audited and fixed (last check: post-metadata fixes)
+**OPA Version**: v1.71.0+ (Rego v1 is default, no import needed)
+**Metadata Fix**: Policies should use `scope: package` to avoid detached metadata lint errors
 
 ## Signal Access in Policies
 
@@ -553,4 +574,4 @@ Policies should check `exit_code == 0` to determine success for validation signa
 
 ### Wildcard Policy Routing
 
-The engine routes events to wildcard policies (those with only `required_events`) even when a specific tool is involved. This was a bug that was fixed - wildcard policies now correctly receive all matching events.
+The engine routes events to wildcard policies (those with only `required_events`) even when a specific tool is involved. Wildcard policies correctly receive all matching events.

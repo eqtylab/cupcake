@@ -1,15 +1,18 @@
 //! Test helper functions for integration tests
+//!
+//! This module is shared across multiple test files using the tests/common/
+//! pattern. All functions are now actively used since we eliminated the
+//! duplicate create_test_project() function.
 
 use anyhow::Result;
+use cupcake_core::harness::types::HarnessType;
 use std::fs;
 use std::path::Path;
 use std::sync::Once;
 
 /// Initialize logging for tests (only once per test run)
-#[allow(dead_code)]
 static INIT: Once = Once::new();
 
-#[allow(dead_code)]
 pub fn init_test_logging() {
     INIT.call_once(|| {
         // Use tracing subscriber for tests since the engine uses tracing
@@ -29,19 +32,27 @@ pub fn init_test_logging() {
     });
 }
 
-/// Create a complete cupcake project structure for testing
-pub fn create_test_project(project_path: &Path) -> Result<()> {
+// DELETED: create_test_project() - This function created both harness directories
+// causing duplicate package errors. All tests should use create_test_project_for_harness()
+// and explicitly specify which harness they need.
+
+/// Create a cupcake project structure for a specific harness
+///
+/// This only creates the directory for the specified harness, avoiding
+/// duplicate package errors during compilation.
+pub fn create_test_project_for_harness(project_path: &Path, harness: HarnessType) -> Result<()> {
     let cupcake_dir = project_path.join(".cupcake");
     let policies_dir = cupcake_dir.join("policies");
 
-    // Create harness-specific directory structures for both Claude and Cursor
-    let claude_dir = policies_dir.join("claude");
-    let claude_system_dir = claude_dir.join("system");
-    let cursor_dir = policies_dir.join("cursor");
-    let cursor_system_dir = cursor_dir.join("system");
+    // Create harness-specific directory structure
+    let harness_name = match harness {
+        HarnessType::ClaudeCode => "claude",
+        HarnessType::Cursor => "cursor",
+    };
+    let harness_dir = policies_dir.join(harness_name);
+    let system_dir = harness_dir.join("system");
 
-    fs::create_dir_all(&claude_system_dir)?;
-    fs::create_dir_all(&cursor_system_dir)?;
+    fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
     fs::create_dir_all(cupcake_dir.join("actions"))?;
 
@@ -51,15 +62,13 @@ pub fn create_test_project(project_path: &Path) -> Result<()> {
         "signals: {}\nactions: {}\nbuiltins: {}",
     )?;
 
-    // Use fixture for system policy (same for both harnesses)
-    let system_policy = include_str!("fixtures/system_evaluate.rego");
-    fs::write(claude_system_dir.join("evaluate.rego"), system_policy)?;
-    fs::write(cursor_system_dir.join("evaluate.rego"), system_policy)?;
+    // Use fixture for system policy
+    let system_policy = include_str!("../fixtures/system_evaluate.rego");
+    fs::write(system_dir.join("evaluate.rego"), system_policy)?;
 
-    // Add minimal policy to ensure compilation works (for both harnesses)
-    let minimal_policy = include_str!("fixtures/minimal_policy.rego");
-    fs::write(claude_dir.join("minimal.rego"), minimal_policy)?;
-    fs::write(cursor_dir.join("minimal.rego"), minimal_policy)?;
+    // Add minimal policy to ensure compilation works
+    let minimal_policy = include_str!("../fixtures/minimal_policy.rego");
+    fs::write(harness_dir.join("minimal.rego"), minimal_policy)?;
 
     Ok(())
 }
@@ -83,7 +92,7 @@ pub fn create_test_global_config(global_path: &Path) -> Result<()> {
     )?;
 
     // Use fixture for global system policy
-    let global_system_policy = include_str!("fixtures/global_system_evaluate.rego");
+    let global_system_policy = include_str!("../fixtures/global_system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), global_system_policy)?;
 
     Ok(())

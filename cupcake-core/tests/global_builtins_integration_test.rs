@@ -1,5 +1,6 @@
-// Import test helpers module
-mod test_helpers;
+// Import only the specific helpers we need
+mod common;
+use common::{create_test_project_for_harness, init_test_logging};
 
 #[cfg(test)]
 mod tests {
@@ -114,6 +115,8 @@ builtins: {}
     #[serial]
     #[cfg(feature = "deterministic-tests")]
     async fn test_global_system_protection_builtin() -> Result<()> {
+        crate::init_test_logging();
+
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
@@ -121,7 +124,10 @@ builtins: {}
         setup_test_global_config(global_temp.path())?;
 
         // Setup project using test helper
-        crate::test_helpers::create_test_project(project_temp.path())?;
+        crate::create_test_project_for_harness(
+            project_temp.path(),
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        )?;
 
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
@@ -165,6 +171,8 @@ builtins: {}
     #[serial]
     #[cfg(feature = "deterministic-tests")]
     async fn test_global_sensitive_data_builtin() -> Result<()> {
+        crate::init_test_logging();
+
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
@@ -172,7 +180,10 @@ builtins: {}
         setup_test_global_config(global_temp.path())?;
 
         // Setup project using test helper
-        crate::test_helpers::create_test_project(project_temp.path())?;
+        crate::create_test_project_for_harness(
+            project_temp.path(),
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        )?;
 
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
@@ -210,6 +221,8 @@ builtins: {}
     #[serial]
     #[cfg(feature = "deterministic-tests")]
     async fn test_global_cupcake_exec_builtin() -> Result<()> {
+        crate::init_test_logging();
+
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
@@ -217,7 +230,10 @@ builtins: {}
         setup_test_global_config(global_temp.path())?;
 
         // Setup project using test helper
-        crate::test_helpers::create_test_project(project_temp.path())?;
+        crate::create_test_project_for_harness(
+            project_temp.path(),
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        )?;
 
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
@@ -255,6 +271,8 @@ builtins: {}
     #[serial]
     #[cfg(feature = "deterministic-tests")]
     async fn test_global_builtins_disabled() -> Result<()> {
+        crate::init_test_logging();
+
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
@@ -339,7 +357,10 @@ builtins:
         )?;
 
         // Setup project using test helper
-        crate::test_helpers::create_test_project(project_temp.path())?;
+        crate::create_test_project_for_harness(
+            project_temp.path(),
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        )?;
 
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
@@ -379,6 +400,8 @@ builtins:
     #[serial]
     #[cfg(feature = "deterministic-tests")]
     async fn test_global_builtin_signals() -> Result<()> {
+        crate::init_test_logging();
+
         let global_temp = TempDir::new()?;
         let project_temp = TempDir::new()?;
 
@@ -483,7 +506,10 @@ builtins:
         )?;
 
         // Setup project using test helper
-        crate::test_helpers::create_test_project(project_temp.path())?;
+        crate::create_test_project_for_harness(
+            project_temp.path(),
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        )?;
 
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)

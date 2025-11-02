@@ -8,21 +8,21 @@ use serial_test::serial;
 use std::fs;
 use tempfile::TempDir;
 
-mod test_helpers;
+mod common;
 
 /// Test that global HALT with actions doesn't crash and returns correct decision
 #[tokio::test]
 #[serial] // serial attribute ensures tests run one at a time, protecting global env vars
 async fn test_global_halt_with_actions_simple() -> Result<()> {
     // Initialize test logging
-    test_helpers::init_test_logging();
+    common::init_test_logging();
 
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create simple global rulebook with inline action (no script file)
@@ -63,7 +63,10 @@ halt contains decision if {
 
     // Setup project
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Initialize engine with global config
     eprintln!(
@@ -108,14 +111,14 @@ halt contains decision if {
 async fn test_global_block_terminates_early() -> Result<()> {
     // Serialize access to global config
     // Initialize test logging
-    test_helpers::init_test_logging();
+    common::init_test_logging();
 
     // Setup global config
     let global_dir = TempDir::new()?;
     let global_root = global_dir.path().to_path_buf();
 
     // Create global config structure with evaluate.rego
-    test_helpers::create_test_global_config(global_dir.path())?;
+    common::create_test_global_config(global_dir.path())?;
     let global_paths = GlobalPaths::discover_with_override(Some(global_root.clone()))?.unwrap();
 
     // Create global rulebook
@@ -151,7 +154,10 @@ block contains decision if {
 
     // Setup project with conflicting allow
     let project_dir = TempDir::new()?;
-    test_helpers::create_test_project(project_dir.path())?;
+    common::create_test_project_for_harness(
+        project_dir.path(),
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    )?;
 
     // Create project policy that would allow (should not execute due to early termination)
     fs::write(

@@ -20,13 +20,19 @@ async fn test_protected_paths_read_write_distinction() -> Result<()> {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let builtins_dir = claude_dir.join("builtins");
+    let helpers_dir = policies_dir.join("helpers");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
+    fs::create_dir_all(&helpers_dir)?;
 
     // Use the authoritative system evaluation policy
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
+    // Write helper library (required by refactored builtins)
+    let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
+    fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
 
     // Use the actual protected_paths policy from Claude fixtures
     let protected_policy = include_str!("../../fixtures/claude/builtins/protected_paths.rego");
@@ -186,12 +192,18 @@ async fn test_protected_paths_bash_whitelist() -> Result<()> {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let builtins_dir = claude_dir.join("builtins");
+    let helpers_dir = policies_dir.join("helpers");
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(&builtins_dir)?;
+    fs::create_dir_all(&helpers_dir)?;
 
     let evaluate_policy = include_str!("fixtures/system_evaluate.rego");
     fs::write(system_dir.join("evaluate.rego"), evaluate_policy)?;
+
+    // Write helper library (required by refactored builtins)
+    let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
+    fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
 
     let protected_policy = include_str!("../../fixtures/claude/builtins/protected_paths.rego");
     fs::write(builtins_dir.join("protected_paths.rego"), protected_policy)?;

@@ -11,6 +11,8 @@ package cupcake.policies.builtins.global_file_lock
 
 import rego.v1
 
+import data.cupcake.helpers.commands
+
 # Block ALL file modifications when global lock is enabled
 deny contains decision if {
     input.hook_event_name == "afterFileEdit"
@@ -41,9 +43,16 @@ deny contains decision if {
     }
 }
 
-# Detect file write patterns in shell commands
+# Detect file write patterns in shell commands using helper functions
+# This provides proper word-boundary matching and handles edge cases
 contains_write_pattern(cmd) if {
-    write_patterns := {">", ">>", "tee", "cp ", "mv "}
-    some pattern in write_patterns
-    contains(cmd, pattern)
+	# Check for output redirection (>, >>, |, tee)
+	commands.has_output_redirect(cmd)
+}
+
+contains_write_pattern(cmd) if {
+	# Check for file copy/move commands with proper word boundaries
+	file_commands := {"cp", "mv"}
+	some command in file_commands
+	commands.has_verb(cmd, command)
 }

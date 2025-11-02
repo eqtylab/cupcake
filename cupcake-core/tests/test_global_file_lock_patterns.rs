@@ -5,8 +5,8 @@
 //! 2. Substring matching has false positive issues (needs helper functions)
 
 use anyhow::Result;
-use cupcake_core::engine::{Engine, EngineConfig};
 use cupcake_core::engine::decision::FinalDecision;
+use cupcake_core::engine::{Engine, EngineConfig};
 use cupcake_core::harness::types::HarnessType;
 use serde_json::json;
 use std::fs;
@@ -70,11 +70,11 @@ async fn test_spacing_bypass_attempts_blocked_by_preprocessing() -> Result<()> {
 
     // Reviewer's concern: spacing variations could bypass detection
     let spacing_variants = vec![
-        "cp  file1  file2",      // Double spaces
-        "cp\tfile1\tfile2",      // Tabs
-        "mv    old    new",      // Multiple spaces
-        "echo hello > file",     // Redirect with spacing
-        "echo hello  >  file",   // Extra spaces around redirect
+        "cp  file1  file2",    // Double spaces
+        "cp\tfile1\tfile2",    // Tabs
+        "mv    old    new",    // Multiple spaces
+        "echo hello > file",   // Redirect with spacing
+        "echo hello  >  file", // Extra spaces around redirect
     ];
 
     for command in spacing_variants {
@@ -106,8 +106,8 @@ async fn test_helper_functions_eliminate_false_positives() -> Result<()> {
 
     // These commands should NOT be blocked (after fix with helper functions)
     let legitimate_commands = vec![
-        "scp file user@host:/path",  // "scp" is NOT "cp" (word boundary check)
-        "grep '>' logfile",           // grep argument ">" is NOT a redirect
+        "scp file user@host:/path", // "scp" is NOT "cp" (word boundary check)
+        "grep '>' logfile",         // grep argument ">" is NOT a redirect
     ];
 
     for command in legitimate_commands {

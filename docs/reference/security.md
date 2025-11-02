@@ -514,6 +514,24 @@ cargo test adversarial --features deterministic-tests
 
 ## Limitations
 
+### Glob Pattern Symlink Bypass
+
+**Limitation**: Glob patterns cannot be canonicalized before execution, allowing symlink bypasses.
+
+**Example**:
+```bash
+ln -s .cupcake backup
+Glob("backup/**/*.yml")  # Pattern doesn't contain ".cupcake", but follows symlink
+```
+
+**Impact**: Read-only information disclosure (policies, config, signals). Does NOT enable write bypasses - all write tools canonicalize paths correctly.
+
+**Severity**: Medium | **Likelihood**: Low-Medium
+
+**Mitigation**: Avoid symlinks to protected directories. Test coverage in `grep_glob_symlink_bypass.rs`
+
+---
+
 ### User Policy Protection
 
 **Current Limitation**: The helper library protects builtin policies, but user-written policies remain vulnerable if they use basic `contains()`:

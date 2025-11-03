@@ -159,9 +159,9 @@ $fileProtectionPolicy | Out-File -FilePath ".cupcake\policies\cursor\file_protec
 
 Write-Host "✅ Cursor-specific policies created" -ForegroundColor Green
 
-# Compile policies to WASM (only Cursor policies)
+# Compile policies to WASM (Cursor policies + shared helpers)
 Write-Host "`nCompiling Cursor policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Policy compilation failed" -ForegroundColor Red
     exit 1

@@ -49,9 +49,9 @@ echo "✅ Example policies copied (context_injection skipped - not supported by 
 # Builtins are now pre-configured in the base template
 echo "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)"
 
-# Compile policies to WASM (only Cursor policies)
+# Compile policies to WASM (Cursor policies + shared helpers)
 echo "Compiling Cursor policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
 echo "✅ Policies compiled to bundle.tar.gz"
 
 # Create Claude Code settings directory and hooks integration

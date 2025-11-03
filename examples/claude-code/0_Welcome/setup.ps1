@@ -62,9 +62,9 @@ Write-Host "✅ Example policies copied" -ForegroundColor Green
 
 Write-Host "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)" -ForegroundColor Green
 
-# Compile policies to WASM (only Claude Code policies)
+# Compile policies to WASM (Claude Code policies + shared helpers)
 Write-Host "`nCompiling Claude Code policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/ .cupcake/policies/helpers/
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Policy compilation failed" -ForegroundColor Red
     exit 1

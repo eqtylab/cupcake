@@ -50,9 +50,9 @@ echo "✅ Example policies copied"
 # Builtins are now pre-configured in the base template
 echo "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)"
 
-# Compile policies to WASM (only Claude Code policies)
+# Compile policies to WASM (Claude Code policies + shared helpers)
 echo "Compiling Claude Code policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/ .cupcake/policies/helpers/
 echo "✅ Policies compiled to bundle.tar.gz"
 
 # Create Claude Code settings directory and hooks integration

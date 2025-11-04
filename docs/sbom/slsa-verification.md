@@ -1,11 +1,13 @@
 # SLSA Level 3 Verification
 
-Cupcake releases are built with **SLSA Build Level 3** provenance, providing cryptographic proof of:
-- **Where** the code came from (source repository and commit)
-- **How** it was built (build environment and steps)
-- **When** it was built (timestamp)
+Every Cupcake release is cryptographically signed with **SLSA Build Level 3** provenance, which means:
 
-This ensures supply chain security by making builds verifiable, tamper-evident, and non-forgeable.
+✅ **You don't have to trust us** - Verify the binary yourself in 30 seconds
+✅ **Tamper detection** - If anyone modifies the binary after build, verification fails
+✅ **Supply chain protection** - Proves the binary came from our official GitHub workflow, not a compromised build
+✅ **Non-forgeable** - Even we (the maintainers) cannot fake this signature - only GitHub's infrastructure can sign it
+
+**Bottom line**: You can cryptographically prove the `cupcake` binary you downloaded came from the exact source code commit shown in the release, built by our official CI, with no tampering.
 
 ## What is SLSA Level 3?
 

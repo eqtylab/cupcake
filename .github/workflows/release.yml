@@ -217,6 +217,25 @@ jobs:
           echo "ARCHIVE_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.tar.gz.sha256" >> $GITHUB_ENV
 
+      - name: Generate SLSA subject hash (Unix)
+        if: runner.os != 'Windows'
+        id: hash-unix
+        shell: bash
+        run: |
+          # Reuse the checksum file we already generated
+          if [[ -f "${CHECKSUM_PATH}" ]]; then
+            # Save hash to file for artifact upload
+            cat "${CHECKSUM_PATH}" > "${{ matrix.name }}.sha256"
+          fi
+
+      - name: Upload hash for SLSA (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hash-${{ matrix.name }}
+          path: ${{ matrix.name }}.sha256
+          retention-days: 1
+
       - name: Download OPA binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -264,6 +283,24 @@ jobs:
           echo "ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $env:GITHUB_ENV
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.zip.sha256" >> $env:GITHUB_ENV
 
+      - name: Generate SLSA subject hash (Windows)
+        if: runner.os == 'Windows'
+        id: hash-windows
+        shell: pwsh
+        run: |
+          # Reuse the checksum file we already generated
+          if (Test-Path "${env:CHECKSUM_PATH}") {
+            Copy-Item "${env:CHECKSUM_PATH}" "${{ matrix.name }}.sha256"
+          }
+
+      - name: Upload hash for SLSA (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hash-${{ matrix.name }}
+          path: ${{ matrix.name }}.sha256
+          retention-days: 1
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -284,10 +321,65 @@ jobs:
           asset_name: ${{ env.CHECKSUM_PATH }}
           asset_content_type: text/plain
 
+  # Combine hashes from all matrix builds for SLSA provenance
+  combine-hashes:
+    name: Combine Hashes for SLSA
+    needs: [build]
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.combine.outputs.hashes }}
+    steps:
+      - name: Download all hash artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: hash-*
+          path: hashes/
+          merge-multiple: true
+
+      - name: Combine and validate hashes
+        id: combine
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Combine all hash files
+          cat hashes/*.sha256 > all_hashes.txt
+
+          # Verify we got all expected platforms (6)
+          HASH_COUNT=$(wc -l < all_hashes.txt)
+          echo "Found $HASH_COUNT platform hashes"
+
+          if [[ $HASH_COUNT -ne 6 ]]; then
+            echo "ERROR: Expected 6 platform hashes, got $HASH_COUNT"
+            echo "Contents:"
+            cat all_hashes.txt
+            exit 1
+          fi
+
+          # Base64 encode the combined hashes
+          echo "hashes=$(cat all_hashes.txt | base64 -w0)" >> $GITHUB_OUTPUT
+
+          echo "Successfully combined hashes:"
+          cat all_hashes.txt
+
+  # Generate SLSA Level 3 provenance
+  provenance:
+    name: Generate SLSA Provenance
+    needs: [combine-hashes, create-release]
+    permissions:
+      actions: read      # Detect the GitHub Actions environment
+      id-token: write    # Sign the provenance with OIDC token
+      contents: write    # Upload provenance to the release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.combine-hashes.outputs.hashes }}
+      upload-assets: true
+      upload-tag-name: ${{ needs.create-release.outputs.version }}
+
   # Generate combined checksums file
   checksums:
     name: Generate Combined Checksums
-    needs: [create-release, build]
+    needs: [create-release, build, provenance]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -327,7 +419,7 @@ jobs:
   # Finalize the release
   finalize:
     name: Finalize Release
-    needs: [create-release, build, checksums]
+    needs: [create-release, build, checksums, provenance]
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release

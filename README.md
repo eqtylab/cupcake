@@ -23,8 +23,9 @@ Cupcake intercepts agent tool calls and evaluates them against **user-defined ru
 
 Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
 
-## Supported Harnesses
+## Supported Agent Harnesses
 
+**Coding Agents:**
 Cupcake provides native integrations for multiple AI coding agents:
 
 | Harness                                                                           | Status             | Integration Guide                                                      |
@@ -32,6 +33,14 @@ Cupcake provides native integrations for multiple AI coding agents:
 | **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
 | **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
+
+**Web Agents:**
+
+| Harness    | Status      | Integration Guide |
+| ---------- | ----------- | ----------------- |
+| LangChain  | Coming soon | Coming soon       |
+| Google ADK | Coming soon | Coming soon       |
+| NVIDIA NAT | Coming soon | Coming soon       |
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
 

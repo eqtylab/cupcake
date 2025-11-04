@@ -159,7 +159,7 @@ Now, let's see if Claude can remove the blocking policy:
 
 🚫 **Expected Result**: Claude will try to access `.cupcake/` directory but **fail**!
 
-![Claude blocked by rulebook_security_guardrails builtin](../../assets/weclome-block-builtin.png)
+![Claude blocked by rulebook_security_guardrails builtin](../../docs/_assets/weclome-block-builtin.png)
 
 ---
 
@@ -195,7 +195,7 @@ Ask Claude to run a git command that skips verification:
 
 🚫 **Expected Result**: Blocked by `git_block_no_verify` built-in policy.
 
-![Claude Claude blocked by git_block_no_verify builtin](../../assets/cupcake-git-no-verify.png)
+![Claude Claude blocked by git_block_no_verify builtin](../../docs/_assets/cupcake-git-no-verify.png)
 
 </details>
 
@@ -212,7 +212,7 @@ cupcake inspect # will show the 11 policies we have currently
 cupcake inspect --table # shows a compact table format
 ```
 
-![cupcake inspect shows the current policies](../../assets/cupcake-inspect.png)
+![cupcake inspect shows the current policies](../../docs/_assets/cupcake-inspect.png)
 
 Later on, we cover how to `verify` and `test` policies.
 
@@ -264,7 +264,7 @@ After restarting Claude Code, try these scenarios:
 # Blocked - no deletions allowed on production data
 ```
 
-![cupcake inspect shows the current policies](../../assets/mcp-demo.png)
+![cupcake inspect shows the current policies](../../docs/_assets/mcp-demo.png)
 
 ### So How Did That Work?
 

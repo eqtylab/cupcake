@@ -21,7 +21,7 @@
 
 Cupcake intercepts agent tool calls and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, or auto-corrected. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
-Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic-security design support by [Trail of Bits](https://www.trailofbits.com/).
+Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
 
 ## Why Cupcake?
 

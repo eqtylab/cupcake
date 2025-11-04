@@ -25,7 +25,6 @@ Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety rese
 
 ## Supported Agent Harnesses
 
-**Coding Agents:**
 Cupcake provides native integrations for multiple AI coding agents:
 
 | Harness                                                                           | Status             | Integration Guide                                                      |
@@ -34,7 +33,7 @@ Cupcake provides native integrations for multiple AI coding agents:
 | **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-**Web Agents:**
+Cupcake provides native integrations for multiple web agent frameworks:
 
 | Harness    | Status      | Integration Guide |
 | ---------- | ----------- | ----------------- |

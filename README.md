@@ -23,6 +23,20 @@ Cupcake intercepts agent tool calls and evaluates them against **user-defined ru
 
 Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
 
+## Supported Harnesses
+
+Cupcake provides native integrations for multiple AI coding agents:
+
+| Harness                                                                           | Status             | Integration Guide                                                      |
+| --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
+| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
+| **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
+
+Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
+
+**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
+
 ## Why Cupcake?
 
 Modern agents are powerful but inconsistent at following operational and security rules, especially as prompts grow. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
@@ -42,19 +56,6 @@ Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run
 ```text
 Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 ```
-
-## Supported Harnesses
-
-Cupcake provides native integrations for multiple AI coding agents:
-
-| Harness                                   | Status             | Integration Guide                                         |
-| ----------------------------------------- | ------------------ | --------------------------------------------------------- |
-| **[Claude Code](https://claude.ai/code)** | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md) |
-| **[Cursor](https://cursor.com)**          | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)      |
-
-Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
-
-**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
 
 ### Core Capabilities
 

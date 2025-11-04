@@ -373,13 +373,33 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.combine-hashes.outputs.hashes }}
-      upload-assets: true
-      upload-tag-name: ${{ needs.create-release.outputs.version }}
+
+  # Upload provenance to release
+  upload-provenance:
+    name: Upload Provenance to Release
+    needs: [create-release, provenance]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download provenance
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: .
+
+      - name: Upload provenance to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ needs.provenance.outputs.provenance-name }}
+          asset_name: ${{ needs.provenance.outputs.provenance-name }}
+          asset_content_type: application/json
 
   # Generate combined checksums file
   checksums:
     name: Generate Combined Checksums
-    needs: [create-release, build, provenance]
+    needs: [create-release, build, upload-provenance]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -419,7 +439,7 @@ jobs:
   # Finalize the release
   finalize:
     name: Finalize Release
-    needs: [create-release, build, checksums, provenance]
+    needs: [create-release, build, checksums, upload-provenance]
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release

@@ -13,7 +13,7 @@
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Cupcake** is a **policy enforcement** layer for AI agents, yielding better performance, reliability, and security **without consuming model context**.
+**Cupcake** is a **policy enforcement** layer for AI agents; yielding better performance, reliability, and security **without consuming model context**.
 
 - **Deterministic rule‑following** for your agents.
 - **Boost performance** by moving rules out of context and into guarantees.

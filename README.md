@@ -13,15 +13,15 @@
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Cupcake** is a **policy enforcement** and **early-warning** layer for AI agents—strengthening performance, reliability, and security **without consuming model context**.
+**Cupcake** is a **policy enforcement** layer for AI agents—better performance, reliability, and security **without consuming model context**.
 
 - **Deterministic rule‑following** for your agents.
+- **Boost performance** by moving rules out of context and into guarantees.
 - **Trigger alerts** when agents repeatedly violate rules.
-- **Boost performance** by moving rules out of context and into a guaranteed enforcement layer (zero-context)
 
-Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
+Cupcake intercepts agent tool calls and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, or auto-corrected. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
-Cupcake is developed by [EQTYLab](https://eqtylab.io/) and in collaboration with [Trail of Bits](https://www.trailofbits.com/).
+Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic-security design support by [Trail of Bits](https://www.trailofbits.com/).
 
 ## Why Cupcake?
 

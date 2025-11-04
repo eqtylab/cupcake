@@ -74,18 +74,26 @@
 4. **Retention**: Hash artifacts auto-delete after 1 day
 5. **Permissions**: Build jobs have NO id-token access (isolation)
 
-**Testing**: ⏳ IN PROGRESS
-- [ ] Push to feature branch
-- [ ] Create test tag: `v0.2.0-slsa-test`
-- [ ] Monitor workflow execution
-- [ ] Validate hash artifacts uploaded
-- [ ] Validate provenance generated
-- [ ] Download and inspect provenance
-- [ ] Verify artifact with slsa-verifier
+**Testing**: ✅ COMPLETED
+- [x] Push to feature branch
+- [x] Create test tag: `v0.2.0-slsa-test` (failed - workflow bug)
+- [x] Create test tag: `v0.2.0-slsa-test2` (success after fix)
+- [x] Monitor workflow execution
+- [x] Validate hash artifacts uploaded (all 6 platforms)
+- [x] Validate provenance generated (23.3 KB)
+- [x] Download and inspect provenance (all 6 artifacts listed)
+- [x] Verify artifact with slsa-verifier (Linux x64: PASSED)
+- [x] Verify artifact with slsa-verifier (macOS ARM: PASSED)
 
-**Documentation**: ⏳ PENDING
+**Verification Results**:
+- **Builder**: `slsa-github-generator@v2.1.0`
+- **Commit**: `b294b01` (fix commit)
+- **Platforms verified**: 2 of 6 (spot-check successful)
+- **SLSA Level**: 3 ✅ (cryptographically proven)
+
+**Documentation**: ⏳ IN PROGRESS
 - [ ] Add verification section to README.md
-- [ ] Update install scripts with verification option
+- [ ] Update install scripts with verification option (optional)
 - [ ] Add SLSA badge (optional)
 
 ## Issues and Resolutions
@@ -97,23 +105,39 @@
 - **Reference**: MATRIX_OUTPUTS.md
 - **Status**: Resolved before implementation
 
+### Issue 2: SLSA Generator Creating Separate Release
+- **Problem**: Test release v0.2.0-slsa-test showed only provenance in UI, build assets missing
+- **Root Cause**: `upload-assets: true` in provenance job created NEW published release (ID: 259714429), leaving build assets in draft release (ID: 259712779). Finalize job failed with "tag_name already_exists" error.
+- **Investigation**: API showed all 13 assets present in draft, only provenance in published release
+- **Resolution**:
+  - Removed `upload-assets: true` and `upload-tag-name` from provenance job
+  - Added new `upload-provenance` job that downloads artifact and uploads to existing draft
+  - Updated job dependencies: `checksums` and `finalize` now depend on `upload-provenance`
+- **Commit**: `b294b01` - fix: Prevent SLSA generator from creating separate release
+- **Test**: v0.2.0-slsa-test2 succeeded with all 16 assets in single published release
+- **Status**: Resolved and verified
+
 ## Metrics
 
 **Lines of Code**:
-- Expected additions: ~60 lines
-- Expected deletions: 0 lines
-- Net change: +60 lines to release.yml
+- Actual additions: 116 lines to release.yml
+- Actual deletions: 4 lines (dependency updates)
+- Net change: +112 lines
+- Initial commit: `6e22daa` (+94 lines)
+- Fix commit: `b294b01` (+24 lines, -4 lines)
 
-**Build Time Impact**:
-- Hash generation: ~1 second per platform (6 total)
-- Artifact upload: ~2 seconds per platform (6 total)
+**Build Time Impact** (measured from v0.2.0-slsa-test2):
+- Hash generation: ~1-2 seconds per platform (6 total)
+- Hash artifact upload: ~1 second per platform (6 total)
 - Combine hashes: ~5 seconds
-- Provenance generation: ~30 seconds (isolated job)
-- **Total overhead**: ~45-50 seconds
+- Provenance generation: ~90 seconds (isolated job with signing)
+- Provenance upload: ~2 seconds
+- **Total overhead**: ~110 seconds (~1.8 minutes)
 
 **Storage Impact**:
-- Hash artifacts: 6 files × ~100 bytes = ~600 bytes (deleted after combine)
-- Provenance file: ~50-100 KB per release
+- Hash artifacts: 6 files × ~120 bytes = ~720 bytes (auto-delete after 1 day)
+- Provenance file: 23.3 KB per release (persistent)
+- Release assets: 16 total (6 builds + 6 checksums + SHA256SUMS + provenance + 2 source archives)
 
 ## Security Validation
 

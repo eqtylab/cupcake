@@ -138,3 +138,17 @@ Sub‑millisecond for cached policies in typical setups.
 ## License
 
 [MIT](LICENSE)
+
+## Citation
+
+If you use Cupcake in your research or project, please cite it as follows:
+
+```bibtex
+@software{Cupcake2025,
+  author = {Ramos, Michael and EQTYLab},
+  title = {{Cupcake: Policy enforcement for AI agents}},
+  year = {2025},
+  publisher = {EQTYLab},
+  url = {[https://github.com/eqtylab/cupcake](https://github.com/eqtylab/cupcake)}
+}
+```

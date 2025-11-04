@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software in your work, please cite it using the information below."
+title: "Cupcake: Policy enforcement layer for AI agents"
+authors:
+  - type: person
+    given-names: "Michael"
+    family-names: "Ramos"
+  - type: entity
+    name: "EQTYLab"
+type: software
+repository-code: "https://github.com/eqtylab/cupcake"
+license: "MIT"
+date-released: 2025-11-04

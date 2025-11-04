@@ -47,7 +47,7 @@ Each harness uses native event formats—no normalization layer. Policies are ph
 
 ## Why Cupcake?
 
-Modern agents are powerful but inconsistent at following operational and security rules, especially as prompts grow. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
+Modern agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
 
 - **Multi-harness support** with first‑class integrations for **Claude Code** and **Cursor**.
 - **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.

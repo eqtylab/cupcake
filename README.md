@@ -5,11 +5,9 @@
   </picture>
 </p>
 
-<h1>Cupcake</h1>
+# Cupcake
 
 > Make AI agents follow the rules.
-
-<hr/>
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)

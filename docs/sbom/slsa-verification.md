@@ -1,27 +1,10 @@
 # SLSA Level 3 Verification
 
-Every Cupcake release is cryptographically signed with **SLSA Build Level 3** provenance, which means:
+Cupcake releases include SLSA Build Level 3 provenance. This provides cryptographic proof of build integrity and source authenticity, meeting enterprise supply chain security requirements that are difficult to achieve through other means.
 
-✅ **You don't have to trust us** - Verify the binary yourself in 30 seconds
-✅ **Tamper detection** - If anyone modifies the binary after build, verification fails
-✅ **Supply chain protection** - Proves the binary came from our official GitHub workflow, not a compromised build
-✅ **Non-forgeable** - Even we (the maintainers) cannot fake this signature - only GitHub's infrastructure can sign it
+SLSA Level 3 guarantees: non-forgeable provenance (signed by GitHub OIDC, not maintainer-controlled), isolated build environments, and ephemeral infrastructure. Each release includes a `multiple.intoto.jsonl` attestation covering all platform binaries.
 
-**Bottom line**: You can cryptographically prove the `cupcake` binary you downloaded came from the exact source code commit shown in the release, built by our official CI, with no tampering.
-
-## What is SLSA Level 3?
-
-SLSA (Supply-chain Levels for Software Artifacts) Level 3 guarantees:
-
-1. **Non-forgeable provenance**: Signed by GitHub's OIDC infrastructure (not controlled by maintainers)
-2. **Build isolation**: Build and signing happen on separate, ephemeral VMs
-3. **Ephemeral environment**: Fresh GitHub-hosted runners destroyed after each job
-
-## Verifying Releases
-
-Every Cupcake release includes a `multiple.intoto.jsonl` file containing signed provenance for all platform builds.
-
-### Step 1: Install slsa-verifier
+## Install slsa-verifier
 
 **macOS (Homebrew)**:
 ```bash
@@ -37,14 +20,7 @@ chmod +x slsa-verifier
 sudo mv slsa-verifier /usr/local/bin/
 ```
 
-**Verify installation**:
-```bash
-slsa-verifier version
-```
-
-### Step 2: Download Release Assets
-
-Download the artifact you want to verify and the provenance file:
+## Download Release Assets
 
 ```bash
 VERSION="v0.1.0"  # Replace with desired version
@@ -57,15 +33,9 @@ curl -LO "https://github.com/eqtylab/cupcake/releases/download/${VERSION}/cupcak
 curl -LO "https://github.com/eqtylab/cupcake/releases/download/${VERSION}/multiple.intoto.jsonl"
 ```
 
-**Available platforms**:
-- `x86_64-unknown-linux-gnu` - Linux x64 (glibc)
-- `x86_64-unknown-linux-musl` - Linux x64 (musl, static)
-- `aarch64-unknown-linux-gnu` - Linux ARM64
-- `x86_64-apple-darwin` - macOS Intel
-- `aarch64-apple-darwin` - macOS Apple Silicon
-- `x86_64-pc-windows-msvc` - Windows x64 (use `.zip` extension)
+Platforms: `x86_64-unknown-linux-gnu`, `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc` (`.zip`)
 
-### Step 3: Verify the Artifact
+## Verify Artifact
 
 ```bash
 slsa-verifier verify-artifact \
@@ -75,50 +45,30 @@ slsa-verifier verify-artifact \
   "cupcake-${VERSION}-${PLATFORM}.tar.gz"
 ```
 
-**Expected output**:
-```
-Verified build using builder "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0" at commit <commit-sha>
-Verifying artifact cupcake-<version>-<platform>.tar.gz: PASSED
+Expected output: `PASSED: SLSA verification passed`
 
-PASSED: SLSA verification passed
-```
+## Inspect Provenance
 
-## Inspecting Provenance
-
-You can inspect the provenance to see what's included:
-
-### View all artifacts in provenance:
+View all artifacts:
 ```bash
 jq -r '.dsseEnvelope.payload' multiple.intoto.jsonl | base64 -d | jq '.subject[].name'
 ```
 
-### View build details:
+View build details:
 ```bash
 jq -r '.dsseEnvelope.payload' multiple.intoto.jsonl | base64 -d | jq '.predicate.buildDefinition'
 ```
 
-### View source information:
+View source information:
 ```bash
 jq -r '.dsseEnvelope.payload' multiple.intoto.jsonl | base64 -d | jq '.predicate.runDetails'
 ```
 
-## What Does This Prove?
+## What Verification Proves
 
-When `slsa-verifier` returns "PASSED", it cryptographically proves:
+Successful verification cryptographically confirms: binary built from stated commit in official repository, file hash matches build-time recording, executed via official GitHub Actions workflow, signed by GitHub OIDC (not maintainer-controlled).
 
-✅ **Authentic source**: Binary was built from the exact commit in the official eqtylab/cupcake repository
-✅ **Unmodified**: File hash matches what was recorded at build time
-✅ **Official build**: Built by GitHub Actions using the official release workflow
-✅ **Non-forgeable**: Signed by GitHub's OIDC infrastructure (maintainers cannot fake this)
-
-## Threat Model
-
-SLSA Level 3 protects against:
-
-- ❌ **Compromised build environment**: Attacker cannot forge provenance (no access to signing keys)
-- ❌ **Tampered artifacts**: Hash mismatch detected immediately
-- ❌ **Unauthorized builds**: Provenance includes source commit SHA, detects builds from wrong repo/branch
-- ❌ **Compromised maintainer account**: Cannot create fake provenance without GitHub's signing infrastructure
+SLSA Level 3 mitigates: compromised build environments, tampered artifacts, unauthorized builds, and compromised maintainer accounts.
 
 ## Technical Details
 

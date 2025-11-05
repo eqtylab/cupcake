@@ -4,23 +4,29 @@ Cupcake releases include SLSA Build Level 3 provenance. This provides cryptograp
 
 SLSA Level 3 guarantees: non-forgeable provenance (signed by GitHub OIDC, not maintainer-controlled), isolated build environments, and ephemeral infrastructure. Each release includes a `multiple.intoto.jsonl` attestation covering all platform binaries.
 
-## Install slsa-verifier
+## Quick Verification
 
-**macOS (Homebrew)**:
 ```bash
-brew install slsa-verifier
+curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/docs/sbom/verify-release.sh | bash
 ```
 
-**Linux/WSL**:
+Or download and run locally: [`verify-release.sh`](./verify-release.sh)
+
+## Manual Verification
+
+Install slsa-verifier:
 ```bash
-# Download from releases
+# macOS
+brew install slsa-verifier
+
+# Linux
 LATEST=$(curl -s https://api.github.com/repos/slsa-framework/slsa-verifier/releases/latest | grep tag_name | cut -d '"' -f 4)
 curl -Lo slsa-verifier "https://github.com/slsa-framework/slsa-verifier/releases/download/${LATEST}/slsa-verifier-linux-amd64"
 chmod +x slsa-verifier
 sudo mv slsa-verifier /usr/local/bin/
 ```
 
-## Download Release Assets
+Download release assets:
 
 ```bash
 VERSION="v0.1.0"  # Replace with desired version
@@ -35,7 +41,7 @@ curl -LO "https://github.com/eqtylab/cupcake/releases/download/${VERSION}/multip
 
 Platforms: `x86_64-unknown-linux-gnu`, `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc` (`.zip`)
 
-## Verify Artifact
+Verify artifact:
 
 ```bash
 slsa-verifier verify-artifact \

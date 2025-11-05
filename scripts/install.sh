@@ -243,17 +243,36 @@ main() {
         elif [[ "$SHELL" == */fish ]]; then
             PROFILE_FILE="$HOME/.config/fish/config.fish"
             SHELL_NAME="fish"
-        # Fallback: Check VERSION variables only if $SHELL didn't match
-        elif [[ -n "$ZSH_VERSION" ]]; then
-            PROFILE_FILE="$HOME/.zshrc"
-            SHELL_NAME="zsh"
-        elif [[ -n "$BASH_VERSION" ]]; then
-            if [[ "$PLATFORM" == *"apple-darwin" ]]; then
-                PROFILE_FILE="$HOME/.bash_profile"
+        elif [[ "$SHELL" == */sh ]] || [[ -z "$SHELL" ]]; then
+            # $SHELL is sh or not set, try to detect from environment variables
+            # This happens when piped to sh: curl ... | sh
+            if [[ -n "$ZSH_VERSION" ]]; then
+                PROFILE_FILE="$HOME/.zshrc"
+                SHELL_NAME="zsh"
+            elif [[ -n "$BASH_VERSION" ]]; then
+                if [[ "$PLATFORM" == *"apple-darwin" ]]; then
+                    PROFILE_FILE="$HOME/.bash_profile"
+                else
+                    PROFILE_FILE="$HOME/.bashrc"
+                fi
+                SHELL_NAME="bash"
             else
-                PROFILE_FILE="$HOME/.bashrc"
+                # Last resort: check which shells exist
+                if [[ -f "$HOME/.zshrc" ]]; then
+                    PROFILE_FILE="$HOME/.zshrc"
+                    SHELL_NAME="zsh"
+                elif [[ -f "$HOME/.bash_profile" ]] || [[ "$PLATFORM" == *"apple-darwin" ]]; then
+                    PROFILE_FILE="$HOME/.bash_profile"
+                    SHELL_NAME="bash"
+                elif [[ -f "$HOME/.bashrc" ]]; then
+                    PROFILE_FILE="$HOME/.bashrc"
+                    SHELL_NAME="bash"
+                else
+                    warning "Could not detect shell profile. Please add this to your shell configuration:"
+                    echo "  export PATH=\"$BIN_DIR:\$PATH\""
+                    echo ""
+                fi
             fi
-            SHELL_NAME="bash"
         else
             # Can't detect, provide manual instructions
             warning "Could not detect shell profile. Please add this to your shell configuration:"

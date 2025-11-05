@@ -7,10 +7,10 @@ SLSA Level 3 guarantees: non-forgeable provenance (signed by GitHub OIDC, not ma
 ## Quick Verification
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/docs/sbom/verify-release.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/verify-release.sh | bash
 ```
 
-Or download and run locally: [`verify-release.sh`](./verify-release.sh)
+Or download and run locally: [`scripts/verify-release.sh`](../../scripts/verify-release.sh)
 
 ## Manual Verification
 

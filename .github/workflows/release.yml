@@ -437,9 +437,83 @@ jobs:
           asset_content_type: text/plain
 
   # Finalize the release
+  test-install:
+    name: Test Installation (${{ matrix.os }})
+    needs: [create-release, build, checksums, upload-provenance]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test install script with draft release
+        run: |
+          # Test installing from the draft release
+          export CUPCAKE_REPO="${{ github.repository }}"
+          export CUPCAKE_VERSION="${{ needs.create-release.outputs.version }}"
+          export CUPCAKE_INSTALL_DIR="$HOME/test-cupcake"
+
+          # Run install script (will download from draft release)
+          bash scripts/install.sh
+
+          # Verify installation
+          if [[ -f "$HOME/test-cupcake/bin/cupcake" ]]; then
+            echo "✓ Cupcake binary installed successfully"
+            INSTALLED_VERSION=$("$HOME/test-cupcake/bin/cupcake" --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+            EXPECTED_VERSION="${{ needs.create-release.outputs.version }}"
+            EXPECTED_VERSION="${EXPECTED_VERSION#v}"  # Remove 'v' prefix
+            if [[ "$INSTALLED_VERSION" == "$EXPECTED_VERSION" ]]; then
+              echo "✓ Version matches: $INSTALLED_VERSION"
+            else
+              echo "✗ Version mismatch: expected $EXPECTED_VERSION, got $INSTALLED_VERSION"
+              exit 1
+            fi
+          else
+            echo "✗ Cupcake binary not found"
+            exit 1
+          fi
+
+          # Verify bundled OPA
+          if [[ -f "$HOME/test-cupcake/bin/opa" ]]; then
+            echo "✓ OPA binary bundled successfully"
+            "$HOME/test-cupcake/bin/opa" version || true
+          else
+            echo "✗ OPA binary not found in bundle"
+            exit 1
+          fi
+
+      - name: Test install script piped to sh
+        run: |
+          # Clean previous installation
+          rm -rf "$HOME/test-cupcake"
+
+          # Test the critical sh pipe scenario
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.create-release.outputs.version }}/scripts/install.sh" | \
+            CUPCAKE_REPO="${{ github.repository }}" \
+            CUPCAKE_VERSION="${{ needs.create-release.outputs.version }}" \
+            CUPCAKE_INSTALL_DIR="$HOME/test-cupcake-piped" \
+            sh
+
+          # Verify
+          if [[ -f "$HOME/test-cupcake-piped/bin/cupcake" ]]; then
+            echo "✓ Piped installation successful"
+            "$HOME/test-cupcake-piped/bin/cupcake" --version
+          else
+            echo "✗ Piped installation failed"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf "$HOME/test-cupcake" "$HOME/test-cupcake-piped"
+
   finalize:
     name: Finalize Release
-    needs: [create-release, build, checksums, upload-provenance]
+    needs: [create-release, build, checksums, upload-provenance, test-install]
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release

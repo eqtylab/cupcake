@@ -564,10 +564,17 @@ jobs:
 
           # Verify key functions exist
           $content = Get-Content .\scripts\install.ps1 -Raw
-          if ($content -match "function Get-Platform") {
-            Write-Host "✓ Platform detection function exists" -ForegroundColor Green
+          if ($content -match "function Get-Architecture") {
+            Write-Host "✓ Architecture detection function exists" -ForegroundColor Green
           } else {
-            Write-Host "✗ Missing platform detection" -ForegroundColor Red
+            Write-Host "✗ Missing architecture detection" -ForegroundColor Red
+            exit 1
+          }
+
+          if ($content -match "function Install-Cupcake") {
+            Write-Host "✓ Install function exists" -ForegroundColor Green
+          } else {
+            Write-Host "✗ Missing install function" -ForegroundColor Red
             exit 1
           }
 

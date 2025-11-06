@@ -1,13 +1,28 @@
 #!/usr/bin/env bash
 # Cupcake Installation Script
-# 
+#
 # This script downloads and installs the Cupcake CLI tool.
 # It automatically detects your OS and architecture, downloads the appropriate
 # binary from GitHub releases, verifies checksums, and installs to your PATH.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | sh
-#   wget -qO- https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | bash
+#   wget -qO- https://raw.githubusercontent.com/eqtylab/cupcake/main/scripts/install.sh | bash
+
+# Ensure we're running under bash (not sh)
+if [ -z "$BASH_VERSION" ]; then
+    # When piped to sh, save script and re-exec with bash
+    if command -v bash >/dev/null 2>&1; then
+        tmpfile=$(mktemp)
+        cat > "$tmpfile"
+        bash "$tmpfile" "$@"
+        rm -f "$tmpfile"
+        exit $?
+    else
+        echo "Error: This script requires bash" >&2
+        exit 1
+    fi
+fi
 
 set -e
 
@@ -34,20 +49,20 @@ fi
 
 # Helper functions
 error() {
-    echo -e "${RED}Error: $1${NC}" >&2
+    printf "${RED}Error: %s${NC}\n" "$1" >&2
     exit 1
 }
 
 warning() {
-    echo -e "${YELLOW}Warning: $1${NC}" >&2
+    printf "${YELLOW}Warning: %s${NC}\n" "$1" >&2
 }
 
 info() {
-    echo -e "${BLUE}$1${NC}"
+    printf "${BLUE}%s${NC}\n" "$1"
 }
 
 success() {
-    echo -e "${GREEN}$1${NC}"
+    printf "${GREEN}%s${NC}\n" "$1"
 }
 
 # Detect OS and architecture

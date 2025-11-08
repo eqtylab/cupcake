@@ -131,6 +131,11 @@ jobs:
           echo '# Windows PowerShell' >> release_notes.md
           echo 'irm https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.ps1 | iex' >> release_notes.md
           echo '```' >> release_notes.md
+          echo '' >> release_notes.md
+          echo "## Install Scripts" >> release_notes.md
+          echo 'The install scripts are included as release assets with SHA256 checksums:' >> release_notes.md
+          echo '- `install.sh` and `install.sh.sha256`' >> release_notes.md
+          echo '- `install.ps1` and `install.ps1.sha256`' >> release_notes.md
 
       - name: Create GitHub Release
         id: create_release
@@ -143,6 +148,67 @@ jobs:
           body_path: release_notes.md
           draft: true
           prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+
+  # Upload install scripts to release
+  upload-install-scripts:
+    name: Upload Install Scripts
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate checksums for install scripts
+        run: |
+          # Generate SHA256 for bash installer
+          sha256sum scripts/install.sh > scripts/install.sh.sha256
+
+          # Generate SHA256 for PowerShell installer
+          sha256sum scripts/install.ps1 > scripts/install.ps1.sha256
+
+          echo "Generated checksums:"
+          cat scripts/install.sh.sha256
+          cat scripts/install.ps1.sha256
+
+      - name: Upload install.sh
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.sh
+          asset_name: install.sh
+          asset_content_type: text/plain
+
+      - name: Upload install.sh checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.sh.sha256
+          asset_name: install.sh.sha256
+          asset_content_type: text/plain
+
+      - name: Upload install.ps1
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.ps1
+          asset_name: install.ps1
+          asset_content_type: text/plain
+
+      - name: Upload install.ps1 checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.ps1.sha256
+          asset_name: install.ps1.sha256
+          asset_content_type: text/plain
 
   # Build matrix for multiple platforms
   build:

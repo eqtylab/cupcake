@@ -75,14 +75,28 @@ cargo build --release
 export PATH="$(pwd)/target/release:$PATH"
 ```
 
-### From Releases
+### From Releases (Recommended)
+
+**Unix/macOS:**
+```bash
+curl -fsSL https://get.eqtylab.io/cupcake | bash
+```
+
+**Windows PowerShell:**
+```powershell
+irm https://get.eqtylab.io/cupcake | iex
+```
+
+**Manual Binary Download:**
 ```bash
 # Download latest binary
-curl -LO https://github.com/eqtylab/cupcake-rego/releases/latest/download/cupcake-$(uname -s)-$(uname -m)
+curl -LO https://github.com/eqtylab/cupcake/releases/latest/download/cupcake-$(uname -s)-$(uname -m).tar.gz
 
-# Make executable
-chmod +x cupcake-*
-mv cupcake-* /usr/local/bin/cupcake
+# Extract and install
+tar xzf cupcake-*.tar.gz
+cd cupcake-*/bin
+chmod +x cupcake
+mv cupcake /usr/local/bin/cupcake
 ```
 
 ### Verify Installation

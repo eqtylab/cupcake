@@ -113,13 +113,17 @@ jobs:
       - name: Generate Release Notes
         id: release_notes
         run: |
+          # Add SLSA 3 badge at the top
+          echo '[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)' > release_notes.md
+          echo '' >> release_notes.md
+
           # Get the previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [[ -n "$PREV_TAG" ]]; then
-            echo "## Changes since ${PREV_TAG}" > release_notes.md
+            echo "## Changes since ${PREV_TAG}" >> release_notes.md
             git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD >> release_notes.md
           else
-            echo "## Initial Release" > release_notes.md
+            echo "## Initial Release" >> release_notes.md
             echo "First release of Cupcake!" >> release_notes.md
           fi
           echo "" >> release_notes.md

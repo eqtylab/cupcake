@@ -6,6 +6,7 @@
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tempfile::TempDir;
 use tracing::{debug, error, info};
 
 use super::PolicyUnit;
@@ -131,23 +132,13 @@ pub async fn compile_policies_with_namespace(
         policies.len()
     );
 
-    // Create a temporary directory for the compilation with a unique ID
-    // TODO: Consider using the `tempfile` crate for cleaner temp directory management
-    // that automatically handles uniqueness and cleanup
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COMPILE_ID: AtomicU64 = AtomicU64::new(0);
-    let compile_id = COMPILE_ID.fetch_add(1, Ordering::SeqCst);
-    let temp_dir = std::env::temp_dir().join(format!(
-        "cupcake-compile-{}-{}",
-        std::process::id(),
-        compile_id
-    ));
-    tokio::fs::create_dir_all(&temp_dir).await?;
+    // Create a temporary directory for the compilation that auto-cleans on drop
+    let temp_dir = TempDir::new().context("Failed to create temp directory for OPA compilation")?;
 
     // DON'T canonicalize on Windows to avoid UNC paths (\\?\C:\...)
     // OPA has path handling bugs with both UNC paths and drive letters
-    let temp_path = temp_dir.as_path();
-    debug!("Using temp directory: {:?}", temp_dir);
+    let temp_path = temp_dir.path();
+    debug!("Using temp directory: {:?}", temp_path);
 
     // Write all policies to the temp directory, preserving directory structure
     debug!("Copying {} policies to temp dir", policies.len());
@@ -347,10 +338,10 @@ pub async fn compile_policies_with_namespace(
     info!("Extracted WASM module: {} bytes", wasm_bytes.len());
 
     // Debug: Save WASM to temp file for inspection
+    // Use a different temp file since the compilation temp_dir will be auto-deleted
     let debug_wasm_path = std::env::temp_dir().join(format!(
-        "cupcake-debug-{}-{}.wasm",
-        std::process::id(),
-        compile_id
+        "cupcake-debug-{}.wasm",
+        std::process::id()
     ));
     tokio::fs::write(&debug_wasm_path, &wasm_bytes).await?;
     debug!("Saved WASM to {:?} for debugging", debug_wasm_path);
@@ -366,18 +357,9 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
         .await
         .context("Failed to read bundle file")?;
 
-    // Use tar command to extract (simpler than adding tar crate dependency)
-    // TODO: Consider using the `tempfile` crate here as well for automatic cleanup
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static EXTRACT_ID: AtomicU64 = AtomicU64::new(0);
-    let extract_id = EXTRACT_ID.fetch_add(1, Ordering::SeqCst);
-    let temp_dir = std::env::temp_dir().join(format!(
-        "cupcake-extract-{}-{}",
-        std::process::id(),
-        extract_id
-    ));
-    std::fs::create_dir_all(&temp_dir)?;
-    let extract_path = temp_dir.as_path();
+    // Create temp directory for extraction that auto-cleans on drop
+    let temp_dir = TempDir::new().context("Failed to create temp directory for bundle extraction")?;
+    let extract_path = temp_dir.path();
 
     // Write bundle to temp location
     let temp_bundle = extract_path.join("bundle.tar.gz");

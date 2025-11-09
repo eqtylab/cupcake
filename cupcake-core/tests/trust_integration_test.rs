@@ -110,7 +110,10 @@ deny contains decision if {
 }
 
 #[tokio::test]
-#[cfg_attr(windows, ignore = "Flaky on Windows - needs refactor to use shared test helpers")]
+#[cfg_attr(
+    windows,
+    ignore = "Flaky on Windows - needs refactor to use shared test helpers"
+)]
 async fn test_engine_without_trust() -> Result<()> {
     let project = setup_test_project().await?;
 
@@ -145,7 +148,10 @@ async fn test_engine_without_trust() -> Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(windows, ignore = "Flaky on Windows - needs refactor to use shared test helpers")]
+#[cfg_attr(
+    windows,
+    ignore = "Flaky on Windows - needs refactor to use shared test helpers"
+)]
 async fn test_engine_with_trust_no_manifest() -> Result<()> {
     let project = setup_test_project().await?;
 
@@ -166,7 +172,10 @@ async fn test_engine_with_trust_no_manifest() -> Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(windows, ignore = "Flaky on Windows - needs refactor to use shared test helpers")]
+#[cfg_attr(
+    windows,
+    ignore = "Flaky on Windows - needs refactor to use shared test helpers"
+)]
 async fn test_engine_with_valid_trust() -> Result<()> {
     let project = setup_test_project().await?;
     let cupcake_dir = project.path().join(".cupcake");
@@ -221,7 +230,10 @@ async fn test_engine_with_valid_trust() -> Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(windows, ignore = "Flaky on Windows - needs refactor to use shared test helpers")]
+#[cfg_attr(
+    windows,
+    ignore = "Flaky on Windows - needs refactor to use shared test helpers"
+)]
 async fn test_engine_with_untrusted_signal() -> Result<()> {
     let project = setup_test_project().await?;
     let cupcake_dir = project.path().join(".cupcake");
@@ -286,7 +298,10 @@ deny contains decision if {
 }
 
 #[tokio::test]
-#[cfg_attr(windows, ignore = "Flaky on Windows - needs refactor to use shared test helpers")]
+#[cfg_attr(
+    windows,
+    ignore = "Flaky on Windows - needs refactor to use shared test helpers"
+)]
 async fn test_trust_verifier_lifecycle() -> Result<()> {
     let project = setup_test_project().await?;
     let cupcake_dir = project.path().join(".cupcake");

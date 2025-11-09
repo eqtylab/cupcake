@@ -339,10 +339,8 @@ pub async fn compile_policies_with_namespace(
 
     // Debug: Save WASM to temp file for inspection
     // Use a different temp file since the compilation temp_dir will be auto-deleted
-    let debug_wasm_path = std::env::temp_dir().join(format!(
-        "cupcake-debug-{}.wasm",
-        std::process::id()
-    ));
+    let debug_wasm_path =
+        std::env::temp_dir().join(format!("cupcake-debug-{}.wasm", std::process::id()));
     tokio::fs::write(&debug_wasm_path, &wasm_bytes).await?;
     debug!("Saved WASM to {:?} for debugging", debug_wasm_path);
 
@@ -358,7 +356,8 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
         .context("Failed to read bundle file")?;
 
     // Create temp directory for extraction that auto-cleans on drop
-    let temp_dir = TempDir::new().context("Failed to create temp directory for bundle extraction")?;
+    let temp_dir =
+        TempDir::new().context("Failed to create temp directory for bundle extraction")?;
     let extract_path = temp_dir.path();
 
     // Write bundle to temp location

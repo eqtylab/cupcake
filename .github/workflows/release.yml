@@ -130,10 +130,10 @@ jobs:
           echo "## Installation" >> release_notes.md
           echo '```bash' >> release_notes.md
           echo '# Unix/macOS' >> release_notes.md
-          echo 'curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.sh | sh' >> release_notes.md
+          echo 'curl -fsSL https://get.eqtylab.io/cupcake | bash' >> release_notes.md
           echo '' >> release_notes.md
           echo '# Windows PowerShell' >> release_notes.md
-          echo 'irm https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.ps1 | iex' >> release_notes.md
+          echo 'irm https://get.eqtylab.io/cupcake | iex' >> release_notes.md
           echo '```' >> release_notes.md
           echo '' >> release_notes.md
           echo "## Install Scripts" >> release_notes.md

@@ -1,0 +1,208 @@
+name: Test Installation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/install.sh'
+      - 'scripts/install.ps1'
+      - '.github/workflows/test-install.yml'
+  schedule:
+    # Run weekly to ensure installers still work
+    - cron: '0 0 * * 0'
+
+jobs:
+  test-unix-installer:
+    name: Test Unix Installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test local install script
+        run: |
+          # Set environment variables for testing
+          export CUPCAKE_REPO="${{ github.repository }}"
+          # Use latest published release that has downloadable assets
+          export CUPCAKE_VERSION="v0.1.7"
+          # Set flag to skip OPA checks until v0.2.0 is released
+          export SKIP_OPA_CHECK="true"
+          export CUPCAKE_INSTALL_DIR="$HOME/test-cupcake"
+          
+          # Run the install script
+          bash scripts/install.sh
+          
+          # Verify installation
+          if [[ -f "$HOME/test-cupcake/bin/cupcake" ]]; then
+            echo "✓ Cupcake binary installed successfully"
+            "$HOME/test-cupcake/bin/cupcake" --version
+          else
+            echo "✗ Cupcake binary not found"
+            exit 1
+          fi
+          
+          # Verify bundled OPA (only for v0.2.0+)
+          if [[ "$SKIP_OPA_CHECK" != "true" ]]; then
+            if [[ -f "$HOME/test-cupcake/bin/opa" ]]; then
+              echo "✓ OPA binary bundled successfully"
+              "$HOME/test-cupcake/bin/opa" version || true
+            else
+              echo "✗ OPA binary not found in bundle"
+              exit 1
+            fi
+          else
+            echo "ℹ Skipping OPA check (will be enabled in v0.2.0)"
+          fi
+          
+          # Test PATH setup instructions were shown
+          if [[ ":$PATH:" != *":$HOME/test-cupcake/bin:"* ]]; then
+            echo "✓ PATH instructions would be shown (as expected)"
+          fi
+      
+      - name: Test remote install (simulate real usage)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          # Clean previous installation
+          rm -rf "$HOME/test-cupcake"
+          
+          # Test downloading the script and running it
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.sh" | \
+            CUPCAKE_REPO="${{ github.repository }}" \
+            CUPCAKE_INSTALL_DIR="$HOME/test-cupcake-remote" \
+            sh
+          
+          # Verify
+          if [[ -f "$HOME/test-cupcake-remote/bin/cupcake" ]]; then
+            echo "✓ Remote installation successful"
+            # Also check for bundled OPA (only for v0.2.0+)
+            if [[ "$SKIP_OPA_CHECK" != "true" ]]; then
+              if [[ -f "$HOME/test-cupcake-remote/bin/opa" ]]; then
+                echo "✓ OPA bundled in remote install"
+              else
+                echo "✗ OPA not bundled in remote install"
+                exit 1
+              fi
+            fi
+          else
+            echo "✗ Remote installation failed"
+            exit 1
+          fi
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf "$HOME/test-cupcake" "$HOME/test-cupcake-remote"
+
+  test-windows-installer:
+    name: Test Windows Installer
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test local install script
+        shell: pwsh
+        run: |
+          # Set parameters for testing
+          $env:CUPCAKE_REPO = "${{ github.repository }}"
+          
+          # Run the install script with test parameters
+          & .\scripts\install.ps1 `
+            -Version "v0.1.7" `
+            -InstallDir "$env:USERPROFILE\test-cupcake" `
+            -GithubRepo "${{ github.repository }}"
+          
+          # Verify installation
+          $binaryPath = "$env:USERPROFILE\test-cupcake\bin\cupcake.exe"
+          if (Test-Path $binaryPath) {
+            Write-Host "✓ Cupcake binary installed successfully" -ForegroundColor Green
+            & $binaryPath --version
+          } else {
+            Write-Host "✗ Cupcake binary not found" -ForegroundColor Red
+            exit 1
+          }
+          
+          # Verify bundled OPA (only for v0.2.0+)
+          # TODO: Enable OPA check after v0.2.0 release
+          # For now, skip OPA verification
+          Write-Host "ℹ Skipping OPA check (will be enabled in v0.2.0)" -ForegroundColor Yellow
+      
+      - name: Test remote install (simulate real usage)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          # Clean previous installation
+          Remove-Item -Path "$env:USERPROFILE\test-cupcake" -Recurse -Force -ErrorAction SilentlyContinue
+          
+          # Test downloading and running the script
+          $script = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.ps1" -UseBasicParsing
+          $scriptBlock = [ScriptBlock]::Create($script.Content)
+          
+          & $scriptBlock `
+            -Version "v0.1.7" `
+            -InstallDir "$env:USERPROFILE\test-cupcake-remote" `
+            -GithubRepo "${{ github.repository }}"
+          
+          # Verify
+          $binaryPath = "$env:USERPROFILE\test-cupcake-remote\bin\cupcake.exe"
+          if (Test-Path $binaryPath) {
+            Write-Host "✓ Remote installation successful" -ForegroundColor Green
+            # Also check for bundled OPA (only for v0.2.0+)
+            # TODO: Enable after v0.2.0 release
+            Write-Host "ℹ Skipping OPA check for remote install (will be enabled in v0.2.0)" -ForegroundColor Yellow
+          } else {
+            Write-Host "✗ Remote installation failed" -ForegroundColor Red
+            exit 1
+          }
+      
+      - name: Cleanup
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-Item -Path "$env:USERPROFILE\test-cupcake" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:USERPROFILE\test-cupcake-remote" -Recurse -Force -ErrorAction SilentlyContinue
+
+  test-error-handling:
+    name: Test Installer Error Handling
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test with invalid version
+        run: |
+          set +e  # Don't exit on error
+          
+          # Try to install a non-existent version
+          output=$(CUPCAKE_VERSION="v99.99.99" \
+                   CUPCAKE_INSTALL_DIR="$HOME/test-invalid" \
+                   bash scripts/install.sh 2>&1)
+          exit_code=$?
+          
+          if [[ $exit_code -ne 0 ]]; then
+            echo "✓ Script correctly failed for invalid version"
+            echo "Error output: $output"
+          else
+            echo "✗ Script should have failed for invalid version"
+            exit 1
+          fi
+      
+      - name: Test checksum verification
+        run: |
+          # This would test checksum mismatch handling
+          # For now, we just ensure the script checks for checksums
+          grep -q "verify_checksum" scripts/install.sh || exit 1
+          echo "✓ Checksum verification is implemented"
+      
+      - name: Test bundled OPA detection
+        run: |
+          # Ensure the script checks for bundled OPA
+          grep -q "check_bundled_opa" scripts/install.sh || exit 1
+          echo "✓ Bundled OPA detection is implemented"

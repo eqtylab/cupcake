@@ -1,7 +1,7 @@
 <p align="left">
   <picture>
-    <source srcset="assets/cupcake-dark.png" media="(prefers-color-scheme: dark)">
-    <img src="assets/cupcake.png" alt="Cupcake logo" width="180">
+    <source srcset="docs/_assets/cupcake-dark.png" media="(prefers-color-scheme: dark)">
+    <img src="docs/_assets/cupcake.png" alt="Cupcake logo" width="180">
   </picture>
 </p>
 
@@ -12,20 +12,43 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
 
-**Cupcake** is a **policy enforcement** and **early-warning** layer for AI agents—strengthening performance, reliability, and security **without consuming model context**.
+**Policy enforcement** layer for AI agents; yielding better performance, reliability, and security **without consuming model context**.
 
 - **Deterministic rule‑following** for your agents.
+- **Boost performance** by moving rules out of context and into guarantees.
 - **Trigger alerts** when agents repeatedly violate rules.
-- **Boost performance** by moving rules out of context and into a guaranteed enforcement layer (zero-context)
 
-Cupcake acts as a policy engine that intercepts tool calls, as well as input and output, from AI coding agents and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Each action is analyzed before execution, returning **Allow**, **Block**, or **Warn** decisions.
+Cupcake intercepts agent tool calls and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, or auto-corrected. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
-Cupcake is developed by [EQTYLab](https://eqtylab.io/) and in collaboration with [Trail of Bits](https://www.trailofbits.com/).
+Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
+
+## Supported Agent Harnesses
+
+Cupcake provides native integrations for multiple AI coding agents:
+
+| Harness                                                                           | Status             | Integration Guide                                                      |
+| --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
+| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
+| **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
+
+Cupcake provides native integrations for multiple web agent frameworks:
+
+| Harness    | Status      | Integration Guide |
+| ---------- | ----------- | ----------------- |
+| LangChain  | Coming soon | Coming soon       |
+| Google ADK | Coming soon | Coming soon       |
+| NVIDIA NAT | Coming soon | Coming soon       |
+
+Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
+
+**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
 
 ## Why Cupcake?
 
-Modern agents are powerful but inconsistent at following operational and security rules, especially as prompts grow. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
+Modern agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
 
 - **Multi-harness support** with first‑class integrations for **Claude Code** and **Cursor**.
 - **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
@@ -42,19 +65,6 @@ Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run
 ```text
 Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 ```
-
-## Supported Harnesses
-
-Cupcake provides native integrations for multiple AI coding agents:
-
-| Harness                                   | Status             | Integration Guide                                         |
-| ----------------------------------------- | ------------------ | --------------------------------------------------------- |
-| **[Claude Code](https://claude.ai/code)** | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md) |
-| **[Cursor](https://cursor.com)**          | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)      |
-
-Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
-
-**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
 
 ### Core Capabilities
 
@@ -129,3 +139,17 @@ Sub‑millisecond for cached policies in typical setups.
 ## License
 
 [MIT](LICENSE)
+
+## Citation
+
+If you use Cupcake in your research or project, please cite it as follows:
+
+```bibtex
+@software{Cupcake2025,
+  author = {Ramos, Michael and EQTYLab},
+  title = {{Cupcake: Policy enforcement for AI agents}},
+  year = {2025},
+  publisher = {EQTYLab},
+  url = {[https://github.com/eqtylab/cupcake](https://github.com/eqtylab/cupcake)}
+}
+```

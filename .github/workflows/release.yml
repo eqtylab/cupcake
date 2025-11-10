@@ -16,9 +16,80 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # Run full test suite before building release artifacts
+  test:
+    name: Test Suite (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true  # Stop immediately if any platform fails
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install OPA (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_darwin_amd64
+          fi
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Install OPA (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
+          Move-Item opa.exe "C:\Windows\System32\opa.exe" -Force
+          & opa version
+
+      - name: Install Claude CLI (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          CLAUDE_PATH=$(which claude)
+          echo "CLAUDE_CLI_PATH=$CLAUDE_PATH" >> $GITHUB_ENV
+
+      - name: Install Claude CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          $claudePath = (Get-Command claude -ErrorAction SilentlyContinue).Path
+          if ($claudePath) {
+            Add-Content -Path $env:GITHUB_ENV -Value "CLAUDE_CLI_PATH=$claudePath"
+          }
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Run full test suite
+        run: cargo test --features deterministic-tests
+        env:
+          CI: true
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
+
   # Create the GitHub Release
   create-release:
     name: Create Release
+    needs: test  # Only create release if all tests pass
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -42,24 +113,33 @@ jobs:
       - name: Generate Release Notes
         id: release_notes
         run: |
+          # Add SLSA 3 badge at the top
+          echo '[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)' > release_notes.md
+          echo '' >> release_notes.md
+
           # Get the previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [[ -n "$PREV_TAG" ]]; then
-            echo "## Changes since ${PREV_TAG}" > release_notes.md
+            echo "## Changes since ${PREV_TAG}" >> release_notes.md
             git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD >> release_notes.md
           else
-            echo "## Initial Release" > release_notes.md
+            echo "## Initial Release" >> release_notes.md
             echo "First release of Cupcake!" >> release_notes.md
           fi
           echo "" >> release_notes.md
           echo "## Installation" >> release_notes.md
           echo '```bash' >> release_notes.md
           echo '# Unix/macOS' >> release_notes.md
-          echo 'curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.sh | sh' >> release_notes.md
+          echo 'curl -fsSL https://get.eqtylab.io/cupcake | bash' >> release_notes.md
           echo '' >> release_notes.md
           echo '# Windows PowerShell' >> release_notes.md
-          echo 'irm https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.get_version.outputs.version }}/scripts/install.ps1 | iex' >> release_notes.md
+          echo 'irm https://get.eqtylab.io/cupcake | iex' >> release_notes.md
           echo '```' >> release_notes.md
+          echo '' >> release_notes.md
+          echo "## Install Scripts" >> release_notes.md
+          echo 'The install scripts are included as release assets with SHA256 checksums:' >> release_notes.md
+          echo '- `install.sh` and `install.sh.sha256`' >> release_notes.md
+          echo '- `install.ps1` and `install.ps1.sha256`' >> release_notes.md
 
       - name: Create GitHub Release
         id: create_release
@@ -72,6 +152,67 @@ jobs:
           body_path: release_notes.md
           draft: true
           prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+
+  # Upload install scripts to release
+  upload-install-scripts:
+    name: Upload Install Scripts
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate checksums for install scripts
+        run: |
+          # Generate SHA256 for bash installer
+          sha256sum scripts/install.sh > scripts/install.sh.sha256
+
+          # Generate SHA256 for PowerShell installer
+          sha256sum scripts/install.ps1 > scripts/install.ps1.sha256
+
+          echo "Generated checksums:"
+          cat scripts/install.sh.sha256
+          cat scripts/install.ps1.sha256
+
+      - name: Upload install.sh
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.sh
+          asset_name: install.sh
+          asset_content_type: text/plain
+
+      - name: Upload install.sh checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.sh.sha256
+          asset_name: install.sh.sha256
+          asset_content_type: text/plain
+
+      - name: Upload install.ps1
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.ps1
+          asset_name: install.ps1
+          asset_content_type: text/plain
+
+      - name: Upload install.ps1 checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: scripts/install.ps1.sha256
+          asset_name: install.ps1.sha256
+          asset_content_type: text/plain
 
   # Build matrix for multiple platforms
   build:
@@ -217,6 +358,25 @@ jobs:
           echo "ARCHIVE_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.tar.gz.sha256" >> $GITHUB_ENV
 
+      - name: Generate SLSA subject hash (Unix)
+        if: runner.os != 'Windows'
+        id: hash-unix
+        shell: bash
+        run: |
+          # Reuse the checksum file we already generated
+          if [[ -f "${CHECKSUM_PATH}" ]]; then
+            # Save hash to file for artifact upload
+            cat "${CHECKSUM_PATH}" > "${{ matrix.name }}.sha256"
+          fi
+
+      - name: Upload hash for SLSA (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hash-${{ matrix.name }}
+          path: ${{ matrix.name }}.sha256
+          retention-days: 1
+
       - name: Download OPA binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -264,6 +424,24 @@ jobs:
           echo "ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $env:GITHUB_ENV
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.zip.sha256" >> $env:GITHUB_ENV
 
+      - name: Generate SLSA subject hash (Windows)
+        if: runner.os == 'Windows'
+        id: hash-windows
+        shell: pwsh
+        run: |
+          # Reuse the checksum file we already generated
+          if (Test-Path "${env:CHECKSUM_PATH}") {
+            Copy-Item "${env:CHECKSUM_PATH}" "${{ matrix.name }}.sha256"
+          }
+
+      - name: Upload hash for SLSA (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hash-${{ matrix.name }}
+          path: ${{ matrix.name }}.sha256
+          retention-days: 1
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -284,10 +462,85 @@ jobs:
           asset_name: ${{ env.CHECKSUM_PATH }}
           asset_content_type: text/plain
 
+  # Combine hashes from all matrix builds for SLSA provenance
+  combine-hashes:
+    name: Combine Hashes for SLSA
+    needs: [build]
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.combine.outputs.hashes }}
+    steps:
+      - name: Download all hash artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: hash-*
+          path: hashes/
+          merge-multiple: true
+
+      - name: Combine and validate hashes
+        id: combine
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Combine all hash files
+          cat hashes/*.sha256 > all_hashes.txt
+
+          # Verify we got all expected platforms (6)
+          HASH_COUNT=$(wc -l < all_hashes.txt)
+          echo "Found $HASH_COUNT platform hashes"
+
+          if [[ $HASH_COUNT -ne 6 ]]; then
+            echo "ERROR: Expected 6 platform hashes, got $HASH_COUNT"
+            echo "Contents:"
+            cat all_hashes.txt
+            exit 1
+          fi
+
+          # Base64 encode the combined hashes
+          echo "hashes=$(cat all_hashes.txt | base64 -w0)" >> $GITHUB_OUTPUT
+
+          echo "Successfully combined hashes:"
+          cat all_hashes.txt
+
+  # Generate SLSA Level 3 provenance
+  provenance:
+    name: Generate SLSA Provenance
+    needs: [combine-hashes, create-release]
+    permissions:
+      actions: read      # Detect the GitHub Actions environment
+      id-token: write    # Sign the provenance with OIDC token
+      contents: write    # Upload provenance to the release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.combine-hashes.outputs.hashes }}
+
+  # Upload provenance to release
+  upload-provenance:
+    name: Upload Provenance to Release
+    needs: [create-release, provenance]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download provenance
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: .
+
+      - name: Upload provenance to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ needs.provenance.outputs.provenance-name }}
+          asset_name: ${{ needs.provenance.outputs.provenance-name }}
+          asset_content_type: application/json
+
   # Generate combined checksums file
   checksums:
     name: Generate Combined Checksums
-    needs: [create-release, build]
+    needs: [create-release, build, upload-provenance]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -324,10 +577,86 @@ jobs:
           asset_name: SHA256SUMS
           asset_content_type: text/plain
 
-  # Finalize the release
+  # Smoke test the install scripts
+  test-install:
+    name: Test Install Script (${{ matrix.os }})
+    needs: [create-release, build, checksums, upload-provenance]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test install script syntax (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Verify bash can parse the script (syntax check)
+          bash -n scripts/install.sh
+          echo "✓ Bash syntax valid"
+
+          # Verify script has bash re-exec logic for sh compatibility
+          if grep -q 'if \[ -z "$BASH_VERSION" \]' scripts/install.sh; then
+            echo "✓ Bash re-exec logic present"
+          else
+            echo "✗ Missing bash re-exec logic"
+            exit 1
+          fi
+
+          # Verify platform detection function exists
+          if grep -q 'detect_platform()' scripts/install.sh; then
+            echo "✓ Platform detection function exists"
+          else
+            echo "✗ Missing platform detection"
+            exit 1
+          fi
+
+      - name: Test install script syntax (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Test PowerShell syntax by parsing without executing
+          $errors = $null
+          $null = [System.Management.Automation.PSParser]::Tokenize(
+            (Get-Content .\scripts\install.ps1 -Raw),
+            [ref]$errors
+          )
+
+          if ($errors.Count -eq 0) {
+            Write-Host "✓ PowerShell syntax valid" -ForegroundColor Green
+          } else {
+            Write-Host "✗ PowerShell syntax errors:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host $_.Message }
+            exit 1
+          }
+
+          # Verify key functions exist
+          $content = Get-Content .\scripts\install.ps1 -Raw
+          if ($content -match "function Get-Architecture") {
+            Write-Host "✓ Architecture detection function exists" -ForegroundColor Green
+          } else {
+            Write-Host "✗ Missing architecture detection" -ForegroundColor Red
+            exit 1
+          }
+
+          if ($content -match "function Install-Cupcake") {
+            Write-Host "✓ Install function exists" -ForegroundColor Green
+          } else {
+            Write-Host "✗ Missing install function" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$HOME/test-cupcake" "$HOME/test-cupcake-piped" install_output.txt pipe_output.txt 2>/dev/null || true
+
   finalize:
     name: Finalize Release
-    needs: [create-release, build, checksums]
+    needs: [create-release, build, checksums, upload-provenance, test-install]
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release

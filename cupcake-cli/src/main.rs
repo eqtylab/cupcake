@@ -146,6 +146,19 @@ struct Cli {
     /// Override debug output directory (default: .cupcake/debug)
     #[clap(long, global = true)]
     debug_dir: Option<PathBuf>,
+
+    /// Path to governance bundle file (.tar.gz)
+    /// If provided, uses governance bundle instead of compiling local policies
+    #[clap(long, global = true)]
+    governance_bundle: Option<PathBuf>,
+
+    /// Governance service API URL (for future use)
+    #[clap(long, global = true)]
+    governance_service: Option<String>,
+
+    /// Rulebook ID to fetch from governance service (for future use)
+    #[clap(long, global = true)]
+    governance_rulebook_id: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -332,6 +345,9 @@ async fn main() -> Result<()> {
                 opa_path: cli.opa_path.clone(),
                 global_config: cli.global_config.clone(),
                 debug_routing: cli.debug_routing,
+                governance_bundle_path: cli.governance_bundle.clone(),
+                governance_service_url: cli.governance_service.clone(),
+                governance_rulebook_id: cli.governance_rulebook_id.clone(),
             };
 
             eval_command(
@@ -1040,7 +1056,7 @@ collect_verbs(verb_name) := result if {
 # description: |
 #   This is an example global policy that applies to all Cupcake projects
 #   on this machine. Global policies take absolute precedence over project policies.
-#   
+#
 #   To activate: Uncomment the rules below and customize for your needs.
 package cupcake.global.policies.example
 
@@ -1066,7 +1082,7 @@ import rego.v1
 #     input.hook_event_name == "UserPromptSubmit"
 #     contains(lower(input.prompt), "malicious")
 #     decision := {
-#         "rule_id": "GLOBAL-SECURITY-001", 
+#         "rule_id": "GLOBAL-SECURITY-001",
 #         "reason": "Potentially malicious prompt detected",
 #         "severity": "CRITICAL"
 #     }
@@ -1758,14 +1774,14 @@ collect_verbs(verb_name) := result if {
         walk(data.cupcake.policies, [path, value])
         path[count(path) - 1] == verb_name
     ]
-    
+
     # Flatten all sets into a single array
     # Since Rego v1 decision verbs are sets, we need to convert to arrays
     all_decisions := [decision |
         some verb_set in verb_sets
         some decision in verb_set
     ]
-    
+
     result := all_decisions
 }
 

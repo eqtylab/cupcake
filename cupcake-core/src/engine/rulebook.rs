@@ -25,7 +25,7 @@ fn default_timeout() -> u64 {
     5
 }
 
-/// Action configuration  
+/// Action configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionConfig {
     /// Command to execute for this action
@@ -154,10 +154,161 @@ impl Rulebook {
         Ok(rulebook)
     }
 
-    /// Discover signal scripts from a directory
+    /// Load rulebook with optional governance bundle integration
+    ///
+    /// Merge priority (highest to lowest):
+    /// 1. Local rulebook.yml builtins (never override)
+    /// 2. Local convention-based signals/actions (from directories)
+    /// 3. Governance bundle signals/actions (base functionality)
+    /// 4. Builtin-generated signals (from local builtin config)
+    pub async fn load_with_governance(
+        local_rulebook_path: impl AsRef<Path>,
+        signals_dir: impl AsRef<Path>,
+        actions_dir: impl AsRef<Path>,
+        governance_bundle: Option<crate::bundle::GovernanceBundle>,
+    ) -> Result<Self> {
+        info!("Loading rulebook with governance bundle integration");
+
+        // Step 1: Load local rulebook.yml (with builtins configuration)
+        let mut rulebook = if local_rulebook_path.as_ref().exists() {
+            debug!("Loading local rulebook.yml");
+            Self::load(local_rulebook_path).await?
+        } else {
+            debug!("No local rulebook.yml, using defaults");
+            Self::default()
+        };
+
+        // Step 2: Merge governance bundle signals/actions (LOWEST priority - base layer)
+        if let Some(bundle) = governance_bundle {
+            info!(
+                "Merging governance bundle: {} signals, {} actions",
+                bundle.signals.len(),
+                bundle.actions.len()
+            );
+            Self::merge_governance_bundle(&mut rulebook, bundle)?;
+        }
+
+        // Step 3: Discover local signals (OVERRIDE bundle signals)
+        if signals_dir.as_ref().exists() {
+            debug!("Discovering local signals from directory (will override bundle)");
+            Self::discover_signals_with_override(&mut rulebook, signals_dir).await?;
+        }
+
+        // Step 4: Discover local actions (OVERRIDE bundle actions)
+        if actions_dir.as_ref().exists() {
+            debug!("Discovering local actions from directory (will override bundle)");
+            Self::discover_actions_with_override(&mut rulebook, actions_dir).await?;
+        }
+
+        // Step 5: Generate builtin signals (merge, don't override user-defined)
+        if rulebook.builtins.any_enabled() {
+            info!(
+                "Generating signals for enabled builtins: {:?}",
+                rulebook.builtins.enabled_builtins()
+            );
+
+            let builtin_signals = rulebook.builtins.generate_signals();
+            for (name, signal) in builtin_signals {
+                use std::collections::hash_map::Entry;
+                match rulebook.signals.entry(name) {
+                    Entry::Vacant(e) => {
+                        debug!("Adding builtin-generated signal: {}", e.key());
+                        e.insert(signal);
+                    }
+                    Entry::Occupied(e) => {
+                        debug!(
+                            "Keeping user-defined signal: {} (skipping builtin)",
+                            e.key()
+                        );
+                    }
+                }
+            }
+        }
+
+        info!(
+            "Final rulebook: {} signals, {} actions, {} enabled builtins",
+            rulebook.signals.len(),
+            rulebook.actions.by_rule_id.len() + rulebook.actions.on_any_denial.len(),
+            rulebook.builtins.enabled_builtins().len()
+        );
+
+        // Debug: show loaded actions
+        for (rule_id, actions) in &rulebook.actions.by_rule_id {
+            debug!("Rule {}: {} actions", rule_id, actions.len());
+        }
+
+        // Validate builtin configuration
+        if let Err(errors) = rulebook.builtins.validate() {
+            use anyhow::bail;
+            bail!("Builtin configuration errors:\n{}", errors.join("\n"));
+        }
+
+        Ok(rulebook)
+    }
+
+    /// Merge governance bundle into rulebook (don't override existing)
+    fn merge_governance_bundle(
+        rulebook: &mut Self,
+        bundle: crate::bundle::GovernanceBundle,
+    ) -> Result<()> {
+        use std::collections::hash_map::Entry;
+
+        // Add bundle signals (lowest priority - don't override)
+        for (name, signal) in bundle.signals {
+            match rulebook.signals.entry(name.clone()) {
+                Entry::Vacant(e) => {
+                    debug!("Adding governance bundle signal: {}", e.key());
+                    e.insert(signal);
+                }
+                Entry::Occupied(_) => {
+                    debug!(
+                        "Skipping bundle signal '{}' (already defined locally)",
+                        name
+                    );
+                }
+            }
+        }
+
+        // Add bundle actions (lowest priority - don't override)
+        for (rule_id, actions) in bundle.actions {
+            match rulebook.actions.by_rule_id.entry(rule_id.clone()) {
+                Entry::Vacant(e) => {
+                    debug!("Adding governance bundle actions for rule: {}", e.key());
+                    e.insert(actions);
+                }
+                Entry::Occupied(_) => {
+                    debug!(
+                        "Skipping bundle actions for '{}' (already defined locally)",
+                        rule_id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Discover signal scripts from a directory (without overriding explicit rulebook signals)
     async fn discover_signals(
         rulebook: &mut Rulebook,
         signals_dir: impl AsRef<Path>,
+    ) -> Result<()> {
+        Self::discover_signals_internal(rulebook, signals_dir, false).await
+    }
+
+    /// Discover signal scripts from a directory (with override capability for governance bundles)
+    async fn discover_signals_with_override(
+        rulebook: &mut Rulebook,
+        signals_dir: impl AsRef<Path>,
+    ) -> Result<()> {
+        Self::discover_signals_internal(rulebook, signals_dir, true).await
+    }
+
+    /// Internal signal discovery with configurable override behavior
+    async fn discover_signals_internal(
+        rulebook: &mut Rulebook,
+        signals_dir: impl AsRef<Path>,
+        allow_override: bool,
     ) -> Result<()> {
         let signals_dir = signals_dir.as_ref();
         debug!("Discovering signals in: {:?}", signals_dir);
@@ -180,17 +331,28 @@ impl Rulebook {
                     .and_then(|s| s.to_str())
                     .unwrap_or(file_name);
 
-                // Don't override explicit rulebook signals
-                if !rulebook.signals.contains_key(signal_name) {
+                // Check if we should add/override this signal
+                let should_add = allow_override || !rulebook.signals.contains_key(signal_name);
+
+                if should_add {
                     let signal_config = SignalConfig {
                         command: path.to_string_lossy().to_string(),
                         timeout_seconds: default_timeout(),
                     };
 
+                    if rulebook.signals.contains_key(signal_name) {
+                        debug!(
+                            "Overriding signal: {} -> {} (governance bundle override)",
+                            signal_name,
+                            path.display()
+                        );
+                    } else {
+                        debug!("Discovered signal: {} -> {}", signal_name, path.display());
+                    }
+
                     rulebook
                         .signals
                         .insert(signal_name.to_string(), signal_config);
-                    debug!("Discovered signal: {} -> {}", signal_name, path.display());
                 }
             }
         }
@@ -198,10 +360,27 @@ impl Rulebook {
         Ok(())
     }
 
-    /// Discover action scripts from a directory  
+    /// Discover action scripts from a directory (appends to existing actions)
     async fn discover_actions(
         rulebook: &mut Rulebook,
         actions_dir: impl AsRef<Path>,
+    ) -> Result<()> {
+        Self::discover_actions_internal(rulebook, actions_dir, false).await
+    }
+
+    /// Discover action scripts from a directory (with override capability for governance bundles)
+    async fn discover_actions_with_override(
+        rulebook: &mut Rulebook,
+        actions_dir: impl AsRef<Path>,
+    ) -> Result<()> {
+        Self::discover_actions_internal(rulebook, actions_dir, true).await
+    }
+
+    /// Internal action discovery with configurable override behavior
+    async fn discover_actions_internal(
+        rulebook: &mut Rulebook,
+        actions_dir: impl AsRef<Path>,
+        override_bundle: bool,
     ) -> Result<()> {
         let actions_dir = actions_dir.as_ref();
         debug!("Discovering actions in: {:?}", actions_dir);
@@ -229,14 +408,34 @@ impl Rulebook {
                     command: path.to_string_lossy().to_string(),
                 };
 
-                rulebook
-                    .actions
-                    .by_rule_id
-                    .entry(action_name.to_string())
-                    .or_default()
-                    .push(action_config);
+                if override_bundle {
+                    // For governance bundles: replace bundle actions entirely
+                    let actions_vec = vec![action_config];
+                    if rulebook
+                        .actions
+                        .by_rule_id
+                        .insert(action_name.to_string(), actions_vec)
+                        .is_some()
+                    {
+                        debug!(
+                            "Overriding action: {} -> {} (governance bundle override)",
+                            action_name,
+                            path.display()
+                        );
+                    } else {
+                        info!("Discovered action: {} -> {}", action_name, path.display());
+                    }
+                } else {
+                    // Default behavior: append to existing actions
+                    rulebook
+                        .actions
+                        .by_rule_id
+                        .entry(action_name.to_string())
+                        .or_default()
+                        .push(action_config);
 
-                info!("Discovered action: {} -> {}", action_name, path.display());
+                    info!("Discovered action: {} -> {}", action_name, path.display());
+                }
             }
         }
 
@@ -461,3 +660,186 @@ impl Rulebook {
 // - Signals map names to commands
 // - Actions map violation IDs to commands
 // - Concurrent signal execution for performance
+
+#[cfg(test)]
+mod governance_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    async fn create_test_bundle() -> crate::bundle::GovernanceBundle {
+        let mut signals = HashMap::new();
+        signals.insert(
+            "bundle_signal".to_string(),
+            SignalConfig {
+                command: "echo 'from bundle'".to_string(),
+                timeout_seconds: 5,
+            },
+        );
+        signals.insert(
+            "shared_signal".to_string(),
+            SignalConfig {
+                command: "echo 'bundle version'".to_string(),
+                timeout_seconds: 5,
+            },
+        );
+
+        let mut actions = HashMap::new();
+        actions.insert(
+            "bundle_rule".to_string(),
+            vec![ActionConfig {
+                command: "echo 'bundle action'".to_string(),
+            }],
+        );
+
+        crate::bundle::GovernanceBundle {
+            manifest: crate::bundle::BundleManifest {
+                revision: "test-rev".to_string(),
+                roots: vec!["governance".to_string()],
+                wasm: vec![crate::bundle::WasmModule {
+                    entrypoint: "governance/system/evaluate".to_string(),
+                    module: "/policy.wasm".to_string(),
+                    annotations: vec![],
+                }],
+                rego_version: 1,
+            },
+            wasm: vec![1, 2, 3], // Dummy WASM bytes
+            signals,
+            actions,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_load_with_governance_bundle_only() {
+        let temp_dir = TempDir::new().unwrap();
+        let rulebook_path = temp_dir.path().join("rulebook.yml");
+        let signals_dir = temp_dir.path().join("signals");
+        let actions_dir = temp_dir.path().join("actions");
+
+        // Don't create local files - bundle only
+        let bundle = create_test_bundle().await;
+
+        let rulebook =
+            Rulebook::load_with_governance(rulebook_path, signals_dir, actions_dir, Some(bundle))
+                .await
+                .unwrap();
+
+        // Should have bundle signals
+        assert!(rulebook.signals.contains_key("bundle_signal"));
+        assert!(rulebook.signals.contains_key("shared_signal"));
+        assert_eq!(
+            rulebook.signals.get("bundle_signal").unwrap().command,
+            "echo 'from bundle'"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_local_signals_override_bundle() {
+        let temp_dir = TempDir::new().unwrap();
+        let rulebook_path = temp_dir.path().join("rulebook.yml");
+        let signals_dir = temp_dir.path().join("signals");
+        let actions_dir = temp_dir.path().join("actions");
+
+        // Create local signal that conflicts with bundle
+        tokio::fs::create_dir_all(&signals_dir).await.unwrap();
+        tokio::fs::write(
+            signals_dir.join("shared_signal.sh"),
+            "#!/bin/sh\necho 'local version'",
+        )
+        .await
+        .unwrap();
+
+        let bundle = create_test_bundle().await;
+
+        let rulebook =
+            Rulebook::load_with_governance(rulebook_path, signals_dir, actions_dir, Some(bundle))
+                .await
+                .unwrap();
+
+        // Local signal should override bundle signal
+        let shared_signal = rulebook.signals.get("shared_signal").unwrap();
+        assert!(shared_signal.command.contains("shared_signal.sh"));
+        assert!(!shared_signal.command.contains("bundle version"));
+
+        // Bundle-only signal should still exist
+        assert!(rulebook.signals.contains_key("bundle_signal"));
+    }
+
+    #[tokio::test]
+    async fn test_backward_compatibility_no_bundle() {
+        let temp_dir = TempDir::new().unwrap();
+        let rulebook_path = temp_dir.path().join("rulebook.yml");
+        let signals_dir = temp_dir.path().join("signals");
+        let actions_dir = temp_dir.path().join("actions");
+
+        // Create a local signal
+        tokio::fs::create_dir_all(&signals_dir).await.unwrap();
+        tokio::fs::write(
+            signals_dir.join("local_signal.sh"),
+            "#!/bin/sh\necho 'local'",
+        )
+        .await
+        .unwrap();
+
+        // Load without bundle (backward compatibility)
+        let rulebook =
+            Rulebook::load_with_governance(rulebook_path, signals_dir, actions_dir, None)
+                .await
+                .unwrap();
+
+        // Should have local signal
+        assert!(rulebook.signals.contains_key("local_signal"));
+        assert!(!rulebook.signals.contains_key("bundle_signal"));
+    }
+
+    #[tokio::test]
+    async fn test_merge_priority_order() {
+        let temp_dir = TempDir::new().unwrap();
+        let rulebook_path = temp_dir.path().join("rulebook.yml");
+        let signals_dir = temp_dir.path().join("signals");
+        let actions_dir = temp_dir.path().join("actions");
+
+        // Create rulebook.yml with explicit signal
+        let rulebook_yaml = r#"
+signals:
+  explicit_signal:
+    command: "echo 'from rulebook.yml'"
+"#;
+        tokio::fs::write(&rulebook_path, rulebook_yaml)
+            .await
+            .unwrap();
+
+        // Create convention-based signal
+        tokio::fs::create_dir_all(&signals_dir).await.unwrap();
+        tokio::fs::write(
+            signals_dir.join("convention_signal.sh"),
+            "#!/bin/sh\necho 'from convention'",
+        )
+        .await
+        .unwrap();
+
+        let bundle = create_test_bundle().await;
+
+        let rulebook =
+            Rulebook::load_with_governance(rulebook_path, signals_dir, actions_dir, Some(bundle))
+                .await
+                .unwrap();
+
+        // Verify merge priority:
+        // 1. Explicit from rulebook.yml
+        assert_eq!(
+            rulebook.signals.get("explicit_signal").unwrap().command,
+            "echo 'from rulebook.yml'"
+        );
+
+        // 2. Convention-based
+        assert!(rulebook
+            .signals
+            .get("convention_signal")
+            .unwrap()
+            .command
+            .contains("convention_signal.sh"));
+
+        // 3. Bundle signals (lowest priority)
+        assert!(rulebook.signals.contains_key("bundle_signal"));
+    }
+}

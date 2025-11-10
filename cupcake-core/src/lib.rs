@@ -1,6 +1,7 @@
 //! Cupcake-Rego library exports
 
 pub mod bindings;
+pub mod bundle;
 pub mod debug;
 pub mod engine;
 pub mod harness;

@@ -202,6 +202,16 @@ pub struct EngineConfig {
     /// Enable routing diagnostics debug output
     /// If true, writes routing maps to .cupcake/debug/routing/
     pub debug_routing: bool,
+
+    // NEW: Governance bundle configuration (all optional)
+    /// Path to local governance bundle file (.tar.gz)
+    pub governance_bundle_path: Option<PathBuf>,
+
+    /// Governance service API URL (for future use)
+    pub governance_service_url: Option<String>,
+
+    /// Rulebook ID to fetch from service (for future use)
+    pub governance_rulebook_id: Option<String>,
 }
 
 impl EngineConfig {
@@ -213,6 +223,9 @@ impl EngineConfig {
             opa_path: None,
             global_config: None,
             debug_routing: false,
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
         }
     }
 }
@@ -345,22 +358,32 @@ impl Engine {
     async fn initialize(&mut self) -> Result<()> {
         info!("Starting engine initialization...");
 
+        // Load governance bundle if configured (OPTIONAL)
+        let governance_bundle = self.load_governance_bundle_if_configured().await?;
+
+        if governance_bundle.is_some() {
+            info!("Governance bundle loaded - will use bundle WASM and merge signals/actions");
+        } else {
+            info!("No governance bundle configured - using local policies only");
+        }
+
         // Step 0A: Initialize global configuration first (if it exists)
         if self.paths.global_root.is_some() {
             info!("Global configuration detected - initializing global policies first");
             self.initialize_global().await?;
         }
 
-        // Step 0B: Load project rulebook to get builtin configuration
+        // Step 0B: Load project rulebook with optional governance bundle integration
         self.rulebook = Some(
-            rulebook::Rulebook::load_with_conventions(
+            rulebook::Rulebook::load_with_governance(
                 &self.paths.rulebook,
                 &self.paths.signals,
                 &self.paths.actions,
+                governance_bundle.clone(),
             )
             .await?,
         );
-        info!("Project rulebook loaded with convention-based discovery");
+        info!("Project rulebook loaded with governance bundle integration");
 
         // Get list of enabled builtins for filtering
         let enabled_builtins = self
@@ -421,25 +444,55 @@ impl Engine {
 
         // No entrypoint mapping needed - Hybrid Model uses single aggregation entrypoint
 
-        // Step 4: Compile unified WASM module with OPA path from CLI
-        let wasm_bytes =
-            compiler::compile_policies(&self.policies, self.config.opa_path.clone()).await?;
-        info!(
-            "Successfully compiled unified WASM module ({} bytes)",
-            wasm_bytes.len()
-        );
-        self.wasm_module = Some(wasm_bytes.clone());
+        // Step 4: WASM module loading - bundle OR local compilation
+        if let Some(ref bundle) = governance_bundle {
+            // Use WASM from governance bundle
+            info!("Using WASM from governance bundle");
+            self.wasm_module = Some(bundle.wasm.clone());
 
-        // Step 5: Initialize WASM runtime with memory config from CLI
-        self.wasm_runtime = Some(wasm_runtime::WasmRuntime::new_with_config(
-            &wasm_bytes,
-            "cupcake.system",
-            self.config.wasm_max_memory,
-        )?);
-        info!("WASM runtime initialized");
+            // Create runtime with bundle manifest configuration
+            self.wasm_runtime = Some(wasm_runtime::WasmRuntime::from_governance_bundle(
+                &bundle.manifest,
+                &bundle.wasm,
+                self.config.wasm_max_memory,
+            )?);
+            info!("WASM runtime initialized from governance bundle");
+
+            // Note: Governance bundles don't use routing maps - single unified policy
+            info!("Using bundle as unified policy (no local routing)");
+        } else {
+            // Existing behavior: compile local policies
+            info!("Compiling local policies to WASM");
+            let wasm_bytes =
+                compiler::compile_policies(&self.policies, self.config.opa_path.clone()).await?;
+            info!(
+                "Successfully compiled unified WASM module ({} bytes)",
+                wasm_bytes.len()
+            );
+            self.wasm_module = Some(wasm_bytes.clone());
+
+            // Step 5: Initialize WASM runtime with memory config from CLI
+            self.wasm_runtime = Some(wasm_runtime::WasmRuntime::new_with_config(
+                &wasm_bytes,
+                "cupcake.system",
+                self.config.wasm_max_memory,
+            )?);
+            info!("WASM runtime initialized from local policies");
+        }
 
         // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
         self.initialize_trust_system().await;
+
+        // Step 6B: Verify governance bundle scripts if trust is enabled
+        if let Some(ref verifier) = self.trust_verifier {
+            if let Some(ref bundle) = governance_bundle {
+                info!("Trust verification enabled - verifying governance bundle scripts");
+                if let Err(e) = verifier.verify_bundle_scripts(bundle).await {
+                    warn!("Bundle script verification encountered errors: {}", e);
+                    // Don't fail initialization - warnings have been logged
+                }
+            }
+        }
 
         // Step 7: Dump routing diagnostics if debug mode enabled via CLI flag
         // This happens after ALL initialization (including global) is complete
@@ -595,6 +648,39 @@ impl Engine {
 
         info!("Global configuration initialization complete");
         Ok(())
+    }
+
+    /// Load governance bundle if configured in EngineConfig
+    async fn load_governance_bundle_if_configured(
+        &self,
+    ) -> Result<Option<crate::bundle::GovernanceBundle>> {
+        // Option 1: Load from local file
+        if let Some(bundle_path) = &self.config.governance_bundle_path {
+            info!("Loading governance bundle from file: {:?}", bundle_path);
+
+            if !bundle_path.exists() {
+                anyhow::bail!("Governance bundle file not found: {:?}", bundle_path);
+            }
+
+            let bundle = crate::bundle::GovernanceBundleLoader::load_from_file(bundle_path).await?;
+            return Ok(Some(bundle));
+        }
+
+        // Option 2: Fetch from governance service (future)
+        if let (Some(_service_url), Some(_rulebook_id)) = (
+            &self.config.governance_service_url,
+            &self.config.governance_rulebook_id,
+        ) {
+            warn!(
+                "Governance service fetching not yet implemented - use --governance-bundle for now"
+            );
+            // TODO: Implement service integration
+            // let bundle = self.fetch_from_service(service_url, rulebook_id).await?;
+            // return Ok(Some(bundle));
+        }
+
+        // No bundle configured
+        Ok(None)
     }
 
     /// Build routing map for global policies

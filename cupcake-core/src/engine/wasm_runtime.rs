@@ -105,6 +105,76 @@ impl WasmRuntime {
         })
     }
 
+    /// Create runtime from governance bundle manifest
+    /// Extracts namespace from entrypoint path
+    pub fn from_governance_bundle(
+        manifest: &crate::bundle::BundleManifest,
+        wasm_bytes: &[u8],
+        max_memory_bytes: Option<usize>,
+    ) -> Result<Self> {
+        let entrypoint = manifest
+            .wasm
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No WASM module in manifest"))?
+            .entrypoint
+            .clone();
+
+        // Extract namespace from entrypoint
+        // "governance/system/evaluate" -> "governance.system"
+        let namespace = Self::entrypoint_to_namespace(&entrypoint)?;
+
+        debug!(
+            "Loading governance bundle: entrypoint='{}', namespace='{}'",
+            entrypoint, namespace
+        );
+
+        // Warn if using legacy Cupcake entrypoint
+        if namespace.starts_with("cupcake.") {
+            warn!(
+                "Using legacy Cupcake namespace '{}'. \
+                 Consider updating bundle to use 'governance.system'",
+                namespace
+            );
+        }
+
+        Self::new_with_config(wasm_bytes, &namespace, max_memory_bytes)
+    }
+
+    /// Create from local policy compilation (existing behavior)
+    /// This is an alias for new_with_config for clarity
+    pub fn from_local_policies(
+        wasm_bytes: &[u8],
+        namespace: &str,
+        max_memory_bytes: Option<usize>,
+    ) -> Result<Self> {
+        Self::new_with_config(wasm_bytes, namespace, max_memory_bytes)
+    }
+
+    /// Convert OPA entrypoint path to namespace
+    /// Examples:
+    /// - "governance/system/evaluate" -> "governance.system"
+    /// - "cupcake/system/evaluate" -> "cupcake.system"
+    /// - "cupcake/global/system/evaluate" -> "cupcake.global.system"
+    fn entrypoint_to_namespace(entrypoint: &str) -> Result<String> {
+        let parts: Vec<&str> = entrypoint.split('/').collect();
+
+        if parts.len() < 2 {
+            anyhow::bail!(
+                "Invalid entrypoint format: '{}'. Expected format: 'package/subpackage/evaluate'",
+                entrypoint
+            );
+        }
+
+        // Take all parts except the last (which should be "evaluate")
+        let namespace_parts = &parts[0..parts.len() - 1];
+        Ok(namespace_parts.join("."))
+    }
+
+    /// Get the namespace for this runtime (useful for testing)
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
     /// Query the aggregated decision set from cupcake.system.evaluate
     /// This is the single entrypoint defined in the Hybrid Model
     /// Thread-safe: creates fresh Store per evaluation
@@ -321,3 +391,86 @@ fn read_string_from_memory(memory: &Memory, store: &mut Store<()>, ptr: i32) -> 
 // - No per-policy logic - just single aggregation extraction
 // - Returns strongly-typed DecisionSet for synthesis layer
 // - Foundation for sub-millisecond evaluation performance
+
+#[cfg(test)]
+mod governance_bundle_tests {
+    use super::*;
+
+    fn create_test_manifest(entrypoint: &str) -> crate::bundle::BundleManifest {
+        crate::bundle::BundleManifest {
+            revision: "test-rev".to_string(),
+            roots: vec!["governance".to_string()],
+            wasm: vec![crate::bundle::WasmModule {
+                entrypoint: entrypoint.to_string(),
+                module: "/policy.wasm".to_string(),
+                annotations: vec![],
+            }],
+            rego_version: 1,
+        }
+    }
+
+    #[test]
+    fn test_entrypoint_to_namespace_governance() {
+        let result = WasmRuntime::entrypoint_to_namespace("governance/system/evaluate").unwrap();
+        assert_eq!(result, "governance.system");
+    }
+
+    #[test]
+    fn test_entrypoint_to_namespace_cupcake() {
+        let result = WasmRuntime::entrypoint_to_namespace("cupcake/system/evaluate").unwrap();
+        assert_eq!(result, "cupcake.system");
+    }
+
+    #[test]
+    fn test_entrypoint_to_namespace_global() {
+        let result =
+            WasmRuntime::entrypoint_to_namespace("cupcake/global/system/evaluate").unwrap();
+        assert_eq!(result, "cupcake.global.system");
+    }
+
+    #[test]
+    fn test_entrypoint_to_namespace_multi_level() {
+        let result = WasmRuntime::entrypoint_to_namespace("org/team/project/evaluate").unwrap();
+        assert_eq!(result, "org.team.project");
+    }
+
+    #[test]
+    fn test_entrypoint_to_namespace_invalid_short() {
+        let result = WasmRuntime::entrypoint_to_namespace("evaluate");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid entrypoint format"));
+    }
+
+    #[test]
+    fn test_entrypoint_to_namespace_invalid_empty() {
+        let result = WasmRuntime::entrypoint_to_namespace("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_manifest_extraction() {
+        // Test that we can extract the entrypoint from a manifest
+        let manifest = create_test_manifest("governance/system/evaluate");
+
+        let entrypoint = manifest.wasm.first().unwrap().entrypoint.clone();
+        let namespace = WasmRuntime::entrypoint_to_namespace(&entrypoint).unwrap();
+
+        assert_eq!(namespace, "governance.system");
+    }
+
+    #[test]
+    fn test_legacy_namespace_detection() {
+        // Test that legacy cupcake namespace is detected
+        let manifest = create_test_manifest("cupcake/system/evaluate");
+
+        let entrypoint = manifest.wasm.first().unwrap().entrypoint.clone();
+        let namespace = WasmRuntime::entrypoint_to_namespace(&entrypoint).unwrap();
+
+        // Should extract correctly even for legacy namespace
+        assert_eq!(namespace, "cupcake.system");
+        assert!(namespace.starts_with("cupcake."));
+    }
+}

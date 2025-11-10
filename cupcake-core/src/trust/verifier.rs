@@ -161,6 +161,90 @@ impl TrustVerifier {
         let manifest = self.manifest.read().await;
         manifest.find_script_by_command(command).is_some()
     }
+
+    /// Check if trust verification is enabled
+    pub async fn is_enabled(&self) -> bool {
+        let manifest = self.manifest.read().await;
+        manifest.is_enabled()
+    }
+
+    /// Verify governance bundle scripts against trust manifest
+    ///
+    /// This is important because bundle scripts execute with project privileges.
+    /// Users should review and approve bundle scripts before trusting them.
+    pub async fn verify_bundle_scripts(
+        &self,
+        bundle: &crate::bundle::GovernanceBundle,
+    ) -> Result<()> {
+        if !self.is_enabled().await {
+            debug!("Trust verification disabled - skipping bundle script verification");
+            return Ok(());
+        }
+
+        info!("Verifying governance bundle scripts against trust manifest");
+
+        let mut warnings = Vec::new();
+
+        // Verify signal scripts
+        for (name, signal) in &bundle.signals {
+            match self.verify_script(&signal.command).await {
+                Ok(()) => {
+                    debug!("Bundle signal '{}' verified", name);
+                }
+                Err(TrustError::ScriptNotTrusted { path }) => {
+                    warnings.push(format!(
+                        "Bundle signal '{}' not in trust manifest: {}",
+                        name,
+                        path.display()
+                    ));
+                }
+                Err(e) => {
+                    warnings.push(format!("Failed to verify bundle signal '{}': {}", name, e));
+                }
+            }
+        }
+
+        // Verify action scripts
+        for (rule_id, actions) in &bundle.actions {
+            for action in actions {
+                match self.verify_script(&action.command).await {
+                    Ok(()) => {
+                        debug!("Bundle action for rule '{}' verified", rule_id);
+                    }
+                    Err(TrustError::ScriptNotTrusted { path }) => {
+                        warnings.push(format!(
+                            "Bundle action for rule '{}' not in trust manifest: {}",
+                            rule_id,
+                            path.display()
+                        ));
+                    }
+                    Err(e) => {
+                        warnings.push(format!(
+                            "Failed to verify bundle action for '{}': {}",
+                            rule_id, e
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Report warnings
+        if !warnings.is_empty() {
+            use tracing::warn;
+            warn!("Governance bundle script verification warnings:");
+            for warning in &warnings {
+                warn!("  - {}", warning);
+            }
+            warn!(
+                "To resolve: Run 'cupcake trust update' to add bundle scripts to manifest, \
+                 or disable trust verification with 'cupcake trust disable'"
+            );
+        } else {
+            info!("All governance bundle scripts verified successfully");
+        }
+
+        Ok(())
+    }
 }
 
 /// Extension trait for Option<TrustVerifier> to simplify integration
@@ -297,5 +381,126 @@ mod tests {
 
         // Should fail for untrusted
         assert!(verifier.verify_if_enabled("rm -rf /").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_bundle_scripts_enabled() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create manifest with trusted scripts
+        let mut manifest = TrustManifest::new();
+        manifest.add_script(
+            "signals",
+            "bundle_signal",
+            ScriptEntry {
+                script_type: "inline".to_string(),
+                command: "echo 'test'".to_string(),
+                hash: crate::trust::hasher::hash_string("echo 'test'"),
+                absolute_path: None,
+                size: None,
+                modified: None,
+                interpreter: None,
+                args: None,
+            },
+        );
+
+        let verifier = TrustVerifier::with_manifest(manifest, temp_dir.path());
+
+        // Create test bundle
+        let mut signals = std::collections::HashMap::new();
+        signals.insert(
+            "bundle_signal".to_string(),
+            crate::engine::rulebook::SignalConfig {
+                command: "echo 'test'".to_string(),
+                timeout_seconds: 5,
+            },
+        );
+
+        let bundle = crate::bundle::GovernanceBundle {
+            manifest: crate::bundle::BundleManifest {
+                revision: "test".to_string(),
+                roots: vec!["governance".to_string()],
+                wasm: vec![],
+                rego_version: 1,
+            },
+            wasm: vec![],
+            signals,
+            actions: std::collections::HashMap::new(),
+        };
+
+        // Should succeed - script is trusted
+        assert!(verifier.verify_bundle_scripts(&bundle).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_verify_bundle_scripts_disabled() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create manifest with trust disabled
+        let mut manifest = TrustManifest::new();
+        manifest
+            .set_mode(crate::trust::manifest::TrustMode::Disabled)
+            .unwrap();
+
+        let verifier = TrustVerifier::with_manifest(manifest, temp_dir.path());
+
+        // Create test bundle with untrusted script
+        let mut signals = std::collections::HashMap::new();
+        signals.insert(
+            "untrusted_signal".to_string(),
+            crate::engine::rulebook::SignalConfig {
+                command: "rm -rf /".to_string(),
+                timeout_seconds: 5,
+            },
+        );
+
+        let bundle = crate::bundle::GovernanceBundle {
+            manifest: crate::bundle::BundleManifest {
+                revision: "test".to_string(),
+                roots: vec!["governance".to_string()],
+                wasm: vec![],
+                rego_version: 1,
+            },
+            wasm: vec![],
+            signals,
+            actions: std::collections::HashMap::new(),
+        };
+
+        // Should succeed - trust is disabled, no verification happens
+        assert!(verifier.verify_bundle_scripts(&bundle).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_verify_bundle_scripts_with_untrusted() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create manifest without the bundle script
+        let manifest = TrustManifest::new();
+        let verifier = TrustVerifier::with_manifest(manifest, temp_dir.path());
+
+        // Create test bundle with untrusted script
+        let mut signals = std::collections::HashMap::new();
+        signals.insert(
+            "untrusted_signal".to_string(),
+            crate::engine::rulebook::SignalConfig {
+                command: "echo 'untrusted'".to_string(),
+                timeout_seconds: 5,
+            },
+        );
+
+        let bundle = crate::bundle::GovernanceBundle {
+            manifest: crate::bundle::BundleManifest {
+                revision: "test".to_string(),
+                roots: vec!["governance".to_string()],
+                wasm: vec![],
+                rego_version: 1,
+            },
+            wasm: vec![],
+            signals,
+            actions: std::collections::HashMap::new(),
+        };
+
+        // Should succeed with warnings (doesn't fail, just logs)
+        assert!(verifier.verify_bundle_scripts(&bundle).await.is_ok());
     }
 }

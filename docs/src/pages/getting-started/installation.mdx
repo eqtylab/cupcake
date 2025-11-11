@@ -1,0 +1,71 @@
+---
+layout: "@/layouts/mdx-layout.astro"
+heading: "Installation"
+---
+
+## Using the library in your app
+
+Install the package inside your app's workspace using your preferred package manager:
+
+```bash
+pnpm add @eqtylab/equality
+# or
+npm install @eqtylab/equality
+# or
+yarn add @eqtylab/equality
+# or
+bun add @eqtylab/equality
+```
+
+## Access
+
+This is a **private GitHub package** published under the [EQTY Lab](https://github.com/eqtylab) organization. Make sure your npm or GitHub account has permission to access [this package](https://github.com/orgs/eqtylab/packages/npm/package/equality).
+
+### 1. Authenticate with GitHub Packages
+
+You will need a **Personal Access Token (PAT)** with at least the `read:packages` scope.
+
+Create one at: [https://github.com/settings/tokens](https://github.com/settings/tokens)
+
+### 2. Add your GitHub token to npm
+
+Add your token to npm config so it can authenticate to GitHub's registry.
+
+#### Option A — via npm CLI (recommended):
+
+```bash
+npm config set //npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+#### Option B — via `.npmrc` file:
+
+Create or edit a `.npmrc` file in your project root and add:
+
+```ini
+@eqtylab:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+### 3. Verify access
+
+Run this to check if you can access the package:
+
+```bash
+npm view @eqtylab/equality
+```
+
+If that command returns package details, you're good to go.
+
+### 4. Troubleshooting
+
+If you run into a `404` or `ERR_PNPM_FETCH_404` error:
+
+- Double-check your GitHub token includes the `read:packages` permission.
+- Make sure your `.npmrc` file is in the same directory where you're installing.
+- Confirm the registry line points to `https://npm.pkg.github.com`.
+- If you're in a monorepo, also add the `.npmrc` file to the repo root.
+- Try clearing the npm cache:
+
+```bash
+npm cache clean --force
+```

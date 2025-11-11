@@ -1,0 +1,44 @@
+---
+import { cn } from "@/lib/utils";
+
+interface Props {
+  label: string;
+  list: Array<{ text: string; href: string }>;
+}
+
+const { label, list } = Astro.props;
+const currentPath = Astro.url.pathname;
+
+const isActive = (href: string) => {
+  if (href === "/") {
+    return currentPath === "/";
+  }
+  return currentPath.startsWith(href);
+};
+---
+
+<div class="space-y-3">
+  <h3 class="label">{label}</h3>
+  <ul>
+    {
+      list.map((item) => {
+        const active = isActive(item.href);
+        return (
+          <li>
+            <a
+              href={item.href}
+              class={cn(
+                "inline-block w-full border-l px-4 py-1.5 transition-all duration-300",
+                active
+                  ? "text-foreground border-foreground"
+                  : "text-muted-foreground hover:border-foreground hover:text-foreground",
+              )}
+            >
+              {item.text}
+            </a>
+          </li>
+        );
+      })
+    }
+  </ul>
+</div>

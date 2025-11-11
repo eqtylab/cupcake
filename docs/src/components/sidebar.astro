@@ -1,0 +1,26 @@
+---
+import NavList from "@/components/ui/nav-list.astro";
+
+const gettingStartedLinks = [
+  { text: "Home", href: "/" },
+  { text: "Installation", href: "/getting-started/installation" },
+  { text: "Usage", href: "/getting-started/usage" },
+  { text: "Themes", href: "/getting-started/themes" },
+  { text: "Customizing", href: "/getting-started/customizing" },
+  {
+    text: "Component Architecture",
+    href: "/getting-started/component-architecture",
+  },
+];
+
+const componentsLinks = [{ text: "Card", href: "/components/card" }];
+---
+
+<aside
+  class="sticky top-0 z-40 h-screen w-xs overflow-y-auto border-r bg-black pt-14"
+>
+  <nav class="space-y-10 px-4 py-10">
+    <NavList label="Getting Started" list={gettingStartedLinks} />
+    <NavList label="Components" list={componentsLinks} />
+  </nav>
+</aside>

@@ -1,0 +1,26 @@
+---
+import "@/styles/global.css";
+
+import Header from "@/components/header.astro";
+import Sidebar from "@/components/sidebar.astro";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Equality</title>
+  </head>
+  <body>
+    <Header />
+    <main class="grid grid-cols-[auto_1fr]">
+      <Sidebar />
+      <div class="px-8 pt-14 pb-14">
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>

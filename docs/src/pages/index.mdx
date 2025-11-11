@@ -1,0 +1,57 @@
+---
+layout: "@/layouts/mdx-layout.astro"
+heading: "Equality UI"
+description: "A theme-driven component library for EQTY Lab projects"
+---
+
+## Introduction
+
+Equality UI is a shared React component library built with **Vite, Tailwind v4, Radix UI,** and **Framer Motion** — designed to unify styles, motion, and accessibility across all EQTY Lab applications.  
+It provides a consistent visual system, fully scoped components, and a flexible theming layer that allows each host app to maintain brand individuality without reinventing base UI patterns.
+
+## What's inside
+
+- **Composable React components** powered by Radix primitives
+- **Scoped styling** with Tailwind v4 + CSS Modules — no global leaks
+- **Dynamic theming** through the `ThemeProvider` (light, dark, custom)
+- **Framer Motion animations** for polished, consistent interactions
+- **Built for reuse** across EQTY Lab products — from dashboards to marketing sites
+
+## Design philosophy
+
+Equality UI is built around three core principles:
+
+1. **Isolation by default**  
+   Every component manages its own scoped styles — nothing leaks, nothing collides.
+2. **Token-driven theming**  
+   Colors, spacing, and typography are defined as design tokens via CSS variables and Tailwind tokens.
+3. **Motion as language**  
+   Animation supports communication — subtle, meaningful, and consistent across products.
+
+## Getting started
+
+Install directly from GitHub Packages:
+
+```bash
+npm install @eqtylab/equality
+```
+
+Then head to the [Installation](/getting-started/installation) page to configure authentication and start using components.
+
+## Documentation structure
+
+- [Installation](/getting-started/installation) — setup and authentication
+- [Usage](/getting-started/usage) — wrapping your app and using components
+- [Themes](/getting-started/themes) — light/dark system
+- [Customization](/getting-started/customizing) — overrides and brand tokens
+- [Component Architecture](/getting-started/component-architecture) — how everything works internally
+
+## For developers
+
+Equality UI is framework-agnostic — it works seamlessly in **Vite**, **Next.js**, and **Astro** environments. Just wrap your app with the `<ThemeProvider>` and import the components you need — everything else is automatic.
+
+## About and Purpose
+
+Equality UI was created to **unify the design language** across EQTY Lab products like Governance Studio, Lineage Explorer, and VCOMP.  
+It simplifies collaboration between design and engineering by turning shared patterns, brand tokens, and motion principles into reusable, theme-driven components.  
+The goal is simple: **build once, use everywhere** — without sacrificing craft, performance, or individuality.

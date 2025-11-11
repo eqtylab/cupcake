@@ -1,0 +1,52 @@
+---
+layout: "@/layouts/mdx-layout.astro"
+heading: "Usage"
+---
+
+## Setting up the theme
+
+Add the `<ThemeProvider />` at the root of your app or wherever Equality components are used:
+
+```tsx
+import { ThemeProvider } from "@eqtylab/equality";
+
+export function App() {
+  return (
+    <ThemeProvider theme="light">
+      <YourApp />
+    </ThemeProvider>
+  );
+}
+```
+
+This sets up all required CSS variables and makes sure the components render correctly.
+
+## Use components
+
+Each component includes its own scoped `.module.css` file — no need to import a global stylesheet.
+
+```tsx
+import { Button } from "@eqtylab/equality";
+
+export function Example() {
+  return (
+    <>
+      <Button>Primary</Button>
+    </>
+  );
+}
+```
+
+Because the styles use Tailwind v4 tokens (`bg-primary`, `text-foreground`, etc.), everything is resolved automatically based on the active theme.
+
+## Overriding styles with `className`
+
+All components accept a `className` prop for fine-grained style adjustments. This lets you extend or override the default styles directly from your app without breaking isolation:
+
+```tsx
+<Button className="bg-accent hover:bg-accent/80 text-white">
+  Custom Button
+</Button>
+```
+
+Since each component's styles are scoped with CSS Modules, your overrides stay local and won't leak into other components.

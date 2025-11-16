@@ -119,38 +119,104 @@ Only these events support `additionalContext`:
 - **serde/serde_json**: JSON serialization/deserialization
 - **OPA v1.0 Rego**: Modern syntax with `import rego.v1`
 
+## Workspace Structure
+
+Cupcake uses a Cargo workspace with multiple crates:
+
+- **cupcake-core**: Core engine library (routing, signals, WASM runtime, synthesis)
+- **cupcake-cli**: Command-line interface binary
+- **cupcake-py**: Python bindings (optional, requires `maturin`)
+
+The workspace is configured to build only `cupcake-core` and `cupcake-cli` by default. Python bindings require separate build steps.
+
 ## Build and Development Commands
+
+### Using Just (Recommended)
+
+The project includes a comprehensive `justfile` with common development tasks:
+
+```bash
+# Show all available commands
+just
+
+# Build commands
+just build              # Build workspace in release mode
+just build-debug        # Build in debug mode (faster)
+just build-core         # Build only cupcake-core
+just build-cli          # Build only cupcake-cli
+just install            # Install cupcake binary to ~/.cargo/bin/
+
+# Test commands (REQUIRED: Must use deterministic-tests feature)
+just test               # Run all Rust tests with deterministic-tests feature
+just test-unit          # Run only unit tests
+just test-integration   # Run only integration tests
+just test-one TEST_NAME # Run a specific test by name
+just test-core          # Test only cupcake-core
+just test-cli           # Test only cupcake-cli
+
+# Development commands
+just check              # Check code without building
+just fmt                # Format all code
+just lint               # Run clippy linter
+just fix                # Auto-fix common issues
+
+# Benchmarks and performance
+just bench              # Run benchmarks
+just perf-test          # Run performance validation tests
+
+# Utilities
+just stats              # Show project statistics
+just test-log           # View recent test results
+just watch              # Watch for changes and rebuild
+just watch-test         # Watch and run tests on change
+```
+
+### Using Cargo Directly
 
 ```bash
 # Build the project
 cargo build --release
 
 # Run tests (REQUIRED: Must use deterministic-tests feature for correct test behavior)
-cargo test --features deterministic-tests
-# Or use the provided alias
-cargo t
+cargo test --workspace --features cupcake-core/deterministic-tests
 
 # Run a specific test
-cargo test test_name --features deterministic-tests
+cargo test test_name --workspace --features cupcake-core/deterministic-tests
 
 # Run benchmarks
-cargo bench
+cargo bench -p cupcake-core
 
 # Run with debug logging
-cargo run -- eval --log-level debug [args]
+cargo run -p cupcake-cli -- eval --log-level debug [args]
 
 # Create a new release (pushes tag to trigger automated workflow)
 git tag v[VERSION] && git push origin v[VERSION]
 
 # Enable extensive debugging with policy evaluation tracing
 cargo run -- eval --trace eval [args]      # Shows the main policy evaluation pipeline (routing, signals, WASM, synthesis)
-cargo test --features deterministic-tests --trace all  # Shows everything (all engine components plus lower-level details)
+cargo test --workspace --features cupcake-core/deterministic-tests --trace all  # Shows everything (all engine components plus lower-level details)
 
 # Compile OPA policies to WASM (from project root)
 opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/
 
 # Run cupcake with policies
 cargo run -- eval --policy-dir .cupcake/policies
+```
+
+### Python Bindings (Optional)
+
+```bash
+# Setup Python virtual environment
+just venv
+
+# Build and install Python bindings locally
+just develop-python
+
+# Run Python tests
+just test-python
+
+# Build Python wheel
+just build-python
 ```
 
 ## Architecture Overview
@@ -241,23 +307,87 @@ Policies trust the engine's routing - they don't need to verify event types or t
 
 The synthesis layer enforces strict priority: Halt > Deny/Block > Ask > Allow
 
-## Key Files and Modules
+### Two-Phase Evaluation Model
 
-- `src/engine/mod.rs` - Core engine with routing and evaluation
-- `src/engine/metadata.rs` - OPA metadata parser
-- `src/engine/synthesis.rs` - Decision synthesis (Intelligence Layer)
-- `src/engine/builtins.rs` - Builtin abstractions configuration
-- `src/harness/` - Claude Code response formatting
+Cupcake evaluates policies in two phases for optimal security and performance:
+
+**Phase 1: Global Policies** (from `~/.cupcake/rulebook.yml`)
+- Evaluated first with early termination on Halt/Deny/Block
+- Provides organization-wide governance that cannot be overridden by project configs
+- Uses separate WASM module with namespace `cupcake.global.policies.builtins.*`
+- If Phase 1 blocks, Phase 2 never executes
+
+**Phase 2: Project Policies** (from `.cupcake/rulebook.yml`)
+- Evaluated only if Phase 1 allows or adds context
+- Project-specific rules and customizations
+- Uses namespace `cupcake.policies.*`
+
+This two-phase model enables centralized security controls while allowing project flexibility.
+
+## Module Organization
+
+### cupcake-core/src/
+
+- **engine/**: Core policy evaluation engine
+  - `mod.rs` - Main engine with routing and evaluation orchestration
+  - `metadata.rs` - OPA metadata parser for routing declarations
+  - `routing.rs` - O(1) policy routing based on event/tool metadata
+  - `synthesis.rs` - Decision synthesis layer (Halt > Deny > Ask > Allow priority)
+  - `compiler.rs` - OPA policy compilation to WASM
+  - `wasm_runtime.rs` - Wasmtime execution environment
+  - `builtins.rs` - Builtin policy abstractions configuration
+  - `rulebook.rs` - Configuration file parsing (.cupcake/rulebook.yml)
+  - `global_config.rs` - Global (user-level) configuration discovery
+  - `decision.rs` - Decision types and validation
+  - `trace.rs` - Evaluation tracing for debugging
+
+- **harness/**: Harness-specific integrations
+  - `events/claude_code/` - Claude Code event parsers (PreToolUse, PostToolUse, UserPromptSubmit, etc.)
+  - `events/cursor/` - Cursor event parsers (BeforeShellExecution, AfterFileEdit, etc.)
+  - `response/claude_code/` - Claude Code response formatters
+  - `response/cursor/` - Cursor response formatters
+  - `types.rs` - Common harness types and enums
+
+- **preprocessing/**: Input normalization and security
+  - `normalizers.rs` - Text normalization (whitespace, unicode) to prevent bypass attacks
+  - `script_inspector.rs` - Shell script content extraction from `-c` arguments
+  - `symlink_resolver.rs` - Symlink resolution for file path security
+  - `config.rs` - Preprocessing configuration
+
+- **trust/**: Policy integrity verification
+  - `mod.rs` - Trust system orchestration
+  - `manifest.rs` - Policy manifest generation and verification
+  - `hasher.rs` - Content hashing with HMAC
+  - `verifier.rs` - Trust verification logic
+
+- **validator/**: Decision and event validation
+  - `decision_event_matrix.rs` - Matrix of valid decision types per event
+  - `rules.rs` - Validation rules for decisions
+  - `mod.rs` - Validation orchestration
+
+- **debug/**: Debug output and routing visualization
+  - `mod.rs` - Debug file generation for `.cupcake/debug/`
+
+### Key Files
+
 - `cupcake-core/tests/fixtures/system_evaluate.rego` - Reference system aggregation entrypoint
 - `fixtures/init/base-config.yml` - Template for builtin configuration
+- `justfile` - Development task runner with all common commands
 
 ## Reference Documents
 
-Additional documentation may be available in the project repository for:
+Key documentation files in the repository:
 
-- Architecture specifications
-- Claude Code hooks documentation
-- Decision to JSON response mapping
+- `README.md` - Project overview, quick start, and feature highlights
+- `SECURITY_PREPROCESSING.md` - Details on adversarial input protection
+- `docs/` - New documentation site (in development, using Astro)
+- `docs-old/` - Legacy documentation (being migrated)
+  - `docs-old/user-guide/policies/writing-policies.md` - Complete policy authoring guide
+  - `docs-old/user-guide/policies/metadata-system.md` - Routing metadata documentation
+  - `docs-old/user-guide/policies/builtin-policies-reference.md` - All builtin policies
+  - `docs-old/user-guide/harnesses/` - Harness-specific integration guides
+  - `docs-old/development/DEBUGGING.md` - Advanced debugging techniques
+- `examples/` - Example policies and event payloads
 
 ## Policy Development
 
@@ -542,6 +672,26 @@ cupcake eval --debug-files --policy-dir .cupcake/policies < event.json
 ```
 
 This creates human-readable debug files with complete evaluation flow including routing, signals, WASM results, and final decisions.
+
+### Trace Levels
+
+The `--trace` flag enables different levels of evaluation tracing to stderr:
+
+```bash
+# Trace main evaluation pipeline only (routing, signals, WASM, synthesis)
+cargo run -- eval --trace eval < event.json
+
+# Trace everything (all engine components plus lower-level details)
+cargo run -- eval --trace all < event.json
+
+# Trace specific components
+cargo run -- eval --trace routing      # Routing decisions
+cargo run -- eval --trace signals      # Signal gathering
+cargo run -- eval --trace wasm         # WASM execution
+cargo run -- eval --trace synthesis    # Decision synthesis
+```
+
+Trace output goes to stderr, so it doesn't interfere with JSON responses on stdout.
 
 ### Policy Changes in Tests
 

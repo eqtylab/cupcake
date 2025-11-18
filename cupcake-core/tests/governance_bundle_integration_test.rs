@@ -44,6 +44,7 @@ fn create_test_bundle() -> bundle::GovernanceBundle {
         wasm: create_minimal_wasm(),
         signals,
         actions,
+        extracted_path: std::env::temp_dir().join("test-bundle"),
     }
 }
 

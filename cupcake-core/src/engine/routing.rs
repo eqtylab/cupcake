@@ -13,6 +13,13 @@ use super::RoutingDirective;
 pub fn create_routing_key_from_metadata(directive: &RoutingDirective) -> Vec<String> {
     let mut keys = Vec::new();
 
+    // If no events specified, this is likely a system/aggregation policy
+    // System policies don't need routing - they're called directly
+    if directive.required_events.is_empty() {
+        tracing::debug!("Directive has no required_events - policy will not be routed");
+        return keys;
+    }
+
     // Generate keys for each event/tool combination
     for event in &directive.required_events {
         if directive.required_tools.is_empty() {

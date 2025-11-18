@@ -426,6 +426,7 @@ mod tests {
             wasm: vec![],
             signals,
             actions: std::collections::HashMap::new(),
+            extracted_path: std::env::temp_dir().join("test-bundle"),
         };
 
         // Should succeed - script is trusted
@@ -464,6 +465,7 @@ mod tests {
             wasm: vec![],
             signals,
             actions: std::collections::HashMap::new(),
+            extracted_path: std::env::temp_dir().join("test-bundle"),
         };
 
         // Should succeed - trust is disabled, no verification happens
@@ -498,6 +500,7 @@ mod tests {
             wasm: vec![],
             signals,
             actions: std::collections::HashMap::new(),
+            extracted_path: std::env::temp_dir().join("test-bundle"),
         };
 
         // Should succeed with warnings (doesn't fail, just logs)

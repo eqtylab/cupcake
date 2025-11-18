@@ -705,6 +705,7 @@ mod governance_tests {
             wasm: vec![1, 2, 3], // Dummy WASM bytes
             signals,
             actions,
+            extracted_path: std::env::temp_dir().join("test-bundle"),
         }
     }
 

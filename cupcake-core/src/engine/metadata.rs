@@ -126,7 +126,8 @@ fn extract_metadata_yaml(content: &str) -> Result<String> {
 
 /// Validate a routing directive for completeness
 pub fn validate_routing_directive(directive: &RoutingDirective, package_name: &str) -> Result<()> {
-    let is_system_policy = package_name.starts_with("cupcake.system");
+    let is_system_policy = package_name.starts_with("cupcake.system") 
+        || package_name.starts_with("governance.system");
 
     if is_system_policy {
         // System policies: aggregation functions that don't need event-specific routing

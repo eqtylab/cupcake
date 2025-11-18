@@ -206,6 +206,10 @@ enum Command {
         /// Enable specific builtins (comma-separated list)
         #[clap(long, value_delimiter = ',')]
         builtins: Option<Vec<String>>,
+
+        /// Path to governance bundle file (.tar.gz) to use for evaluation
+        #[clap(long)]
+        governance_bundle: Option<PathBuf>,
     },
 
     /// Manage script trust and integrity verification
@@ -367,7 +371,8 @@ async fn main() -> Result<()> {
             global,
             harness,
             builtins,
-        } => init_command(global, harness, builtins).await,
+            governance_bundle,
+        } => init_command(global, harness, builtins, governance_bundle).await,
         Command::Trust { command } => command.execute().await,
         Command::Validate { policy_dir, json } => validate_command(policy_dir, json).await,
         Command::Inspect {
@@ -867,6 +872,7 @@ async fn init_command(
     global: bool,
     harness: Option<HarnessType>,
     builtins: Option<Vec<String>>,
+    governance_bundle: Option<PathBuf>,
 ) -> Result<()> {
     // Validate builtin names if provided
     if let Some(ref builtin_list) = builtins {
@@ -875,16 +881,17 @@ async fn init_command(
 
     if global {
         // Initialize global configuration
-        init_global_config(harness, builtins).await
+        init_global_config(harness, builtins, governance_bundle).await
     } else {
         // Initialize project configuration
-        init_project_config(harness, builtins).await
+        init_project_config(harness, builtins, governance_bundle).await
     }
 }
 
 async fn init_global_config(
     harness: Option<HarnessType>,
     builtins: Option<Vec<String>>,
+    governance_bundle: Option<PathBuf>,
 ) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
 
@@ -1173,7 +1180,7 @@ import rego.v1
     // Configure harness if specified
     if let Some(harness_type) = harness {
         println!();
-        harness_config::configure_harness(harness_type, &global_paths.root, true).await?;
+        harness_config::configure_harness(harness_type, &global_paths.root, true, governance_bundle.as_deref()).await?;
     }
 
     Ok(())
@@ -1182,6 +1189,7 @@ import rego.v1
 async fn init_project_config(
     harness: Option<HarnessType>,
     builtins: Option<Vec<String>>,
+    governance_bundle: Option<PathBuf>,
 ) -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
 
@@ -1337,7 +1345,7 @@ async fn init_project_config(
         if cupcake_exists {
             println!();
         }
-        harness_config::configure_harness(harness_type, Path::new(".cupcake"), false).await?;
+        harness_config::configure_harness(harness_type, Path::new(".cupcake"), false, governance_bundle.as_deref()).await?;
     }
 
     Ok(())

@@ -17,7 +17,7 @@ pub trait HarnessConfig {
     fn settings_path(&self, global: bool) -> PathBuf;
 
     /// Generate the hook configuration JSON for this harness
-    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value>;
+    fn generate_hooks(&self, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) -> Result<Value>;
 
     /// Merge hooks into existing settings without destroying other configuration
     fn merge_settings(&self, existing: Value, new_hooks: Value) -> Result<Value>;
@@ -45,7 +45,7 @@ impl HarnessConfig for ClaudeHarness {
         }
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
+    fn generate_hooks(&self, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) -> Result<Value> {
         // Determine the policy path to use in commands
         let policy_path = if global {
             // Global config - use absolute path
@@ -53,9 +53,25 @@ impl HarnessConfig for ClaudeHarness {
                 fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
             abs_path.display().to_string()
         } else {
-            // Project config - use environment variable for portability
-            "$CLAUDE_PROJECT_DIR/.cupcake".to_string()
+            // Project config - use relative path (hooks run with cwd = project root)
+            ".cupcake".to_string()
         };
+
+        // Build the base command
+        let mut base_command = format!("cupcake eval --harness claude --policy-dir {}", policy_path);
+        
+        // Add governance bundle flag if provided
+        if let Some(bundle_path) = governance_bundle {
+            let bundle_str = if global {
+                // Global - use absolute path
+                let abs_bundle = fs::canonicalize(bundle_path).unwrap_or_else(|_| bundle_path.to_path_buf());
+                abs_bundle.display().to_string()
+            } else {
+                // Project - use relative path
+                bundle_path.display().to_string()
+            };
+            base_command.push_str(&format!(" --governance-bundle {}", bundle_str));
+        }
 
         Ok(json!({
             "hooks": {
@@ -63,26 +79,26 @@ impl HarnessConfig for ClaudeHarness {
                     "matcher": "*",
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
+                        "command": base_command.clone()
                     }]
                 }],
                 "PostToolUse": [{
                     "matcher": "Edit|MultiEdit|Write",
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
+                        "command": base_command.clone()
                     }]
                 }],
                 "UserPromptSubmit": [{
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
+                        "command": base_command.clone()
                     }]
                 }],
                 "SessionStart": [{
                     "hooks": [{
                         "type": "command",
-                        "command": format!("cupcake eval --harness claude --policy-dir {}", policy_path)
+                        "command": base_command
                     }]
                 }]
             }
@@ -111,7 +127,7 @@ impl HarnessConfig for CursorHarness {
             .join("hooks.json")
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
+    fn generate_hooks(&self, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) -> Result<Value> {
         // Determine the policy path to use in commands
         let policy_path = if global {
             // Global config - use absolute path
@@ -123,28 +139,44 @@ impl HarnessConfig for CursorHarness {
             ".cupcake".to_string()
         };
 
+        // Build the base command
+        let mut base_command = format!("cupcake eval --harness cursor --policy-dir {}", policy_path);
+        
+        // Add governance bundle flag if provided
+        if let Some(bundle_path) = governance_bundle {
+            let bundle_str = if global {
+                // Global - use absolute path
+                let abs_bundle = fs::canonicalize(bundle_path).unwrap_or_else(|_| bundle_path.to_path_buf());
+                abs_bundle.display().to_string()
+            } else {
+                // Project - use relative path
+                bundle_path.display().to_string()
+            };
+            base_command.push_str(&format!(" --governance-bundle {}", bundle_str));
+        }
+
         // Cursor's hook configuration format - official hooks.json structure
         // Reference: https://cursor.com/docs/agent/hooks.md
         Ok(json!({
             "version": 1,
             "hooks": {
                 "beforeShellExecution": [{
-                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                    "command": base_command.clone()
                 }],
                 "beforeMCPExecution": [{
-                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                    "command": base_command.clone()
                 }],
                 "afterFileEdit": [{
-                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                    "command": base_command.clone()
                 }],
                 "beforeReadFile": [{
-                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                    "command": base_command.clone()
                 }],
                 "beforeSubmitPrompt": [{
-                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                    "command": base_command.clone()
                 }],
                 "stop": [{
-                    "command": format!("cupcake eval --harness cursor --policy-dir {}", policy_path)
+                    "command": base_command
                 }]
             }
         }))
@@ -241,6 +273,7 @@ pub async fn configure_harness(
     harness_type: super::HarnessType,
     policy_dir: &Path,
     global: bool,
+    governance_bundle: Option<&Path>,
 ) -> Result<()> {
     use super::HarnessType;
 
@@ -251,14 +284,14 @@ pub async fn configure_harness(
 
             // Try to configure, fallback to manual instructions on error
             if let Err(e) =
-                setup_harness_settings(&harness, &settings_path, policy_dir, global).await
+                setup_harness_settings(&harness, &settings_path, policy_dir, global, governance_bundle).await
             {
                 eprintln!(
                     "⚠️  Could not automatically configure {}: {}",
                     harness.name(),
                     e
                 );
-                print_manual_instructions(&harness, policy_dir, global);
+                print_manual_instructions(&harness, policy_dir, global, governance_bundle);
                 // Don't fail the entire init - just warn
             } else {
                 println!(
@@ -281,14 +314,14 @@ pub async fn configure_harness(
 
             // Try to configure, fallback to manual instructions on error
             if let Err(e) =
-                setup_harness_settings(&harness, &settings_path, policy_dir, global).await
+                setup_harness_settings(&harness, &settings_path, policy_dir, global, governance_bundle).await
             {
                 eprintln!(
                     "⚠️  Could not automatically configure {}: {}",
                     harness.name(),
                     e
                 );
-                print_cursor_manual_instructions(policy_dir, global);
+                print_cursor_manual_instructions(policy_dir, global, governance_bundle);
                 // Don't fail the entire init - just warn
             } else {
                 println!(
@@ -320,6 +353,7 @@ async fn setup_harness_settings(
     settings_path: &Path,
     policy_dir: &Path,
     global: bool,
+    governance_bundle: Option<&Path>,
 ) -> Result<()> {
     // Ensure parent directory exists
     if let Some(parent) = settings_path.parent() {
@@ -327,7 +361,7 @@ async fn setup_harness_settings(
     }
 
     // Generate hook configuration
-    let new_hooks = harness.generate_hooks(policy_dir, global)?;
+    let new_hooks = harness.generate_hooks(policy_dir, global, governance_bundle)?;
 
     // Check if settings file exists
     let final_settings = if settings_path.exists() {
@@ -354,12 +388,17 @@ async fn setup_harness_settings(
 }
 
 /// Print manual configuration instructions as fallback
-fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, global: bool) {
+fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) {
     let policy_path = if global {
         policy_dir.display().to_string()
     } else {
-        "$CLAUDE_PROJECT_DIR/.cupcake".to_string()
+        ".cupcake".to_string()
     };
+
+    let mut command = format!("cupcake eval --harness claude --policy-dir {policy_path}");
+    if let Some(bundle_path) = governance_bundle {
+        command.push_str(&format!(" --governance-bundle {}", bundle_path.display()));
+    }
 
     eprintln!();
     eprintln!(
@@ -374,7 +413,7 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     eprintln!("         \"hooks\": [{{");
     eprintln!("           \"type\": \"command\",");
     eprintln!(
-        "           \"command\": \"cupcake eval --harness claude --policy-dir {policy_path}\""
+        "           \"command\": \"{}\"", command
     );
     eprintln!("         }}]");
     eprintln!("       }}]");
@@ -384,12 +423,17 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
 }
 
 /// Print manual configuration instructions for Cursor
-fn print_cursor_manual_instructions(policy_dir: &Path, global: bool) {
+fn print_cursor_manual_instructions(policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) {
     let policy_path = if global {
         policy_dir.display().to_string()
     } else {
         ".cupcake".to_string()
     };
+
+    let mut command = format!("cupcake eval --harness cursor --policy-dir {policy_path}");
+    if let Some(bundle_path) = governance_bundle {
+        command.push_str(&format!(" --governance-bundle {}", bundle_path.display()));
+    }
 
     // Cursor hooks are always in ~/.cursor/hooks.json
     let settings_path = "~/.cursor/hooks.json";
@@ -401,22 +445,22 @@ fn print_cursor_manual_instructions(policy_dir: &Path, global: bool) {
     eprintln!("     \"version\": 1,");
     eprintln!("     \"hooks\": {{");
     eprintln!("       \"beforeShellExecution\": [{{");
-    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("         \"command\": \"{}\"", command);
     eprintln!("       }}],");
     eprintln!("       \"beforeMCPExecution\": [{{");
-    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("         \"command\": \"{}\"", command);
     eprintln!("       }}],");
     eprintln!("       \"afterFileEdit\": [{{");
-    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("         \"command\": \"{}\"", command);
     eprintln!("       }}],");
     eprintln!("       \"beforeReadFile\": [{{");
-    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("         \"command\": \"{}\"", command);
     eprintln!("       }}],");
     eprintln!("       \"beforeSubmitPrompt\": [{{");
-    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("         \"command\": \"{}\"", command);
     eprintln!("       }}],");
     eprintln!("       \"stop\": [{{");
-    eprintln!("         \"command\": \"cupcake eval --harness cursor --policy-dir {policy_path}\"");
+    eprintln!("         \"command\": \"{}\"", command);
     eprintln!("       }}]");
     eprintln!("     }}");
     eprintln!("   }}");

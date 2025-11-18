@@ -1180,7 +1180,13 @@ import rego.v1
     // Configure harness if specified
     if let Some(harness_type) = harness {
         println!();
-        harness_config::configure_harness(harness_type, &global_paths.root, true, governance_bundle.as_deref()).await?;
+        harness_config::configure_harness(
+            harness_type,
+            &global_paths.root,
+            true,
+            governance_bundle.as_deref(),
+        )
+        .await?;
     }
 
     Ok(())
@@ -1345,7 +1351,13 @@ async fn init_project_config(
         if cupcake_exists {
             println!();
         }
-        harness_config::configure_harness(harness_type, Path::new(".cupcake"), false, governance_bundle.as_deref()).await?;
+        harness_config::configure_harness(
+            harness_type,
+            Path::new(".cupcake"),
+            false,
+            governance_bundle.as_deref(),
+        )
+        .await?;
     }
 
     Ok(())

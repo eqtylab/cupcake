@@ -17,7 +17,12 @@ pub trait HarnessConfig {
     fn settings_path(&self, global: bool) -> PathBuf;
 
     /// Generate the hook configuration JSON for this harness
-    fn generate_hooks(&self, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) -> Result<Value>;
+    fn generate_hooks(
+        &self,
+        policy_dir: &Path,
+        global: bool,
+        governance_bundle: Option<&Path>,
+    ) -> Result<Value>;
 
     /// Merge hooks into existing settings without destroying other configuration
     fn merge_settings(&self, existing: Value, new_hooks: Value) -> Result<Value>;
@@ -45,7 +50,12 @@ impl HarnessConfig for ClaudeHarness {
         }
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) -> Result<Value> {
+    fn generate_hooks(
+        &self,
+        policy_dir: &Path,
+        global: bool,
+        governance_bundle: Option<&Path>,
+    ) -> Result<Value> {
         // Determine the policy path to use in commands
         let policy_path = if global {
             // Global config - use absolute path
@@ -58,13 +68,15 @@ impl HarnessConfig for ClaudeHarness {
         };
 
         // Build the base command
-        let mut base_command = format!("cupcake eval --harness claude --policy-dir {}", policy_path);
-        
+        let mut base_command =
+            format!("cupcake eval --harness claude --policy-dir {}", policy_path);
+
         // Add governance bundle flag if provided
         if let Some(bundle_path) = governance_bundle {
             let bundle_str = if global {
                 // Global - use absolute path
-                let abs_bundle = fs::canonicalize(bundle_path).unwrap_or_else(|_| bundle_path.to_path_buf());
+                let abs_bundle =
+                    fs::canonicalize(bundle_path).unwrap_or_else(|_| bundle_path.to_path_buf());
                 abs_bundle.display().to_string()
             } else {
                 // Project - use relative path
@@ -127,7 +139,12 @@ impl HarnessConfig for CursorHarness {
             .join("hooks.json")
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) -> Result<Value> {
+    fn generate_hooks(
+        &self,
+        policy_dir: &Path,
+        global: bool,
+        governance_bundle: Option<&Path>,
+    ) -> Result<Value> {
         // Determine the policy path to use in commands
         let policy_path = if global {
             // Global config - use absolute path
@@ -140,13 +157,15 @@ impl HarnessConfig for CursorHarness {
         };
 
         // Build the base command
-        let mut base_command = format!("cupcake eval --harness cursor --policy-dir {}", policy_path);
-        
+        let mut base_command =
+            format!("cupcake eval --harness cursor --policy-dir {}", policy_path);
+
         // Add governance bundle flag if provided
         if let Some(bundle_path) = governance_bundle {
             let bundle_str = if global {
                 // Global - use absolute path
-                let abs_bundle = fs::canonicalize(bundle_path).unwrap_or_else(|_| bundle_path.to_path_buf());
+                let abs_bundle =
+                    fs::canonicalize(bundle_path).unwrap_or_else(|_| bundle_path.to_path_buf());
                 abs_bundle.display().to_string()
             } else {
                 // Project - use relative path
@@ -283,8 +302,14 @@ pub async fn configure_harness(
             let settings_path = harness.settings_path(global);
 
             // Try to configure, fallback to manual instructions on error
-            if let Err(e) =
-                setup_harness_settings(&harness, &settings_path, policy_dir, global, governance_bundle).await
+            if let Err(e) = setup_harness_settings(
+                &harness,
+                &settings_path,
+                policy_dir,
+                global,
+                governance_bundle,
+            )
+            .await
             {
                 eprintln!(
                     "⚠️  Could not automatically configure {}: {}",
@@ -313,8 +338,14 @@ pub async fn configure_harness(
             let settings_path = harness.settings_path(global);
 
             // Try to configure, fallback to manual instructions on error
-            if let Err(e) =
-                setup_harness_settings(&harness, &settings_path, policy_dir, global, governance_bundle).await
+            if let Err(e) = setup_harness_settings(
+                &harness,
+                &settings_path,
+                policy_dir,
+                global,
+                governance_bundle,
+            )
+            .await
             {
                 eprintln!(
                     "⚠️  Could not automatically configure {}: {}",
@@ -388,7 +419,12 @@ async fn setup_harness_settings(
 }
 
 /// Print manual configuration instructions as fallback
-fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) {
+fn print_manual_instructions(
+    harness: &dyn HarnessConfig,
+    policy_dir: &Path,
+    global: bool,
+    governance_bundle: Option<&Path>,
+) {
     let policy_path = if global {
         policy_dir.display().to_string()
     } else {
@@ -412,9 +448,7 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
     eprintln!("         \"matcher\": \"*\",");
     eprintln!("         \"hooks\": [{{");
     eprintln!("           \"type\": \"command\",");
-    eprintln!(
-        "           \"command\": \"{}\"", command
-    );
+    eprintln!("           \"command\": \"{}\"", command);
     eprintln!("         }}]");
     eprintln!("       }}]");
     eprintln!("     }}");
@@ -423,7 +457,11 @@ fn print_manual_instructions(harness: &dyn HarnessConfig, policy_dir: &Path, glo
 }
 
 /// Print manual configuration instructions for Cursor
-fn print_cursor_manual_instructions(policy_dir: &Path, global: bool, governance_bundle: Option<&Path>) {
+fn print_cursor_manual_instructions(
+    policy_dir: &Path,
+    global: bool,
+    governance_bundle: Option<&Path>,
+) {
     let policy_path = if global {
         policy_dir.display().to_string()
     } else {

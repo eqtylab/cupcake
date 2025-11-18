@@ -85,6 +85,9 @@ add_context contains "Global policy active"
 
     // Engine should initialize with both configs
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(global_root),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -153,6 +156,9 @@ test_value := "project"
 
     // Engine should handle both without namespace collision
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(global_root),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,

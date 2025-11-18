@@ -56,6 +56,9 @@ builtins:
     // Create empty global config to prevent interference
     let empty_global = TempDir::new()?;
     let config = EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: HarnessType::ClaudeCode,
         wasm_max_memory: None,

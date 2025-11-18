@@ -132,6 +132,9 @@ builtins: {}
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
@@ -188,6 +191,9 @@ builtins: {}
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
@@ -238,6 +244,9 @@ builtins: {}
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
@@ -365,6 +374,9 @@ builtins:
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
@@ -514,6 +526,9 @@ builtins:
         // Set global config env var
         // Create engine with global config (pass project root, not policies directory)
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(global_temp.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,

@@ -74,6 +74,9 @@ halt contains decision if {
         global_dir.path()
     );
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(global_root),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -188,6 +191,9 @@ allow_override contains decision if {
     eprintln!("Global config at: {:?}", global_dir.path());
     eprintln!("Project config at: {:?}", project_dir.path());
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(global_root),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,

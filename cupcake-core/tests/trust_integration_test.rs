@@ -121,6 +121,9 @@ async fn test_engine_without_trust() -> Result<()> {
     // Disable global config to avoid interference
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -160,6 +163,9 @@ async fn test_engine_with_trust_no_manifest() -> Result<()> {
     // Disable global config to avoid interference
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -203,6 +209,9 @@ async fn test_engine_with_valid_trust() -> Result<()> {
     // Disable global config to avoid interference
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -269,6 +278,9 @@ deny contains decision if {
     // Disable global config to avoid interference
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -311,6 +323,9 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         // Disable global config to avoid interference
         let empty_global = TempDir::new()?;
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(empty_global.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
@@ -330,6 +345,9 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         // Disable global config to avoid interference
         let empty_global = TempDir::new()?;
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(empty_global.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
@@ -348,6 +366,9 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
         // Disable global config to avoid interference
         let empty_global = TempDir::new()?;
         let config = cupcake_core::engine::EngineConfig {
+            governance_bundle_path: None,
+            governance_service_url: None,
+            governance_rulebook_id: None,
             global_config: Some(empty_global.path().to_path_buf()),
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,

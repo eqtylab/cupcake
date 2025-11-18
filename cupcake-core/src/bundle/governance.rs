@@ -225,15 +225,22 @@ impl GovernanceBundleLoader {
             if let Some(custom) = &annotation.custom {
                 if let Some(available_signals) = custom.get("available_signals") {
                     // Try different formats for signals:
-                    
+
                     // Format 1: { "signals": { "name": { "script": "path", ... } } } or { "name": "path" }
                     if let Some(signals_obj) = available_signals.get("signals") {
                         // Try to parse as HashMap<String, SignalConfig> first (Cupcake format)
-                        if let Ok(parsed_signals) = serde_json::from_value::<HashMap<String, SignalConfig>>(signals_obj.clone()) {
+                        if let Ok(parsed_signals) = serde_json::from_value::<
+                            HashMap<String, SignalConfig>,
+                        >(signals_obj.clone())
+                        {
                             signals = parsed_signals;
                         }
                         // Try governance service metadata format with "script" field
-                        else if let Ok(meta_signals) = serde_json::from_value::<HashMap<String, GovernanceSignalMeta>>(signals_obj.clone()) {
+                        else if let Ok(meta_signals) =
+                            serde_json::from_value::<HashMap<String, GovernanceSignalMeta>>(
+                                signals_obj.clone(),
+                            )
+                        {
                             debug!("Parsing signals from governance service metadata format");
                             for (signal_name, meta) in meta_signals {
                                 signals.insert(
@@ -246,7 +253,9 @@ impl GovernanceBundleLoader {
                             }
                         }
                         // Fall back to HashMap<String, String> (simple script paths)
-                        else if let Ok(script_signals) = serde_json::from_value::<HashMap<String, String>>(signals_obj.clone()) {
+                        else if let Ok(script_signals) =
+                            serde_json::from_value::<HashMap<String, String>>(signals_obj.clone())
+                        {
                             debug!("Parsing signals as simple script paths");
                             for (signal_name, script_path) in script_signals {
                                 signals.insert(
@@ -265,12 +274,20 @@ impl GovernanceBundleLoader {
                     // Format 2: available_signals IS the signals object directly
                     else {
                         // Try to parse available_signals directly as HashMap<String, SignalConfig>
-                        if let Ok(parsed_signals) = serde_json::from_value::<HashMap<String, SignalConfig>>(available_signals.clone()) {
+                        if let Ok(parsed_signals) =
+                            serde_json::from_value::<HashMap<String, SignalConfig>>(
+                                available_signals.clone(),
+                            )
+                        {
                             debug!("Parsing signals directly from available_signals (SignalConfig format)");
                             signals = parsed_signals;
                         }
                         // Try governance service metadata format
-                        else if let Ok(meta_signals) = serde_json::from_value::<HashMap<String, GovernanceSignalMeta>>(available_signals.clone()) {
+                        else if let Ok(meta_signals) =
+                            serde_json::from_value::<HashMap<String, GovernanceSignalMeta>>(
+                                available_signals.clone(),
+                            )
+                        {
                             debug!("Parsing signals directly from available_signals (governance metadata)");
                             for (signal_name, meta) in meta_signals {
                                 signals.insert(
@@ -283,8 +300,14 @@ impl GovernanceBundleLoader {
                             }
                         }
                         // Try to parse available_signals directly as HashMap<String, String>
-                        else if let Ok(script_signals) = serde_json::from_value::<HashMap<String, String>>(available_signals.clone()) {
-                            debug!("Parsing signals directly from available_signals (simple paths)");
+                        else if let Ok(script_signals) =
+                            serde_json::from_value::<HashMap<String, String>>(
+                                available_signals.clone(),
+                            )
+                        {
+                            debug!(
+                                "Parsing signals directly from available_signals (simple paths)"
+                            );
                             for (signal_name, script_path) in script_signals {
                                 signals.insert(
                                     signal_name,
@@ -315,16 +338,23 @@ impl GovernanceBundleLoader {
             if let Some(custom) = &annotation.custom {
                 if let Some(available_actions) = custom.get("available_actions") {
                     // Try different formats for actions:
-                    
+
                     // Format 1: { "actions": { "rule_id": ["path"] } } or { "action_name": { "script": "path", ... } }
                     if let Some(actions_obj) = available_actions.get("actions") {
                         // Try to parse as HashMap<String, Vec<ActionConfig>> first (Cupcake format)
-                        if let Ok(parsed_actions) = serde_json::from_value::<HashMap<String, Vec<ActionConfig>>>(actions_obj.clone()) {
+                        if let Ok(parsed_actions) = serde_json::from_value::<
+                            HashMap<String, Vec<ActionConfig>>,
+                        >(actions_obj.clone())
+                        {
                             actions = parsed_actions;
                         }
                         // Try governance service metadata format: HashMap<String, GovernanceActionMeta>
                         // These are global actions keyed by action name, not rule ID
-                        else if let Ok(meta_actions) = serde_json::from_value::<HashMap<String, GovernanceActionMeta>>(actions_obj.clone()) {
+                        else if let Ok(meta_actions) =
+                            serde_json::from_value::<HashMap<String, GovernanceActionMeta>>(
+                                actions_obj.clone(),
+                            )
+                        {
                             debug!("Parsing actions from governance service metadata format (global actions)");
                             // For governance bundles, actions with trigger_on are global actions
                             // We'll store them with a special key to indicate they're global
@@ -340,7 +370,11 @@ impl GovernanceBundleLoader {
                             }
                         }
                         // Fall back to HashMap<String, Vec<String>> (simple script paths)
-                        else if let Ok(script_actions) = serde_json::from_value::<HashMap<String, Vec<String>>>(actions_obj.clone()) {
+                        else if let Ok(script_actions) =
+                            serde_json::from_value::<HashMap<String, Vec<String>>>(
+                                actions_obj.clone(),
+                            )
+                        {
                             debug!("Parsing actions as simple script paths");
                             for (rule_id, scripts) in script_actions {
                                 let action_configs: Vec<ActionConfig> = scripts
@@ -359,12 +393,20 @@ impl GovernanceBundleLoader {
                     // Format 2: available_actions IS the actions object directly
                     else {
                         // Try to parse available_actions directly as HashMap<String, Vec<ActionConfig>>
-                        if let Ok(parsed_actions) = serde_json::from_value::<HashMap<String, Vec<ActionConfig>>>(available_actions.clone()) {
+                        if let Ok(parsed_actions) =
+                            serde_json::from_value::<HashMap<String, Vec<ActionConfig>>>(
+                                available_actions.clone(),
+                            )
+                        {
                             debug!("Parsing actions directly from available_actions (ActionConfig format)");
                             actions = parsed_actions;
                         }
                         // Try governance service metadata format
-                        else if let Ok(meta_actions) = serde_json::from_value::<HashMap<String, GovernanceActionMeta>>(available_actions.clone()) {
+                        else if let Ok(meta_actions) =
+                            serde_json::from_value::<HashMap<String, GovernanceActionMeta>>(
+                                available_actions.clone(),
+                            )
+                        {
                             debug!("Parsing actions directly from available_actions (governance metadata)");
                             for (action_name, meta) in meta_actions {
                                 let action_config = ActionConfig {
@@ -374,8 +416,14 @@ impl GovernanceBundleLoader {
                             }
                         }
                         // Try to parse available_actions directly as HashMap<String, Vec<String>>
-                        else if let Ok(script_actions) = serde_json::from_value::<HashMap<String, Vec<String>>>(available_actions.clone()) {
-                            debug!("Parsing actions directly from available_actions (simple paths)");
+                        else if let Ok(script_actions) =
+                            serde_json::from_value::<HashMap<String, Vec<String>>>(
+                                available_actions.clone(),
+                            )
+                        {
+                            debug!(
+                                "Parsing actions directly from available_actions (simple paths)"
+                            );
                             for (rule_id, scripts) in script_actions {
                                 let action_configs: Vec<ActionConfig> = scripts
                                     .into_iter()
@@ -480,13 +528,22 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let actions = GovernanceBundleLoader::parse_actions_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(actions.len(), 2);
         assert_eq!(actions.get("RULE_001").unwrap().len(), 1);
-        assert_eq!(actions.get("RULE_001").unwrap()[0].command, "/bundle/actions/action1.sh");
+        assert_eq!(
+            actions.get("RULE_001").unwrap()[0].command,
+            "/bundle/actions/action1.sh"
+        );
         assert_eq!(actions.get("RULE_002").unwrap().len(), 2);
-        assert_eq!(actions.get("RULE_002").unwrap()[0].command, "/bundle/actions/action2.sh");
-        assert_eq!(actions.get("RULE_002").unwrap()[1].command, "/bundle/actions/action3.sh");
+        assert_eq!(
+            actions.get("RULE_002").unwrap()[0].command,
+            "/bundle/actions/action2.sh"
+        );
+        assert_eq!(
+            actions.get("RULE_002").unwrap()[1].command,
+            "/bundle/actions/action3.sh"
+        );
     }
 
     #[test]
@@ -518,11 +575,17 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let signals = GovernanceBundleLoader::parse_signals_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(signals.len(), 2);
-        assert_eq!(signals.get("git_branch").unwrap().command, "/bundle/signals/git_branch.sh");
+        assert_eq!(
+            signals.get("git_branch").unwrap().command,
+            "/bundle/signals/git_branch.sh"
+        );
         assert_eq!(signals.get("git_branch").unwrap().timeout_seconds, 5);
-        assert_eq!(signals.get("file_count").unwrap().command, "/bundle/signals/file_count.sh");
+        assert_eq!(
+            signals.get("file_count").unwrap().command,
+            "/bundle/signals/file_count.sh"
+        );
     }
 
     #[test]
@@ -556,9 +619,12 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let actions = GovernanceBundleLoader::parse_actions_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions.get("RULE_001").unwrap()[0].command, "/bundle/actions/action1.sh");
+        assert_eq!(
+            actions.get("RULE_001").unwrap()[0].command,
+            "/bundle/actions/action1.sh"
+        );
     }
 
     #[test]
@@ -589,10 +655,16 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let signals = GovernanceBundleLoader::parse_signals_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(signals.len(), 2);
-        assert_eq!(signals.get("git_branch").unwrap().command, "/bundle/signals/git_branch.sh");
-        assert_eq!(signals.get("file_count").unwrap().command, "/bundle/signals/file_count.sh");
+        assert_eq!(
+            signals.get("git_branch").unwrap().command,
+            "/bundle/signals/git_branch.sh"
+        );
+        assert_eq!(
+            signals.get("file_count").unwrap().command,
+            "/bundle/signals/file_count.sh"
+        );
     }
 
     #[test]
@@ -629,9 +701,12 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let signals = GovernanceBundleLoader::parse_signals_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(signals.len(), 1);
-        assert_eq!(signals.get("collect_data").unwrap().command, "collect_data.py");
+        assert_eq!(
+            signals.get("collect_data").unwrap().command,
+            "collect_data.py"
+        );
         assert_eq!(signals.get("collect_data").unwrap().timeout_seconds, 5);
     }
 
@@ -668,9 +743,12 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let actions = GovernanceBundleLoader::parse_actions_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions.get("handle_decision").unwrap()[0].command, "handle_decision.py");
+        assert_eq!(
+            actions.get("handle_decision").unwrap()[0].command,
+            "handle_decision.py"
+        );
     }
 
     #[test]
@@ -701,9 +779,15 @@ mod tests {
 
         let manifest: BundleManifest = serde_json::from_str(manifest_json).unwrap();
         let actions = GovernanceBundleLoader::parse_actions_from_manifest(&manifest).unwrap();
-        
+
         assert_eq!(actions.len(), 2);
-        assert_eq!(actions.get("RULE_001").unwrap()[0].command, "/bundle/actions/action1.sh");
-        assert_eq!(actions.get("RULE_002").unwrap()[0].command, "/bundle/actions/action2.sh");
+        assert_eq!(
+            actions.get("RULE_001").unwrap()[0].command,
+            "/bundle/actions/action1.sh"
+        );
+        assert_eq!(
+            actions.get("RULE_002").unwrap()[0].command,
+            "/bundle/actions/action2.sh"
+        );
     }
 }

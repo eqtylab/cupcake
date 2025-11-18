@@ -460,43 +460,58 @@ impl Engine {
 
             // Parse governance bundle policies for routing
             info!("Parsing governance bundle policies for routing metadata");
-            let policies_dir = crate::bundle::GovernanceBundleLoader::policies_directory(&bundle.extracted_path);
+            let policies_dir =
+                crate::bundle::GovernanceBundleLoader::policies_directory(&bundle.extracted_path);
             info!("Scanning for policies in: {}", policies_dir.display());
-            
+
             if policies_dir.exists() {
                 let policy_files = scanner::scan_policies(&policies_dir).await?;
-                info!("Found {} policy files in governance bundle", policy_files.len());
-                
+                info!(
+                    "Found {} policy files in governance bundle",
+                    policy_files.len()
+                );
+
                 // Log all discovered files
                 for (i, file) in policy_files.iter().enumerate() {
                     debug!("  Policy file {}: {}", i + 1, file.display());
                 }
-                
+
                 for path in policy_files {
                     match self.parse_policy(&path).await {
                         Ok(unit) => {
                             info!(
                                 "Successfully parsed governance policy: {} from {}",
-                                unit.package_name, path.display()
+                                unit.package_name,
+                                path.display()
                             );
                             self.policies.push(unit);
                         }
                         Err(e) => {
                             // Fail loudly but don't crash - log and skip bad policies
-                            error!("Failed to parse governance policy at {}: {}", path.display(), e);
+                            error!(
+                                "Failed to parse governance policy at {}: {}",
+                                path.display(),
+                                e
+                            );
                         }
                     }
                 }
-                
+
                 // Build routing map for governance bundle policies
                 if !self.policies.is_empty() {
                     self.build_routing_map();
-                    info!("Built routing map with {} entries from governance bundle", self.routing_map.len());
+                    info!(
+                        "Built routing map with {} entries from governance bundle",
+                        self.routing_map.len()
+                    );
                 } else {
                     warn!("No valid policies found in governance bundle");
                 }
             } else {
-                warn!("Governance bundle policies directory not found at {:?}", policies_dir);
+                warn!(
+                    "Governance bundle policies directory not found at {:?}",
+                    policies_dir
+                );
             }
         } else {
             // Existing behavior: compile local policies

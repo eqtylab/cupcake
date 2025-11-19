@@ -1,71 +1,129 @@
 ---
 layout: "@/layouts/mdx-layout.astro"
 heading: "Installation"
+description: "Install Cupcake on your system"
 ---
 
-## Using the library in your app
+## Quick Install
 
-Install the package inside your app's workspace using your preferred package manager:
+Install Cupcake using the official install scripts:
 
-```bash
-pnpm add @eqtylab/equality
-# or
-npm install @eqtylab/equality
-# or
-yarn add @eqtylab/equality
-# or
-bun add @eqtylab/equality
-```
-
-## Access
-
-This is a **private GitHub package** published under the [EQTY Lab](https://github.com/eqtylab) organization. Make sure your npm or GitHub account has permission to access [this package](https://github.com/orgs/eqtylab/packages/npm/package/equality).
-
-### 1. Authenticate with GitHub Packages
-
-You will need a **Personal Access Token (PAT)** with at least the `read:packages` scope.
-
-Create one at: [https://github.com/settings/tokens](https://github.com/settings/tokens)
-
-### 2. Add your GitHub token to npm
-
-Add your token to npm config so it can authenticate to GitHub's registry.
-
-#### Option A — via npm CLI (recommended):
+### Unix/macOS
 
 ```bash
-npm config set //npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+curl -fsSL https://get.eqtylab.io/cupcake | bash
 ```
 
-#### Option B — via `.npmrc` file:
+### Windows PowerShell
 
-Create or edit a `.npmrc` file in your project root and add:
-
-```ini
-@eqtylab:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```powershell
+irm https://get.eqtylab.io/cupcake | iex
 ```
 
-### 3. Verify access
+The install scripts will:
+- Download the appropriate binary for your platform
+- Verify checksums for security
+- Install to your system PATH
+- Set up the `cupcake` command globally
 
-Run this to check if you can access the package:
+## Manual Installation
+
+If you prefer to install manually or need a specific version, you can download pre-built binaries from [GitHub Releases](https://github.com/eqtylab/cupcake/releases).
+
+### Latest Release (v0.2.0)
+
+Download the appropriate archive for your platform from the [v0.2.0 release](https://github.com/eqtylab/cupcake/releases/tag/v0.2.0):
+
+#### macOS
+
+- **Apple Silicon (M1/M2/M3)**: `cupcake-v0.2.0-aarch64-apple-darwin.tar.gz`
+- **Intel**: `cupcake-v0.2.0-x86_64-apple-darwin.tar.gz`
+
+#### Linux
+
+- **x86_64 (glibc)**: `cupcake-v0.2.0-x86_64-unknown-linux-gnu.tar.gz`
+- **x86_64 (musl)**: `cupcake-v0.2.0-x86_64-unknown-linux-musl.tar.gz`
+- **ARM64**: `cupcake-v0.2.0-aarch64-unknown-linux-gnu.tar.gz`
+
+#### Windows
+
+- **x86_64**: `cupcake-v0.2.0-x86_64-pc-windows-msvc.zip`
+
+### Install Steps
+
+1. **Download** the archive for your platform
+2. **Verify** the checksum (optional but recommended):
+   ```bash
+   # Download the .sha256 file and verify
+   sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256
+   ```
+3. **Extract** the archive:
+   ```bash
+   # Unix/macOS
+   tar -xzf cupcake-v0.2.0-<platform>.tar.gz
+
+   # Windows (PowerShell)
+   Expand-Archive cupcake-v0.2.0-<platform>.zip
+   ```
+4. **Move** the binary to your PATH:
+   ```bash
+   # Unix/macOS
+   sudo mv cupcake /usr/local/bin/
+
+   # Or to a directory in your PATH
+   mv cupcake ~/.local/bin/
+   ```
+
+## Verify Installation
+
+After installation, verify that Cupcake is working:
 
 ```bash
-npm view @eqtylab/equality
+cupcake --version
 ```
 
-If that command returns package details, you're good to go.
+You should see output like:
 
-### 4. Troubleshooting
+```
+cupcake 0.2.0
+```
 
-If you run into a `404` or `ERR_PNPM_FETCH_404` error:
+## Next Steps
 
-- Double-check your GitHub token includes the `read:packages` permission.
-- Make sure your `.npmrc` file is in the same directory where you're installing.
-- Confirm the registry line points to `https://npm.pkg.github.com`.
-- If you're in a monorepo, also add the `.npmrc` file to the repo root.
-- Try clearing the npm cache:
+Once installed, you can:
+
+- Initialize a new Cupcake project: `cupcake init`
+- Evaluate policies: `cupcake eval`
+- Check out the [Usage Guide](/getting-started/usage) to get started with policies
+
+## Security
+
+All release binaries and install scripts include SHA256 checksums and are built with [SLSA Level 3](https://slsa.dev/spec/v1.0/levels) compliance. The install scripts themselves are also checksummed (`install.sh.sha256`, `install.ps1.sha256`).
+
+## Troubleshooting
+
+### Command not found
+
+If you get a "command not found" error after installation:
+
+1. Make sure the binary is in a directory that's in your PATH
+2. Restart your terminal or run `hash -r` to refresh the PATH cache
+3. Check permissions: `chmod +x $(which cupcake)`
+
+### Permission denied
+
+On Unix/macOS, if you get a permission error:
 
 ```bash
-npm cache clean --force
+sudo chmod +x /usr/local/bin/cupcake
 ```
+
+### macOS Gatekeeper
+
+On macOS, you may need to allow the binary to run:
+
+```bash
+xattr -d com.apple.quarantine /usr/local/bin/cupcake
+```
+
+Or go to **System Settings → Privacy & Security** and allow the app to run.

@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "index.ts",
+    "installer.ts",
+    "examples/**/*",
+    "__test__/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "target",
+    "dist",
+    "build"
+  ]
+}

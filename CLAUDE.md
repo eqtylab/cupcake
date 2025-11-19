@@ -126,8 +126,9 @@ Cupcake uses a Cargo workspace with multiple crates:
 - **cupcake-core**: Core engine library (routing, signals, WASM runtime, synthesis)
 - **cupcake-cli**: Command-line interface binary
 - **cupcake-py**: Python bindings (optional, requires `maturin`)
+- **cupcake-ts**: TypeScript/Node.js bindings (optional, requires `NAPI-RS`)
 
-The workspace is configured to build only `cupcake-core` and `cupcake-cli` by default. Python bindings require separate build steps.
+The workspace is configured to build only `cupcake-core` and `cupcake-cli` by default. Language bindings (Python, TypeScript) require separate build steps.
 
 ## Build and Development Commands
 
@@ -217,6 +218,28 @@ just test-python
 
 # Build Python wheel
 just build-python
+```
+
+### TypeScript Bindings (Optional)
+
+```bash
+# Navigate to TypeScript bindings directory
+cd cupcake-ts
+
+# Install dependencies
+npm install
+
+# Build native module (release mode)
+npm run build
+
+# Build in debug mode (faster for development)
+npm run build:debug
+
+# Run tests
+npm test
+
+# Format code
+npm run format
 ```
 
 ## Architecture Overview
@@ -374,12 +397,41 @@ This two-phase model enables centralized security controls while allowing projec
 - `fixtures/init/base-config.yml` - Template for builtin configuration
 - `justfile` - Development task runner with all common commands
 
+## Language Bindings
+
+Cupcake supports embedding in multiple languages through the `BindingEngine` abstraction:
+
+### Python Bindings (`cupcake-py/`)
+- **Build System**: PyO3 with maturin
+- **Package**: `cupcake` on PyPI
+- **Key Feature**: GIL release during evaluation for true Python concurrency
+- **API**: Both sync and async (via `asyncio.to_thread`)
+- **Use Case**: Embed Cupcake in Python applications, agents, automation
+
+### TypeScript Bindings (`cupcake-ts/`)
+- **Build System**: NAPI-RS with cross-platform pre-built binaries
+- **Package**: `@eqtylab/cupcake` on NPM
+- **Key Feature**: Native async/await integration, non-blocking evaluation
+- **API**: Async-first with sync alternatives
+- **Use Case**: Embed in Node.js apps, Vercel AI SDK agents, custom tools
+- **OPA Management**: Auto-downloads and verifies OPA binary (SHA256)
+
+### Architecture
+
+Both bindings wrap `cupcake_core::bindings::BindingEngine`:
+- **Thread-safe** (Arc-based, Send + Sync)
+- **Single-threaded Tokio runtime** for FFI compatibility
+- **String-based contract** (JSON in, JSON out)
+- **No core Engine changes** needed for new language bindings
+
 ## Reference Documents
 
 Key documentation files in the repository:
 
 - `README.md` - Project overview, quick start, and feature highlights
 - `SECURITY_PREPROCESSING.md` - Details on adversarial input protection
+- `cupcake-py/README.md` - Python bindings documentation
+- `cupcake-ts/README.md` - TypeScript bindings documentation
 - `docs/` - New documentation site (in development, using Astro)
 - `docs-old/` - Legacy documentation (being migrated)
   - `docs-old/user-guide/policies/writing-policies.md` - Complete policy authoring guide

@@ -1,0 +1,25 @@
+[package]
+name = "cupcake-ts"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "TypeScript/Node.js bindings for Cupcake policy engine"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Core library
+cupcake-core = { workspace = true }
+
+# NAPI-RS
+napi = "2.16"
+napi-derive = "2.16"
+
+# Core dependencies
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+[build-dependencies]
+napi-build = "2.1"

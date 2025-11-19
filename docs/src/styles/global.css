@@ -42,11 +42,24 @@
   }
 
   pre {
-    @apply bg-card! text-foreground! overflow-x-auto rounded-sm p-3 text-sm;
+    @apply bg-card! text-foreground! overflow-x-auto rounded-sm p-3 text-sm relative;
   }
 
   pre > code {
     @apply break-all whitespace-pre-wrap;
+  }
+
+  .copy-button {
+    @apply absolute top-2 right-2 p-1.5 rounded cursor-pointer;
+    @apply bg-muted-foreground/20 hover:bg-muted-foreground/30;
+    @apply border border-muted-foreground/30 hover:border-muted-foreground/50;
+    @apply transition-all duration-200;
+  }
+
+  .copy-button svg {
+    @apply w-4 h-4;
+    stroke: currentColor;
+    color: rgba(255, 255, 255, 0.9);
   }
 }
 

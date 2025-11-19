@@ -1,8 +1,8 @@
 [workspace]
 # Core members that build reliably across all environments
 default-members = ["cupcake-core", "cupcake-cli"]
-# All members (including optional Python bindings)
-members = ["cupcake-core", "cupcake-cli", "cupcake-py"]
+# All members (including optional language bindings)
+members = ["cupcake-core", "cupcake-cli", "cupcake-py", "cupcake-ts"]
 resolver = "2"
 
 [workspace.package]

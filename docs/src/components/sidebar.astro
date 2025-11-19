@@ -5,15 +5,24 @@ const gettingStartedLinks = [
   { text: "Home", href: "/" },
   { text: "Installation", href: "/getting-started/installation" },
   { text: "Usage", href: "/getting-started/usage" },
-  { text: "Themes", href: "/getting-started/themes" },
-  { text: "Customizing", href: "/getting-started/customizing" },
+];
+
+const tutorialsLinks = [
   {
-    text: "Component Architecture",
-    href: "/getting-started/component-architecture",
+    text: "React + TypeScript",
+    href: "/tutorials/react-typescript",
+    children: [
+      { text: "1. First Policy", href: "/tutorials/react-typescript" },
+      { text: "2. First Signal", href: "/tutorials/react-typescript/first-signal" },
+      { text: "3. Obscure Rules", href: "/tutorials/react-typescript/obscure-rules" },
+    ],
   },
 ];
 
-const componentsLinks = [{ text: "Card", href: "/components/card" }];
+const referenceLinks = [
+  { text: "Built-in Configuration", href: "/reference/builtin-config" },
+  { text: "Hooks Compatibility", href: "/reference/hooks" },
+];
 ---
 
 <aside
@@ -21,6 +30,7 @@ const componentsLinks = [{ text: "Card", href: "/components/card" }];
 >
   <nav class="space-y-10 px-4 py-10">
     <NavList label="Getting Started" list={gettingStartedLinks} />
-    <NavList label="Components" list={componentsLinks} />
+    <NavList label="Tutorials" list={tutorialsLinks} />
+    <NavList label="Reference" list={referenceLinks} />
   </nav>
 </aside>

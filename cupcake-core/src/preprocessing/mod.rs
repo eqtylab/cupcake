@@ -62,17 +62,21 @@ use symlink_resolver::SymlinkResolver;
 /// ```
 pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: HarnessType) {
     // Extract tool/event information based on harness type
-    let (tool_name, event_name) = match harness {
+    // We copy these strings out of the JSON so we can modify the JSON later.
+    // Can't modify data while something points into it.
+    let (tool_name, event_name): (String, String) = match harness {
         HarnessType::ClaudeCode => {
             // Claude Code uses tool_name
             let tool = input
                 .get("tool_name")
                 .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
+                .unwrap_or("unknown")
+                .to_string();
             let event = input
                 .get("hook_event_name")
                 .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
+                .unwrap_or("unknown")
+                .to_string();
             (tool, event)
         }
         HarnessType::Cursor => {
@@ -80,14 +84,16 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
             let event = input
                 .get("hook_event_name")
                 .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
+                .unwrap_or("unknown")
+                .to_string();
             // For Cursor, we treat certain events as equivalent to tools
-            let tool = match event {
+            let tool = match event.as_str() {
                 "beforeShellExecution" => "Bash",
                 "beforeFileEdit" | "afterFileEdit" => "Edit",
                 "beforeFileWrite" | "afterFileWrite" => "Write",
                 _ => "unknown",
-            };
+            }
+            .to_string();
             (tool, event)
         }
     };
@@ -100,7 +106,7 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     );
 
     // Apply tool-specific preprocessing based on the tool type
-    match tool_name {
+    match tool_name.as_str() {
         "Bash" if config.normalize_whitespace => match harness {
             HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
             HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
@@ -113,6 +119,41 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
         }
     }
 
+    // ==========================================================================
+    // CONTENT FIELD NORMALIZATION FOR WRITE/EDIT UNIFICATION
+    // ==========================================================================
+    //
+    // Problem: Write and Edit tools use different field names for content:
+    //   - Write: tool_input.content (full file content)
+    //   - Edit:  tool_input.new_string (replacement text)
+    //
+    // This forces policy authors to write duplicate rules or helper functions
+    // just to handle the field name difference.
+    //
+    // Solution: Copy Write's `content` to `new_string` during preprocessing,
+    // allowing policies to use a single field name for both tools:
+    //
+    //   ```rego
+    //   deny contains decision if {
+    //       input.tool_name in {"Write", "Edit"}
+    //       content := input.tool_input.new_string  # Works for both!
+    //       contains(content, "bad pattern")
+    //   }
+    //   ```
+    //
+    // This is similar to how we normalize file paths with `resolved_file_path`.
+    // The original `content` field is preserved for backwards compatibility.
+    //
+    // Note: We copy Write→new_string (not Edit→content) because:
+    //   - Edit's new_string is always the "new" content being written
+    //   - Write's content is also the "new" content being written
+    //   - This makes `new_string` semantically consistent across both tools
+    //
+    // ==========================================================================
+    if harness == HarnessType::ClaudeCode {
+        normalize_write_edit_content_fields(input, &tool_name);
+    }
+
     // Apply symlink resolution for file operations (TOB-4 defense)
     if config.enable_symlink_resolution {
         resolve_and_attach_symlinks(input, harness);
@@ -122,6 +163,61 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     // if config.detect_substitution {
     //     detect_command_substitution(input);
     // }
+}
+
+/// Normalize content fields between Write and Edit tools for unified policy access
+///
+/// This function copies Write's `content` field to `new_string`, allowing policies
+/// to use a single field name when checking content for both Write and Edit operations.
+///
+/// # Why this matters
+///
+/// Without normalization, policies need duplicate rules:
+/// ```rego
+/// # Rule for Write
+/// deny contains decision if {
+///     input.tool_name == "Write"
+///     content := input.tool_input.content
+///     # ... check content
+/// }
+///
+/// # Duplicate rule for Edit
+/// deny contains decision if {
+///     input.tool_name == "Edit"
+///     content := input.tool_input.new_string
+///     # ... same check
+/// }
+/// ```
+///
+/// With normalization, a single rule works:
+/// ```rego
+/// deny contains decision if {
+///     input.tool_name in {"Write", "Edit"}
+///     content := input.tool_input.new_string  # Works for both!
+///     # ... check content
+/// }
+/// ```
+///
+/// # Field semantics
+///
+/// - `new_string`: The content being written (unified field)
+/// - `content`: Original Write field (preserved for backwards compatibility)
+/// - `old_string`: Edit-only field for the text being replaced
+fn normalize_write_edit_content_fields(input: &mut Value, tool_name: &str) {
+    // Only normalize Write tool - Edit already has new_string
+    if tool_name != "Write" {
+        return;
+    }
+
+    if let Some(tool_input) = input.get_mut("tool_input") {
+        if let Some(tool_input_obj) = tool_input.as_object_mut() {
+            // Copy content to new_string if content exists
+            if let Some(content) = tool_input_obj.get("content").cloned() {
+                tool_input_obj.insert("new_string".to_string(), content);
+                trace!("Normalized Write content → new_string for unified policy access");
+            }
+        }
+    }
 }
 
 /// Preprocess Claude Code Bash commands to normalize whitespace and inspect scripts
@@ -373,6 +469,101 @@ mod tests {
         );
         // Other fields unchanged
         assert_eq!(input["tool_input"]["timeout"].as_i64().unwrap(), 5000);
+    }
+
+    #[test]
+    fn test_write_content_normalized_to_new_string() {
+        // Test that Write's content field is copied to new_string for unified access
+        let mut input = json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": "/tmp/test.tsx",
+                "content": "<input type=\"date\" />"
+            }
+        });
+
+        let config = PreprocessConfig::default();
+        preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
+
+        // new_string should be added with same value as content
+        assert_eq!(
+            input["tool_input"]["new_string"].as_str().unwrap(),
+            "<input type=\"date\" />",
+            "Write's content should be copied to new_string"
+        );
+
+        // Original content field should be preserved
+        assert_eq!(
+            input["tool_input"]["content"].as_str().unwrap(),
+            "<input type=\"date\" />",
+            "Original content field should be preserved for backwards compatibility"
+        );
+    }
+
+    #[test]
+    fn test_edit_new_string_unchanged() {
+        // Test that Edit's existing new_string is not modified
+        let mut input = json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "/tmp/test.tsx",
+                "old_string": "old content",
+                "new_string": "new content"
+            }
+        });
+
+        let config = PreprocessConfig::default();
+        preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
+
+        // new_string should remain unchanged
+        assert_eq!(
+            input["tool_input"]["new_string"].as_str().unwrap(),
+            "new content",
+            "Edit's new_string should not be modified"
+        );
+
+        // old_string should also be unchanged
+        assert_eq!(
+            input["tool_input"]["old_string"].as_str().unwrap(),
+            "old content",
+            "Edit's old_string should not be modified"
+        );
+    }
+
+    #[test]
+    fn test_write_edit_unified_field_access() {
+        // Test that both Write and Edit can be accessed via new_string
+        let config = PreprocessConfig::default();
+
+        // Write input
+        let mut write_input = json!({
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": "/tmp/test.txt",
+                "content": "unified content"
+            }
+        });
+        preprocess_input(&mut write_input, &config, HarnessType::ClaudeCode);
+
+        // Edit input
+        let mut edit_input = json!({
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "/tmp/test.txt",
+                "old_string": "old",
+                "new_string": "unified content"
+            }
+        });
+        preprocess_input(&mut edit_input, &config, HarnessType::ClaudeCode);
+
+        // Both should have new_string with the same semantic meaning
+        assert_eq!(
+            write_input["tool_input"]["new_string"].as_str().unwrap(),
+            edit_input["tool_input"]["new_string"].as_str().unwrap(),
+            "Both Write and Edit should have new_string with same value for unified access"
+        );
     }
 
     #[test]

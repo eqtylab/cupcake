@@ -14,6 +14,7 @@ set -e
 # Configuration
 INSTALL_DIR="${CUPCAKE_INSTALL_DIR:-$HOME/.cupcake}"
 BIN_DIR="$INSTALL_DIR/bin"
+CARGO_BIN="$HOME/.cargo/bin/cupcake"
 
 # Colors for output (only if terminal supports it)
 if [[ -t 1 ]]; then
@@ -76,6 +77,13 @@ scan_installations() {
         echo "      Total size: $total_size"
     fi
 
+    # Check for Cargo-installed binary
+    if [[ -f "$CARGO_BIN" ]]; then
+        FOUND_COUNT=$((FOUND_COUNT + 1))
+        local size=$(du -h "$CARGO_BIN" 2>/dev/null | cut -f1)
+        echo "  [${FOUND_COUNT}] Cargo binary: $CARGO_BIN ($size)"
+    fi
+
     # Check shell profile files for PATH modifications
     local profile_files=(
         "$HOME/.zshrc"
@@ -135,6 +143,15 @@ remove_install_dir() {
         info "Removing $INSTALL_DIR..."
         rm -rf "$INSTALL_DIR"
         success "✓ Removed installation directory"
+    fi
+}
+
+# Remove Cargo-installed binary
+remove_cargo_binary() {
+    if [[ -f "$CARGO_BIN" ]]; then
+        info "Removing $CARGO_BIN..."
+        rm -f "$CARGO_BIN"
+        success "✓ Removed Cargo-installed binary"
     fi
 }
 
@@ -244,6 +261,9 @@ main() {
 
     # Remove installation directory
     remove_install_dir
+
+    # Remove Cargo-installed binary
+    remove_cargo_binary
 
     # Remove PATH from profile files
     local profile_files=(

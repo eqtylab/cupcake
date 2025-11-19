@@ -5,8 +5,9 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command as ProcessCommand;
 use std::str::FromStr;
 use tabled::{
     settings::{object::Rows, Alignment, Modify, Style},
@@ -226,6 +227,9 @@ enum Command {
         #[clap(short, long)]
         table: bool,
     },
+
+    /// Launch the interactive onboarding wizard to convert rule files into Cupcake policies
+    Onboard,
 }
 
 /// Supported agent harness types for integration
@@ -359,6 +363,7 @@ async fn main() -> Result<()> {
             json,
             table,
         } => inspect_command(policy_dir, json, table).await,
+        Command::Onboard => onboard_command().await,
     }
 }
 
@@ -1714,6 +1719,68 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
 
             println!();
         }
+    }
+
+    Ok(())
+}
+
+async fn onboard_command() -> Result<()> {
+    // Display warning about what cupcake onboard will do
+    println!("┌─────────────────────────────────────────────────────────────────┐");
+    println!("│                    Cupcake Onboard Wizard                       │");
+    println!("├─────────────────────────────────────────────────────────────────┤");
+    println!("│                                                                 │");
+    println!("│  Converts rule files → Cupcake policies using Claude.           │");
+    println!("│                                                                 │");
+    println!("│  API Key: Uses ANTHROPIC_API_KEY from environment.              │");
+    println!("│           Claude Code users: already set.                       │");
+    println!("│                                                                 │");
+    println!("│  Cost: ~5% of Anthropic's weekly token limit.                   │");
+    println!("│                                                                 │");
+    println!("└─────────────────────────────────────────────────────────────────┘");
+    println!();
+
+    // Prompt for confirmation
+    print!("Continue? [Y/n] ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+
+    // Accept empty (just Enter), 'y', or 'yes'
+    if !input.is_empty() && input != "y" && input != "yes" {
+        println!("Aborted.");
+        return Ok(());
+    }
+
+    println!();
+    println!("Launching onboard wizard...");
+    println!();
+
+    // Try to find and run cupcake-onboard
+    // First, try the local development path (for unpublished package)
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let local_cli_path = workspace_root.join("cupcake-onboard/dist/cli.js");
+
+    let status = if local_cli_path.exists() {
+        // Use local development version
+        info!("Using local cupcake-onboard from: {:?}", local_cli_path);
+        ProcessCommand::new("node")
+            .arg(&local_cli_path)
+            .status()
+            .context("Failed to run cupcake-onboard")?
+    } else {
+        // Fall back to npx for published version
+        info!("Using npx to run @eqtylab/cupcake-onboard");
+        ProcessCommand::new("npx")
+            .args(["@eqtylab/cupcake-onboard"])
+            .status()
+            .context("Failed to run cupcake-onboard via npx. Is Node.js installed?")?
+    };
+
+    if !status.success() {
+        return Err(anyhow!("cupcake-onboard exited with error"));
     }
 
     Ok(())

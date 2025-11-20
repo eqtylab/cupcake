@@ -80,6 +80,9 @@ ask contains decision if {
     // Initialize engine - disable global config to avoid interference
     let empty_global = TempDir::new().unwrap();
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,

@@ -53,7 +53,7 @@ fn test_init_with_claude_harness_fresh() {
 
     let command = pre_tool["hooks"][0]["command"].as_str().unwrap();
     assert!(command.contains("cupcake eval"));
-    assert!(command.contains("$CLAUDE_PROJECT_DIR/.cupcake"));
+    assert!(command.contains(".cupcake")); // Project config uses relative path
 }
 
 #[test]

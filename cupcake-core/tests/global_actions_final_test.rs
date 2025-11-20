@@ -89,6 +89,9 @@ halt contains decision if {
 
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(global_root),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -219,6 +222,9 @@ deny contains decision if {
 
     // Initialize engine
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(global_root),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,

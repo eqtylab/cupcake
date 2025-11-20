@@ -26,8 +26,12 @@ chrono = { workspace = true }
 regex = { workspace = true }
 once_cell = { workspace = true }
 directories = "6.0.0"
-uuid = { version = "1.11", features = ["v7", "fast-rng"] }
+uuid = { version = "1.11", features = ["v4", "v7", "fast-rng"] }
 tempfile = { workspace = true }
+
+# Bundle support
+tar = "0.4"
+flate2 = "1.0"
 
 # Trust System
 sha2 = { workspace = true }

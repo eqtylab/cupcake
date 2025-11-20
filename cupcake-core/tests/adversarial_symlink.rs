@@ -47,6 +47,9 @@ builtins:
 
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -134,6 +137,9 @@ builtins:
 
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -269,6 +275,9 @@ builtins:
 
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -385,6 +394,9 @@ deny contains decision if {
 
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,
@@ -485,6 +497,9 @@ builtins:
 
     let empty_global = TempDir::new()?;
     let config = cupcake_core::engine::EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
         wasm_max_memory: None,

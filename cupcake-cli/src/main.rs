@@ -146,6 +146,19 @@ struct Cli {
     /// Override debug output directory (default: .cupcake/debug)
     #[clap(long, global = true)]
     debug_dir: Option<PathBuf>,
+
+    /// Path to governance bundle file (.tar.gz)
+    /// If provided, uses governance bundle instead of compiling local policies
+    #[clap(long, global = true)]
+    governance_bundle: Option<PathBuf>,
+
+    /// Governance service API URL (for future use)
+    #[clap(long, global = true)]
+    governance_service: Option<String>,
+
+    /// Rulebook ID to fetch from governance service (for future use)
+    #[clap(long, global = true)]
+    governance_rulebook_id: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -193,6 +206,10 @@ enum Command {
         /// Enable specific builtins (comma-separated list)
         #[clap(long, value_delimiter = ',')]
         builtins: Option<Vec<String>>,
+
+        /// Path to governance bundle file (.tar.gz) to use for evaluation
+        #[clap(long)]
+        governance_bundle: Option<PathBuf>,
     },
 
     /// Manage script trust and integrity verification
@@ -332,6 +349,9 @@ async fn main() -> Result<()> {
                 opa_path: cli.opa_path.clone(),
                 global_config: cli.global_config.clone(),
                 debug_routing: cli.debug_routing,
+                governance_bundle_path: cli.governance_bundle.clone(),
+                governance_service_url: cli.governance_service.clone(),
+                governance_rulebook_id: cli.governance_rulebook_id.clone(),
             };
 
             eval_command(
@@ -351,7 +371,8 @@ async fn main() -> Result<()> {
             global,
             harness,
             builtins,
-        } => init_command(global, harness, builtins).await,
+            governance_bundle,
+        } => init_command(global, harness, builtins, governance_bundle).await,
         Command::Trust { command } => command.execute().await,
         Command::Validate { policy_dir, json } => validate_command(policy_dir, json).await,
         Command::Inspect {
@@ -851,6 +872,7 @@ async fn init_command(
     global: bool,
     harness: Option<HarnessType>,
     builtins: Option<Vec<String>>,
+    governance_bundle: Option<PathBuf>,
 ) -> Result<()> {
     // Validate builtin names if provided
     if let Some(ref builtin_list) = builtins {
@@ -859,16 +881,17 @@ async fn init_command(
 
     if global {
         // Initialize global configuration
-        init_global_config(harness, builtins).await
+        init_global_config(harness, builtins, governance_bundle).await
     } else {
         // Initialize project configuration
-        init_project_config(harness, builtins).await
+        init_project_config(harness, builtins, governance_bundle).await
     }
 }
 
 async fn init_global_config(
     harness: Option<HarnessType>,
     builtins: Option<Vec<String>>,
+    governance_bundle: Option<PathBuf>,
 ) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
 
@@ -1040,7 +1063,7 @@ collect_verbs(verb_name) := result if {
 # description: |
 #   This is an example global policy that applies to all Cupcake projects
 #   on this machine. Global policies take absolute precedence over project policies.
-#   
+#
 #   To activate: Uncomment the rules below and customize for your needs.
 package cupcake.global.policies.example
 
@@ -1066,7 +1089,7 @@ import rego.v1
 #     input.hook_event_name == "UserPromptSubmit"
 #     contains(lower(input.prompt), "malicious")
 #     decision := {
-#         "rule_id": "GLOBAL-SECURITY-001", 
+#         "rule_id": "GLOBAL-SECURITY-001",
 #         "reason": "Potentially malicious prompt detected",
 #         "severity": "CRITICAL"
 #     }
@@ -1157,7 +1180,13 @@ import rego.v1
     // Configure harness if specified
     if let Some(harness_type) = harness {
         println!();
-        harness_config::configure_harness(harness_type, &global_paths.root, true).await?;
+        harness_config::configure_harness(
+            harness_type,
+            &global_paths.root,
+            true,
+            governance_bundle.as_deref(),
+        )
+        .await?;
     }
 
     Ok(())
@@ -1166,6 +1195,7 @@ import rego.v1
 async fn init_project_config(
     harness: Option<HarnessType>,
     builtins: Option<Vec<String>>,
+    governance_bundle: Option<PathBuf>,
 ) -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
 
@@ -1321,7 +1351,13 @@ async fn init_project_config(
         if cupcake_exists {
             println!();
         }
-        harness_config::configure_harness(harness_type, Path::new(".cupcake"), false).await?;
+        harness_config::configure_harness(
+            harness_type,
+            Path::new(".cupcake"),
+            false,
+            governance_bundle.as_deref(),
+        )
+        .await?;
     }
 
     Ok(())
@@ -1758,14 +1794,14 @@ collect_verbs(verb_name) := result if {
         walk(data.cupcake.policies, [path, value])
         path[count(path) - 1] == verb_name
     ]
-    
+
     # Flatten all sets into a single array
     # Since Rego v1 decision verbs are sets, we need to convert to arrays
     all_decisions := [decision |
         some verb_set in verb_sets
         some decision in verb_set
     ]
-    
+
     result := all_decisions
 }
 

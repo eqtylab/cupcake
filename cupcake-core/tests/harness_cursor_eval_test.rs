@@ -183,6 +183,9 @@ ask contains decision if {
     // Disable global config to avoid interference from global builtins
     let empty_global = TempDir::new()?;
     let config = EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: HarnessType::Cursor,
         wasm_max_memory: None,
@@ -494,6 +497,9 @@ deny contains decision if {
     // Disable global config to avoid interference from global builtins
     let empty_global = TempDir::new()?;
     let config = EngineConfig {
+        governance_bundle_path: None,
+        governance_service_url: None,
+        governance_rulebook_id: None,
         global_config: Some(empty_global.path().to_path_buf()),
         harness: HarnessType::Cursor,
         wasm_max_memory: None,

@@ -131,15 +131,15 @@ impl FactoryEvent {
     /// Get the event name as a string
     pub fn event_name(&self) -> &'static str {
         match self {
-            FactoryEvent::PreToolUse { .. } => "PreToolUse",
+            FactoryEvent::PreToolUse(_) => "PreToolUse",
             FactoryEvent::PostToolUse(_) => "PostToolUse",
-            FactoryEvent::Notification { .. } => "Notification",
-            FactoryEvent::Stop { .. } => "Stop",
-            FactoryEvent::SubagentStop { .. } => "SubagentStop",
-            FactoryEvent::PreCompact { .. } => "PreCompact",
-            FactoryEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
-            FactoryEvent::SessionStart { .. } => "SessionStart",
-            FactoryEvent::SessionEnd { .. } => "SessionEnd",
+            FactoryEvent::Notification(_) => "Notification",
+            FactoryEvent::Stop(_) => "Stop",
+            FactoryEvent::SubagentStop(_) => "SubagentStop",
+            FactoryEvent::PreCompact(_) => "PreCompact",
+            FactoryEvent::UserPromptSubmit(_) => "UserPromptSubmit",
+            FactoryEvent::SessionStart(_) => "SessionStart",
+            FactoryEvent::SessionEnd(_) => "SessionEnd",
         }
     }
 

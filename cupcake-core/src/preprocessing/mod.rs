@@ -75,6 +75,59 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
                 .unwrap_or("unknown");
             (tool, event)
         }
+        HarnessType::OpenCode => {
+            // OpenCode uses lowercase tool names that need to be mapped to Cupcake format
+            // Clone args before mutating input
+            let args = input.get("args").cloned();
+
+            // Get tool and event as owned strings to avoid borrow issues
+            let tool_lowercase = input
+                .get("tool")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(); // Make it owned
+
+            // Map OpenCode tool names to Cupcake format (bash -> Bash, edit -> Edit, etc.)
+            let tool_mapped = match tool_lowercase.as_str() {
+                "bash" => "Bash".to_string(),
+                "edit" => "Edit".to_string(),
+                "write" => "Write".to_string(),
+                "read" => "Read".to_string(),
+                "grep" => "Grep".to_string(),
+                "glob" => "Glob".to_string(),
+                "list" => "List".to_string(),
+                "patch" => "Patch".to_string(),
+                "todowrite" => "TodoWrite".to_string(),
+                "todoread" => "TodoRead".to_string(),
+                "webfetch" => "WebFetch".to_string(),
+                _ => tool_lowercase, // Unknown tools pass through
+            };
+
+            // Now we can mutate input
+            if let Some(obj) = input.as_object_mut() {
+                // Add tool_name field for engine compatibility
+                obj.insert(
+                    "tool_name".to_string(),
+                    serde_json::Value::String(tool_mapped),
+                );
+
+                // Add tool_input field by renaming args to tool_input for engine compatibility
+                if let Some(args_value) = args {
+                    obj.insert("tool_input".to_string(), args_value);
+                }
+            }
+
+            // Re-read the values we just inserted to get proper string slices
+            let tool = input
+                .get("tool_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let event = input
+                .get("hook_event_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            (tool, event)
+        }
         HarnessType::Cursor => {
             // Cursor uses hook_event_name to determine the action type
             let event = input
@@ -102,10 +155,10 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     // Apply tool-specific preprocessing based on the tool type
     match tool_name {
         "Bash" if config.normalize_whitespace => match harness {
-            HarnessType::ClaudeCode | HarnessType::Factory => {
-                preprocess_claude_bash_command(input, config)
-            }
+            HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
+            HarnessType::Factory => preprocess_claude_bash_command(input, config),
             HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
+            HarnessType::OpenCode => preprocess_claude_bash_command(input, config), // Same format as Claude/Factory
         },
         // Future: Add other tool-specific preprocessing
         // "Task" => preprocess_task_prompt(input, config),
@@ -246,6 +299,15 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
         HarnessType::Cursor => {
             // Cursor structure: input.<field> (direct at root)
             input.get("file_path").or_else(|| input.get("path"))
+        }
+        HarnessType::OpenCode => {
+            // OpenCode uses same structure as Claude Code/Factory: input.tool_input.<field>
+            input.get("tool_input").and_then(|tool_input| {
+                tool_input
+                    .get("file_path")
+                    .or_else(|| tool_input.get("path"))
+                    .or_else(|| tool_input.get("filePath")) // OpenCode may use camelCase
+            })
         }
     };
 

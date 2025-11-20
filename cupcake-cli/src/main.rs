@@ -237,6 +237,8 @@ enum HarnessType {
     Cursor,
     /// Factory AI Droid (factory.ai)
     Factory,
+    /// OpenCode (opencode.ai)
+    OpenCode,
 }
 
 impl From<HarnessType> for cupcake_core::harness::types::HarnessType {
@@ -245,6 +247,7 @@ impl From<HarnessType> for cupcake_core::harness::types::HarnessType {
             HarnessType::Claude => cupcake_core::harness::types::HarnessType::ClaudeCode,
             HarnessType::Cursor => cupcake_core::harness::types::HarnessType::Cursor,
             HarnessType::Factory => cupcake_core::harness::types::HarnessType::Factory,
+            HarnessType::OpenCode => cupcake_core::harness::types::HarnessType::OpenCode,
         }
     }
 }
@@ -497,6 +500,12 @@ async fn eval_command(
             let event =
                 serde_json::from_str::<harness::events::factory::FactoryEvent>(&stdin_buffer)?;
             harness::FactoryHarness::format_response(&event, &decision)?
+        }
+        cupcake_core::harness::types::HarnessType::OpenCode => {
+            // Re-parse OpenCode event for response formatting
+            let event =
+                serde_json::from_str::<harness::events::opencode::OpenCodeEvent>(&stdin_buffer)?;
+            harness::OpenCodeHarness::format_response(&event, &decision)?
         }
     };
 

@@ -1,0 +1,40 @@
+{
+  "name": "@cupcake/opencode-plugin",
+  "version": "0.1.0",
+  "description": "Cupcake policy engine plugin for OpenCode",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cupcake",
+    "opencode",
+    "plugin",
+    "policy",
+    "security"
+  ],
+  "author": "Cupcake Contributors",
+  "license": "MIT",
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "*",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cupcake/cupcake.git",
+    "directory": "plugins/opencode"
+  }
+}

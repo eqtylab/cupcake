@@ -6,10 +6,12 @@
 
 pub mod claude_code;
 pub mod cursor;
+pub mod factory;
 
 // Re-export commonly used types
 pub use claude_code::{ClaudeCodeEvent, CommonEventData, CompactTrigger, SessionSource};
 pub use cursor::{CommonCursorData, CursorEvent};
+pub use factory::{CommonFactoryData, FactoryEvent, PermissionMode};
 
 use serde::{Deserialize, Serialize};
 

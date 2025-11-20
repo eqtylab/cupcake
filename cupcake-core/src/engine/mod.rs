@@ -377,6 +377,7 @@ impl Engine {
         let harness_subdir = match self.config.harness {
             crate::harness::types::HarnessType::ClaudeCode => "claude",
             crate::harness::types::HarnessType::Cursor => "cursor",
+            crate::harness::types::HarnessType::Factory => "factory",
         };
         let harness_policies_dir = self.paths.policies.join(harness_subdir);
         info!(
@@ -494,6 +495,7 @@ impl Engine {
         let harness_subdir = match self.config.harness {
             crate::harness::types::HarnessType::ClaudeCode => "claude",
             crate::harness::types::HarnessType::Cursor => "cursor",
+            crate::harness::types::HarnessType::Factory => "factory",
         };
         let harness_global_policies_dir = global_policies_path.join(harness_subdir);
 

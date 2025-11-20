@@ -63,8 +63,8 @@ use symlink_resolver::SymlinkResolver;
 pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: HarnessType) {
     // Extract tool/event information based on harness type
     let (tool_name, event_name) = match harness {
-        HarnessType::ClaudeCode => {
-            // Claude Code uses tool_name
+        HarnessType::ClaudeCode | HarnessType::Factory => {
+            // Claude Code and Factory AI use tool_name (same structure)
             let tool = input
                 .get("tool_name")
                 .and_then(|v| v.as_str())
@@ -102,7 +102,9 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     // Apply tool-specific preprocessing based on the tool type
     match tool_name {
         "Bash" if config.normalize_whitespace => match harness {
-            HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
+            HarnessType::ClaudeCode | HarnessType::Factory => {
+                preprocess_claude_bash_command(input, config)
+            }
             HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
         },
         // Future: Add other tool-specific preprocessing
@@ -229,8 +231,8 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
 
     // Extract file path based on tool and harness type
     let file_path_opt = match harness {
-        HarnessType::ClaudeCode => {
-            // Claude Code structure: input.tool_input.<field>
+        HarnessType::ClaudeCode | HarnessType::Factory => {
+            // Claude Code and Factory AI structure: input.tool_input.<field>
             input.get("tool_input").and_then(|tool_input| {
                 // Try different field names based on tool type
                 // NOTE: Glob 'pattern' field is intentionally excluded - patterns like

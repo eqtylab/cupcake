@@ -29,6 +29,9 @@ pub struct ClaudeHarness;
 /// Cursor harness implementation
 pub struct CursorHarness;
 
+/// Factory AI harness implementation
+pub struct FactoryHarness;
+
 impl HarnessConfig for ClaudeHarness {
     fn name(&self) -> &str {
         "Claude Code"
@@ -152,6 +155,84 @@ impl HarnessConfig for CursorHarness {
 
     fn merge_settings(&self, mut existing: Value, new_hooks: Value) -> Result<Value> {
         // For Cursor hooks.json, merge using the same hooks structure as Claude
+        merge_hooks(&mut existing, new_hooks)?;
+        Ok(existing)
+    }
+}
+
+impl HarnessConfig for FactoryHarness {
+    fn name(&self) -> &str {
+        "Factory AI"
+    }
+
+    fn settings_path(&self, global: bool) -> PathBuf {
+        if global {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("~"))
+                .join(".factory")
+                .join("settings.json")
+        } else {
+            Path::new(".factory").join("settings.json")
+        }
+    }
+
+    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
+        // Determine the policy path to use in commands
+        let policy_path = if global {
+            // Global config - use absolute path
+            let abs_path =
+                fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
+            abs_path.display().to_string()
+        } else {
+            // Project config - use environment variable for portability
+            "\"$FACTORY_PROJECT_DIR\"/.cupcake".to_string()
+        };
+
+        Ok(json!({
+            "hooks": {
+                "PreToolUse": [{
+                    "matcher": "*",
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("cupcake eval --harness factory --policy-dir {}", policy_path)
+                    }]
+                }],
+                "PostToolUse": [{
+                    "matcher": "*",
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("cupcake eval --harness factory --policy-dir {}", policy_path)
+                    }]
+                }],
+                "UserPromptSubmit": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("cupcake eval --harness factory --policy-dir {}", policy_path)
+                    }]
+                }],
+                "SessionStart": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("cupcake eval --harness factory --policy-dir {}", policy_path)
+                    }]
+                }],
+                "Stop": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("cupcake eval --harness factory --policy-dir {}", policy_path)
+                    }]
+                }],
+                "SubagentStop": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("cupcake eval --harness factory --policy-dir {}", policy_path)
+                    }]
+                }]
+            }
+        }))
+    }
+
+    fn merge_settings(&self, mut existing: Value, new_hooks: Value) -> Result<Value> {
         merge_hooks(&mut existing, new_hooks)?;
         Ok(existing)
     }
@@ -307,6 +388,37 @@ pub async fn configure_harness(
                     "   {} will now evaluate all actions against your Cupcake policies.",
                     harness.name()
                 );
+            }
+        }
+        HarnessType::Factory => {
+            let harness = FactoryHarness;
+            let settings_path = harness.settings_path(global);
+
+            // Try to configure, fallback to manual instructions on error
+            if let Err(e) =
+                setup_harness_settings(&harness, &settings_path, policy_dir, global).await
+            {
+                eprintln!(
+                    "⚠️  Could not automatically configure {}: {}",
+                    harness.name(),
+                    e
+                );
+                print_manual_instructions(&harness, policy_dir, global);
+                // Don't fail the entire init - just warn
+            } else {
+                println!(
+                    "✅ Configured {} integration in {}",
+                    harness.name(),
+                    settings_path.display()
+                );
+                println!("   - Added PreToolUse hook for all tools");
+                println!("   - Added PostToolUse hook for all tools");
+                println!("   - Added UserPromptSubmit hook for prompt validation");
+                println!("   - Added SessionStart hook for initial context");
+                println!("   - Added Stop/SubagentStop hooks for cleanup");
+                println!();
+                println!("   {} will now evaluate all tool uses and prompts against your Cupcake policies.",
+                    harness.name());
             }
         }
     }

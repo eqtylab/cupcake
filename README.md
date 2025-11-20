@@ -7,7 +7,7 @@
 
 # Cupcake
 
-> Make AI agents follow the rules.
+Make AI agents follow the rules.
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
@@ -24,6 +24,9 @@ Cupcake intercepts agent tool calls and evaluates them against **user-defined ru
 
 Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
 
+> [!NOTE]  
+> Official release is not until December 2025
+
 ## Supported Agent Harnesses
 
 Cupcake provides native integrations for multiple AI coding agents:
@@ -32,6 +35,7 @@ Cupcake provides native integrations for multiple AI coding agents:
 | --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
 | **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
 | **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
+| **[Factory AI](https://docs.factory.ai/welcome)** | Coming soon        | [Fully Supported](https://docs.factory.ai/reference/hooks-reference) |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
 Cupcake provides native integrations for multiple web agent frameworks:

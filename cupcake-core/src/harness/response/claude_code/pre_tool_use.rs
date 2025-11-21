@@ -18,18 +18,21 @@ impl PreToolUseResponseBuilder {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
                     permission_decision: PermissionDecision::Allow,
                     permission_decision_reason: reason.clone(),
+                    updated_input: None, // Claude Code doesn't support updated_input
                 });
             }
             EngineDecision::Block { feedback } => {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
                     permission_decision: PermissionDecision::Deny,
                     permission_decision_reason: Some(feedback.clone()),
+                    updated_input: None,
                 });
             }
             EngineDecision::Ask { reason } => {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
                     permission_decision: PermissionDecision::Ask,
                     permission_decision_reason: Some(reason.clone()),
+                    updated_input: None,
                 });
             }
         }
@@ -58,6 +61,7 @@ mod tests {
             Some(HookSpecificOutput::PreToolUse {
                 permission_decision,
                 permission_decision_reason,
+                ..
             }) => {
                 assert_eq!(permission_decision, PermissionDecision::Allow);
                 assert_eq!(permission_decision_reason, Some("Test reason".to_string()));
@@ -78,6 +82,7 @@ mod tests {
             Some(HookSpecificOutput::PreToolUse {
                 permission_decision,
                 permission_decision_reason,
+                ..
             }) => {
                 assert_eq!(permission_decision, PermissionDecision::Deny);
                 assert_eq!(
@@ -101,6 +106,7 @@ mod tests {
             Some(HookSpecificOutput::PreToolUse {
                 permission_decision,
                 permission_decision_reason,
+                ..
             }) => {
                 assert_eq!(permission_decision, PermissionDecision::Ask);
                 assert_eq!(

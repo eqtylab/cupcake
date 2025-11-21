@@ -8,7 +8,10 @@ use crate::engine::decision::FinalDecision;
 use anyhow::Result;
 use events::claude_code::ClaudeCodeEvent;
 use events::cursor::CursorEvent;
-use response::{ClaudeCodeResponseBuilder, CursorResponseBuilder, EngineDecision};
+use events::factory::FactoryEvent;
+use response::{
+    ClaudeCodeResponseBuilder, CursorResponseBuilder, EngineDecision, FactoryResponseBuilder,
+};
 use serde_json::Value;
 
 /// The ClaudeHarness - a pure translator
@@ -16,6 +19,9 @@ pub struct ClaudeHarness;
 
 /// The CursorHarness - a pure translator for Cursor events
 pub struct CursorHarness;
+
+/// The FactoryHarness - a pure translator for Factory AI events
+pub struct FactoryHarness;
 
 impl ClaudeHarness {
     /// Parse the raw hook event from stdin
@@ -161,6 +167,80 @@ impl CursorHarness {
                 }
             }
             FinalDecision::Allow { .. } => None,
+        }
+    }
+}
+
+impl FactoryHarness {
+    /// Parse the raw hook event from stdin (Factory AI format)
+    pub fn parse_event(input: &str) -> Result<FactoryEvent> {
+        Ok(serde_json::from_str(input)?)
+    }
+
+    /// Format the response for Factory AI harness
+    ///
+    /// Factory AI supports the same capabilities as Claude Code with additional features:
+    /// - updatedInput for PreToolUse (allows modifying tool parameters)
+    /// - permission_mode field in all events
+    pub fn format_response(event: &FactoryEvent, decision: &FinalDecision) -> Result<Value> {
+        // 1. Convert FinalDecision to EngineDecision format
+        let engine_decision = Self::adapt_decision(decision);
+
+        // 2. Extract context for separate context injection
+        let context = Self::extract_context(decision);
+
+        // 3. Use Factory's response builder with extracted context
+        let cupcake_response = FactoryResponseBuilder::build_response(
+            &engine_decision,
+            event,
+            context,
+            false, // suppress_output can be made configurable later
+        );
+
+        // 4. Return as JSON Value
+        Ok(serde_json::to_value(cupcake_response)?)
+    }
+
+    /// Adapt FinalDecision to EngineDecision (same logic as Claude and Cursor)
+    fn adapt_decision(decision: &FinalDecision) -> EngineDecision {
+        match decision {
+            FinalDecision::Halt { reason, .. } => EngineDecision::Block {
+                feedback: reason.clone(),
+            },
+            FinalDecision::Deny { reason, .. } => EngineDecision::Block {
+                feedback: reason.clone(),
+            },
+            FinalDecision::Block { reason, .. } => EngineDecision::Block {
+                feedback: reason.clone(),
+            },
+            FinalDecision::Ask { reason, .. } => EngineDecision::Ask {
+                reason: reason.clone(),
+            },
+            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
+                reason: Some(reason.clone()),
+            },
+            FinalDecision::Allow { context } => EngineDecision::Allow {
+                reason: if !context.is_empty() {
+                    Some(context.join("\n"))
+                } else {
+                    None
+                },
+            },
+        }
+    }
+
+    /// Extract context information from FinalDecision for response building
+    fn extract_context(decision: &FinalDecision) -> Option<Vec<String>> {
+        match decision {
+            FinalDecision::Allow { context } => {
+                if context.is_empty() {
+                    None
+                } else {
+                    Some(context.clone())
+                }
+            }
+            // All other decision types don't carry additional context
+            _ => None,
         }
     }
 }

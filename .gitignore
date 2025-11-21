@@ -18,6 +18,7 @@ data.json
 # IDE
 .vscode/
 .idea/
+.zed/
 *.swp
 *.swo
 

@@ -43,6 +43,9 @@ pub enum HookSpecificOutput {
             skip_serializing_if = "Option::is_none"
         )]
         permission_decision_reason: Option<String>,
+        /// Updated input for modifying tool parameters (Factory AI specific)
+        #[serde(rename = "updatedInput", skip_serializing_if = "Option::is_none")]
+        updated_input: Option<serde_json::Value>,
     },
     UserPromptSubmit {
         #[serde(rename = "additionalContext", skip_serializing_if = "Option::is_none")]

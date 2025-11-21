@@ -576,7 +576,7 @@ dependencies = [
 
 [[package]]
 name = "cupcake-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -593,7 +593,7 @@ dependencies = [
 
 [[package]]
 name = "cupcake-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "cupcake-py"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "cupcake-core",

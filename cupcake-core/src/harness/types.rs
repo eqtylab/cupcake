@@ -18,6 +18,10 @@ pub enum HarnessType {
     /// Cursor (cursor.com) - AI-powered code editor
     #[serde(rename = "cursor")]
     Cursor,
+
+    /// Factory AI Droid (factory.ai) - AI coding agent
+    #[serde(rename = "factory")]
+    Factory,
 }
 
 impl HarnessType {
@@ -26,6 +30,7 @@ impl HarnessType {
         match self {
             HarnessType::ClaudeCode => "claude",
             HarnessType::Cursor => "cursor",
+            HarnessType::Factory => "factory",
         }
     }
 
@@ -34,6 +39,7 @@ impl HarnessType {
         match self {
             HarnessType::ClaudeCode => "Claude Code",
             HarnessType::Cursor => "Cursor",
+            HarnessType::Factory => "Factory AI",
         }
     }
 
@@ -42,6 +48,7 @@ impl HarnessType {
         match self {
             HarnessType::ClaudeCode => "claude",
             HarnessType::Cursor => "cursor",
+            HarnessType::Factory => "factory",
         }
     }
 }
@@ -59,8 +66,9 @@ impl std::str::FromStr for HarnessType {
         match s.to_lowercase().as_str() {
             "claude" | "claudecode" | "claude-code" => Ok(HarnessType::ClaudeCode),
             "cursor" => Ok(HarnessType::Cursor),
+            "factory" | "factoryai" | "factory-ai" | "droid" => Ok(HarnessType::Factory),
             _ => Err(format!(
-                "Unknown harness type: '{s}'. Valid options: claude, cursor"
+                "Unknown harness type: '{s}'. Valid options: claude, cursor, factory"
             )),
         }
     }

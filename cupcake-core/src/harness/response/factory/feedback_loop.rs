@@ -63,7 +63,7 @@ impl FeedbackLoopResponseBuilder {
 mod tests {
     use super::*;
     use crate::harness::events::factory::{
-        CommonFactoryData, FactoryEvent, PermissionMode, PostToolUsePayload, StopPayload,
+        CommonFactoryData, FactoryEvent, PostToolUsePayload, StopPayload,
         SubagentStopPayload,
     };
     use serde_json::json;
@@ -73,7 +73,7 @@ mod tests {
             session_id: "test".to_string(),
             transcript_path: "/test".to_string(),
             cwd: "/test".to_string(),
-            permission_mode: PermissionMode::Default,
+            permission_mode: "default".to_string(),
         }
     }
 

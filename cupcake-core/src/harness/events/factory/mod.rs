@@ -185,7 +185,7 @@ mod tests {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
                 cwd: "/home/user/project".to_string(),
-                permission_mode: PermissionMode::Default,
+                permission_mode: "default".to_string(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
@@ -201,11 +201,11 @@ mod tests {
     #[test]
     fn test_permission_mode_parsing() {
         let json = r#"{
-            "hook_event_name": "PreToolUse",
-            "session_id": "test",
-            "transcript_path": "/path",
+            "hookEventName": "PreToolUse",
+            "sessionId": "test",
+            "transcriptPath": "/path",
             "cwd": "/project",
-            "permission_mode": "bypassPermissions",
+            "permissionMode": "bypassPermissions",
             "tool_name": "Bash",
             "tool_input": {"command": "test"}
         }"#;
@@ -215,7 +215,7 @@ mod tests {
             FactoryEvent::PreToolUse(payload) => {
                 assert_eq!(
                     payload.common.permission_mode,
-                    PermissionMode::BypassPermissions
+                    "bypassPermissions"
                 );
             }
             _ => panic!("Wrong event type"),

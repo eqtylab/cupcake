@@ -63,8 +63,7 @@ impl FeedbackLoopResponseBuilder {
 mod tests {
     use super::*;
     use crate::harness::events::factory::{
-        CommonFactoryData, FactoryEvent, PostToolUsePayload, StopPayload,
-        SubagentStopPayload,
+        CommonFactoryData, FactoryEvent, PostToolUsePayload, StopPayload, SubagentStopPayload,
     };
     use serde_json::json;
 

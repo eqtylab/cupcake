@@ -213,10 +213,7 @@ mod tests {
         let event: FactoryEvent = serde_json::from_str(json).unwrap();
         match event {
             FactoryEvent::PreToolUse(payload) => {
-                assert_eq!(
-                    payload.common.permission_mode,
-                    "bypassPermissions"
-                );
+                assert_eq!(payload.common.permission_mode, "bypassPermissions");
             }
             _ => panic!("Wrong event type"),
         }

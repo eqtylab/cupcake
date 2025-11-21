@@ -187,9 +187,9 @@ CREATE TABLE appointments (
 EOF
 echo "✅ CLAUDE.md created"
 
-# Recompile policies (only Claude Code policies)
+# Recompile policies (Claude Code policies + helpers)
 echo "Recompiling Claude Code policies with new appointment rules..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/ .cupcake/policies/helpers/
 echo "✅ Policies compiled"
 
 # Create .mcp.json for project-level MCP configuration

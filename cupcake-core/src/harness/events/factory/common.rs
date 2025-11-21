@@ -1,23 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 /// Permission mode for Factory AI Droid
-/// Indicates the current permission mode when the hook is invoked
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "camelCase")]
-pub enum PermissionMode {
-    /// Normal permission checks
-    #[default]
-    Default,
-    /// Planning mode
-    Plan,
-    /// Auto-accept edits
-    AcceptEdits,
-    /// Bypass all permission checks
-    BypassPermissions,
-}
+/// Stored as a string to accommodate Factory's various autonomy modes
+/// (e.g., "default", "plan", "auto-medium", "auto-full", etc.)
+pub type PermissionMode = String;
 
 /// Common fields present in all Factory AI Droid hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommonFactoryData {
     /// Unique identifier for the Droid session
     pub session_id: String,

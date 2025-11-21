@@ -24,7 +24,7 @@ pub use user_prompt_submit::UserPromptSubmitPayload;
 
 /// All possible Factory AI Droid hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "hook_event_name", rename_all = "PascalCase")]
+#[serde(tag = "hookEventName", rename_all = "PascalCase")]
 pub enum FactoryEvent {
     /// Before tool execution
     PreToolUse(PreToolUsePayload),

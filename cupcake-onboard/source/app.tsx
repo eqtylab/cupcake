@@ -327,41 +327,64 @@ export default function App({cwd = process.cwd()}: Props) {
 
 		// Handle selecting state
 		if (appState === 'selecting' && files.length > 0) {
-			// Navigate up/down
+			// Navigate up/down with wrapping (cycles from top to bottom and vice versa)
 			if (key.upArrow) {
-				setCursor(prev => (prev > 0 ? prev - 1 : prev));
+				setCursor(prev => (prev > 0 ? prev - 1 : files.length));
 			}
 			if (key.downArrow) {
-				setCursor(prev => (prev < files.length - 1 ? prev + 1 : prev));
+				setCursor(prev => (prev < files.length ? prev + 1 : 0));
 			}
 
-			// Toggle selection with space or enter
+			// Handle space or enter
 			if (input === ' ' || key.return) {
-				setFiles(prev =>
-					prev.map((file, i) =>
-						i === cursor ? {...file, selected: !file.selected} : file,
-					),
-				);
+				// Check if cursor is on the button (last position)
+				if (cursor === files.length) {
+					// Submit - start processing
+					const selectedFiles = files.filter(f => f.selected);
+					if (selectedFiles.length > 0) {
+						setAppState('processing');
+						setProcessingIndex(0);
+					}
+				} else {
+					// Toggle file selection
+					setFiles(prev =>
+						prev.map((file, i) =>
+							i === cursor ? {...file, selected: !file.selected} : file,
+						),
+					);
+				}
 			}
 		}
 
 		// Handle configuring state
 		if (appState === 'configuring' && rules.length > 0) {
-			// Navigate up/down
+			// Navigate up/down with wrapping (cycles from top to bottom and vice versa)
 			if (key.upArrow) {
-				setRuleCursor(prev => (prev > 0 ? prev - 1 : prev));
+				setRuleCursor(prev => (prev > 0 ? prev - 1 : rules.length));
 			}
 			if (key.downArrow) {
-				setRuleCursor(prev => (prev < rules.length - 1 ? prev + 1 : prev));
+				setRuleCursor(prev => (prev < rules.length ? prev + 1 : 0));
 			}
 
-			// Toggle selection with space or enter
+			// Handle space or enter
 			if (input === ' ' || key.return) {
-				setRules(prev =>
-					prev.map((rule, i) =>
-						i === ruleCursor ? {...rule, enabled: !rule.enabled} : rule,
-					),
-				);
+				// Check if cursor is on the button (last position)
+				if (ruleCursor === rules.length) {
+					// Submit - start generating
+					const enabledRules = rules.filter(r => r.enabled);
+					if (enabledRules.length > 0) {
+						setAppState('generating');
+						setGeneratingPhase('creating');
+						setGeneratingIndex(0);
+					}
+				} else {
+					// Toggle rule selection
+					setRules(prev =>
+						prev.map((rule, i) =>
+							i === ruleCursor ? {...rule, enabled: !rule.enabled} : rule,
+						),
+					);
+				}
 			}
 		}
 	});
@@ -390,7 +413,7 @@ export default function App({cwd = process.cwd()}: Props) {
 						Cupcake Onboarding
 					</Text>
 					<Text color={colors.text}>
-						Convert your rules files into guarantees - save context
+						Convert your rules files into guarantees
 					</Text>
 					<Text> </Text>
 
@@ -402,7 +425,7 @@ export default function App({cwd = process.cwd()}: Props) {
 						paddingX={1}
 					>
 						<Text>
-							<Text color={colors.lavender}>using agent: </Text>
+							<Text color={colors.lavender}>agent: </Text>
 							<Text color={colors.text}>Claude Code</Text>
 						</Text>
 						<Text>
@@ -410,9 +433,9 @@ export default function App({cwd = process.cwd()}: Props) {
 							<Text color={colors.text}>{cwd}</Text>
 						</Text>
 						<Text>
-							<Text color={colors.lavender}>cupcake init: </Text>
+							<Text color={colors.lavender}>cupcake folder exists: </Text>
 							<Text color={cupcakeInit ? colors.green : colors.red}>
-								{cupcakeInit ? 'yes' : 'no'}
+								{cupcakeInit ? 'yes' : 'no, will create'}
 							</Text>
 						</Text>
 						<Text> </Text>
@@ -462,37 +485,51 @@ export default function App({cwd = process.cwd()}: Props) {
 						) : files.length === 0 ? (
 							<Text color={colors.text}>No rule files found</Text>
 						) : (
-							files.map((file, index) => {
-								const isHighlighted = index === cursor;
-								return (
-									<Box key={file.path} justifyContent="space-between">
-										<Box>
-											<Box width={4}>
-												<Text color={colors.white}>{isHighlighted ? '>>' : '  '}</Text>
+							<>
+								{files.map((file, index) => {
+									const isHighlighted = index === cursor;
+									return (
+										<Box key={file.path} justifyContent="space-between">
+											<Box>
+												<Box width={4}>
+													<Text color={colors.white}>{isHighlighted ? '>>' : '  '}</Text>
+												</Box>
+												<Text
+													color={isHighlighted ? colors.white : colors.link}
+													backgroundColor={isHighlighted ? colors.select : undefined}
+												>
+													{file.path}
+												</Text>
 											</Box>
 											<Text
-												color={isHighlighted ? colors.white : colors.link}
+												color={file.selected ? colors.green : colors.red}
 												backgroundColor={isHighlighted ? colors.select : undefined}
 											>
-												{file.path}
+												{file.selected ? 'yes' : 'no'}
 											</Text>
 										</Box>
-										<Text
-											color={file.selected ? colors.green : colors.red}
-											backgroundColor={isHighlighted ? colors.select : undefined}
-										>
-											{file.selected ? 'yes' : 'no'}
-										</Text>
-									</Box>
-								);
-							})
+									);
+								})}
+
+								{/* Submit button */}
+								<Text> </Text>
+								<Box justifyContent="center">
+									<Text
+										color={cursor === files.length ? colors.white : colors.action}
+										backgroundColor={cursor === files.length ? colors.select : undefined}
+									>
+										{cursor === files.length ? '>> ' : '   '}
+										[ Continue → ]
+									</Text>
+								</Box>
+							</>
 						)}
 					</Box>
 
 					<Text> </Text>
 
 					{/* Footer */}
-					<Text color={colors.action}>To begin: ctrl + s</Text>
+					<Text color={colors.action}>To begin: Enter or ctrl + s</Text>
 					<Text color={colors.text}>To quit: ctrl + c</Text>
 				</>
 			) : appState === 'processing' ? (
@@ -596,10 +633,22 @@ export default function App({cwd = process.cwd()}: Props) {
 								</Box>
 							);
 						})}
+
+						{/* Submit button */}
+						<Text> </Text>
+						<Box justifyContent="center">
+							<Text
+								color={ruleCursor === rules.length ? colors.white : colors.action}
+								backgroundColor={ruleCursor === rules.length ? colors.select : undefined}
+							>
+								{ruleCursor === rules.length ? '>> ' : '   '}
+								[ Generate Policies → ]
+							</Text>
+						</Box>
 					</Box>
 
 					<Text> </Text>
-					<Text color={colors.action}>To finish: ctrl + s</Text>
+					<Text color={colors.action}>To finish: Enter or ctrl + s</Text>
 					<Text color={colors.text}>To quit: ctrl + c</Text>
 				</>
 			) : appState === 'generating' ? (

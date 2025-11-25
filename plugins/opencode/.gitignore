@@ -1,1 +1,24 @@
+# Dependencies
 node_modules/
+
+# Build output
+dist/
+
+# Lock files (let users generate their own)
+package-lock.json
+bun.lock
+yarn.lock
+pnpm-lock.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/

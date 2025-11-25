@@ -1,18 +1,53 @@
-# OpenCode Example Policies
+# OpenCode Example Project
 
-This directory contains example policies for the OpenCode harness integration.
+This is a complete working example of Cupcake + OpenCode integration.
 
-## Getting Started
+## Quick Test
 
-1. **Install the Cupcake OpenCode plugin** (see plugin documentation)
-2. **Copy example policies** to your project's `.cupcake/policies/opencode/` directory
-3. **Test the integration** by running commands that trigger the policies
+From this directory, test policy enforcement:
+
+```bash
+# Should DENY (--no-verify is blocked)
+echo '{"hook_event_name":"PreToolUse","session_id":"test","cwd":"'$(pwd)'","tool":"bash","args":{"command":"git commit --no-verify"}}' | cupcake eval --harness opencode
+
+# Should ALLOW
+echo '{"hook_event_name":"PreToolUse","session_id":"test","cwd":"'$(pwd)'","tool":"bash","args":{"command":"git status"}}' | cupcake eval --harness opencode
+```
+
+## Directory Structure
+
+```
+examples/opencode/
+├── .cupcake/
+│   ├── rulebook.yml              # Configuration
+│   └── policies/
+│       └── opencode/
+│           ├── system/
+│           │   └── evaluate.rego # Required aggregator
+│           ├── minimal_protection.rego
+│           ├── git_workflow.rego
+│           └── file_protection.rego
+├── .opencode/
+│   └── plugins/
+│       └── cupcake/              # Pre-built plugin
+└── 0_Welcome/                    # Reference copies of policies
+```
+
+## Using in Your Own Project
+
+Copy the `.cupcake/` and `.opencode/` directories to your project:
+
+```bash
+cp -r .cupcake /path/to/your/project/
+cp -r .opencode /path/to/your/project/
+```
 
 ## Example Policies
 
 ### 0_Welcome/minimal_protection.rego
 
 A simple starter policy that demonstrates basic command blocking:
+
 - Blocks `git commit --no-verify` (bypasses hooks)
 - Blocks `git push --force` (dangerous)
 - Blocks `rm -rf` on system directories (critical)
@@ -22,6 +57,7 @@ A simple starter policy that demonstrates basic command blocking:
 ### 0_Welcome/git_workflow.rego
 
 Enforces git best practices and workflows:
+
 - Asks for confirmation on lazy commit messages ("wip", "fix", etc.)
 - Warns before pushing directly to main branch
 
@@ -30,6 +66,7 @@ Enforces git best practices and workflows:
 ### 0_Welcome/file_protection.rego
 
 Protects sensitive files from modification:
+
 - Blocks editing of `.env` files (secrets protection)
 - Blocks writing to protected configuration files
 - Warns when modifying `package.json` dependencies
@@ -52,6 +89,7 @@ echo '{
 ```
 
 Expected output for blocked command:
+
 ```json
 {
   "decision": "deny",
@@ -134,13 +172,13 @@ input.tool_response  # Execution result
 
 ## Decision Types
 
-| Decision | Effect | Use Case |
-|----------|--------|----------|
-| `deny` | Blocks execution | Security violations, dangerous commands |
-| `ask` | Prompts for approval* | Risky but sometimes necessary operations |
-| `allow` | Permits execution | Explicitly allow after checks |
+| Decision | Effect                 | Use Case                                 |
+| -------- | ---------------------- | ---------------------------------------- |
+| `deny`   | Blocks execution       | Security violations, dangerous commands  |
+| `ask`    | Prompts for approval\* | Risky but sometimes necessary operations |
+| `allow`  | Permits execution      | Explicitly allow after checks            |
 
-*Note: In Phase 1, `ask` decisions are converted to `deny` with a message explaining approval is needed.
+\*Note: In Phase 1, `ask` decisions are converted to `deny` with a message explaining approval is needed.
 
 ## Tips for Writing Policies
 

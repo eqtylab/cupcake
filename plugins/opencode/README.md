@@ -21,26 +21,22 @@ Policy engine plugin for [OpenCode](https://opencode.ai), enabling enforcement o
 
 ### Install Plugin
 
-**Option 1: NPM (Coming Soon)**
+**Option 1: From Source (Recommended)**
 ```bash
-npm install -g @cupcake/opencode-plugin
-```
-
-**Option 2: From Source**
-```bash
+# Build the plugin
 cd plugins/opencode
-npm install
-npm run build
-# Copy to OpenCode plugin directory
-cp -r dist ~/.config/opencode/plugin/cupcake
+bun install && bun run build  # or: npm install && npm run build
+
+# Copy to your project - just a single file!
+mkdir -p /path/to/your/project/.opencode/plugin
+cp dist/cupcake.js /path/to/your/project/.opencode/plugin/
 ```
 
-**Option 3: Local Project**
+**Option 2: Global Installation**
 ```bash
-# In your project
-mkdir -p .opencode/plugin
-# Copy the built plugin
-cp /path/to/cupcake/plugins/opencode/dist/index.js .opencode/plugin/cupcake.js
+# Install globally for all projects
+mkdir -p ~/.config/opencode/plugin
+cp dist/cupcake.js ~/.config/opencode/plugin/
 ```
 
 ## Quick Start

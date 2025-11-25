@@ -107,13 +107,14 @@ deny contains decision if {
     };
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
-    // Create OpenCode PreToolUse event
+    // Create OpenCode PreToolUse event (using OpenCode format: tool + args)
+    // Preprocessing will convert to: tool_name + tool_input
     let event = json!({
         "hook_event_name": "PreToolUse",
         "session_id": "test_session",
         "cwd": temp_dir.path().to_str().unwrap(),
-        "tool_name": "Bash",
-        "tool_input": {
+        "tool": "bash",
+        "args": {
             "command": "echo hello"
         }
     });
@@ -168,12 +169,13 @@ deny contains decision if {
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Create OpenCode PreToolUse event with dangerous command
+    // Using OpenCode format: tool (lowercase) + args
     let event = json!({
         "hook_event_name": "PreToolUse",
         "session_id": "test_session",
         "cwd": temp_dir.path().to_str().unwrap(),
-        "tool_name": "Bash",
-        "tool_input": {
+        "tool": "bash",
+        "args": {
             "command": "rm -rf /"
         }
     });
@@ -227,15 +229,16 @@ add_context contains message if {
     let engine = Engine::new_with_config(temp_dir.path(), config).await?;
 
     // Create OpenCode PostToolUse event
+    // Using OpenCode format: tool (lowercase) + args + result
     let event = json!({
         "hook_event_name": "PostToolUse",
         "session_id": "test_session",
         "cwd": temp_dir.path().to_str().unwrap(),
-        "tool_name": "Bash",
-        "tool_input": {
+        "tool": "bash",
+        "args": {
             "command": "echo hello"
         },
-        "tool_response": {
+        "result": {
             "success": true,
             "output": "hello"
         }
@@ -264,43 +267,45 @@ add_context contains message if {
 
 #[tokio::test]
 async fn test_opencode_event_parsing() -> Result<()> {
-    // Test that OpenCode events parse correctly with the expected structure
+    // Test that OpenCode events have the expected structure
+    // This tests the JSON format sent by the plugin
 
-    // PreToolUse event
+    // PreToolUse event (OpenCode format)
     let pre_event = json!({
         "hook_event_name": "PreToolUse",
         "session_id": "test_session",
         "cwd": "/test/dir",
-        "tool_name": "Bash",
-        "tool_input": {
+        "tool": "bash",
+        "args": {
             "command": "ls -la"
         }
     });
 
-    // Should be valid JSON
+    // Should be valid JSON with OpenCode structure
     assert!(pre_event.is_object());
     assert_eq!(pre_event["hook_event_name"], "PreToolUse");
-    assert_eq!(pre_event["tool_name"], "Bash");
+    assert_eq!(pre_event["tool"], "bash");
+    assert!(pre_event.get("args").is_some());
 
-    // PostToolUse event
+    // PostToolUse event (OpenCode format)
     let post_event = json!({
         "hook_event_name": "PostToolUse",
         "session_id": "test_session",
         "cwd": "/test/dir",
-        "tool_name": "Bash",
-        "tool_input": {
+        "tool": "bash",
+        "args": {
             "command": "ls -la"
         },
-        "tool_response": {
+        "result": {
             "success": true,
             "output": "file1\nfile2"
         }
     });
 
-    // Should be valid JSON
+    // Should be valid JSON with OpenCode structure
     assert!(post_event.is_object());
     assert_eq!(post_event["hook_event_name"], "PostToolUse");
-    assert_eq!(post_event["tool_response"]["success"], true);
+    assert_eq!(post_event["result"]["success"], true);
 
     Ok(())
 }

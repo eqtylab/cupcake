@@ -2,21 +2,21 @@
  * Event builder - converts OpenCode events to Cupcake format
  */
 
-import type { CupcakeEvent, CupcakePreToolUseEvent, CupcakePostToolUseEvent } from "./types.js";
-import { TOOL_NAME_MAP } from "./types.js";
+import type { CupcakePreToolUseEvent, CupcakePostToolUseEvent } from "./types.js";
 
 /**
- * Normalize tool name from OpenCode format to Cupcake format
- * @param tool - Tool name from OpenCode (lowercase)
- * @returns Normalized tool name for Cupcake (PascalCase)
+ * Pass through tool name from OpenCode to Cupcake
+ *
+ * Note: The Rust preprocessing layer handles tool name normalization
+ * (lowercase → PascalCase mapping like "bash" → "Bash").
+ * We just pass through the tool name as-is.
+ *
+ * @param tool - Tool name from OpenCode (typically lowercase)
+ * @returns Tool name (passed through unchanged)
  */
 export function normalizeTool(tool: string): string {
-  const normalized = TOOL_NAME_MAP[tool.toLowerCase()];
-  if (normalized) {
-    return normalized;
-  }
-  // Custom tools - capitalize first letter
-  return tool.charAt(0).toUpperCase() + tool.slice(1);
+  // Let Rust preprocessing handle the normalization
+  return tool;
 }
 
 /**
@@ -28,7 +28,7 @@ export function buildPreToolUseEvent(
   tool: string,
   args: Record<string, any>,
   agent?: string,
-  messageId?: string
+  messageId?: string,
 ): CupcakePreToolUseEvent {
   const event: CupcakePreToolUseEvent = {
     hook_event_name: "PreToolUse",
@@ -64,7 +64,7 @@ export function buildPostToolUseEvent(
     exit_code?: number;
   },
   agent?: string,
-  messageId?: string
+  messageId?: string,
 ): CupcakePostToolUseEvent {
   const event: CupcakePostToolUseEvent = {
     hook_event_name: "PostToolUse",

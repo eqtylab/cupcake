@@ -38,7 +38,7 @@ function loadConfig(directory: string): CupcakeConfig {
 
 /**
  * Cupcake OpenCode Plugin
- * 
+ *
  * Intercepts tool execution and enforces policy decisions from Cupcake.
  */
 export const CupcakePlugin: Plugin = async ({ directory }: PluginInput) => {
@@ -60,10 +60,13 @@ export const CupcakePlugin: Plugin = async ({ directory }: PluginInput) => {
   return {
     /**
      * Hook: tool.execute.before
-     * 
+     *
      * Fired before any tool execution. This is where we enforce policies.
      */
-    "tool.execute.before": async (input: { tool: string; sessionID: string; callID: string }, output: { args: any }) => {
+    "tool.execute.before": async (
+      input: { tool: string; sessionID: string; callID: string },
+      output: { args: any },
+    ) => {
       try {
         if (config.logLevel === "debug") {
           console.error(`[cupcake-plugin] DEBUG: tool.execute.before fired`);
@@ -100,12 +103,15 @@ export const CupcakePlugin: Plugin = async ({ directory }: PluginInput) => {
 
     /**
      * Hook: tool.execute.after
-     * 
+     *
      * Fired after tool execution. Can be used for validation but cannot prevent execution.
-     * 
+     *
      * Note: In Phase 1, we primarily use this for logging. Phase 2 may add validation.
      */
-    "tool.execute.after": async (input: { tool: string; sessionID: string; callID: string }, output: { title: string; output: string; metadata: any }) => {
+    "tool.execute.after": async (
+      input: { tool: string; sessionID: string; callID: string },
+      output: { title: string; output: string; metadata: any },
+    ) => {
       if (config.logLevel === "debug") {
         console.error(`[cupcake-plugin] DEBUG: tool.execute.after fired`);
         console.error(`[cupcake-plugin] DEBUG: Tool: ${input.tool}`);
@@ -118,8 +124,5 @@ export const CupcakePlugin: Plugin = async ({ directory }: PluginInput) => {
   };
 };
 
-// Export types and utilities
-export * from "./types.js";
-export { buildPreToolUseEvent } from "./event-builder.js";
-export { executeCupcake } from "./executor.js";
-export { enforceDecision, formatErrorMessage } from "./enforcer.js";
+// Export types for advanced usage
+export type { CupcakeConfig, CupcakeResponse } from "./types.js";

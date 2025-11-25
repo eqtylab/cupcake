@@ -1,160 +1,187 @@
-# OpenCode Integration - Installation & Setup Guide
+# OpenCode Installation Guide
 
-This guide walks you through integrating Cupcake's policy engine with OpenCode.
+Detailed installation instructions for integrating Cupcake with OpenCode.
+
+> For a faster setup, see the [Quickstart Guide](./quickstart.md).
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+1. **OpenCode** installed and working
+2. **Cupcake CLI** built or installed
+3. **Node.js** v18+ (for building the plugin)
 
-1. **OpenCode installed**: Follow the [OpenCode installation guide](https://opencode.ai/docs)
-2. **Cupcake installed**:
-   ```bash
-   # Install cupcake (choose one method)
-   cargo install cupcake
-   # OR
-   curl -fsSL https://cupcake.sh/install | bash
-   ```
-3. **Node.js** (v18+) or **Bun** installed
-
-## Step 1: Build the Cupcake Plugin
+## Building Cupcake
 
 ```bash
-# Navigate to the plugin directory
-cd /path/to/cupcake/plugins/opencode
+# Clone the repository
+git clone https://github.com/eqtylab/cupcake.git
+cd cupcake
+
+# Build release binary
+cargo build --release
+
+# Verify it works
+./target/release/cupcake --version
+```
+
+## Installing Cupcake CLI
+
+Choose one method:
+
+### Option A: Add to PATH
+```bash
+export PATH="$PATH:/path/to/cupcake/target/release"
+```
+
+### Option B: Copy to system bin
+```bash
+sudo cp target/release/cupcake /usr/local/bin/
+```
+
+### Option C: Symlink
+```bash
+sudo ln -s /path/to/cupcake/target/release/cupcake /usr/local/bin/cupcake
+```
+
+## Building the Plugin
+
+```bash
+cd plugins/opencode
 
 # Install dependencies
 npm install
 
-# Build the plugin
+# Build TypeScript to JavaScript
 npm run build
 
-# Verify build succeeded
-ls -la dist/
-# Should see: index.js, index.d.ts, etc.
+# Verify build
+ls dist/
+# Should see: index.js, types.js, executor.js, etc.
 ```
 
-## Step 2: Install the Plugin
+## Installing the Plugin
 
-You have two options for installing the plugin:
+### Project-Level (Recommended)
 
-### Option A: Project-Level Installation (Recommended)
-
-Install the plugin for a specific OpenCode project:
+Install for a specific project:
 
 ```bash
-# Navigate to your project
 cd /path/to/your/project
 
 # Create plugin directory
-mkdir -p .opencode/plugin
+mkdir -p .opencode/plugins/cupcake
 
-# Copy the built plugin
-cp -r /path/to/cupcake/plugins/opencode/dist/* .opencode/plugin/cupcake/
-
-# OR create a symlink for easier development
-ln -s /path/to/cupcake/plugins/opencode/dist .opencode/plugin/cupcake
+# Copy built plugin
+cp -r /path/to/cupcake/plugins/opencode/dist/* .opencode/plugins/cupcake/
+cp /path/to/cupcake/plugins/opencode/package.json .opencode/plugins/cupcake/
 ```
 
-### Option B: Global Installation
+### Global Installation
 
-Install the plugin globally for all OpenCode projects:
+Install for all OpenCode projects:
 
 ```bash
-# Create global plugin directory
-mkdir -p ~/.config/opencode/plugin
-
-# Copy the built plugin
-cp -r /path/to/cupcake/plugins/opencode/dist/* ~/.config/opencode/plugin/cupcake/
-
-# OR create a symlink
-ln -s /path/to/cupcake/plugins/opencode/dist ~/.config/opencode/plugin/cupcake
+mkdir -p ~/.config/opencode/plugins/cupcake
+cp -r /path/to/cupcake/plugins/opencode/dist/* ~/.config/opencode/plugins/cupcake/
+cp /path/to/cupcake/plugins/opencode/package.json ~/.config/opencode/plugins/cupcake/
 ```
 
-**Note**: Project-level plugins override global plugins.
-
-## Step 3: Initialize Cupcake for OpenCode
+## Initializing Cupcake
 
 ```bash
-# Navigate to your project
 cd /path/to/your/project
 
-# Initialize cupcake with OpenCode harness
+# Initialize with OpenCode harness
 cupcake init --harness opencode
-
-# This creates:
-# - .cupcake/rulebook.yml (configuration)
-# - .cupcake/policies/opencode/ (policy directory)
 ```
 
-## Step 4: Add Example Policies
+This creates:
+- `.cupcake/rulebook.yml` - Configuration file
+- `.cupcake/policies/` - Policy directory
+- `.cupcake/signals/` - Signal definitions
+- `.cupcake/actions/` - Action definitions
 
-Copy example policies to get started:
+## Creating the System Evaluator
+
+The system evaluator is required for policy compilation:
 
 ```bash
-# Copy all example policies
-cp -r /path/to/cupcake/examples/opencode/0_Welcome/* .cupcake/policies/opencode/
+mkdir -p .cupcake/policies/opencode/system
 
-# Verify policies are in place
-ls -la .cupcake/policies/opencode/
-# Should see: minimal_protection.rego, git_workflow.rego, file_protection.rego
+cat > .cupcake/policies/opencode/system/evaluate.rego << 'EOF'
+package cupcake.system
+
+import rego.v1
+
+evaluate := decision_set if {
+    decision_set := {
+        "halts": collect_verbs("halt"),
+        "denials": collect_verbs("deny"),
+        "blocks": collect_verbs("block"),
+        "asks": collect_verbs("ask"),
+        "allow_overrides": collect_verbs("allow_override"),
+        "add_context": collect_verbs("add_context")
+    }
+}
+
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+
+    result := all_decisions
+}
+
+default collect_verbs(_) := []
+EOF
 ```
 
-## Step 5: Test the Integration
+## Adding Policies
 
-### Test with Direct CLI
-
-First, verify Cupcake works with OpenCode events:
+Copy example policies:
 
 ```bash
-# Test a deny scenario
-echo '{
-  "hook_event_name": "PreToolUse",
-  "session_id": "test",
-  "cwd": "'$(pwd)'",
-  "tool": "bash",
-  "args": {"command": "git commit --no-verify"}
-}' | cupcake eval --harness opencode
-
-# Expected output:
-# {"decision":"deny","reason":"The --no-verify flag bypasses pre-commit hooks..."}
-
-# Test an allow scenario
-echo '{
-  "hook_event_name": "PreToolUse",
-  "session_id": "test",
-  "cwd": "'$(pwd)'",
-  "tool": "bash",
-  "args": {"command": "git status"}
-}' | cupcake eval --harness opencode
-
-# Expected output:
-# {"decision":"allow"}
+cp -r /path/to/cupcake/examples/opencode/0_Welcome/*.rego .cupcake/policies/opencode/
 ```
 
-### Test with OpenCode
-
-Now test the full integration with OpenCode:
+Or create your own:
 
 ```bash
-# Start OpenCode in your project
-cd /path/to/your/project
-opencode
+cat > .cupcake/policies/opencode/my_policy.rego << 'EOF'
+# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.opencode.my_policy
 
-# In OpenCode, try a blocked command:
-# > "run git commit --no-verify"
-# Should see: ❌ Policy Violation - blocked!
+import rego.v1
 
-# Try an allowed command:
-# > "run git status"
-# Should execute normally
+deny contains decision if {
+    input.tool_name == "Bash"
+    contains(input.tool_input.command, "dangerous")
+    
+    decision := {
+        "rule_id": "MY_RULE",
+        "reason": "This command is not allowed",
+        "severity": "HIGH"
+    }
+}
+EOF
 ```
 
-## Step 6: Configure Plugin (Optional)
+## Plugin Configuration
 
 Create `.cupcake/opencode.json` to customize plugin behavior:
 
-```bash
-cat > .cupcake/opencode.json <<'EOF'
+```json
 {
   "enabled": true,
   "cupcakePath": "cupcake",
@@ -164,226 +191,90 @@ cat > .cupcake/opencode.json <<'EOF'
   "failMode": "closed",
   "cacheDecisions": false
 }
-EOF
 ```
 
 ### Configuration Options
 
-| Option           | Default     | Description                                             |
-| ---------------- | ----------- | ------------------------------------------------------- |
-| `enabled`        | `true`      | Enable/disable plugin                                   |
-| `cupcakePath`    | `"cupcake"` | Path to cupcake binary                                  |
-| `logLevel`       | `"info"`    | Log level: `"error"`, `"warn"`, `"info"`, `"debug"`     |
-| `timeoutMs`      | `5000`      | Max policy evaluation time (ms)                         |
-| `failMode`       | `"closed"`  | `"open"` (allow on error) or `"closed"` (deny on error) |
-| `cacheDecisions` | `false`     | Enable decision caching (experimental)                  |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `true` | Enable/disable the plugin |
+| `cupcakePath` | `"cupcake"` | Path to cupcake binary |
+| `logLevel` | `"info"` | Log level: debug, info, warn, error |
+| `timeoutMs` | `5000` | Max policy evaluation time (ms) |
+| `failMode` | `"closed"` | `"open"` (allow on error) or `"closed"` (deny on error) |
+| `cacheDecisions` | `false` | Cache decisions (experimental) |
 
-**Fail Mode Guidance:**
+## Verification
 
-- **Production**: Use `"closed"` (deny on error) for maximum security
-- **Development**: Use `"open"` (allow on error) for faster iteration
-
-## Step 7: Write Custom Policies
-
-Create your own policies in `.cupcake/policies/opencode/`:
-
-```rego
-# .cupcake/policies/opencode/my_policy.rego
-
-# METADATA
-# scope: package
-# title: My Custom Policy
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
-package cupcake.policies.opencode.my_policy
-
-import rego.v1
-
-# Block dangerous commands
-deny contains decision if {
-    input.tool_name == "Bash"
-    command := input.tool_input.command
-
-    # Add your conditions here
-    contains(command, "rm -rf /")
-
-    decision := {
-        "rule_id": "DANGEROUS_RM",
-        "reason": "Cannot delete root directory!",
-        "severity": "CRITICAL"
-    }
-}
-```
-
-Test your policy:
+### Test CLI directly
 
 ```bash
-echo '{
-  "hook_event_name": "PreToolUse",
-  "session_id": "test",
-  "cwd": "'$(pwd)'",
-  "tool": "bash",
-  "args": {"command": "rm -rf /"}
-}' | cupcake eval --harness opencode
+# Should return deny
+echo '{"hook_event_name":"PreToolUse","session_id":"test","cwd":"'$(pwd)'","tool":"bash","args":{"command":"git commit --no-verify"}}' | cupcake eval --harness opencode
+```
+
+### Test with OpenCode
+
+```bash
+opencode
+
+# In OpenCode, try:
+# > run git commit --no-verify -m test
+# Should see: Policy violation - blocked
 ```
 
 ## Verification Checklist
 
-- [ ] Cupcake CLI is installed and in PATH (`cupcake --version`)
-- [ ] Plugin is built (`ls plugins/opencode/dist/`)
-- [ ] Plugin is installed (`.opencode/plugin/cupcake/` or `~/.config/opencode/plugin/cupcake/`)
-- [ ] Cupcake is initialized (`.cupcake/rulebook.yml` exists)
-- [ ] Policies exist (`.cupcake/policies/opencode/*.rego`)
-- [ ] CLI test passes (echo test above works)
-- [ ] OpenCode integration works (blocked commands are denied)
+- [ ] `cupcake --version` works
+- [ ] Plugin built: `ls plugins/opencode/dist/`
+- [ ] Plugin installed: `ls .opencode/plugins/cupcake/` or `~/.config/opencode/plugins/cupcake/`
+- [ ] Cupcake initialized: `ls .cupcake/`
+- [ ] System evaluator exists: `ls .cupcake/policies/opencode/system/evaluate.rego`
+- [ ] Policies exist: `ls .cupcake/policies/opencode/*.rego`
+- [ ] CLI test passes (deny for --no-verify)
+- [ ] OpenCode integration works
 
 ## Troubleshooting
 
-### Plugin Not Loading
-
-**Check plugin location:**
+### cupcake not found
 
 ```bash
-# Project-level
-ls -la .opencode/plugin/cupcake/
-# Should see: index.js, index.d.ts, etc.
-
-# Global
-ls -la ~/.config/opencode/plugin/cupcake/
-```
-
-**Check OpenCode recognizes the plugin:**
-
-```bash
-# Enable debug logging in plugin config
-cat > .cupcake/opencode.json <<'EOF'
-{
-  "logLevel": "debug"
-}
-EOF
-
-# Run OpenCode and watch logs
-opencode
-# Should see: [cupcake-plugin] INFO: Cupcake plugin initialized
-```
-
-### Policies Not Evaluating
-
-**Test policy compilation:**
-
-```bash
-cd .cupcake/policies/opencode
-opa build -t wasm -e cupcake/system/evaluate .
-# Should succeed without errors
-```
-
-**Check routing metadata:**
-
-```bash
-# Inspect policies
-cupcake inspect --policy-dir .cupcake/policies
-
-# Should show routing info for each policy
-```
-
-**Enable debug logging:**
-
-```bash
-cupcake eval --harness opencode --log-level debug < test_event.json
-```
-
-### Cupcake Not Found
-
-**Check PATH:**
-
-```bash
+# Check if in PATH
 which cupcake
-# Should show: /usr/local/bin/cupcake or similar
 
-# If not found, add to PATH or specify full path in config:
-cat > .cupcake/opencode.json <<'EOF'
-{
-  "cupcakePath": "/full/path/to/cupcake"
-}
-EOF
+# If not, add to PATH or use full path in config:
+echo '{"cupcakePath": "/full/path/to/cupcake"}' > .cupcake/opencode.json
 ```
 
-### Performance Issues
-
-**Increase timeout:**
+### Policies not evaluating
 
 ```bash
-cat > .cupcake/opencode.json <<'EOF'
+# Enable debug logging
+cupcake eval --harness opencode --log-level debug < event.json
+
+# Check routing
+cupcake eval --harness opencode --debug-routing < event.json
+```
+
+### Plugin not loading
+
+Check plugin location and restart OpenCode:
+```bash
+ls -la .opencode/plugins/cupcake/
+# Must contain: index.js, package.json
+```
+
+### Performance issues
+
+Increase timeout:
+```json
 {
   "timeoutMs": 10000
 }
-EOF
-```
-
-**Profile policy evaluation:**
-
-```bash
-time cupcake eval --harness opencode < test_event.json
 ```
 
 ## Next Steps
 
-1. **Write Custom Policies**: See [Policy Examples](./policy-examples.md)
-2. **Explore Builtins**: Learn about built-in policies in `docs/user-guide/configuration/builtins.md`
-3. **Set Up CI/CD**: Integrate Cupcake into your development workflow
-4. **Share Policies**: Contribute policies back to the community
-
-## Advanced Configuration
-
-### Global Organization Policies
-
-Set up organization-wide policies that apply to all projects:
-
-```bash
-# Create global policy directory
-mkdir -p ~/.cupcake/policies/opencode
-
-# Add organization policies
-cp org-policies/*.rego ~/.cupcake/policies/opencode/
-
-# Configure global rulebook
-cat > ~/.cupcake/rulebook.yml <<'EOF'
-global_config:
-  enabled: true
-  policy_dir: ~/.cupcake/policies/opencode
-
-builtins:
-  git_block_no_verify:
-    enabled: true
-  protected_paths:
-    enabled: true
-    paths:
-      - ".env"
-      - "secrets/"
-EOF
-```
-
-### Multi-Project Setup
-
-For teams managing multiple projects:
-
-```bash
-# Use global plugin + project-specific policies
-# Global: ~/.config/opencode/plugin/cupcake/
-# Per-project: /project/.cupcake/policies/opencode/
-
-# Policies are merged: project policies override global
-```
-
-## Support
-
-- **Documentation**: [Full docs](../../../README.md)
-- **Examples**: `examples/opencode/`
-- **Issues**: GitHub Issues
-- **Community**: Discord/Slack (if available)
-
----
-
-**Congratulations!** 🎉 You've successfully integrated Cupcake with OpenCode. Your AI coding agent is now policy-aware!
+- [Quickstart Guide](./quickstart.md) - Fast setup
+- [Plugin Reference](./plugin-reference.md) - Configuration details
+- [Policy Examples](../../../examples/opencode/) - Example policies

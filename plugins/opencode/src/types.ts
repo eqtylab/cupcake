@@ -23,23 +23,6 @@ export interface CupcakeConfig {
 }
 
 /**
- * Tool name mapping from OpenCode to Cupcake format
- */
-export const TOOL_NAME_MAP: Record<string, string> = {
-  bash: "Bash",
-  edit: "Edit",
-  write: "Write",
-  read: "Read",
-  grep: "Grep",
-  glob: "Glob",
-  list: "List",
-  patch: "Patch",
-  todowrite: "TodoWrite",
-  todoread: "TodoRead",
-  webfetch: "WebFetch",
-};
-
-/**
  * Cupcake event for PreToolUse
  */
 export interface CupcakePreToolUseEvent {

@@ -77,8 +77,9 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
         }
         HarnessType::OpenCode => {
             // OpenCode uses lowercase tool names that need to be mapped to Cupcake format
-            // Clone args before mutating input
+            // Clone fields before mutating input
             let args = input.get("args").cloned();
+            let result = input.get("result").cloned();
 
             // Get tool and event as owned strings to avoid borrow issues
             let tool_lowercase = input
@@ -100,6 +101,7 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
                 "todowrite" => "TodoWrite".to_string(),
                 "todoread" => "TodoRead".to_string(),
                 "webfetch" => "WebFetch".to_string(),
+                "task" => "Task".to_string(),
                 _ => tool_lowercase, // Unknown tools pass through
             };
 
@@ -114,6 +116,11 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
                 // Add tool_input field by renaming args to tool_input for engine compatibility
                 if let Some(args_value) = args {
                     obj.insert("tool_input".to_string(), args_value);
+                }
+
+                // Add tool_response field by renaming result to tool_response for PostToolUse events
+                if let Some(result_value) = result {
+                    obj.insert("tool_response".to_string(), result_value);
                 }
             }
 

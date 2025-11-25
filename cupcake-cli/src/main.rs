@@ -238,6 +238,7 @@ enum HarnessType {
     /// Factory AI Droid (factory.ai)
     Factory,
     /// OpenCode (opencode.ai)
+    #[clap(name = "opencode")]
     OpenCode,
 }
 

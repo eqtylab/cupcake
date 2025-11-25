@@ -1,13 +1,10 @@
 // @ts-check
 import { defineConfig } from "astro/config";
-import { fileURLToPath } from "url";
-import { resolve } from "path";
+import { fileURLToPath } from "node:url";
 
 import tailwindcss from "@tailwindcss/vite";
 
 import mdx from "@astrojs/mdx";
-
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 // https://astro.build/config
 export default defineConfig({
@@ -15,12 +12,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
     resolve: {
       alias: {
-        "@": resolve(__dirname, "./src"),
-        "@/components": resolve(__dirname, "./src/components"),
-        "@/lib": resolve(__dirname, "./src/lib"),
-        "@/layouts": resolve(__dirname, "./src/layouts"),
-        "@/pages": resolve(__dirname, "./src/pages"),
-        "@/styles": resolve(__dirname, "./src/styles"),
+        "@": fileURLToPath(new URL("./src", import.meta.url)),
       },
     },
   },

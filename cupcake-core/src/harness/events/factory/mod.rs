@@ -24,7 +24,7 @@ pub use user_prompt_submit::UserPromptSubmitPayload;
 
 /// All possible Factory AI Droid hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "hook_event_name", rename_all = "PascalCase")]
+#[serde(tag = "hookEventName", rename_all = "PascalCase")]
 pub enum FactoryEvent {
     /// Before tool execution
     PreToolUse(PreToolUsePayload),
@@ -185,7 +185,7 @@ mod tests {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
                 cwd: "/home/user/project".to_string(),
-                permission_mode: PermissionMode::Default,
+                permission_mode: "default".to_string(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
@@ -201,11 +201,11 @@ mod tests {
     #[test]
     fn test_permission_mode_parsing() {
         let json = r#"{
-            "hook_event_name": "PreToolUse",
-            "session_id": "test",
-            "transcript_path": "/path",
+            "hookEventName": "PreToolUse",
+            "sessionId": "test",
+            "transcriptPath": "/path",
             "cwd": "/project",
-            "permission_mode": "bypassPermissions",
+            "permissionMode": "bypassPermissions",
             "tool_name": "Bash",
             "tool_input": {"command": "test"}
         }"#;
@@ -213,10 +213,7 @@ mod tests {
         let event: FactoryEvent = serde_json::from_str(json).unwrap();
         match event {
             FactoryEvent::PreToolUse(payload) => {
-                assert_eq!(
-                    payload.common.permission_mode,
-                    PermissionMode::BypassPermissions
-                );
+                assert_eq!(payload.common.permission_mode, "bypassPermissions");
             }
             _ => panic!("Wrong event type"),
         }

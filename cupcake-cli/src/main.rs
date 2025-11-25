@@ -1225,6 +1225,29 @@ import rego.v1
         fs::write(factory_builtins_dir.join(filename), content)?;
     }
 
+    // Deploy OpenCode global builtin policies
+    let opencode_builtins_dir = global_paths.policies.join("opencode").join("builtins");
+    fs::create_dir_all(&opencode_builtins_dir)?;
+
+    let opencode_global_builtins = vec![
+        (
+            "system_protection.rego",
+            OPENCODE_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            OPENCODE_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            OPENCODE_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
+    ];
+
+    for (filename, content) in opencode_global_builtins {
+        fs::write(opencode_builtins_dir.join(filename), content)?;
+    }
+
     println!("✅ Initialized global Cupcake configuration");
     println!("   Location:      {:?}", global_paths.root);
     println!("   Configuration: {:?}", global_paths.rulebook);
@@ -1304,6 +1327,10 @@ async fn init_project_config(
             .context("Failed to create .cupcake/policies/factory/system directory")?;
         fs::create_dir_all(".cupcake/policies/factory/builtins")
             .context("Failed to create .cupcake/policies/factory/builtins directory")?;
+        fs::create_dir_all(".cupcake/policies/opencode/system")
+            .context("Failed to create .cupcake/policies/opencode/system directory")?;
+        fs::create_dir_all(".cupcake/policies/opencode/builtins")
+            .context("Failed to create .cupcake/policies/opencode/builtins directory")?;
         fs::create_dir_all(".cupcake/policies/helpers")
             .context("Failed to create .cupcake/policies/helpers directory")?;
         fs::create_dir_all(".cupcake/signals")
@@ -1337,8 +1364,13 @@ async fn init_project_config(
             SYSTEM_EVALUATE_TEMPLATE,
         )
         .context("Failed to create Factory system evaluate.rego file")?;
+        fs::write(
+            ".cupcake/policies/opencode/system/evaluate.rego",
+            SYSTEM_EVALUATE_TEMPLATE,
+        )
+        .context("Failed to create OpenCode system evaluate.rego file")?;
 
-        // Write helper library (shared by both harnesses)
+        // Write helper library (shared by all harnesses)
         fs::write(".cupcake/policies/helpers/commands.rego", HELPERS_COMMANDS)
             .context("Failed to create helpers/commands.rego file")?;
 
@@ -1424,6 +1456,36 @@ async fn init_project_config(
             let path = format!(".cupcake/policies/factory/builtins/{filename}");
             fs::write(&path, content)
                 .with_context(|| format!("Failed to create Factory builtin: {filename}"))?;
+        }
+
+        // OpenCode builtins - all builtins available (same tools as Claude Code)
+        let opencode_builtins = vec![
+            (
+                "opencode_always_inject_on_prompt.rego",
+                OPENCODE_ALWAYS_INJECT_POLICY,
+            ),
+            ("global_file_lock.rego", OPENCODE_GLOBAL_FILE_LOCK_POLICY),
+            ("git_pre_check.rego", OPENCODE_GIT_PRE_CHECK_POLICY),
+            ("post_edit_check.rego", OPENCODE_POST_EDIT_CHECK_POLICY),
+            (
+                "rulebook_security_guardrails.rego",
+                OPENCODE_RULEBOOK_SECURITY_POLICY,
+            ),
+            ("protected_paths.rego", OPENCODE_PROTECTED_PATHS_POLICY),
+            (
+                "git_block_no_verify.rego",
+                OPENCODE_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
+            (
+                "opencode_enforce_full_file_read.rego",
+                OPENCODE_ENFORCE_FULL_FILE_READ_POLICY,
+            ),
+        ];
+
+        for (filename, content) in opencode_builtins {
+            let path = format!(".cupcake/policies/opencode/builtins/{filename}");
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to create OpenCode builtin: {filename}"))?;
         }
 
         // Write a simple example policy
@@ -2025,6 +2087,32 @@ const FACTORY_GLOBAL_SENSITIVE_DATA_POLICY: &str =
     include_str!("../../fixtures/global_builtins/factory/sensitive_data_protection.rego");
 const FACTORY_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
     include_str!("../../fixtures/global_builtins/factory/cupcake_exec_protection.rego");
+
+// OpenCode builtin policies (same tools as Claude Code - full feature parity)
+const OPENCODE_ALWAYS_INJECT_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/opencode_always_inject_on_prompt.rego");
+const OPENCODE_GLOBAL_FILE_LOCK_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/global_file_lock.rego");
+const OPENCODE_GIT_PRE_CHECK_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/git_pre_check.rego");
+const OPENCODE_POST_EDIT_CHECK_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/post_edit_check.rego");
+const OPENCODE_RULEBOOK_SECURITY_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/rulebook_security_guardrails.rego");
+const OPENCODE_PROTECTED_PATHS_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/protected_paths.rego");
+const OPENCODE_GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/git_block_no_verify.rego");
+const OPENCODE_ENFORCE_FULL_FILE_READ_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/opencode_enforce_full_file_read.rego");
+
+// OpenCode global builtins
+const OPENCODE_GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/opencode/system_protection.rego");
+const OPENCODE_GLOBAL_SENSITIVE_DATA_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/opencode/sensitive_data_protection.rego");
+const OPENCODE_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/opencode/cupcake_exec_protection.rego");
 
 // Helper library (shared by all harnesses)
 const HELPERS_COMMANDS: &str = include_str!("../../fixtures/helpers/commands.rego");

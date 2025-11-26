@@ -579,14 +579,10 @@ pub async fn configure_harness(
             // Determine the target directory for the plugin
             let target_dir = if global {
                 // For global, use config directory
-                dirs::config_dir()
-                    .ok_or_else(|| anyhow!("Could not determine config directory"))?
+                dirs::config_dir().ok_or_else(|| anyhow!("Could not determine config directory"))?
             } else {
                 // For project, use the policy_dir parent (project root)
-                policy_dir
-                    .parent()
-                    .unwrap_or(Path::new("."))
-                    .to_path_buf()
+                policy_dir.parent().unwrap_or(Path::new(".")).to_path_buf()
             };
 
             // Try to download the plugin from GitHub releases
@@ -605,7 +601,9 @@ pub async fn configure_harness(
                         "   OpenCode will automatically load the Cupcake plugin and enforce policies."
                     );
                     println!();
-                    println!("   Optional: Create .cupcake/opencode.json to customize plugin behavior:");
+                    println!(
+                        "   Optional: Create .cupcake/opencode.json to customize plugin behavior:"
+                    );
                     println!("   {{");
                     println!("     \"enabled\": true,");
                     println!("     \"logLevel\": \"info\",");
@@ -613,7 +611,10 @@ pub async fn configure_harness(
                     println!("   }}");
                 }
                 Err(e) => {
-                    eprintln!("⚠️  Could not automatically download OpenCode plugin: {}", e);
+                    eprintln!(
+                        "⚠️  Could not automatically download OpenCode plugin: {}",
+                        e
+                    );
                     OpenCodeHarness::print_manual_instructions();
                     // Don't fail the entire init - just warn
                 }

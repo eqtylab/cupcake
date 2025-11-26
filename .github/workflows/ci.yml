@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest-large, macos-latest, windows-latest]
         rust: [stable]
 
     steps:
@@ -32,6 +32,9 @@ jobs:
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          # Only cache dependencies, not build artifacts (saves disk space)
+          cache-targets: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

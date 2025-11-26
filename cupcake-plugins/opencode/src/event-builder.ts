@@ -2,7 +2,11 @@
  * Event builder - converts OpenCode events to Cupcake format
  */
 
-import type { CupcakePreToolUseEvent, CupcakePostToolUseEvent } from "./types.js";
+import type {
+  CupcakePreToolUseEvent,
+  CupcakePostToolUseEvent,
+  CupcakePermissionEvent,
+} from "./types.js";
 
 /**
  * Pass through tool name from OpenCode to Cupcake
@@ -29,6 +33,7 @@ export function buildPreToolUseEvent(
   args: Record<string, any>,
   agent?: string,
   messageId?: string,
+  callId?: string,
 ): CupcakePreToolUseEvent {
   const event: CupcakePreToolUseEvent = {
     hook_event_name: "PreToolUse",
@@ -44,6 +49,10 @@ export function buildPreToolUseEvent(
 
   if (messageId) {
     event.message_id = messageId;
+  }
+
+  if (callId) {
+    event.call_id = callId;
   }
 
   return event;
@@ -65,6 +74,7 @@ export function buildPostToolUseEvent(
   },
   agent?: string,
   messageId?: string,
+  callId?: string,
 ): CupcakePostToolUseEvent {
   const event: CupcakePostToolUseEvent = {
     hook_event_name: "PostToolUse",
@@ -81,6 +91,49 @@ export function buildPostToolUseEvent(
 
   if (messageId) {
     event.message_id = messageId;
+  }
+
+  if (callId) {
+    event.call_id = callId;
+  }
+
+  return event;
+}
+
+/**
+ * Build a PermissionRequest event for Cupcake
+ */
+export function buildPermissionEvent(
+  sessionId: string,
+  cwd: string,
+  permissionId: string,
+  permissionType: string,
+  title: string,
+  metadata: Record<string, unknown>,
+  pattern?: string | string[],
+  messageId?: string,
+  callId?: string,
+): CupcakePermissionEvent {
+  const event: CupcakePermissionEvent = {
+    hook_event_name: "PermissionRequest",
+    session_id: sessionId,
+    cwd,
+    permission_id: permissionId,
+    permission_type: permissionType,
+    title,
+    metadata,
+  };
+
+  if (pattern) {
+    event.pattern = pattern;
+  }
+
+  if (messageId) {
+    event.message_id = messageId;
+  }
+
+  if (callId) {
+    event.call_id = callId;
   }
 
   return event;

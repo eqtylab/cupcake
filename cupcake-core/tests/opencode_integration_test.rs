@@ -6,8 +6,6 @@ use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
 
-mod common;
-
 /// Helper to create a test project for OpenCode
 async fn setup_opencode_test_project() -> Result<TempDir> {
     let temp_dir = TempDir::new()?;

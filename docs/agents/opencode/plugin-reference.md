@@ -7,7 +7,7 @@ Technical reference for the Cupcake OpenCode plugin.
 ### From Source
 
 ```bash
-cd /path/to/cupcake/plugins/opencode
+cd /path/to/cupcake/cupcake-plugins/opencode
 npm install
 npm run build
 
@@ -42,23 +42,25 @@ Create `.cupcake/opencode.json`:
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable/disable plugin |
-| `cupcakePath` | string | `"cupcake"` | Path to cupcake binary |
-| `harness` | string | `"opencode"` | Harness type (always opencode) |
-| `logLevel` | string | `"info"` | Log level: debug, info, warn, error |
-| `timeoutMs` | number | `5000` | Max evaluation time (ms) |
-| `failMode` | string | `"closed"` | Error handling: "open" or "closed" |
-| `cacheDecisions` | boolean | `false` | Cache decisions (experimental) |
+| Option           | Type    | Default      | Description                         |
+| ---------------- | ------- | ------------ | ----------------------------------- |
+| `enabled`        | boolean | `true`       | Enable/disable plugin               |
+| `cupcakePath`    | string  | `"cupcake"`  | Path to cupcake binary              |
+| `harness`        | string  | `"opencode"` | Harness type (always opencode)      |
+| `logLevel`       | string  | `"info"`     | Log level: debug, info, warn, error |
+| `timeoutMs`      | number  | `5000`       | Max evaluation time (ms)            |
+| `failMode`       | string  | `"closed"`   | Error handling: "open" or "closed"  |
+| `cacheDecisions` | boolean | `false`      | Cache decisions (experimental)      |
 
 ### Fail Modes
 
 **closed** (default, recommended for production):
+
 - Policy error → Deny operation
 - Maximum security
 
 **open** (for development):
+
 - Policy error → Allow operation
 - Logs warning
 
@@ -69,16 +71,18 @@ Create `.cupcake/opencode.json`:
 Fires before any tool execution.
 
 **Input**:
+
 ```typescript
 {
   sessionID: string;
   messageID: string;
-  tool: string;      // "bash", "edit", "read", etc.
+  tool: string; // "bash", "edit", "read", etc.
   args: Record<string, any>;
 }
 ```
 
 **Behavior**:
+
 - Return normally → Allow tool execution
 - Throw Error → Block tool execution
 
@@ -87,6 +91,7 @@ Fires before any tool execution.
 Fires after tool execution completes.
 
 **Input**:
+
 ```typescript
 {
   sessionID: string;
@@ -103,6 +108,7 @@ Fires after tool execution completes.
 ```
 
 **Use Cases**:
+
 - Audit logging
 - Post-execution validation
 - Error tracking
@@ -162,18 +168,21 @@ Expected response from `cupcake eval`:
 ### Timeout
 
 If evaluation exceeds `timeoutMs`:
+
 - **closed mode**: Throws error, blocks operation
 - **open mode**: Logs warning, allows operation
 
 ### Parse Errors
 
 If cupcake returns invalid JSON:
+
 - **closed mode**: Throws error with raw output
 - **open mode**: Logs warning, allows operation
 
 ### Process Errors
 
 If cupcake crashes or returns non-zero:
+
 - **closed mode**: Throws error
 - **open mode**: Logs warning, allows operation
 
@@ -188,6 +197,7 @@ If cupcake crashes or returns non-zero:
 ```
 
 Debug output goes to stderr:
+
 ```
 [cupcake-plugin] DEBUG: Evaluating PreToolUse event
 [cupcake-plugin] DEBUG: Tool: Bash, Args: {"command": "git status"}
@@ -212,6 +222,7 @@ echo '{
 ### Plugin Not Loading
 
 1. Check plugin location:
+
    ```bash
    ls -la .opencode/plugins/cupcake/
    # Should contain: index.js, package.json
@@ -227,6 +238,7 @@ echo '{
 ### cupcake Not Found
 
 Specify full path in config:
+
 ```json
 {
   "cupcakePath": "/usr/local/bin/cupcake"
@@ -236,6 +248,7 @@ Specify full path in config:
 ### Policies Not Evaluating
 
 1. Verify policies exist:
+
    ```bash
    ls .cupcake/policies/opencode/
    ```
@@ -250,8 +263,9 @@ Specify full path in config:
 ### Performance Issues
 
 1. Increase timeout:
+
    ```json
-   {"timeoutMs": 10000}
+   { "timeoutMs": 10000 }
    ```
 
 2. Check policy complexity

@@ -51,14 +51,14 @@ Unlike Claude Code and Cursor which use external hooks (stdin/stdout JSON), Open
      "session_id": "abc123",
      "cwd": "/home/user/project",
      "tool": "bash",
-     "args": {"command": "git commit --no-verify"}
+     "args": { "command": "git commit --no-verify" }
    }
    ```
 4. Plugin spawns: `cupcake eval --harness opencode`
 5. Cupcake preprocesses event (adds `tool_name`, `tool_input` fields)
 6. Cupcake evaluates policies and returns:
    ```json
-   {"decision": "deny", "reason": "..."}
+   { "decision": "deny", "reason": "..." }
    ```
 7. Plugin enforces decision:
    - `"allow"` → return (tool executes)
@@ -68,11 +68,12 @@ Unlike Claude Code and Cursor which use external hooks (stdin/stdout JSON), Open
 ### PostToolUse (tool.execute.after)
 
 Same flow but includes tool execution result:
+
 ```json
 {
   "hook_event_name": "PostToolUse",
   "tool": "bash",
-  "args": {"command": "npm test"},
+  "args": { "command": "npm test" },
   "result": {
     "success": false,
     "output": "Test failed",
@@ -85,19 +86,19 @@ Same flow but includes tool execution result:
 
 OpenCode uses lowercase tool names. Preprocessing converts them:
 
-| OpenCode | Cupcake | Description |
-|----------|---------|-------------|
-| `bash` | `Bash` | Shell commands |
-| `edit` | `Edit` | File editing |
-| `write` | `Write` | File creation |
-| `read` | `Read` | File reading |
-| `grep` | `Grep` | Content search |
-| `glob` | `Glob` | File pattern matching |
-| `list` | `List` | Directory listing |
-| `patch` | `Patch` | Apply patches |
-| `todowrite` | `TodoWrite` | Task management |
-| `todoread` | `TodoRead` | Task reading |
-| `webfetch` | `WebFetch` | Web requests |
+| OpenCode    | Cupcake     | Description           |
+| ----------- | ----------- | --------------------- |
+| `bash`      | `Bash`      | Shell commands        |
+| `edit`      | `Edit`      | File editing          |
+| `write`     | `Write`     | File creation         |
+| `read`      | `Read`      | File reading          |
+| `grep`      | `Grep`      | Content search        |
+| `glob`      | `Glob`      | File pattern matching |
+| `list`      | `List`      | Directory listing     |
+| `patch`     | `Patch`     | Apply patches         |
+| `todowrite` | `TodoWrite` | Task management       |
+| `todoread`  | `TodoRead`  | Task reading          |
+| `webfetch`  | `WebFetch`  | Web requests          |
 
 ## Response Format
 
@@ -114,7 +115,7 @@ Simple JSON response (unlike Claude Code's complex format):
 ## Plugin Components
 
 ```
-plugins/opencode/
+cupcake-plugins/opencode/
 ├── src/
 │   ├── index.ts        # Main plugin export, hooks
 │   ├── types.ts        # Type definitions, config
@@ -160,7 +161,7 @@ Approval Required
 
 [Policy reason]
 
-This operation requires manual approval. Review the policy 
+This operation requires manual approval. Review the policy
 and re-run the command if appropriate.
 ```
 
@@ -193,20 +194,20 @@ Plugin config in `.cupcake/opencode.json`:
 
 ## Comparison with Other Harnesses
 
-| Feature | Claude Code | Cursor | OpenCode |
-|---------|-------------|--------|----------|
-| Integration | External hooks | External hooks | In-process plugin |
-| Communication | stdin/stdout JSON | stdin/stdout JSON | Function calls + shell |
-| Blocking | `{continue: false}` | `{permission: "deny"}` | `throw Error` |
-| Ask Support | Native | Native | Converted to deny |
-| Context Injection | `additionalContext` | Limited | Not supported |
-| Arg Modification | No | No | No |
+| Feature           | Claude Code         | Cursor                 | OpenCode               |
+| ----------------- | ------------------- | ---------------------- | ---------------------- |
+| Integration       | External hooks      | External hooks         | In-process plugin      |
+| Communication     | stdin/stdout JSON   | stdin/stdout JSON      | Function calls + shell |
+| Blocking          | `{continue: false}` | `{permission: "deny"}` | `throw Error`          |
+| Ask Support       | Native              | Native                 | Converted to deny      |
+| Context Injection | `additionalContext` | Limited                | Not supported          |
+| Arg Modification  | No                  | No                     | No                     |
 
 ## Performance
 
-| Scenario | Target | Typical |
-|----------|--------|---------|
-| Simple policy (no signals) | < 100ms | 50-80ms |
+| Scenario                      | Target  | Typical   |
+| ----------------------------- | ------- | --------- |
+| Simple policy (no signals)    | < 100ms | 50-80ms   |
 | Complex policy (with signals) | < 500ms | 200-400ms |
 
 The main overhead is process spawn time for `cupcake eval`. Future optimization could use a persistent daemon.

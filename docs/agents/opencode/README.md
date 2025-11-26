@@ -10,7 +10,7 @@ Cupcake integrates with [OpenCode](https://opencode.ai) to enforce policies on A
 
 Unlike Claude Code/Cursor which use external hooks (stdin/stdout), OpenCode uses an **in-process plugin architecture**. Cupcake provides:
 
-1. **TypeScript Plugin** (`plugins/opencode/`) - Intercepts tool execution in OpenCode
+1. **TypeScript Plugin** (`cupcake-plugins/opencode/`) - Intercepts tool execution in OpenCode
 2. **Rust Harness** - Evaluates policies via `cupcake eval --harness opencode`
 3. **Example Policies** (`examples/opencode/`) - Ready-to-use policy templates
 
@@ -20,43 +20,43 @@ OpenCode → Plugin → cupcake eval → Policy Decision → Allow/Block
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [quickstart.md](./quickstart.md) | 5-minute setup guide |
-| [installation.md](./installation.md) | Detailed installation instructions |
-| [plugin-reference.md](./plugin-reference.md) | Plugin API and configuration |
-| [integration-design.md](./integration-design.md) | Technical architecture details |
+| Document                                         | Description                        |
+| ------------------------------------------------ | ---------------------------------- |
+| [quickstart.md](./quickstart.md)                 | 5-minute setup guide               |
+| [installation.md](./installation.md)             | Detailed installation instructions |
+| [plugin-reference.md](./plugin-reference.md)     | Plugin API and configuration       |
+| [integration-design.md](./integration-design.md) | Technical architecture details     |
 
 ## Key Differences from Other Harnesses
 
-| Aspect | Claude Code / Cursor | OpenCode |
-|--------|---------------------|----------|
-| Integration | External hooks (stdin/stdout) | In-process TypeScript plugin |
-| Blocking | Return JSON `{continue: false}` | Throw Error |
-| Ask Support | Native | Converted to deny with message |
-| Context Injection | `additionalContext` field | Limited (Phase 2) |
+| Aspect            | Claude Code / Cursor            | OpenCode                       |
+| ----------------- | ------------------------------- | ------------------------------ |
+| Integration       | External hooks (stdin/stdout)   | In-process TypeScript plugin   |
+| Blocking          | Return JSON `{continue: false}` | Throw Error                    |
+| Ask Support       | Native                          | Converted to deny with message |
+| Context Injection | `additionalContext` field       | Limited (Phase 2)              |
 
 ## Event Support
 
-| Event | Status | Description |
-|-------|--------|-------------|
-| PreToolUse | Supported | Block tools before execution |
-| PostToolUse | Supported | Validate after execution |
-| SessionStart | Future | Initialize session context |
-| SessionEnd | Future | Cleanup on session end |
+| Event        | Status    | Description                  |
+| ------------ | --------- | ---------------------------- |
+| PreToolUse   | Supported | Block tools before execution |
+| PostToolUse  | Supported | Validate after execution     |
+| SessionStart | Future    | Initialize session context   |
+| SessionEnd   | Future    | Cleanup on session end       |
 
 ## Tool Name Mapping
 
 OpenCode uses lowercase tool names. Cupcake normalizes them:
 
 | OpenCode | Cupcake Policy |
-|----------|----------------|
-| `bash` | `Bash` |
-| `edit` | `Edit` |
-| `write` | `Write` |
-| `read` | `Read` |
-| `grep` | `Grep` |
-| `glob` | `Glob` |
+| -------- | -------------- |
+| `bash`   | `Bash`         |
+| `edit`   | `Edit`         |
+| `write`  | `Write`        |
+| `read`   | `Read`         |
+| `grep`   | `Grep`         |
+| `glob`   | `Glob`         |
 
 ## Example Policy
 
@@ -74,7 +74,7 @@ import rego.v1
 deny contains decision if {
     input.tool_name == "Bash"
     contains(input.tool_input.command, "rm -rf /")
-    
+
     decision := {
         "rule_id": "DANGEROUS_RM",
         "reason": "Cannot delete root directory",

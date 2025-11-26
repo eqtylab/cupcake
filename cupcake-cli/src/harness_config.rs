@@ -426,8 +426,8 @@ pub async fn configure_harness(
             println!("✅ Initialized Cupcake for OpenCode");
             println!();
             println!("   OpenCode integration requires installing the Cupcake plugin:");
-            println!("   1. Build the plugin: cd plugins/opencode && npm install && npm run build");
-            println!("   2. Copy plugin to your project: mkdir -p .opencode/plugin && cp -r plugins/opencode/dist .opencode/plugin/cupcake");
+            println!("   1. Build the plugin: cd cupcake-plugins/opencode && npm install && npm run build");
+            println!("   2. Copy plugin to your project: mkdir -p .opencode/plugin && cp -r cupcake-plugins/opencode/dist .opencode/plugin/cupcake");
             println!("   3. OpenCode will automatically load the plugin and enforce policies");
             println!();
             println!("   See docs/agents/opencode/installation.md for detailed instructions.");

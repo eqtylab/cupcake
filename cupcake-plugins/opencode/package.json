@@ -43,7 +43,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eqtylab/cupcake.git",
-    "directory": "plugins/opencode"
+    "directory": "cupcake-plugins/opencode"
   },
   "engines": {
     "node": ">=18.0.0"

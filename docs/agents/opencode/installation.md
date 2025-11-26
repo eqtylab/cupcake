@@ -29,16 +29,19 @@ cargo build --release
 Choose one method:
 
 ### Option A: Add to PATH
+
 ```bash
 export PATH="$PATH:/path/to/cupcake/target/release"
 ```
 
 ### Option B: Copy to system bin
+
 ```bash
 sudo cp target/release/cupcake /usr/local/bin/
 ```
 
 ### Option C: Symlink
+
 ```bash
 sudo ln -s /path/to/cupcake/target/release/cupcake /usr/local/bin/cupcake
 ```
@@ -46,7 +49,7 @@ sudo ln -s /path/to/cupcake/target/release/cupcake /usr/local/bin/cupcake
 ## Building the Plugin
 
 ```bash
-cd plugins/opencode
+cd cupcake-plugins/opencode
 
 # Install dependencies
 npm install
@@ -72,8 +75,8 @@ cd /path/to/your/project
 mkdir -p .opencode/plugins/cupcake
 
 # Copy built plugin
-cp -r /path/to/cupcake/plugins/opencode/dist/* .opencode/plugins/cupcake/
-cp /path/to/cupcake/plugins/opencode/package.json .opencode/plugins/cupcake/
+cp -r /path/to/cupcake/cupcake-plugins/opencode/dist/* .opencode/plugins/cupcake/
+cp /path/to/cupcake/cupcake-plugins/opencode/package.json .opencode/plugins/cupcake/
 ```
 
 ### Global Installation
@@ -82,8 +85,8 @@ Install for all OpenCode projects:
 
 ```bash
 mkdir -p ~/.config/opencode/plugins/cupcake
-cp -r /path/to/cupcake/plugins/opencode/dist/* ~/.config/opencode/plugins/cupcake/
-cp /path/to/cupcake/plugins/opencode/package.json ~/.config/opencode/plugins/cupcake/
+cp -r /path/to/cupcake/cupcake-plugins/opencode/dist/* ~/.config/opencode/plugins/cupcake/
+cp /path/to/cupcake/cupcake-plugins/opencode/package.json ~/.config/opencode/plugins/cupcake/
 ```
 
 ## Initializing Cupcake
@@ -96,6 +99,7 @@ cupcake init --harness opencode
 ```
 
 This creates:
+
 - `.cupcake/rulebook.yml` - Configuration file
 - `.cupcake/policies/` - Policy directory
 - `.cupcake/signals/` - Signal definitions
@@ -167,7 +171,7 @@ import rego.v1
 deny contains decision if {
     input.tool_name == "Bash"
     contains(input.tool_input.command, "dangerous")
-    
+
     decision := {
         "rule_id": "MY_RULE",
         "reason": "This command is not allowed",
@@ -195,14 +199,14 @@ Create `.cupcake/opencode.json` to customize plugin behavior:
 
 ### Configuration Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `true` | Enable/disable the plugin |
-| `cupcakePath` | `"cupcake"` | Path to cupcake binary |
-| `logLevel` | `"info"` | Log level: debug, info, warn, error |
-| `timeoutMs` | `5000` | Max policy evaluation time (ms) |
-| `failMode` | `"closed"` | `"open"` (allow on error) or `"closed"` (deny on error) |
-| `cacheDecisions` | `false` | Cache decisions (experimental) |
+| Option           | Default     | Description                                             |
+| ---------------- | ----------- | ------------------------------------------------------- |
+| `enabled`        | `true`      | Enable/disable the plugin                               |
+| `cupcakePath`    | `"cupcake"` | Path to cupcake binary                                  |
+| `logLevel`       | `"info"`    | Log level: debug, info, warn, error                     |
+| `timeoutMs`      | `5000`      | Max policy evaluation time (ms)                         |
+| `failMode`       | `"closed"`  | `"open"` (allow on error) or `"closed"` (deny on error) |
+| `cacheDecisions` | `false`     | Cache decisions (experimental)                          |
 
 ## Verification
 
@@ -226,7 +230,7 @@ opencode
 ## Verification Checklist
 
 - [ ] `cupcake --version` works
-- [ ] Plugin built: `ls plugins/opencode/dist/`
+- [ ] Plugin built: `ls cupcake-plugins/opencode/dist/`
 - [ ] Plugin installed: `ls .opencode/plugins/cupcake/` or `~/.config/opencode/plugins/cupcake/`
 - [ ] Cupcake initialized: `ls .cupcake/`
 - [ ] System evaluator exists: `ls .cupcake/policies/opencode/system/evaluate.rego`
@@ -259,6 +263,7 @@ cupcake eval --harness opencode --debug-routing < event.json
 ### Plugin not loading
 
 Check plugin location and restart OpenCode:
+
 ```bash
 ls -la .opencode/plugins/cupcake/
 # Must contain: index.js, package.json
@@ -267,6 +272,7 @@ ls -la .opencode/plugins/cupcake/
 ### Performance issues
 
 Increase timeout:
+
 ```json
 {
   "timeoutMs": 10000

@@ -85,7 +85,7 @@ deny contains decision if {
     command := input.tool_input.command
     contains(command, "git commit")
     contains(command, "--no-verify")
-    
+
     decision := {
         "rule_id": "GIT_NO_VERIFY",
         "reason": "The --no-verify flag bypasses pre-commit hooks. Remove it to proceed.",
@@ -100,7 +100,7 @@ deny contains decision if {
     contains(command, "git push")
     contains(command, "--force")
     not contains(command, "--force-with-lease")
-    
+
     decision := {
         "rule_id": "GIT_FORCE_PUSH",
         "reason": "Force pushing can overwrite remote history. Use --force-with-lease instead.",
@@ -144,13 +144,13 @@ Install the pre-built plugin that connects OpenCode to Cupcake:
 
 ```bash
 # Build the plugin (if not already built)
-cd /path/to/cupcake/plugins/opencode
+cd /path/to/cupcake/cupcake-plugins/opencode
 bun install && bun run build  # or: npm install && npm run build
 
 # Install to your project - just copy a single file!
 cd /path/to/your/project
 mkdir -p .opencode/plugin
-cp /path/to/cupcake/plugins/opencode/dist/cupcake.js .opencode/plugin/
+cp /path/to/cupcake/cupcake-plugins/opencode/dist/cupcake.js .opencode/plugin/
 ```
 
 ## Step 6: Run OpenCode
@@ -162,8 +162,9 @@ opencode
 ```
 
 Try these prompts to test:
+
 - `"run git commit --no-verify -m test"` - Should be **blocked**
-- `"run git push --force origin main"` - Should be **blocked**  
+- `"run git push --force origin main"` - Should be **blocked**
 - `"run git status"` - Should be **allowed**
 
 ## What's Happening
@@ -196,11 +197,13 @@ OpenCode                    Plugin                      Cupcake
 ### "cupcake: command not found"
 
 Add cupcake to your PATH:
+
 ```bash
 export PATH="$PATH:/path/to/cupcake/target/release"
 ```
 
 Or specify the full path in plugin config (`.cupcake/opencode.json`):
+
 ```json
 {
   "cupcakePath": "/full/path/to/cupcake"
@@ -210,11 +213,13 @@ Or specify the full path in plugin config (`.cupcake/opencode.json`):
 ### Policies not being evaluated
 
 Check that:
+
 1. `.cupcake/policies/opencode/` directory exists
 2. `system/evaluate.rego` file exists
 3. Your policy has correct routing metadata
 
 Debug with:
+
 ```bash
 cupcake eval --harness opencode --log-level debug < test_event.json
 ```
@@ -222,6 +227,7 @@ cupcake eval --harness opencode --log-level debug < test_event.json
 ### Plugin not loading
 
 Verify plugin is installed:
+
 ```bash
 ls -la .opencode/plugin/cupcake.js
 # Should see the cupcake.js file
@@ -236,6 +242,7 @@ cp /path/to/cupcake/examples/opencode/0_Welcome/*.rego .cupcake/policies/opencod
 ```
 
 Available examples:
+
 - `minimal_protection.rego` - Block dangerous git commands
 - `git_workflow.rego` - Enforce git best practices
 - `file_protection.rego` - Protect sensitive files

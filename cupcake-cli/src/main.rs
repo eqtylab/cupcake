@@ -379,47 +379,35 @@ async fn main() -> Result<()> {
 /// Cursor hooks are always global (~/.cursor/hooks.json), but projects have local .cupcake/ dirs.
 /// This extracts the workspace root from the event to resolve relative paths like ".cupcake".
 ///
-/// Resolution order:
-/// 1. `cwd` field if non-empty
-/// 2. First entry in `workspace_roots` array
+/// Resolution order (workspace_roots is authoritative):
+/// 1. First entry in `workspace_roots` array (Cursor's explicit project declaration)
+/// 2. `cwd` field as fallback if workspace_roots is empty/missing
 /// 3. Falls back to original path if neither found
+///
+/// We prioritize workspace_roots because it's Cursor's explicit declaration of which
+/// directories are project roots, while cwd may be set to various locations.
 fn resolve_cursor_policy_dir(policy_dir: &Path, stdin_json: &str) -> Result<PathBuf> {
     let event: serde_json::Value = serde_json::from_str(stdin_json)
         .context("Failed to parse event JSON for path resolution")?;
 
-    // Try cwd first (if non-empty)
-    if let Some(cwd) = event.get("cwd").and_then(|v| v.as_str()) {
-        if !cwd.is_empty() {
-            let resolved = Path::new(cwd).join(policy_dir);
+    // Try workspace_roots first (authoritative source from Cursor)
+    if let Some(roots) = event.get("workspace_roots").and_then(|v| v.as_array()) {
+        if let Some(first_root) = roots.first().and_then(|v| v.as_str()) {
+            let resolved = Path::new(first_root).join(policy_dir);
             debug!(
-                "Resolved Cursor policy_dir via cwd: {:?} -> {:?}",
+                "Resolved Cursor policy_dir via workspace_roots: {:?} -> {:?}",
                 policy_dir, resolved
             );
             return Ok(resolved);
         }
     }
 
-    // Fall back to workspace_roots
-    if let Some(roots) = event.get("workspace_roots").and_then(|v| v.as_array()) {
-        for root in roots {
-            if let Some(root_path) = root.as_str() {
-                let candidate = Path::new(root_path).join(policy_dir);
-                if candidate.exists() {
-                    debug!(
-                        "Resolved Cursor policy_dir via workspace_roots: {:?} -> {:?}",
-                        policy_dir, candidate
-                    );
-                    return Ok(candidate);
-                }
-            }
-        }
-
-        // If no candidate exists, use the first workspace root anyway
-        // (let the engine produce a clear "directory not found" error)
-        if let Some(first_root) = roots.first().and_then(|v| v.as_str()) {
-            let resolved = Path::new(first_root).join(policy_dir);
+    // Fall back to cwd if workspace_roots is empty/missing
+    if let Some(cwd) = event.get("cwd").and_then(|v| v.as_str()) {
+        if !cwd.is_empty() {
+            let resolved = Path::new(cwd).join(policy_dir);
             debug!(
-                "Resolved Cursor policy_dir via first workspace_root (not verified): {:?} -> {:?}",
+                "Resolved Cursor policy_dir via cwd fallback: {:?} -> {:?}",
                 policy_dir, resolved
             );
             return Ok(resolved);

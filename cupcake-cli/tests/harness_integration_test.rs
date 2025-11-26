@@ -373,11 +373,15 @@ deny contains decision if {
     }
 }
 
-/// Test that Cursor uses cwd when it's non-empty (preferred over workspace_roots)
+/// Test that Cursor falls back to cwd when workspace_roots is empty
 #[test]
-fn test_cursor_eval_prefers_cwd_over_workspace_roots() {
+fn test_cursor_eval_falls_back_to_cwd_when_workspace_roots_empty() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
+
+    // Set HOME to project_path to avoid test isolation issues
+    // (test_init_global_with_claude_harness may have leaked HOME env var)
+    std::env::set_var("HOME", project_path);
 
     // Initialize Cupcake
     let init_output = run_init(project_path, &["init", "--harness", "cursor"]);
@@ -387,21 +391,19 @@ fn test_cursor_eval_prefers_cwd_over_workspace_roots() {
         String::from_utf8_lossy(&init_output.stderr)
     );
 
-    // Create event with BOTH cwd and workspace_roots set
-    // cwd should be preferred when non-empty
+    // Create event with empty workspace_roots but valid cwd
+    // cwd should be used as fallback
     let cursor_event = json!({
         "conversation_id": "test-conv-id",
         "generation_id": "test-gen-id",
         "command": "echo test",
-        "cwd": project_path.to_str().unwrap(),  // Non-empty cwd
+        "cwd": project_path.to_str().unwrap(),  // Non-empty cwd as fallback
         "hook_event_name": "beforeShellExecution",
         "cursor_version": "2.0.77",
-        "workspace_roots": [
-            "/some/other/path"  // Different from cwd - should be ignored
-        ]
+        "workspace_roots": []  // Empty - should fall back to cwd
     });
 
-    // Run eval - should use cwd to resolve .cupcake
+    // Run eval - should use cwd as fallback to resolve .cupcake
     let output = run_eval_with_stdin(
         &["eval", "--harness", "cursor", "--policy-dir", ".cupcake"],
         &cursor_event.to_string(),
@@ -410,7 +412,7 @@ fn test_cursor_eval_prefers_cwd_over_workspace_roots() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         output.status.success(),
-        "Eval should succeed when cwd is provided. stderr: {stderr}"
+        "Eval should succeed when falling back to cwd. stderr: {stderr}"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);

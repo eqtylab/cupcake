@@ -268,19 +268,16 @@ impl OpenCodeHarness {
 
         // Create plugin directory
         fs::create_dir_all(&plugin_dir)
-            .with_context(|| format!("Failed to create plugin directory: {:?}", plugin_dir))?;
+            .with_context(|| format!("Failed to create plugin directory: {plugin_dir:?}"))?;
 
         let plugin_path = plugin_dir.join("cupcake.js");
 
         // Use latest release to avoid version sync issues between CLI and plugin
         // The plugin is forward-compatible, so latest is always safe
-        let plugin_url = format!(
-            "https://github.com/{}/releases/latest/download/opencode-plugin.js",
-            GITHUB_REPO
-        );
+        let plugin_url =
+            format!("https://github.com/{GITHUB_REPO}/releases/latest/download/opencode-plugin.js");
         let checksum_url = format!(
-            "https://github.com/{}/releases/latest/download/opencode-plugin.js.sha256",
-            GITHUB_REPO
+            "https://github.com/{GITHUB_REPO}/releases/latest/download/opencode-plugin.js.sha256"
         );
 
         println!("   Downloading OpenCode plugin (latest release)...");
@@ -288,10 +285,9 @@ impl OpenCodeHarness {
         // Download the plugin
         let plugin_content = download_file(&plugin_url).await.with_context(|| {
             format!(
-                "Failed to download OpenCode plugin from {}. \
+                "Failed to download OpenCode plugin from {plugin_url}. \
                  This may happen if the release doesn't exist yet. \
-                 Try installing from source: cd cupcake-plugins/opencode && npm ci && npm run build",
-                plugin_url
+                 Try installing from source: cd cupcake-plugins/opencode && npm ci && npm run build"
             )
         })?;
 
@@ -320,20 +316,17 @@ impl OpenCodeHarness {
                 println!("   Checksum verified");
             }
             Err(e) => {
-                eprintln!(
-                    "   Warning: Could not verify checksum: {}. Proceeding anyway.",
-                    e
-                );
+                eprintln!("   Warning: Could not verify checksum: {e}. Proceeding anyway.");
             }
         }
 
         // Write plugin to disk
         let mut file = fs::File::create(&plugin_path)
-            .with_context(|| format!("Failed to create plugin file: {:?}", plugin_path))?;
+            .with_context(|| format!("Failed to create plugin file: {plugin_path:?}"))?;
         file.write_all(&plugin_content)
             .with_context(|| "Failed to write plugin content")?;
 
-        println!("   Plugin installed to: {:?}", plugin_path);
+        println!("   Plugin installed to: {plugin_path:?}");
 
         Ok(())
     }
@@ -352,8 +345,7 @@ impl OpenCodeHarness {
         eprintln!();
         eprintln!("   Or download from GitHub releases:");
         eprintln!(
-            "      curl -fsSL https://github.com/{}/releases/latest/download/opencode-plugin.js \\",
-            GITHUB_REPO
+            "      curl -fsSL https://github.com/{GITHUB_REPO}/releases/latest/download/opencode-plugin.js \\"
         );
         eprintln!("        -o .opencode/plugin/cupcake.js");
         eprintln!();
@@ -371,7 +363,7 @@ async fn download_file(url: &str) -> Result<Vec<u8>> {
         .get(url)
         .send()
         .await
-        .with_context(|| format!("Failed to send request to {}", url))?;
+        .with_context(|| format!("Failed to send request to {url}"))?;
 
     if !response.status().is_success() {
         return Err(anyhow!(
@@ -595,7 +587,7 @@ pub async fn configure_harness(
                     };
 
                     println!("✅ Configured OpenCode integration");
-                    println!("   - Plugin installed to: {}", plugin_location);
+                    println!("   - Plugin installed to: {plugin_location}");
                     println!();
                     println!(
                         "   OpenCode will automatically load the Cupcake plugin and enforce policies."
@@ -611,10 +603,7 @@ pub async fn configure_harness(
                     println!("   }}");
                 }
                 Err(e) => {
-                    eprintln!(
-                        "⚠️  Could not automatically download OpenCode plugin: {}",
-                        e
-                    );
+                    eprintln!("⚠️  Could not automatically download OpenCode plugin: {e}");
                     OpenCodeHarness::print_manual_instructions();
                     // Don't fail the entire init - just warn
                 }

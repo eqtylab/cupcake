@@ -374,6 +374,66 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Resolve a relative policy directory for Cursor harness using workspace info from event JSON.
+///
+/// Cursor hooks are always global (~/.cursor/hooks.json), but projects have local .cupcake/ dirs.
+/// This extracts the workspace root from the event to resolve relative paths like ".cupcake".
+///
+/// Resolution order:
+/// 1. `cwd` field if non-empty
+/// 2. First entry in `workspace_roots` array
+/// 3. Falls back to original path if neither found
+fn resolve_cursor_policy_dir(policy_dir: &Path, stdin_json: &str) -> Result<PathBuf> {
+    let event: serde_json::Value = serde_json::from_str(stdin_json)
+        .context("Failed to parse event JSON for path resolution")?;
+
+    // Try cwd first (if non-empty)
+    if let Some(cwd) = event.get("cwd").and_then(|v| v.as_str()) {
+        if !cwd.is_empty() {
+            let resolved = Path::new(cwd).join(policy_dir);
+            debug!(
+                "Resolved Cursor policy_dir via cwd: {:?} -> {:?}",
+                policy_dir, resolved
+            );
+            return Ok(resolved);
+        }
+    }
+
+    // Fall back to workspace_roots
+    if let Some(roots) = event.get("workspace_roots").and_then(|v| v.as_array()) {
+        for root in roots {
+            if let Some(root_path) = root.as_str() {
+                let candidate = Path::new(root_path).join(policy_dir);
+                if candidate.exists() {
+                    debug!(
+                        "Resolved Cursor policy_dir via workspace_roots: {:?} -> {:?}",
+                        policy_dir, candidate
+                    );
+                    return Ok(candidate);
+                }
+            }
+        }
+
+        // If no candidate exists, use the first workspace root anyway
+        // (let the engine produce a clear "directory not found" error)
+        if let Some(first_root) = roots.first().and_then(|v| v.as_str()) {
+            let resolved = Path::new(first_root).join(policy_dir);
+            debug!(
+                "Resolved Cursor policy_dir via first workspace_root (not verified): {:?} -> {:?}",
+                policy_dir, resolved
+            );
+            return Ok(resolved);
+        }
+    }
+
+    // No workspace info found - return original path
+    debug!(
+        "No Cursor workspace info found, using original policy_dir: {:?}",
+        policy_dir
+    );
+    Ok(policy_dir.to_path_buf())
+}
+
 async fn eval_command(
     policy_dir: PathBuf,
     strict: bool,
@@ -381,16 +441,36 @@ async fn eval_command(
     debug_dir: Option<PathBuf>,
     engine_config: engine::EngineConfig,
 ) -> Result<()> {
-    debug!(
-        "Initializing Cupcake engine with policies from: {:?}",
-        policy_dir
-    );
-
     // Get the harness type from engine_config for later use
     let harness_type = engine_config.harness;
 
+    // Read hook event from stdin FIRST (needed to resolve workspace paths for Cursor)
+    let mut stdin_buffer = String::new();
+    io::stdin()
+        .read_to_string(&mut stdin_buffer)
+        .context("Failed to read hook event from stdin")?;
+
+    info!("Processing harness: {:?}", harness_type);
+    debug!("Parsing hook event from stdin");
+
+    // Resolve policy_dir for Cursor harness when using relative paths
+    // Cursor hooks are global (~/.cursor/hooks.json) but need to find project-local .cupcake/
+    // We extract the workspace root from the event JSON to resolve relative paths
+    let resolved_policy_dir = if policy_dir.is_relative()
+        && harness_type == cupcake_core::harness::types::HarnessType::Cursor
+    {
+        resolve_cursor_policy_dir(&policy_dir, &stdin_buffer)?
+    } else {
+        policy_dir
+    };
+
+    debug!(
+        "Initializing Cupcake engine with policies from: {:?}",
+        resolved_policy_dir
+    );
+
     // Initialize the engine with configuration - MUST succeed or we exit
-    let engine = match engine::Engine::new_with_config(&policy_dir, engine_config).await {
+    let engine = match engine::Engine::new_with_config(&resolved_policy_dir, engine_config).await {
         Ok(e) => {
             debug!("Engine initialized successfully");
             e
@@ -405,15 +485,6 @@ async fn eval_command(
             std::process::exit(1);
         }
     };
-
-    // Read hook event from stdin
-    let mut stdin_buffer = String::new();
-    io::stdin()
-        .read_to_string(&mut stdin_buffer)
-        .context("Failed to read hook event from stdin")?;
-
-    info!("Processing harness: {:?}", harness_type);
-    debug!("Parsing hook event from stdin");
 
     // Parse the JSON event based on harness type
     let mut hook_event_json: serde_json::Value =

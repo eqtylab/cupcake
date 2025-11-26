@@ -22,6 +22,15 @@ else
     echo "✅ OPA found: $(opa version | head -n1)"
 fi
 
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv not found in PATH. Please install uv:"
+    echo "   https://docs.astral.sh/uv/"
+    exit 1
+else
+    echo "✅ uv found: $(uv --version)"
+fi
+
 # Build Cupcake binary
 echo "Building Cupcake binary..."
 cd ../../..

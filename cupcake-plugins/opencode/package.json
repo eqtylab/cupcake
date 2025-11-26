@@ -1,0 +1,61 @@
+{
+  "name": "@cupcake/opencode-plugin",
+  "version": "0.1.0",
+  "description": "Cupcake policy engine plugin for OpenCode - enforce security policies on AI coding agent actions",
+  "type": "module",
+  "main": "dist/cupcake.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/cupcake.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc && node build.mjs",
+    "build:types": "tsc",
+    "build:bundle": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "cupcake",
+    "opencode",
+    "plugin",
+    "policy",
+    "security",
+    "ai",
+    "coding-agent",
+    "guardrails"
+  ],
+  "author": "EQTY Lab",
+  "license": "MIT",
+  "homepage": "https://github.com/eqtylab/cupcake#readme",
+  "bugs": {
+    "url": "https://github.com/eqtylab/cupcake/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eqtylab/cupcake.git",
+    "directory": "cupcake-plugins/opencode"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.0.81",
+    "@types/bun": "^1.1.0",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.3.0"
+  }
+}

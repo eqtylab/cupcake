@@ -235,6 +235,11 @@ enum HarnessType {
     Claude,
     /// Cursor (cursor.com)
     Cursor,
+    /// Factory AI Droid (factory.ai)
+    Factory,
+    /// OpenCode (opencode.ai)
+    #[clap(name = "opencode")]
+    OpenCode,
 }
 
 impl From<HarnessType> for cupcake_core::harness::types::HarnessType {
@@ -242,6 +247,8 @@ impl From<HarnessType> for cupcake_core::harness::types::HarnessType {
         match ht {
             HarnessType::Claude => cupcake_core::harness::types::HarnessType::ClaudeCode,
             HarnessType::Cursor => cupcake_core::harness::types::HarnessType::Cursor,
+            HarnessType::Factory => cupcake_core::harness::types::HarnessType::Factory,
+            HarnessType::OpenCode => cupcake_core::harness::types::HarnessType::OpenCode,
         }
     }
 }
@@ -488,6 +495,18 @@ async fn eval_command(
             let event =
                 serde_json::from_str::<harness::events::cursor::CursorEvent>(&stdin_buffer)?;
             harness::CursorHarness::format_response(&event, &decision)?
+        }
+        cupcake_core::harness::types::HarnessType::Factory => {
+            // Re-parse Factory AI event for response formatting
+            let event =
+                serde_json::from_str::<harness::events::factory::FactoryEvent>(&stdin_buffer)?;
+            harness::FactoryHarness::format_response(&event, &decision)?
+        }
+        cupcake_core::harness::types::HarnessType::OpenCode => {
+            // Re-parse OpenCode event for response formatting
+            let event =
+                serde_json::from_str::<harness::events::opencode::OpenCodeEvent>(&stdin_buffer)?;
+            harness::OpenCodeHarness::format_response(&event, &decision)?
         }
     };
 
@@ -1028,6 +1047,60 @@ collect_verbs(verb_name) := result if {
 "#,
     )?;
 
+    // Factory system evaluate
+    let factory_system_dir = global_paths.policies.join("factory").join("system");
+    fs::create_dir_all(&factory_system_dir)?;
+
+    fs::write(
+        factory_system_dir.join("evaluate.rego"),
+        r#"# METADATA
+# scope: package
+# custom:
+#   entrypoint: true
+# title: Global System Evaluation Aggregator
+# description: |
+#   This is the global namespace system evaluation policy.
+#   It aggregates decision verbs from all global policies.
+package cupcake.global.system
+
+import rego.v1
+
+# Aggregate all decision verbs from global policies
+halts := collect_verbs("halt")
+denials := collect_verbs("deny")
+blocks := collect_verbs("block")
+asks := collect_verbs("ask")
+allow_overrides := collect_verbs("allow_override")
+add_context := collect_verbs("add_context")
+
+# Main evaluation entrypoint
+evaluate := {
+    "halts": halts,
+    "denials": denials,
+    "blocks": blocks,
+    "asks": asks,
+    "allow_overrides": allow_overrides,
+    "add_context": add_context
+}
+
+# Default implementation returns empty array
+default collect_verbs(_) := []
+
+# Collect all instances of a specific verb from all policies
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.global.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
+}
+"#,
+    )?;
+
     // Create an example global policy
     fs::write(
         global_paths.policies.join("example_global.rego"),
@@ -1040,7 +1113,7 @@ collect_verbs(verb_name) := result if {
 # description: |
 #   This is an example global policy that applies to all Cupcake projects
 #   on this machine. Global policies take absolute precedence over project policies.
-#   
+#
 #   To activate: Uncomment the rules below and customize for your needs.
 package cupcake.global.policies.example
 
@@ -1066,7 +1139,7 @@ import rego.v1
 #     input.hook_event_name == "UserPromptSubmit"
 #     contains(lower(input.prompt), "malicious")
 #     decision := {
-#         "rule_id": "GLOBAL-SECURITY-001", 
+#         "rule_id": "GLOBAL-SECURITY-001",
 #         "reason": "Potentially malicious prompt detected",
 #         "severity": "CRITICAL"
 #     }
@@ -1129,6 +1202,52 @@ import rego.v1
         fs::write(cursor_builtins_dir.join(filename), content)?;
     }
 
+    // Deploy Factory AI global builtin policies
+    let factory_builtins_dir = global_paths.policies.join("factory").join("builtins");
+    fs::create_dir_all(&factory_builtins_dir)?;
+
+    let factory_global_builtins = vec![
+        (
+            "system_protection.rego",
+            FACTORY_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            FACTORY_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            FACTORY_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
+    ];
+
+    for (filename, content) in factory_global_builtins {
+        fs::write(factory_builtins_dir.join(filename), content)?;
+    }
+
+    // Deploy OpenCode global builtin policies
+    let opencode_builtins_dir = global_paths.policies.join("opencode").join("builtins");
+    fs::create_dir_all(&opencode_builtins_dir)?;
+
+    let opencode_global_builtins = vec![
+        (
+            "system_protection.rego",
+            OPENCODE_GLOBAL_SYSTEM_PROTECTION_POLICY,
+        ),
+        (
+            "sensitive_data_protection.rego",
+            OPENCODE_GLOBAL_SENSITIVE_DATA_POLICY,
+        ),
+        (
+            "cupcake_exec_protection.rego",
+            OPENCODE_GLOBAL_CUPCAKE_EXEC_POLICY,
+        ),
+    ];
+
+    for (filename, content) in opencode_global_builtins {
+        fs::write(opencode_builtins_dir.join(filename), content)?;
+    }
+
     println!("✅ Initialized global Cupcake configuration");
     println!("   Location:      {:?}", global_paths.root);
     println!("   Configuration: {:?}", global_paths.rulebook);
@@ -1178,8 +1297,8 @@ async fn init_project_config(
     } else {
         info!("Initializing Cupcake project structure...");
 
-        // Create harness-specific directories for both Claude Code and Cursor
-        // This allows projects to work with either harness
+        // Create harness-specific directories for all supported harnesses
+        // This allows projects to work with any harness
         fs::create_dir_all(".cupcake/policies/claude/system")
             .context("Failed to create .cupcake/policies/claude/system directory")?;
 
@@ -1204,6 +1323,14 @@ async fn init_project_config(
             .context("Failed to create .cupcake/policies/cursor/system directory")?;
         fs::create_dir_all(".cupcake/policies/cursor/builtins")
             .context("Failed to create .cupcake/policies/cursor/builtins directory")?;
+        fs::create_dir_all(".cupcake/policies/factory/system")
+            .context("Failed to create .cupcake/policies/factory/system directory")?;
+        fs::create_dir_all(".cupcake/policies/factory/builtins")
+            .context("Failed to create .cupcake/policies/factory/builtins directory")?;
+        fs::create_dir_all(".cupcake/policies/opencode/system")
+            .context("Failed to create .cupcake/policies/opencode/system directory")?;
+        fs::create_dir_all(".cupcake/policies/opencode/builtins")
+            .context("Failed to create .cupcake/policies/opencode/builtins directory")?;
         fs::create_dir_all(".cupcake/policies/helpers")
             .context("Failed to create .cupcake/policies/helpers directory")?;
         fs::create_dir_all(".cupcake/signals")
@@ -1221,7 +1348,7 @@ async fn init_project_config(
         fs::write(".cupcake/rulebook.yml", rulebook_content)
             .context("Failed to create rulebook.yml file")?;
 
-        // Write the authoritative system evaluate policy to both harness directories
+        // Write the authoritative system evaluate policy to all harness directories
         fs::write(
             ".cupcake/policies/claude/system/evaluate.rego",
             SYSTEM_EVALUATE_TEMPLATE,
@@ -1232,8 +1359,18 @@ async fn init_project_config(
             SYSTEM_EVALUATE_TEMPLATE,
         )
         .context("Failed to create Cursor system evaluate.rego file")?;
+        fs::write(
+            ".cupcake/policies/factory/system/evaluate.rego",
+            SYSTEM_EVALUATE_TEMPLATE,
+        )
+        .context("Failed to create Factory system evaluate.rego file")?;
+        fs::write(
+            ".cupcake/policies/opencode/system/evaluate.rego",
+            SYSTEM_EVALUATE_TEMPLATE,
+        )
+        .context("Failed to create OpenCode system evaluate.rego file")?;
 
-        // Write helper library (shared by both harnesses)
+        // Write helper library (shared by all harnesses)
         fs::write(".cupcake/policies/helpers/commands.rego", HELPERS_COMMANDS)
             .context("Failed to create helpers/commands.rego file")?;
 
@@ -1289,6 +1426,66 @@ async fn init_project_config(
             let path = format!(".cupcake/policies/cursor/builtins/{filename}");
             fs::write(&path, content)
                 .with_context(|| format!("Failed to create Cursor builtin: {filename}"))?;
+        }
+
+        // Factory AI builtins - all builtins available (same as Claude Code)
+        let factory_builtins = vec![
+            (
+                "claude_code_always_inject_on_prompt.rego",
+                FACTORY_ALWAYS_INJECT_POLICY,
+            ),
+            ("global_file_lock.rego", FACTORY_GLOBAL_FILE_LOCK_POLICY),
+            ("git_pre_check.rego", FACTORY_GIT_PRE_CHECK_POLICY),
+            ("post_edit_check.rego", FACTORY_POST_EDIT_CHECK_POLICY),
+            (
+                "rulebook_security_guardrails.rego",
+                FACTORY_RULEBOOK_SECURITY_POLICY,
+            ),
+            ("protected_paths.rego", FACTORY_PROTECTED_PATHS_POLICY),
+            (
+                "git_block_no_verify.rego",
+                FACTORY_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
+            (
+                "claude_code_enforce_full_file_read.rego",
+                FACTORY_ENFORCE_FULL_FILE_READ_POLICY,
+            ),
+        ];
+
+        for (filename, content) in factory_builtins {
+            let path = format!(".cupcake/policies/factory/builtins/{filename}");
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to create Factory builtin: {filename}"))?;
+        }
+
+        // OpenCode builtins - all builtins available (same tools as Claude Code)
+        let opencode_builtins = vec![
+            (
+                "opencode_always_inject_on_prompt.rego",
+                OPENCODE_ALWAYS_INJECT_POLICY,
+            ),
+            ("global_file_lock.rego", OPENCODE_GLOBAL_FILE_LOCK_POLICY),
+            ("git_pre_check.rego", OPENCODE_GIT_PRE_CHECK_POLICY),
+            ("post_edit_check.rego", OPENCODE_POST_EDIT_CHECK_POLICY),
+            (
+                "rulebook_security_guardrails.rego",
+                OPENCODE_RULEBOOK_SECURITY_POLICY,
+            ),
+            ("protected_paths.rego", OPENCODE_PROTECTED_PATHS_POLICY),
+            (
+                "git_block_no_verify.rego",
+                OPENCODE_GIT_BLOCK_NO_VERIFY_POLICY,
+            ),
+            (
+                "opencode_enforce_full_file_read.rego",
+                OPENCODE_ENFORCE_FULL_FILE_READ_POLICY,
+            ),
+        ];
+
+        for (filename, content) in opencode_builtins {
+            let path = format!(".cupcake/policies/opencode/builtins/{filename}");
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to create OpenCode builtin: {filename}"))?;
         }
 
         // Write a simple example policy
@@ -1758,14 +1955,14 @@ collect_verbs(verb_name) := result if {
         walk(data.cupcake.policies, [path, value])
         path[count(path) - 1] == verb_name
     ]
-    
+
     # Flatten all sets into a single array
     # Since Rego v1 decision verbs are sets, we need to convert to arrays
     all_decisions := [decision |
         some verb_set in verb_sets
         some decision in verb_set
     ]
-    
+
     result := all_decisions
 }
 
@@ -1847,6 +2044,24 @@ const CURSOR_GIT_BLOCK_NO_VERIFY_POLICY: &str =
     include_str!("../../fixtures/cursor/builtins/git_block_no_verify.rego");
 // Note: enforce_full_file_read is NOT available for Cursor (incompatible)
 
+// Factory AI builtin policies (same as Claude Code - full feature parity)
+const FACTORY_ALWAYS_INJECT_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/factory_always_inject_on_prompt.rego");
+const FACTORY_GLOBAL_FILE_LOCK_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/global_file_lock.rego");
+const FACTORY_GIT_PRE_CHECK_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/git_pre_check.rego");
+const FACTORY_POST_EDIT_CHECK_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/post_edit_check.rego");
+const FACTORY_RULEBOOK_SECURITY_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/rulebook_security_guardrails.rego");
+const FACTORY_PROTECTED_PATHS_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/protected_paths.rego");
+const FACTORY_GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/git_block_no_verify.rego");
+const FACTORY_ENFORCE_FULL_FILE_READ_POLICY: &str =
+    include_str!("../../fixtures/factory/builtins/factory_enforce_full_file_read.rego");
+
 // Global builtin policies embedded in the binary - harness-specific
 
 // Claude Code global builtins
@@ -1865,7 +2080,41 @@ const CURSOR_GLOBAL_SENSITIVE_DATA_POLICY: &str =
 const CURSOR_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
     include_str!("../../fixtures/global_builtins/cursor/cupcake_exec_protection.rego");
 
-// Helper library (shared by both harnesses)
+// Factory AI global builtins
+const FACTORY_GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/factory/system_protection.rego");
+const FACTORY_GLOBAL_SENSITIVE_DATA_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/factory/sensitive_data_protection.rego");
+const FACTORY_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/factory/cupcake_exec_protection.rego");
+
+// OpenCode builtin policies (same tools as Claude Code - full feature parity)
+const OPENCODE_ALWAYS_INJECT_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/opencode_always_inject_on_prompt.rego");
+const OPENCODE_GLOBAL_FILE_LOCK_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/global_file_lock.rego");
+const OPENCODE_GIT_PRE_CHECK_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/git_pre_check.rego");
+const OPENCODE_POST_EDIT_CHECK_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/post_edit_check.rego");
+const OPENCODE_RULEBOOK_SECURITY_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/rulebook_security_guardrails.rego");
+const OPENCODE_PROTECTED_PATHS_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/protected_paths.rego");
+const OPENCODE_GIT_BLOCK_NO_VERIFY_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/git_block_no_verify.rego");
+const OPENCODE_ENFORCE_FULL_FILE_READ_POLICY: &str =
+    include_str!("../../fixtures/opencode/builtins/opencode_enforce_full_file_read.rego");
+
+// OpenCode global builtins
+const OPENCODE_GLOBAL_SYSTEM_PROTECTION_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/opencode/system_protection.rego");
+const OPENCODE_GLOBAL_SENSITIVE_DATA_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/opencode/sensitive_data_protection.rego");
+const OPENCODE_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
+    include_str!("../../fixtures/global_builtins/opencode/cupcake_exec_protection.rego");
+
+// Helper library (shared by all harnesses)
 const HELPERS_COMMANDS: &str = include_str!("../../fixtures/helpers/commands.rego");
 
 // Aligns with CRITICAL_GUIDING_STAR.md:

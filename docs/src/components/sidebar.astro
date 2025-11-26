@@ -1,0 +1,38 @@
+---
+import NavList from "@/components/ui/nav-list.astro";
+
+const gettingStartedLinks = [
+  { text: "Home", href: "/" },
+  { text: "Installation", href: "/getting-started/installation" },
+  { text: "Usage", href: "/getting-started/usage" },
+];
+
+const tutorialsLinks = [
+  { text: "Claude Code", href: "/tutorials/claude-code" },
+  { text: "Cursor", href: "/tutorials/cursor" },
+  {
+    text: "React + TypeScript",
+    href: "/tutorials/react-typescript",
+    children: [
+      { text: "1. First Policy", href: "/tutorials/react-typescript" },
+      { text: "2. First Signal", href: "/tutorials/react-typescript/first-signal" },
+      { text: "3. Obscure Rules", href: "/tutorials/react-typescript/obscure-rules" },
+    ],
+  },
+];
+
+const referenceLinks = [
+  { text: "Built-in Configuration", href: "/reference/builtin-config" },
+  { text: "Hooks Compatibility", href: "/reference/hooks" },
+];
+---
+
+<aside
+  class="sticky top-0 z-40 h-screen w-xs overflow-y-auto border-r bg-black pt-14"
+>
+  <nav class="space-y-10 px-4 py-10">
+    <NavList label="Getting Started" list={gettingStartedLinks} />
+    <NavList label="Tutorials" list={tutorialsLinks} />
+    <NavList label="Reference" list={referenceLinks} />
+  </nav>
+</aside>

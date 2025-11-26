@@ -1,11 +1,7 @@
-//! The Cupcake Engine - Core orchestration module
+//! The Cupcake Engine - Core orchestration module.
 //!
-//! Implements the NEW_GUIDING_FINAL.md Hybrid Model architecture.
-//! This intelligent engine provides:
-//! - Metadata-driven policy discovery and routing
-//! - Single aggregation entrypoint compilation
-//! - Hybrid Model evaluation (Rego aggregation + Rust synthesis)
-//! - O(1) routing performance via host-side indexing
+//! Provides metadata-driven policy discovery, O(1) routing, WASM evaluation,
+//! and decision synthesis.
 
 use anyhow::{anyhow, Context, Result};
 use once_cell::sync::Lazy;
@@ -217,8 +213,7 @@ impl EngineConfig {
     }
 }
 
-/// Represents a discovered policy unit with its metadata
-/// Updated for NEW_GUIDING_FINAL.md metadata-driven routing
+/// Represents a discovered policy unit with its metadata.
 #[derive(Debug, Clone)]
 pub struct PolicyUnit {
     /// Path to the .rego file
@@ -855,8 +850,9 @@ impl Engine {
         result
     }
 
-    /// Evaluate policies for a hook event - THE MAIN PUBLIC API
-    /// Implements the NEW_GUIDING_FINAL.md Hybrid Model evaluation flow
+    /// Evaluate policies for a hook event.
+    ///
+    /// This is the main public API for policy evaluation.
     #[instrument(
         name = "evaluate",
         skip(self, input, debug_capture),
@@ -2061,10 +2057,3 @@ impl Engine {
         eprintln!("└─────────────────────────────────────────────────────────┘");
     }
 }
-
-// Aligns with NEW_GUIDING_FINAL.md:
-// - Hybrid Model: Rego aggregates decisions, Rust synthesizes outcomes
-// - Metadata-driven routing replaces custom selector system
-// - Single entrypoint (cupcake.system.evaluate) enables sub-millisecond performance
-// - Intelligence Layer applies strict priority hierarchy in Rust
-// - Foundation for "Simplicity for the User, Intelligence in the Engine"

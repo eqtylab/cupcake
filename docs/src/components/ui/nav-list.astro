@@ -1,0 +1,72 @@
+---
+import { cn } from "@/lib/utils";
+
+interface NavItem {
+  text: string;
+  href: string;
+  children?: NavItem[];
+}
+
+interface Props {
+  label: string;
+  list: NavItem[];
+}
+
+const { label, list } = Astro.props;
+const currentPath = Astro.url.pathname;
+
+const isActive = (href: string) => {
+  if (href === "/") {
+    return currentPath === "/";
+  }
+  return currentPath.startsWith(href);
+};
+---
+
+<div class="space-y-3">
+  <h3 class="label">{label}</h3>
+  <ul>
+    {
+      list.map((item) => {
+        const active = isActive(item.href);
+        return (
+          <li>
+            <a
+              href={item.href}
+              class={cn(
+                "inline-block w-full border-l px-4 py-1.5 transition-all duration-300",
+                active
+                  ? "text-foreground border-foreground"
+                  : "text-muted-foreground hover:border-foreground hover:text-foreground",
+              )}
+            >
+              {item.text}
+            </a>
+            {item.children && item.children.length > 0 && (
+              <ul class="ml-4 mt-1">
+                {item.children.map((child) => {
+                  const childActive = isActive(child.href);
+                  return (
+                    <li>
+                      <a
+                        href={child.href}
+                        class={cn(
+                          "inline-block w-full border-l px-4 py-1.5 text-sm transition-all duration-300",
+                          childActive
+                            ? "text-foreground border-foreground"
+                            : "text-muted-foreground hover:border-foreground hover:text-foreground",
+                        )}
+                      >
+                        {child.text}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
+        );
+      })
+    }
+  </ul>
+</div>

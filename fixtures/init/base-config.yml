@@ -54,10 +54,9 @@ actions:
 # Simply configuring a builtin (even with just empty settings) enables it.
 # To disable, either remove the configuration or set 'enabled: false'.
 #
-# FILE PROTECTION BUILTINS (Three-Tier System):
-# 1. global_file_lock: Prevents ALL writes session-wide (most restrictive)
-# 2. protected_paths: Makes specific paths read-only (read allowed, write blocked)
-# 3. rulebook_security_guardrails: Total lockdown of paths (no read OR write)
+# FILE PROTECTION BUILTINS (Two-Tier System):
+# 1. protected_paths: Makes specific paths read-only (read allowed, write blocked)
+# 2. rulebook_security_guardrails: Total lockdown of paths (no read OR write)
 
 # ============================================================================
 # USAGE NOTES
@@ -103,17 +102,6 @@ builtins:
   #     # Context from file
   #     - file: ".cupcake/coding-standards.md"
   #     - file: "docs/current-sprint-goals.md"
-
-  # ---------------------------------------------------------------------------
-  # GLOBAL_FILE_LOCK - Session-wide write prevention
-  # ---------------------------------------------------------------------------
-  # Completely prevent ALL file modifications for the entire session. Useful for 
-  # code review, learning/exploration, or when you want to ensure zero changes.
-  # This is the most restrictive option - blocks all write operations globally.
-  
-  # global_file_lock:
-  #   message: "File editing is disabled globally by policy"
-  #   # enabled: false  # Uncomment to explicitly disable
 
   # ---------------------------------------------------------------------------
   # GIT_PRE_CHECK - Enforce checks before git operations

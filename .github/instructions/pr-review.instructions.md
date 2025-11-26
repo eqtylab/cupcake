@@ -23,11 +23,12 @@
 AI Agent → Hook Event → Cupcake Engine → Policy Evaluation → Decision → AI Agent
                             ↓
                     1. Preprocess (normalize input)
-                    2. Route (O(1) metadata lookup)
-                    3. Gather Signals (proactive enrichment)
-                    4. Evaluate (WASM sandbox)
-                    5. Synthesize (apply priority)
-                    6. Format Response
+                    2. Route (O(1) metadata lookup for signal gating)
+                    3. Early Exit if no policies match
+                    4. Gather Signals (shell commands)
+                    5. Evaluate (ALL policies via WASM)
+                    6. Synthesize (apply priority)
+                    7. Format Response
 ```
 
 ### Key Components
@@ -35,9 +36,9 @@ AI Agent → Hook Event → Cupcake Engine → Policy Evaluation → Decision �
 **Engine** (`cupcake-core/src/engine/`)
 - Scanner: Discovers policy files
 - Metadata Parser: Extracts routing requirements
-- Router: O(1) event-to-policy matching
-- Compiler: Converts Rego → WASM
-- Evaluator: Executes WASM in sandbox
+- Router: O(1) signal gating and early exit (does NOT control which Rego rules execute)
+- Compiler: Converts Rego → WASM (single entrypoint, all policies)
+- Evaluator: Executes WASM in sandbox (all compiled policies run via `walk()`)
 - Synthesis: Applies decision priority hierarchy
 
 **Preprocessing** (`cupcake-core/src/preprocessing/`)
@@ -523,9 +524,9 @@ cargo test --features deterministic-tests
 
 ### Hot Paths (Optimize)
 
-1. **Event routing** - O(1) HashMap lookups
-2. **Policy evaluation** - WASM execution
-3. **Signal gathering** - Parallel execution
+1. **Signal gating lookup** - O(1) HashMap lookups (determines which signals to run)
+2. **Policy evaluation** - WASM execution (all compiled policies run via `walk()`)
+3. **Signal gathering** - Parallel shell command execution
 
 **In these paths:**
 - Minimize allocations

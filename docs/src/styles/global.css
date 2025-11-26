@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+@theme {
+  --color-lilac: #e2ccff;
+  --color-lilac-dark: #887a99;
+  --color-mint: #4ade80;
+  --color-red: hsl(342 96% 65%);
+  --color-blue: #1069ff;
+  --color-yellow: #ffea75;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-black: #0d0d0d;
+  --color-background: #141415;
+  --color-foreground: #ffffff;
+  --color-gray: hsl(220, 13%, 75%);
+  --color-gray-medium: #4b5563;
+  --color-gray-light: #d1d5db;
+  --color-gold: #ffe4b8;
+  --color-white: #ffffff;
+  --color-muted-foreground: rgba(255, 255, 255, 0.6);
+  --color-card: rgba(217, 217, 217, 0.05);
+  --color-input: #09090b;
+  --color-black-5: #191919;
+  --color-lilac-gradient: rgba(179, 136, 236, 1);
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border, currentcolor);
+  }
+
+  * {
+    @apply border-border;
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans transition-colors;
+  }
+
+  pre {
+    @apply bg-card! text-foreground! overflow-x-auto rounded-sm p-3 text-sm relative;
+  }
+
+  pre > code {
+    @apply break-all whitespace-pre-wrap;
+  }
+
+  .copy-button {
+    @apply absolute top-2 right-2 p-1.5 rounded cursor-pointer;
+    @apply bg-muted-foreground/20 hover:bg-muted-foreground/30;
+    @apply border border-muted-foreground/30 hover:border-muted-foreground/50;
+    @apply transition-all duration-200;
+  }
+
+  .copy-button svg {
+    @apply w-4 h-4;
+    stroke: currentColor;
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+@layer components {
+  .list {
+    @apply text-muted-foreground space-y-1 pl-4 [&>li]:text-base/7 [&>li>p]:align-top;
+  }
+
+  .label {
+    @apply text-xs tracking-wider uppercase;
+  }
+
+  .tree-view-item {
+    @apply w-full cursor-pointer border-l py-1.5 text-left transition-all duration-300;
+    @apply text-muted-foreground hover:border-foreground hover:text-foreground;
+  }
+
+  #markdown-content {
+    h1 {
+      @apply text-4xl font-bold [&>code]:text-3xl;
+      @apply mt-12 mb-4;
+    }
+
+    h2 {
+      @apply text-2xl font-semibold [&>code]:text-xl;
+      @apply mt-12 mb-4;
+    }
+
+    h3 {
+      @apply text-xl font-medium [&>code]:text-lg;
+      @apply mt-8 mb-4;
+    }
+
+    h4 {
+      @apply text-lg font-medium [&>code]:text-base;
+      @apply mt-6 mb-4;
+    }
+
+    h5 {
+      @apply text-base font-medium [&>code]:text-sm;
+      @apply mt-4 mb-4;
+    }
+
+    h6 {
+      @apply text-sm font-medium [&>code]:text-xs;
+      @apply mt-4 mb-4;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      @apply scroll-mt-24;
+    }
+
+    p {
+      @apply text-muted-foreground text-base/7 font-normal;
+    }
+
+    b,
+    strong {
+      @apply text-foreground font-medium;
+    }
+
+    h1 > code,
+    h2 > code,
+    h3 > code,
+    h4 > code,
+    h5 > code,
+    h6 > code,
+    li > code,
+    p > code {
+      @apply bg-card text-foreground rounded-sm p-1;
+    }
+
+    li > code,
+    p > code {
+      @apply text-sm;
+    }
+
+    p,
+    pre,
+    ul,
+    ol,
+    table,
+    hr {
+      @apply mb-2;
+    }
+
+    ul,
+    ol {
+      @apply text-muted-foreground;
+      @apply space-y-1 pl-4;
+    }
+
+    ul {
+      @apply list-disc;
+    }
+
+    ol {
+      @apply list-decimal;
+    }
+
+    a {
+      @apply text-foreground font-medium transition-all;
+      @apply underline underline-offset-4;
+      @apply hover:text-lilac;
+    }
+
+    table {
+      @apply w-full border-collapse;
+    }
+
+    tr {
+      @apply border-b;
+    }
+
+    th {
+      @apply p-3 text-left font-semibold;
+    }
+
+    td {
+      @apply p-3;
+    }
+
+    & > :first-child {
+      @apply mt-0;
+    }
+
+    & > :last-child {
+      @apply mb-0;
+    }
+  }
+}

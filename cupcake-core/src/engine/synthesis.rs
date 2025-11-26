@@ -1,10 +1,6 @@
-//! Decision Synthesis Layer - The Intelligence Layer in Rust
+//! Decision Synthesis Layer - Transforms [`DecisionSet`] into [`FinalDecision`].
 //!
-//! Implements the NEW_GUIDING_FINAL.md synthesis logic that transforms
-//! the aggregated DecisionSet from Rego into a single, prioritized FinalDecision.
-//!
-//! This is where the Hybrid Model's intelligence resides - applying strict
-//! prioritization and handling Claude Code API semantics.
+//! Applies strict priority: Halt > Deny/Block > Ask > Allow.
 
 use anyhow::Result;
 use std::time::Instant;
@@ -12,10 +8,9 @@ use tracing::{debug, info, instrument, trace};
 
 use super::decision::{DecisionObject, DecisionSet, FinalDecision};
 
-/// The Decision Synthesis Engine
+/// The Decision Synthesis Engine.
 ///
-/// This is the core intelligence that implements the strict priority hierarchy
-/// defined in NEW_GUIDING_FINAL.md: Halt > Deny/Block > Ask > Allow
+/// Implements strict priority: Halt > Deny/Block > Ask > Allow.
 pub struct SynthesisEngine;
 
 impl SynthesisEngine {
@@ -439,11 +434,3 @@ mod tests {
         assert!(summary.contains("1 context item(s)"));
     }
 }
-
-// Aligns with NEW_GUIDING_FINAL.md:
-// - Implements the Intelligence Layer in Rust (Hybrid Model)
-// - Applies strict prioritization: Halt > Deny/Block > Ask > Allow
-// - Aggregates multiple decisions of same priority into coherent messages
-// - Handles edge cases (empty sets, mixed priorities)
-// - Provides clear debugging and logging capabilities
-// - Foundation for Claude Code API semantic mapping

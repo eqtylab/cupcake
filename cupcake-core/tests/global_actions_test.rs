@@ -134,16 +134,16 @@ halt contains decision if {
         "Expected Halt decision but got: {decision:?}"
     );
 
-    // Wait longer for async action execution to complete
+    // Wait for async action execution to complete
     // Actions run in detached tokio::spawn tasks, so we need to wait and retry
     //
     // IMPORTANT: This sleep pattern is intentional and correct.
     // Actions are fire-and-forget by design - they must not block policy evaluation.
     // We cannot add synchronization without changing production behavior.
-    // The 2-second total wait is generous for the simple file write being tested.
+    // The 3-second total wait provides buffer for filesystem operations under load.
     // If tests become flaky under extreme load, increase timeout rather than
     // adding artificial synchronization that doesn't exist in production.
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     // Give the spawned task more time to complete by yielding
     for _ in 0..10 {
@@ -283,7 +283,7 @@ deny contains decision if {
 
     // Wait for async action execution to complete
     // Actions run in detached tokio::spawn tasks, so we need to wait and retry
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     for _ in 0..10 {
         tokio::task::yield_now().await;
     }
@@ -441,7 +441,7 @@ allow_override contains decision if {
 
     // Wait for async action execution to complete
     // Actions run in detached tokio::spawn tasks, so we need to wait and retry
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     for _ in 0..10 {
         tokio::task::yield_now().await;
     }

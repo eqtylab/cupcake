@@ -1,0 +1,25 @@
+---
+import PageHeader from "@/components/ui/page-header.astro";
+import PageWrapper from "@/components/ui/page-wrapper.astro";
+import PageContentWrapper from "@/components/ui/page-content-wrapper.astro";
+import TreeView from "@/components/ui/tree-view.astro";
+interface Props {
+  frontmatter?: {
+    heading?: string;
+    description?: string;
+  };
+}
+
+const { frontmatter = {} } = Astro.props;
+const { heading, description } = frontmatter;
+---
+
+<PageWrapper>
+  <PageContentWrapper>
+    {heading && <PageHeader heading={heading} description={description} />}
+    <section id="markdown-content">
+      <slot />
+    </section>
+  </PageContentWrapper>
+  <TreeView />
+</PageWrapper>

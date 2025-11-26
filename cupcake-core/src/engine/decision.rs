@@ -1,8 +1,4 @@
-//! Decision types for the Hybrid Model
-//!
-//! Implements the NEW_GUIDING_FINAL.md DecisionSet architecture.
-//! This replaces the deprecated decision object model with the modern
-//! decision verb aggregation system.
+//! Decision types - [`DecisionSet`] from WASM and [`FinalDecision`] after synthesis.
 
 use serde::{Deserialize, Serialize};
 
@@ -269,10 +265,3 @@ mod tests {
         assert_eq!(allow.agent_messages(), None);
     }
 }
-
-// Aligns with NEW_GUIDING_FINAL.md:
-// - DecisionSet mirrors the exact WASM output structure
-// - FinalDecision represents synthesized outcomes from Rust Intelligence Layer
-// - Clear separation between Rego aggregation and Rust synthesis
-// - Implements strict priority hierarchy: Halt > Deny/Block > Ask > Allow
-// - Foundation for the Hybrid Model's two-layer decision architecture

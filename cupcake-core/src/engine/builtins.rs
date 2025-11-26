@@ -17,10 +17,6 @@ pub struct BuiltinsConfig {
     #[serde(default, alias = "always_inject_on_prompt")]
     pub claude_code_always_inject_on_prompt: Option<AlwaysInjectConfig>,
 
-    /// Global file lock configuration (prevents all file writes)
-    #[serde(default, alias = "never_edit_files")]
-    pub global_file_lock: Option<GlobalFileLockConfig>,
-
     /// Git pre-check configuration
     #[serde(default)]
     pub git_pre_check: Option<GitPreCheckConfig>,
@@ -69,22 +65,6 @@ pub struct AlwaysInjectConfig {
     /// Context sources to inject
     #[serde(default)]
     pub context: Vec<ContextSource>,
-}
-
-/// Configuration for global_file_lock builtin (formerly never_edit_files)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GlobalFileLockConfig {
-    /// Whether this builtin is enabled (defaults to true)
-    #[serde(default = "default_enabled")]
-    pub enabled: bool,
-
-    /// Message to show when blocking edits
-    #[serde(default = "default_global_file_lock_message")]
-    pub message: String,
-}
-
-fn default_global_file_lock_message() -> String {
-    "File editing is disabled globally by policy".to_string()
 }
 
 fn default_enabled() -> bool {
@@ -411,7 +391,6 @@ impl BuiltinsConfig {
         self.claude_code_always_inject_on_prompt
             .as_ref()
             .is_some_and(|c| c.enabled)
-            || self.global_file_lock.as_ref().is_some_and(|c| c.enabled)
             || self.git_pre_check.as_ref().is_some_and(|c| c.enabled)
             || self.post_edit_check.as_ref().is_some_and(|c| c.enabled)
             || self
@@ -445,9 +424,6 @@ impl BuiltinsConfig {
             .is_some_and(|c| c.enabled)
         {
             enabled.push("claude_code_always_inject_on_prompt".to_string());
-        }
-        if self.global_file_lock.as_ref().is_some_and(|c| c.enabled) {
-            enabled.push("global_file_lock".to_string());
         }
         if self.git_pre_check.as_ref().is_some_and(|c| c.enabled) {
             enabled.push("git_pre_check".to_string());
@@ -625,18 +601,6 @@ impl BuiltinsConfig {
             }
         }
 
-        // Add global_file_lock config if enabled
-        if let Some(config) = &self.global_file_lock {
-            if config.enabled {
-                configs.insert(
-                    "global_file_lock".to_string(),
-                    json!({
-                        "message": config.message,
-                    }),
-                );
-            }
-        }
-
         // Add git_block_no_verify config if enabled
         if let Some(config) = &self.git_block_no_verify {
             if config.enabled {
@@ -800,9 +764,9 @@ claude_code_always_inject_on_prompt:
   context:
     - "Test context"
 
-global_file_lock:
+git_block_no_verify:
   enabled: false
-  message: "Read-only mode"
+  message: "No bypassing hooks"
 "#;
 
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
@@ -814,7 +778,7 @@ global_file_lock:
                 .unwrap()
                 .enabled
         );
-        assert!(!config.global_file_lock.as_ref().unwrap().enabled);
+        assert!(!config.git_block_no_verify.as_ref().unwrap().enabled);
         assert_eq!(
             config.enabled_builtins(),
             vec!["claude_code_always_inject_on_prompt"]
@@ -917,15 +881,9 @@ git_pre_check:
 
     #[test]
     fn test_signal_generation() {
-        let mut config = BuiltinsConfig {
-            global_file_lock: Some(GlobalFileLockConfig {
-                enabled: true,
-                message: "No edits".to_string(),
-            }),
-            ..Default::default()
-        };
+        let mut config = BuiltinsConfig::default();
 
-        // global_file_lock doesn't generate signals
+        // Empty config doesn't generate signals
         let signals = config.generate_signals();
         assert_eq!(signals.len(), 0);
 

@@ -1,7 +1,6 @@
-//! WASM Runtime - Executes compiled Rego policies using the Hybrid Model
+//! WASM Runtime - Executes compiled Rego policies.
 //!
-//! Implements the NEW_GUIDING_FINAL.md single entrypoint evaluation.
-//! Queries the cupcake.system.evaluate aggregation endpoint and returns DecisionSet.
+//! Queries the `cupcake.system.evaluate` aggregation endpoint and returns a [`DecisionSet`].
 
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -314,10 +313,3 @@ fn read_string_from_memory(memory: &Memory, store: &mut Store<()>, ptr: i32) -> 
     }
     Ok(String::from_utf8(buffer)?)
 }
-
-// Aligns with NEW_GUIDING_FINAL.md:
-// - Implements Hybrid Model single entrypoint evaluation
-// - Queries cupcake.system.evaluate for aggregated DecisionSet
-// - No per-policy logic - just single aggregation extraction
-// - Returns strongly-typed DecisionSet for synthesis layer
-// - Foundation for sub-millisecond evaluation performance

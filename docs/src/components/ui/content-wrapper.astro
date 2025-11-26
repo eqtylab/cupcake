@@ -1,0 +1,26 @@
+---
+import { cn } from "@/lib/utils";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"div"> {
+  class?: string;
+  spacing?: "sm" | "md";
+}
+
+const { class: className, spacing = "sm", ...props } = Astro.props;
+
+const spacingClass = (() => {
+  switch (spacing) {
+    case "sm":
+      return "space-y-2";
+    case "md":
+      return "space-y-4";
+    default:
+      return "space-y-2";
+  }
+})();
+---
+
+<div class={cn(spacingClass, className)} {...props}>
+  <slot />
+</div>

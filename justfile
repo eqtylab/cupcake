@@ -47,8 +47,8 @@ venv:
 
 # ==================== TEST COMMANDS ====================
 
-# Run ALL tests (Rust + Python if available)
-test-all: test test-python
+# Run ALL tests (Rust + Python + TypeScript if available)
+test-all: test test-python test-typescript
 
 # Run Rust tests with deterministic-tests feature (REQUIRED)
 # NOTE: Tests use EngineConfig to disable global config discovery, ensuring isolation
@@ -90,16 +90,39 @@ test-cli:
 test-python: venv
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     echo "Running Python tests..."
     # Build Python module if needed
     if ! source .venv/bin/activate && python -c "import cupcake" 2>/dev/null; then
         echo "Building Python module first..."
         source .venv/bin/activate && cd cupcake-py && maturin develop
     fi
-    
+
     # Run tests
     source .venv/bin/activate && python -m pytest cupcake-py/tests/ -v
+
+# Run TypeScript tests (auto-builds if needed)
+test-typescript:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Running TypeScript tests..."
+    cd cupcake-ts
+
+    # Install dependencies if node_modules doesn't exist
+    if [ ! -d "node_modules" ]; then
+        echo "Installing dependencies..."
+        npm install
+    fi
+
+    # Build native module if .node file doesn't exist
+    if ! ls index.node 2>/dev/null; then
+        echo "Building native module..."
+        npm run build
+    fi
+
+    # Run tests
+    npm test
 
 # Run benchmarks
 bench:

@@ -5,8 +5,9 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command as ProcessCommand;
 use std::str::FromStr;
 use tabled::{
     settings::{object::Rows, Alignment, Modify, Style},
@@ -226,6 +227,9 @@ enum Command {
         #[clap(short, long)]
         table: bool,
     },
+
+    /// Launch the interactive onboarding wizard to convert rule files into Cupcake policies
+    Onboard,
 }
 
 /// Supported agent harness types for integration
@@ -366,6 +370,7 @@ async fn main() -> Result<()> {
             json,
             table,
         } => inspect_command(policy_dir, json, table).await,
+        Command::Onboard => onboard_command().await,
     }
 }
 
@@ -638,7 +643,6 @@ async fn verify_command(
 /// List of valid project-level builtin names
 const VALID_PROJECT_BUILTINS: &[&str] = &[
     "always_inject_on_prompt",
-    "global_file_lock",
     "git_pre_check",
     "post_edit_check",
     "rulebook_security_guardrails",
@@ -1381,7 +1385,6 @@ async fn init_project_config(
                 "claude_code_always_inject_on_prompt.rego",
                 CLAUDE_ALWAYS_INJECT_POLICY,
             ),
-            ("global_file_lock.rego", CLAUDE_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CLAUDE_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CLAUDE_POST_EDIT_CHECK_POLICY),
             (
@@ -1407,7 +1410,6 @@ async fn init_project_config(
 
         // Cursor builtins - only compatible ones (no always_inject or enforce_full_file_read)
         let cursor_builtins = vec![
-            ("global_file_lock.rego", CURSOR_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CURSOR_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CURSOR_POST_EDIT_CHECK_POLICY),
             (
@@ -1434,7 +1436,6 @@ async fn init_project_config(
                 "claude_code_always_inject_on_prompt.rego",
                 FACTORY_ALWAYS_INJECT_POLICY,
             ),
-            ("global_file_lock.rego", FACTORY_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", FACTORY_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", FACTORY_POST_EDIT_CHECK_POLICY),
             (
@@ -1464,7 +1465,6 @@ async fn init_project_config(
                 "opencode_always_inject_on_prompt.rego",
                 OPENCODE_ALWAYS_INJECT_POLICY,
             ),
-            ("global_file_lock.rego", OPENCODE_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", OPENCODE_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", OPENCODE_POST_EDIT_CHECK_POLICY),
             (
@@ -1916,6 +1916,68 @@ async fn inspect_command(policy_dir: PathBuf, json: bool, table: bool) -> Result
     Ok(())
 }
 
+async fn onboard_command() -> Result<()> {
+    // Display warning about what cupcake onboard will do
+    println!("┌─────────────────────────────────────────────────────────────────┐");
+    println!("│                    Cupcake Onboard Wizard                       │");
+    println!("├─────────────────────────────────────────────────────────────────┤");
+    println!("│                                                                 │");
+    println!("│  Converts rule files → Cupcake policies using Claude.           │");
+    println!("│                                                                 │");
+    println!("│  API Key: Uses ANTHROPIC_API_KEY from environment.              │");
+    println!("│           Claude Code users: already set.                       │");
+    println!("│                                                                 │");
+    println!("│  Cost: ~5% of Anthropic's weekly token limit.                   │");
+    println!("│                                                                 │");
+    println!("└─────────────────────────────────────────────────────────────────┘");
+    println!();
+
+    // Prompt for confirmation
+    print!("Continue? [Y/n] ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+
+    // Accept empty (just Enter), 'y', or 'yes'
+    if !input.is_empty() && input != "y" && input != "yes" {
+        println!("Aborted.");
+        return Ok(());
+    }
+
+    println!();
+    println!("Launching onboard wizard...");
+    println!();
+
+    // Try to find and run cupcake-onboard
+    // First, try the local development path (for unpublished package)
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let local_cli_path = workspace_root.join("cupcake-onboard/dist/cli.js");
+
+    let status = if local_cli_path.exists() {
+        // Use local development version
+        info!("Using local cupcake-onboard from: {:?}", local_cli_path);
+        ProcessCommand::new("node")
+            .arg(&local_cli_path)
+            .status()
+            .context("Failed to run cupcake-onboard")?
+    } else {
+        // Fall back to npx for published version
+        info!("Using npx to run @eqtylab/cupcake-onboard");
+        ProcessCommand::new("npx")
+            .args(["@eqtylab/cupcake-onboard"])
+            .status()
+            .context("Failed to run cupcake-onboard via npx. Is Node.js installed?")?
+    };
+
+    if !status.success() {
+        return Err(anyhow!("cupcake-onboard exited with error"));
+    }
+
+    Ok(())
+}
+
 const SYSTEM_EVALUATE_TEMPLATE: &str = r#"package cupcake.system
 
 import rego.v1
@@ -2013,8 +2075,6 @@ const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.ym
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =
     include_str!("../../fixtures/claude/builtins/claude_code_always_inject_on_prompt.rego");
-const CLAUDE_GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/claude/builtins/global_file_lock.rego");
 const CLAUDE_GIT_PRE_CHECK_POLICY: &str =
     include_str!("../../fixtures/claude/builtins/git_pre_check.rego");
 const CLAUDE_POST_EDIT_CHECK_POLICY: &str =
@@ -2030,8 +2090,6 @@ const CLAUDE_ENFORCE_FULL_FILE_READ_POLICY: &str =
 
 // Cursor builtin policies (only compatible ones)
 // Note: Cursor doesn't have always_inject_on_prompt (Claude Code only)
-const CURSOR_GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/cursor/builtins/global_file_lock.rego");
 const CURSOR_GIT_PRE_CHECK_POLICY: &str =
     include_str!("../../fixtures/cursor/builtins/git_pre_check.rego");
 const CURSOR_POST_EDIT_CHECK_POLICY: &str =
@@ -2047,8 +2105,6 @@ const CURSOR_GIT_BLOCK_NO_VERIFY_POLICY: &str =
 // Factory AI builtin policies (same as Claude Code - full feature parity)
 const FACTORY_ALWAYS_INJECT_POLICY: &str =
     include_str!("../../fixtures/factory/builtins/factory_always_inject_on_prompt.rego");
-const FACTORY_GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/factory/builtins/global_file_lock.rego");
 const FACTORY_GIT_PRE_CHECK_POLICY: &str =
     include_str!("../../fixtures/factory/builtins/git_pre_check.rego");
 const FACTORY_POST_EDIT_CHECK_POLICY: &str =
@@ -2091,8 +2147,6 @@ const FACTORY_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
 // OpenCode builtin policies (same tools as Claude Code - full feature parity)
 const OPENCODE_ALWAYS_INJECT_POLICY: &str =
     include_str!("../../fixtures/opencode/builtins/opencode_always_inject_on_prompt.rego");
-const OPENCODE_GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/opencode/builtins/global_file_lock.rego");
 const OPENCODE_GIT_PRE_CHECK_POLICY: &str =
     include_str!("../../fixtures/opencode/builtins/git_pre_check.rego");
 const OPENCODE_POST_EDIT_CHECK_POLICY: &str =

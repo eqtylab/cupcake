@@ -1,18 +1,14 @@
-//! OPA Metadata Parser - Standard metadata-driven routing system
+//! OPA Metadata Parser - Extracts routing directives from policy files.
 //!
-//! Implements the NEW_GUIDING_FINAL.md metadata parsing specification.
-//! Uses standard OPA metadata for routing via `# METADATA` comment blocks.
-//!
-//! This module enables Host-Side Indexing by parsing metadata
-//! and extracting routing directives for O(1) policy lookups.
+//! Parses `# METADATA` comment blocks in Rego files to extract routing
+//! requirements (events, tools, signals) for O(1) policy lookups.
 
 use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-/// Routing directive extracted from OPA metadata
-/// Maps 1:1 to the NEW_GUIDING_FINAL.md specification
+/// Routing directive extracted from OPA metadata.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct RoutingDirective {
     /// Events this policy applies to (e.g., ["PreToolUse", "PostToolUse"])
@@ -334,9 +330,3 @@ import rego.v1
     }
 }
 
-// Aligns with NEW_GUIDING_FINAL.md:
-// - Standard OPA metadata parsing for routing directives
-// - RoutingDirective enables Host-Side Indexing for O(1) lookups
-// - Supports required_events, required_tools, and required_signals
-// - Validates against known Claude Code event types
-// - Foundation for metadata-driven routing in the Hybrid Model

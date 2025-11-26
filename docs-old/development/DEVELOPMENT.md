@@ -7,9 +7,10 @@ For a comprehensive overview of Cupcake's architecture, design principles, and c
 **Key concepts:**
 
 - **Hybrid Model**: Rego (WASM) for policy logic, Rust (Engine) for orchestration
-- **Metadata-Driven Routing**: O(1) event-to-policy matching
-- **Single Aggregation**: All policies evaluated through `cupcake.system.evaluate`
+- **Metadata-Driven Signal Gating**: O(1) lookup determines which signals to execute and whether to run WASM
+- **Single Aggregation**: All compiled policies evaluated through `cupcake.system.evaluate` via `walk()`
 - **Proactive Signals**: Gathered before evaluation, not reactively
+- **Policy Self-Filtering**: Policies must include their own event/tool checks in Rego (routing doesn't filter at WASM level)
 
 ## Quick Start
 
@@ -56,7 +57,7 @@ import rego.v1
 # Policy rules follow...
 ```
 
-The engine reads metadata at startup and builds an intelligent routing map. When events arrive, only relevant policies are evaluated.
+The engine reads metadata at startup and builds a routing map. When events arrive, the map determines which signals to execute and whether to run WASM at all (early exit if no policies match). Note: Once WASM runs, ALL compiled policies execute via `walk()` - policies must self-filter with their own event/tool checks.
 
 ## Decision Verbs
 
@@ -131,11 +132,12 @@ collect_verbs(verb_name) := result if {
 
 Signals are gathered **before** policy evaluation (not reactively):
 
-1. Engine routes event to policies
-2. Collects all `required_signals` from matched policies
-3. Executes signals in parallel
-4. Enriches input with signal data
-5. Evaluates policies with enriched input
+1. Engine routes event via metadata lookup
+2. If no policies match, early exit with Allow (no WASM, no signals)
+3. Collects all `required_signals` from matched policies
+4. Executes signals in parallel (shell commands)
+5. Enriches input with signal data
+6. Evaluates ALL compiled policies via WASM (policies self-filter)
 
 Example signal in `rulebook.yml`:
 
@@ -285,16 +287,17 @@ cargo test --features deterministic-tests
 
 ## Architecture Principles
 
-1. **Metadata-Driven** - Policies declare requirements, engine handles routing
-2. **Single Aggregation** - All evaluation through `cupcake.system.evaluate`
-3. **Proactive Signals** - Gathered before evaluation, not reactively
-4. **Strict Priority** - Synthesis layer enforces decision hierarchy
-5. **Trust by Default** - Scripts verified via HMAC before execution
+1. **Metadata-Driven Signal Gating** - Policies declare signal requirements, engine handles collection
+2. **Single Aggregation** - All evaluation through `cupcake.system.evaluate` via `walk()`
+3. **Policy Self-Filtering** - Policies include event/tool checks (routing doesn't filter WASM execution)
+4. **Proactive Signals** - Gathered before evaluation, not reactively
+5. **Strict Priority** - Synthesis layer enforces decision hierarchy
+6. **Trust by Default** - Scripts verified via HMAC before execution
 
 ## Performance Targets
 
 - Policy discovery and compilation: < 100ms
-- Event routing: O(1) lookup
+- Signal gating lookup: O(1)
 - Policy evaluation: < 50ms
 - Full request cycle: < 200ms
 

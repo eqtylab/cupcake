@@ -32,7 +32,7 @@ Invalid JSON doesn't break policy evaluation - it's stored as a string and users
 
 ### 5. **Performance First**
 
-Signals execute concurrently and only when required by matched policies. O(1) routing ensures minimal overhead.
+Signals execute concurrently and only when required by matched policies. O(1) signal gating lookup ensures minimal overhead.
 
 ## How Signals Work
 

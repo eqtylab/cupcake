@@ -1,7 +1,6 @@
-//! Compiler module - Invokes OPA to create unified WASM module
+//! Compiler module - Invokes OPA to compile policies into a unified WASM module.
 //!
-//! Implements the NEW_GUIDING_FINAL.md Hybrid Model compilation:
-//! "Single entrypoint aggregation with cupcake.system.evaluate"
+//! Uses `cupcake.system.evaluate` as the single aggregation entrypoint.
 
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
@@ -389,9 +388,3 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
     Ok(tokio::fs::read(wasm_path).await?)
 }
 
-// Aligns with NEW_GUIDING_FINAL.md:
-// - Compiles all discovered policies into a SINGLE unified WASM module
-// - Uses OPA build with optimization (-O 2) for performance
-// - Exports single aggregation entrypoint: cupcake/system/evaluate
-// - Handles compilation failures gracefully with clear errors
-// - Foundation for the Hybrid Model's sub-millisecond performance target

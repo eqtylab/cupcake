@@ -127,8 +127,10 @@ Cupcake uses a Cargo workspace with multiple crates:
 - **cupcake-cli**: Command-line interface binary
 - **cupcake-py**: Python bindings (optional, requires `maturin`)
 - **cupcake-ts**: TypeScript/Node.js bindings (optional, requires `NAPI-RS`)
+- **cupcake-onboard**: TUI onboarding application (Ink/React, spawned by `cupcake onboard` command)
+- **docs/**: Documentation site (Astro 5.x with Tailwind CSS)
 
-The workspace is configured to build only `cupcake-core` and `cupcake-cli` by default. Language bindings (Python, TypeScript) require separate build steps.
+The workspace is configured to build only `cupcake-core` and `cupcake-cli` by default. Language bindings (Python, TypeScript) and the onboard TUI require separate build steps.
 
 ## Build and Development Commands
 
@@ -242,6 +244,48 @@ npm test
 npm run format
 ```
 
+### Onboard TUI (cupcake-onboard/)
+
+```bash
+# Navigate to onboard directory
+cd cupcake-onboard
+
+# Install dependencies
+pnpm install
+
+# Build TypeScript
+pnpm build
+
+# Watch mode for development
+pnpm dev
+
+# Run tests
+pnpm test
+```
+
+The onboard TUI is spawned by the `cupcake onboard` CLI command (see `cupcake-cli/src/main.rs`). It's built with Ink (React for CLI) and provides an interactive wizard for converting rules files (CLAUDE.md, .cursor/rules) into Cupcake policies.
+
+### Documentation Site (docs/)
+
+```bash
+# Navigate to docs directory
+cd docs
+
+# Install dependencies
+pnpm install
+
+# Run dev server (http://localhost:4321)
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Preview production build
+pnpm preview
+```
+
+The docs site uses Astro 5.x with Tailwind CSS and MDX. Source files are in `docs/src/`. The `@` alias maps to `./src` for imports.
+
 ## Architecture Overview
 
 Cupcake implements a **Hybrid Model**:
@@ -322,9 +366,20 @@ test_helpers::create_test_project_for_harness(
 
 Claude Code sends events with `hook_event_name` (snake_case) but expects responses with `hookEventName` (camelCase). The engine accepts both formats for compatibility.
 
-### Policy Trust Model
+### Policy Self-Filtering (IMPORTANT)
 
-Policies trust the engine's routing - they don't need to verify event types or tool names. If a policy is evaluating, its routing requirements are already met.
+**Policies MUST include their own event/tool checks.** When WASM executes, ALL compiled policies run via `walk(data.cupcake.policies, ...)`. The routing map only controls:
+1. Whether WASM runs at all (early exit if no policies match)
+2. Which signals to collect before evaluation
+
+Routing does NOT selectively execute individual Rego rules. Example:
+```rego
+deny contains decision if {
+    input.hook_event_name == "PreToolUse"  # REQUIRED - policies self-filter
+    input.tool_name == "Bash"               # REQUIRED - not redundant
+    # ... your logic
+}
+```
 
 ### Decision Priority
 
@@ -354,7 +409,7 @@ This two-phase model enables centralized security controls while allowing projec
 - **engine/**: Core policy evaluation engine
   - `mod.rs` - Main engine with routing and evaluation orchestration
   - `metadata.rs` - OPA metadata parser for routing declarations
-  - `routing.rs` - O(1) policy routing based on event/tool metadata
+  - `routing.rs` - O(1) routing map for signal gating and early exit optimization
   - `synthesis.rs` - Decision synthesis layer (Halt > Deny > Ask > Allow priority)
   - `compiler.rs` - OPA policy compilation to WASM
   - `wasm_runtime.rs` - Wasmtime execution environment
@@ -445,23 +500,32 @@ Key documentation files in the repository:
 
 Policies follow a metadata-driven format:
 
-1. Declare routing requirements in metadata
-2. Use decision verbs (`deny contains`, `halt contains`)
-3. Trust the engine's routing (no redundant checks)
+1. Declare routing requirements in metadata (for signal gating and early exit)
+2. **Include event/tool checks in your Rego rules** (policies must self-filter - see "Policy Self-Filtering" above)
+3. Use decision verbs (`deny contains`, `halt contains`)
 4. Return structured decision objects with reason, severity, rule_id
 5. Use `concat` instead of `sprintf` (WASM limitation)
 6. The `add_context` verb in Cupcake expects just strings, not objects
 
 See `docs/policies/POLICIES.md` for the complete policy authoring guide.
 
-## Routing and Wildcard Policies
+## Routing: What It Actually Does
 
-Policies that declare `required_events` without `required_tools` act as wildcards - they match ANY tool for that event. The engine automatically routes both:
+**IMPORTANT**: Routing is an optimization layer for signal gating and early exit, NOT a policy selector.
 
-- Specific tool events to their exact matches
-- Tool events to wildcard policies (those with only the event declared)
+### What Routing Controls
+1. **Early exit**: If no policies match the event criteria, WASM never runs (returns Allow)
+2. **Signal collection**: Only execute signals declared by matched policies
+3. **Wildcard matching**: Policies with only `required_events` (no `required_tools`) match all tools for that event
 
-Example: A policy with `required_events: ["PostToolUse"]` will match all PostToolUse events regardless of tool.
+### What Routing Does NOT Control
+- Which Rego rules execute inside WASM (all compiled policies always run)
+- Filtering of policy logic at runtime
+
+### Why This Matters
+The WASM module has ONE entrypoint (`cupcake.system.evaluate`) that uses `walk()` to traverse ALL policies. Metadata routing happens in Rust before WASM runs - Rego has no access to routing data. Therefore, policies MUST self-filter.
+
+Example: A policy with `required_events: ["PostToolUse"]` will have its signals collected for PostToolUse events, but it still needs `input.hook_event_name == "PostToolUse"` in its Rego logic.
 
 ## Builtin Abstractions
 

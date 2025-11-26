@@ -1,10 +1,7 @@
-//! Routing module - Maps events to policy subsets
+//! Routing module - Maps events to policy subsets via O(1) lookup.
 //!
-//! Implements the NEW_GUIDING_FINAL.md metadata-driven routing:
-//! "Route: Cupcake uses the event data to consult its internal routing map,
-//! instantly identifying the small subset of policy units that are relevant"
-//!
-//! Updated for Host-Side Indexing via OPA metadata
+//! Uses metadata-driven routing where policies declare their requirements
+//! (events, tools) and the engine builds an index for instant lookup.
 
 use super::RoutingDirective;
 
@@ -119,10 +116,3 @@ mod tests {
     }
 }
 
-// Aligns with NEW_GUIDING_FINAL.md:
-// - Implements Host-Side Indexing via OPA metadata parsing
-// - Enables instant policy subset selection (O(1) lookups)
-// - Creates efficient routing keys from metadata directives
-// - Supports wildcard (*) matching for all tools
-// - Handles multiple events and tools per policy
-// - Foundation for the metadata-driven Hybrid Model

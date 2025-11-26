@@ -10,7 +10,7 @@ This document provides a comprehensive technical overview of Cupcake's architect
 - [Architecture Diagram](#architecture-diagram)
 - [Evaluation Flow](#evaluation-flow)
 - [Core Components](#core-components)
-- [Metadata-Driven Routing](#metadata-driven-routing)
+- [Metadata-Driven Signal Gating](#metadata-driven-signal-gating)
 - [Decision Verbs](#decision-verbs)
 - [Single Aggregation Entrypoint](#single-aggregation-entrypoint)
 - [Signals (Proactive Enrichment)](#signals-proactive-enrichment)
@@ -33,7 +33,7 @@ This separation provides:
 - **Engine Intelligence**: Rust handles optimization, routing, and orchestration
 - **Clear Separation**: Policies focus on business logic, engine focuses on performance
 
-The engine is intelligent - it discovers policies via metadata, understands their requirements, and routes events efficiently using O(1) lookups.
+The engine is intelligent - it discovers policies via metadata, understands their signal requirements, and determines whether to run WASM using O(1) lookups. Note: Routing controls signal gating and early exit, not which Rego rules execute inside WASM.
 
 ---
 
@@ -72,38 +72,46 @@ Every event follows this deterministic flow:
 ```
 Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
                             ↓
-                    1. Route (O(1) metadata lookup)
-                    2. Gather Signals (proactive)
-                    3. Evaluate (WASM via cupcake.system.evaluate)
-                    4. Synthesize (apply priority hierarchy)
-                    5. Execute Actions (async, non-blocking)
-                    6. Format Response
+                    1. Route (O(1) metadata lookup for signal gating)
+                    2. Early Exit if no policies match
+                    3. Gather Signals (proactive, shell commands)
+                    4. Evaluate (ALL policies via WASM)
+                    5. Synthesize (apply priority hierarchy)
+                    6. Execute Actions (async, non-blocking)
+                    7. Format Response
 ```
 
 ### Step-by-Step Breakdown
 
-**1. Route (O(1) lookup)**
+**1. Route (O(1) lookup for signal gating)**
 
 - Parse incoming hook event (PreToolUse, PostToolUse, UserPromptSubmit, etc.)
 - Look up routing key in pre-built HashMap (e.g., `PreToolUse:Bash`)
 - Return list of matching policies based on metadata
 - Wildcard policies (no specific tool) are included automatically
+- **Purpose**: Determine which signals to execute and whether to run WASM at all
 
-**2. Gather Signals (proactive)**
+**2. Early Exit**
+
+- If no policies match the routing criteria, return Allow immediately
+- No WASM execution, no signal execution (zero overhead)
+
+**3. Gather Signals (proactive)**
 
 - Collect `required_signals` from all matched policies
 - Execute signal scripts in parallel (with timeout protection)
 - Enrich event input with signal results
-- No signal execution if no policies match (zero overhead)
+- Signals are shell commands that MUST run before WASM (Rego cannot execute commands)
 
-**3. Evaluate (WASM)**
+**4. Evaluate (WASM)**
 
 - Pass enriched input to single WASM entrypoint: `cupcake.system.evaluate`
-- WASM walks policy hierarchy using `walk()` to discover all decision verbs
+- **IMPORTANT**: WASM walks the ENTIRE policy hierarchy using `walk()` - ALL compiled policies execute
+- Policies must self-filter with their own `input.hook_event_name` and `input.tool_name` checks
 - Returns DecisionSet with categorized verbs: halts, denials, blocks, asks, allow_overrides, add_context
 - Sandboxed execution prevents policy code from escaping
 
-**4. Synthesize (priority hierarchy)**
+**5. Synthesize (priority hierarchy)**
 
 - Apply strict priority ordering:
   1. halt (highest - immediate termination)
@@ -114,13 +122,13 @@ Claude Code Event (JSON) → Cupcake → Claude Code Response (JSON)
 - First verb in priority order wins
 - Collect all context to inject regardless of decision
 
-**5. Execute Actions (async)**
+**6. Execute Actions (async)**
 
 - Fire configured actions based on decision type
 - Non-blocking: actions run in background
 - Actions can be triggered by: decision type, specific rule violations, or custom conditions
 
-**6. Format Response**
+**7. Format Response**
 
 - Transform internal decision to harness-specific JSON
 - Claude Code: Maps to `continue`, `permissionDecision`, `hookSpecificOutput`, etc.
@@ -145,9 +153,11 @@ The engine is the orchestration layer:
 - Builds routing requirements: events, tools, signals
 - Validates metadata format
 
-**Router** - O(1) event-to-policy matching
+**Router** - O(1) signal gating and early exit
 
 - Builds HashMap at startup: `event:tool` → `[policies]`
+- **Purpose**: Determine which signals to execute and whether to run WASM
+- Does NOT control which Rego rules execute (all compiled policies run via `walk()`)
 - Supports wildcards: policies without tools match all tools
 - Separate namespaces for global vs project policies
 
@@ -214,7 +224,7 @@ Script integrity verification:
 
 ---
 
-## Metadata-Driven Routing
+## Metadata-Driven Signal Gating
 
 Policies declare their requirements via OPA metadata blocks:
 
@@ -232,25 +242,30 @@ package cupcake.policies.bash_guard
 
 import rego.v1
 
-# Policy rules follow...
+deny contains decision if {
+    input.hook_event_name == "PreToolUse"  # REQUIRED - policies must self-filter
+    input.tool_name == "Bash"               # REQUIRED - not redundant
+    # ... your logic
+}
 ```
 
-### Routing Metadata Fields
+### Metadata Fields
 
-**required_events** - Which hook events this policy cares about
+**required_events** - Events for signal gating
 
 - Example: `["PreToolUse", "PostToolUse"]`
-- Creates routing entries for each event type
+- Used to index when to collect this policy's signals
 
-**required_tools** - Which tools within those events
+**required_tools** - Tools for signal gating
 
 - Example: `["Bash", "Edit"]`
-- Empty list = wildcard (matches all tools)
+- Empty list = wildcard (match all tools for signal collection)
 
-**required_signals** - What data this policy needs
+**required_signals** - External data this policy needs
 
 - Example: `["git_branch", "current_user"]`
-- Engine executes these signals before policy evaluation
+- **This is the key field** - engine executes these shell commands before WASM
+- Signals cannot run from inside WASM (Rego is a pure computation sandbox)
 
 ### Routing Key Generation
 
@@ -262,22 +277,22 @@ The engine generates routing keys at startup:
 
 Wildcards are automatically merged into specific routes for efficiency.
 
-### Why Metadata-Driven?
+### What Routing Actually Does
 
-**Trust** - Policies trust the engine's routing
+**Signal Gating** - Only execute required signals
 
-- No need to check event types in policy code
-- If policy is evaluating, routing requirements are met
+- Signals are shell commands that can be expensive
+- Routing ensures we only run signals for relevant policies
 
-**Performance** - O(1) routing lookups
+**Early Exit** - Skip WASM when no policies match
 
-- No scanning through all policies per event
-- Only matched policies execute signals
+- If routing returns empty, return Allow immediately
+- No signal execution, no WASM execution
 
-**Clarity** - Routing requirements are declarative
+**IMPORTANT**: Routing does NOT control which Rego rules execute
 
-- Easy to see what each policy applies to
-- No hidden logic in policy code
+- ALL compiled policies run via `walk()` when WASM evaluates
+- Policies MUST include their own event/tool checks in Rego
 
 ---
 
@@ -524,29 +539,29 @@ actions:
 
 ## Design Principles
 
-### 1. Metadata-Driven
+### 1. Metadata-Driven Signal Gating
 
-Policies declare requirements, engine handles routing:
+Policies declare signal requirements, engine handles collection:
 
-- Policies don't need to check if they should run
-- Engine ensures policies only evaluate when relevant
-- Clear separation of concerns
+- Metadata determines which signals to execute
+- Engine provides early exit when no policies match
+- **Note**: Policies MUST still self-filter in Rego (routing doesn't control WASM execution)
 
 ### 2. Single Aggregation
 
 All evaluation through `cupcake.system.evaluate`:
 
-- Automatic policy discovery
-- No manual registration
-- Consistent evaluation contract
+- Automatic policy discovery via `walk()`
+- ALL compiled policies execute when WASM runs
+- Policies self-filter with their own event/tool checks
 
 ### 3. Proactive Signals
 
 Gathered before evaluation, not reactively:
 
-- Efficient parallel execution
-- No reactive overhead during evaluation
-- Policies receive enriched input
+- Signals are shell commands executed by Rust host
+- WASM/Rego cannot execute commands (pure computation sandbox)
+- Efficient parallel execution with timeout protection
 
 ### 4. Strict Priority
 
@@ -568,7 +583,7 @@ Scripts verified via HMAC before execution:
 
 Rust engine handles optimization, Rego focuses on logic:
 
-- Routing, synthesis, optimization = Engine
+- Signal gating, synthesis, optimization = Engine
 - Business logic, rules, decisions = Policies
 - Clean separation enables independent evolution
 
@@ -579,16 +594,16 @@ Rust engine handles optimization, Rego focuses on logic:
 ### Targets
 
 - **Policy discovery and compilation**: < 100ms
-- **Event routing**: O(1) lookup
+- **Signal gating lookup**: O(1)
 - **Policy evaluation**: < 50ms
 - **Full request cycle**: < 200ms
 
 ### Optimization Strategies
 
-**Routing** - O(1) HashMap lookups
+**Signal Gating** - O(1) HashMap lookups
 
 - Pre-built at startup
-- No scanning per event
+- Determines which signals to run and whether to execute WASM
 - Wildcard policies merged efficiently
 
 **Signals** - Only execute when needed

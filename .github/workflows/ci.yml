@@ -36,7 +36,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install OPA (Unix)
         if: runner.os != 'Windows'
@@ -109,13 +109,29 @@ jobs:
       - name: Build release binary first
         run: cargo build --release
 
-      - name: Run ALL tests including Claude integration
+      - name: Run unit and integration tests
         run: |
-          cargo test --features deterministic-tests
+          cargo test --features deterministic-tests --lib --bins --tests
         env:
           CI: true
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
+
+      - name: Run doc-tests (serial to avoid linker memory issues)
+        if: runner.os == 'Linux'
+        run: |
+          # Doc-tests link the entire library for each test
+          # Run sequentially with reduced parallelism to avoid OOM/bus errors on CI
+          cargo test --features deterministic-tests --doc -j 1 -- --test-threads=1
+        env:
+          CI: true
+
+      - name: Run doc-tests (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: |
+          cargo test --features deterministic-tests --doc
+        env:
+          CI: true
 
   clippy:
     name: Clippy

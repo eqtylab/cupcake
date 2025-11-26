@@ -12,17 +12,6 @@ else
     echo "✅ Docker is running"
 fi
 
-# Check for Python dependencies
-echo "Checking Python dependencies..."
-if ! python3 -c "import psycopg2" 2>/dev/null; then
-    echo "Installing psycopg2-binary for database connection..."
-    pip3 install psycopg2-binary || echo "Warning: Could not install psycopg2-binary"
-fi
-if ! python3 -c "import yaml" 2>/dev/null; then
-    echo "Installing PyYAML for configuration management..."
-    pip3 install pyyaml || echo "Warning: Could not install PyYAML"
-fi
-
 # Pull postgres-mcp Docker image if needed
 echo "Pulling postgres-mcp Docker image..."
 docker pull crystaldba/postgres-mcp || echo "Warning: Could not pull postgres-mcp image"
@@ -114,7 +103,7 @@ cat .cupcake/rulebook.yml
 # Add signal configuration to rulebook.yml
 echo "Configuring appointment time signal..."
 # Use Python to properly merge the signal into existing YAML
-python3 << 'EOF'
+uv run --with pyyaml python3 << 'EOF'
 import yaml
 
 # Read existing rulebook
@@ -140,7 +129,7 @@ if 'actions' in rulebook and rulebook['actions'] is None:
     rulebook['actions'] = {}
 
 rulebook['signals']['appointment_time_check'] = {
-    'command': 'python3 .cupcake/check_appointment_time.py'
+    'command': 'uv run --with psycopg2-binary python3 .cupcake/check_appointment_time.py'
 }
 
 # Write back the updated rulebook

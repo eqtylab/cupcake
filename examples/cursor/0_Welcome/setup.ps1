@@ -25,6 +25,16 @@ try {
     exit 1
 }
 
+# Check if uv is installed
+try {
+    $uvVersion = uv --version 2>$null
+    Write-Host "✅ uv found: $uvVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ uv not found in PATH. Please install uv:" -ForegroundColor Red
+    Write-Host "   https://docs.astral.sh/uv/" -ForegroundColor Yellow
+    exit 1
+}
+
 # Build Cupcake binary
 Write-Host "`nBuilding Cupcake binary..."
 Push-Location ../../..

@@ -29,6 +29,7 @@ Before starting, ensure you have:
   - **Windows users**: Download `opa_windows_amd64.exe` and rename to `opa.exe`
 - **Cursor** → AI-powered code editor [cursor.com](https://cursor.com)
 - **Docker** (optional) → For MCP database demo
+- [**uv**](https://docs.astral.sh/uv/) to run Python scripts
 
 _These are development requirements. The production software will manage these dependencies._
 

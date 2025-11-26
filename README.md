@@ -1,7 +1,7 @@
 <p align="left">
   <picture>
-    <source srcset="docs/public/cupcake-dark.png" media="(prefers-color-scheme: dark)">
-    <img src="docs/public/cupcake.png" alt="Cupcake logo" width="180">
+    <source srcset="docs-old/_assets/cupcake-dark.png" media="(prefers-color-scheme: dark)">
+    <img src="docs-old/_assets/cupcake.png" alt="Cupcake logo" width="180">
   </picture>
 </p>
 

@@ -260,10 +260,10 @@ fn test_cursor_eval_resolves_policy_dir_from_workspace_roots() {
     );
 
     // The command should succeed (not fail with "Policy directory does not exist")
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         output.status.success(),
-        "Eval should succeed when workspace_roots is provided. stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        "Eval should succeed when workspace_roots is provided. stderr: {stderr}"
     );
 
     // The output should be valid JSON (the response)
@@ -271,8 +271,7 @@ fn test_cursor_eval_resolves_policy_dir_from_workspace_roots() {
     let response: Result<Value, _> = serde_json::from_str(&stdout);
     assert!(
         response.is_ok(),
-        "Response should be valid JSON. Got: {}",
-        stdout
+        "Response should be valid JSON. Got: {stdout}"
     );
 
     // The response should allow the harmless echo command
@@ -344,16 +343,16 @@ deny contains decision if {
         &cursor_event.to_string(),
     );
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         output.status.success(),
-        "Eval command should succeed. stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        "Eval command should succeed. stderr: {stderr}"
     );
 
     // Parse response
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response: Value =
-        serde_json::from_str(&stdout).expect(&format!("Response should be valid JSON: {}", stdout));
+    let response: Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|_| panic!("Response should be valid JSON: {stdout}"));
 
     // The response should deny the dangerous command
     // Cursor uses "permission": "deny" for blocked commands
@@ -361,17 +360,14 @@ deny contains decision if {
         assert_eq!(
             permission.as_str().unwrap_or(""),
             "deny",
-            "rm -rf should be blocked. Response: {}",
-            stdout
+            "rm -rf should be blocked. Response: {stdout}"
         );
     } else {
         // Some responses might have "continue": false instead
         if let Some(cont) = response.get("continue") {
-            assert_eq!(
-                cont.as_bool().unwrap_or(true),
-                false,
-                "rm -rf should be blocked (continue=false). Response: {}",
-                stdout
+            assert!(
+                !cont.as_bool().unwrap_or(true),
+                "rm -rf should be blocked (continue=false). Response: {stdout}"
             );
         }
     }
@@ -411,13 +407,13 @@ fn test_cursor_eval_prefers_cwd_over_workspace_roots() {
         &cursor_event.to_string(),
     );
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         output.status.success(),
-        "Eval should succeed when cwd is provided. stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        "Eval should succeed when cwd is provided. stderr: {stderr}"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let response: Result<Value, _> = serde_json::from_str(&stdout);
-    assert!(response.is_ok(), "Response should be valid JSON: {}", stdout);
+    assert!(response.is_ok(), "Response should be valid JSON: {stdout}");
 }

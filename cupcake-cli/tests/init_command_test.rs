@@ -507,22 +507,27 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 17 files in harness-specific structure:
+    // We should have exactly 33 files in harness-specific structure:
     // - 1 rulebook.yml
     // - 1 example.rego
     // - 1 helper (commands.rego)
     // - Claude: 1 evaluate.rego + 7 builtins = 8 files
-    // - Cursor: 1 evaluate.rego + 5 builtins = 6 files (no always_inject_on_prompt)
-    // Total: 1 + 1 + 1 + 8 + 6 = 17 files
+    // - Cursor: 1 evaluate.rego + 5 builtins = 6 files (no always_inject_on_prompt or enforce_full_file_read)
+    // - Factory: 1 evaluate.rego + 7 builtins = 8 files
+    // - OpenCode: 1 evaluate.rego + 7 builtins = 8 files
+    // Total: 1 + 1 + 1 + 8 + 6 + 8 + 8 = 33 files
     assert_eq!(
-        file_count, 17,
-        "Should have exactly 17 files (1 rulebook + 1 example + 1 helper + 8 claude + 6 cursor)"
+        file_count, 33,
+        "Should have exactly 33 files (1 rulebook + 1 example + 1 helper + 8 claude + 6 cursor + 8 factory + 8 opencode)"
     );
 
-    // We should have exactly 10 directories:
-    // actions, signals, policies, policies/helpers, policies/claude, policies/claude/system, policies/claude/builtins,
-    // policies/cursor, policies/cursor/system, policies/cursor/builtins
-    assert_eq!(dir_count, 10, "Should have exactly 10 directories");
+    // We should have exactly 16 directories:
+    // actions, signals, policies, policies/helpers,
+    // policies/claude, policies/claude/system, policies/claude/builtins,
+    // policies/cursor, policies/cursor/system, policies/cursor/builtins,
+    // policies/factory, policies/factory/system, policies/factory/builtins,
+    // policies/opencode, policies/opencode/system, policies/opencode/builtins
+    assert_eq!(dir_count, 16, "Should have exactly 16 directories");
 
     Ok(())
 }

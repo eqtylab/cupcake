@@ -65,8 +65,70 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     // We copy these strings out of the JSON so we can modify the JSON later.
     // Can't modify data while something points into it.
     let (tool_name, event_name): (String, String) = match harness {
-        HarnessType::ClaudeCode => {
-            // Claude Code uses tool_name
+        HarnessType::ClaudeCode | HarnessType::Factory => {
+            // Claude Code and Factory AI use tool_name (same structure)
+            let tool = input
+                .get("tool_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let event = input
+                .get("hook_event_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            (tool, event)
+        }
+        HarnessType::OpenCode => {
+            // OpenCode uses lowercase tool names that need to be mapped to Cupcake format
+            // Clone fields before mutating input
+            let args = input.get("args").cloned();
+            let result = input.get("result").cloned();
+
+            // Get tool and event as owned strings to avoid borrow issues
+            let tool_lowercase = input
+                .get("tool")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(); // Make it owned
+
+            // Map OpenCode tool names to Cupcake format (bash -> Bash, edit -> Edit, etc.)
+            let tool_mapped = match tool_lowercase.as_str() {
+                "bash" => "Bash".to_string(),
+                "edit" => "Edit".to_string(),
+                "write" => "Write".to_string(),
+                "read" => "Read".to_string(),
+                "grep" => "Grep".to_string(),
+                "glob" => "Glob".to_string(),
+                "list" => "List".to_string(),
+                "patch" => "Patch".to_string(),
+                "todowrite" => "TodoWrite".to_string(),
+                "todoread" => "TodoRead".to_string(),
+                "webfetch" => "WebFetch".to_string(),
+                "task" => "Task".to_string(),
+                _ => tool_lowercase, // Unknown tools pass through
+            };
+
+            // Now we can mutate input
+            if let Some(obj) = input.as_object_mut() {
+                // Add tool_name field for engine compatibility
+                obj.insert(
+                    "tool_name".to_string(),
+                    serde_json::Value::String(tool_mapped),
+                );
+
+                // Add tool_input field by renaming args to tool_input for engine compatibility
+                if let Some(args_value) = args {
+                    obj.insert("tool_input".to_string(), args_value);
+                }
+
+                // Add tool_response field by renaming result to tool_response for PostToolUse events
+                if let Some(result_value) = result {
+                    obj.insert("tool_response".to_string(), result_value);
+                }
+            }
+
+            // Re-read the values we just inserted to get proper string slices
             let tool = input
                 .get("tool_name")
                 .and_then(|v| v.as_str())
@@ -109,7 +171,9 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     match tool_name.as_str() {
         "Bash" if config.normalize_whitespace => match harness {
             HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
+            HarnessType::Factory => preprocess_claude_bash_command(input, config),
             HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
+            HarnessType::OpenCode => preprocess_claude_bash_command(input, config), // Same format as Claude/Factory
         },
         // Future: Add other tool-specific preprocessing
         // "Task" => preprocess_task_prompt(input, config),
@@ -325,8 +389,8 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
 
     // Extract file path based on tool and harness type
     let file_path_opt = match harness {
-        HarnessType::ClaudeCode => {
-            // Claude Code structure: input.tool_input.<field>
+        HarnessType::ClaudeCode | HarnessType::Factory => {
+            // Claude Code and Factory AI structure: input.tool_input.<field>
             input.get("tool_input").and_then(|tool_input| {
                 // Try different field names based on tool type
                 // NOTE: Glob 'pattern' field is intentionally excluded - patterns like
@@ -340,6 +404,15 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
         HarnessType::Cursor => {
             // Cursor structure: input.<field> (direct at root)
             input.get("file_path").or_else(|| input.get("path"))
+        }
+        HarnessType::OpenCode => {
+            // OpenCode uses same structure as Claude Code/Factory: input.tool_input.<field>
+            input.get("tool_input").and_then(|tool_input| {
+                tool_input
+                    .get("file_path")
+                    .or_else(|| tool_input.get("path"))
+                    .or_else(|| tool_input.get("filePath")) // OpenCode may use camelCase
+            })
         }
     };
 

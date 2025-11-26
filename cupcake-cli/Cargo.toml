@@ -25,6 +25,11 @@ tracing-subscriber = { workspace = true }
 # Table display
 tabled = "0.15"
 
+# HTTP client for downloading plugins
+reqwest = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
 [[bin]]
 name = "cupcake"
 path = "src/main.rs"

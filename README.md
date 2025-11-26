@@ -24,7 +24,7 @@ Cupcake intercepts agent tool calls and evaluates them against **user-defined ru
 
 Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
 
-> [!NOTE]  
+> [!NOTE]
 > Official release is not until December 2025
 
 ## Supported Agent Harnesses
@@ -35,7 +35,8 @@ Cupcake provides native integrations for multiple AI coding agents:
 | --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
 | **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
 | **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
-| **[Factory AI](https://docs.factory.ai/welcome)** | Coming soon        | [Fully Supported](https://docs.factory.ai/reference/hooks-reference) |
+| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/factory.md)                  |
+| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
 Cupcake provides native integrations for multiple web agent frameworks:
@@ -46,7 +47,7 @@ Cupcake provides native integrations for multiple web agent frameworks:
 | Google ADK | Coming soon | Coming soon       |
 | NVIDIA NAT | Coming soon | Coming soon       |
 
-Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
+Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
 
 **See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
 
@@ -54,13 +55,13 @@ Each harness uses native event formats—no normalization layer. Policies are ph
 
 Modern agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
 
-- **Multi-harness support** with first‑class integrations for **Claude Code** and **Cursor**.
+- **Multi-harness support** with first‑class integrations for **Claude Code**, **Cursor**, **Factory AI**, and **OpenCode**.
 - **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
 - **Enterprise‑ready** controls: allow/deny/review, audit trails, and proactive warnings.
 
 ## How it Works
 
-Cupcake integrates with AI coding agents like **Claude Code** and **Cursor** through lightweight hooks that monitor operations such as shell commands, file edits, and tool calls. Policies are **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation.
+Cupcake integrates with AI coding agents like **Claude Code**, **Cursor**, **Factory AI**, and **OpenCode** through lightweight hooks that monitor operations such as shell commands, file edits, and tool calls. Policies are **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation.
 
 Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file, call a tool), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
 
@@ -114,7 +115,7 @@ See [Writing Policies](./docs/user-guide/policies/writing-policies.md) for detai
   "command": "git push",
   "args": [],
   "signals": { "tests_passed": false, "git_branch": "feature/x" },
-  "actor": { "id": "agent-1", "session": "abc123" }
+  "actor": { "id": "agent-1", "session": "abc123" },
 }
 ```
 

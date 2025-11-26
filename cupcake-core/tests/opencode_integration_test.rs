@@ -6,8 +6,15 @@ use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
 
+/// Test setup result containing both project and empty global temp dirs
+struct TestSetup {
+    project_dir: TempDir,
+    /// Empty temp dir used to disable global config auto-discovery
+    _empty_global: TempDir,
+}
+
 /// Helper to create a test project for OpenCode
-async fn setup_opencode_test_project() -> Result<TempDir> {
+async fn setup_opencode_test_project() -> Result<TestSetup> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
 
@@ -62,12 +69,18 @@ actions: {}
 "#,
     )?;
 
-    Ok(temp_dir)
+    // Create empty temp dir to disable global config auto-discovery
+    let empty_global = TempDir::new()?;
+
+    Ok(TestSetup {
+        project_dir: temp_dir,
+        _empty_global: empty_global,
+    })
 }
 
 #[tokio::test]
 async fn test_opencode_pretooluse_allow() -> Result<()> {
-    let temp_dir = setup_opencode_test_project().await?;
+    let setup = setup_opencode_test_project().await?;
 
     // Create a policy that doesn't match and thus allows
     let policy_content = r#"
@@ -92,25 +105,25 @@ deny contains decision if {
 }
 "#;
 
-    let policy_dir = temp_dir.path().join(".cupcake/policies/opencode");
+    let policy_dir = setup.project_dir.path().join(".cupcake/policies/opencode");
     fs::write(policy_dir.join("test_allow.rego"), policy_content)?;
 
-    // Create engine
+    // Create engine - use empty temp dir to disable global config auto-discovery
     let config = EngineConfig {
         harness: HarnessType::OpenCode,
         wasm_max_memory: Some(10 * 1024 * 1024),
         opa_path: None,
-        global_config: None,
+        global_config: Some(setup._empty_global.path().to_path_buf()),
         debug_routing: false,
     };
-    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
+    let engine = Engine::new_with_config(setup.project_dir.path(), config).await?;
 
     // Create OpenCode PreToolUse event (using OpenCode format: tool + args)
     // Preprocessing will convert to: tool_name + tool_input
     let event = json!({
         "hook_event_name": "PreToolUse",
         "session_id": "test_session",
-        "cwd": temp_dir.path().to_str().unwrap(),
+        "cwd": setup.project_dir.path().to_str().unwrap(),
         "tool": "bash",
         "args": {
             "command": "echo hello"
@@ -128,7 +141,7 @@ deny contains decision if {
 
 #[tokio::test]
 async fn test_opencode_pretooluse_deny() -> Result<()> {
-    let temp_dir = setup_opencode_test_project().await?;
+    let setup = setup_opencode_test_project().await?;
 
     // Create a deny policy for dangerous commands
     let policy_content = r#"
@@ -153,25 +166,25 @@ deny contains decision if {
 }
 "#;
 
-    let policy_dir = temp_dir.path().join(".cupcake/policies/opencode");
+    let policy_dir = setup.project_dir.path().join(".cupcake/policies/opencode");
     fs::write(policy_dir.join("test_deny.rego"), policy_content)?;
 
-    // Create engine
+    // Create engine - use empty temp dir to disable global config auto-discovery
     let config = EngineConfig {
         harness: HarnessType::OpenCode,
         wasm_max_memory: Some(10 * 1024 * 1024),
         opa_path: None,
-        global_config: None,
+        global_config: Some(setup._empty_global.path().to_path_buf()),
         debug_routing: false,
     };
-    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
+    let engine = Engine::new_with_config(setup.project_dir.path(), config).await?;
 
     // Create OpenCode PreToolUse event with dangerous command
     // Using OpenCode format: tool (lowercase) + args
     let event = json!({
         "hook_event_name": "PreToolUse",
         "session_id": "test_session",
-        "cwd": temp_dir.path().to_str().unwrap(),
+        "cwd": setup.project_dir.path().to_str().unwrap(),
         "tool": "bash",
         "args": {
             "command": "rm -rf /"
@@ -189,7 +202,7 @@ deny contains decision if {
 
 #[tokio::test]
 async fn test_opencode_posttooluse() -> Result<()> {
-    let temp_dir = setup_opencode_test_project().await?;
+    let setup = setup_opencode_test_project().await?;
 
     // Create a PostToolUse policy
     let policy_content = r#"
@@ -213,25 +226,25 @@ add_context contains message if {
 }
 "#;
 
-    let policy_dir = temp_dir.path().join(".cupcake/policies/opencode");
+    let policy_dir = setup.project_dir.path().join(".cupcake/policies/opencode");
     fs::write(policy_dir.join("test_post.rego"), policy_content)?;
 
-    // Create engine
+    // Create engine - use empty temp dir to disable global config auto-discovery
     let config = EngineConfig {
         harness: HarnessType::OpenCode,
         wasm_max_memory: Some(10 * 1024 * 1024),
         opa_path: None,
-        global_config: None,
+        global_config: Some(setup._empty_global.path().to_path_buf()),
         debug_routing: false,
     };
-    let engine = Engine::new_with_config(temp_dir.path(), config).await?;
+    let engine = Engine::new_with_config(setup.project_dir.path(), config).await?;
 
     // Create OpenCode PostToolUse event
     // Using OpenCode format: tool (lowercase) + args + result
     let event = json!({
         "hook_event_name": "PostToolUse",
         "session_id": "test_session",
-        "cwd": temp_dir.path().to_str().unwrap(),
+        "cwd": setup.project_dir.path().to_str().unwrap(),
         "tool": "bash",
         "args": {
             "command": "echo hello"

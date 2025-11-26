@@ -437,7 +437,6 @@ Most built-in policies are implemented for both harnesses with harness-specific 
 | `system_protection` | ✅ Yes | ✅ Yes | Protects system directories |
 | `sensitive_data_protection` | ✅ Yes | ✅ Yes | Blocks SSH keys, credentials |
 | `cupcake_exec_protection` | ✅ Yes | ✅ Yes | Prevents cupcake manipulation |
-| `global_file_lock` | ✅ Yes | ✅ Yes | Blocks all file modifications |
 | `claude_code_enforce_full_file_read` | ✅ Yes | ❌ No (Claude-only) | Requires full file reads |
 | `claude_code_always_inject_on_prompt` | ✅ Yes | ❌ No (Claude-only) | Adds context to prompts |
 | `git_pre_check` | ✅ Yes | ✅ Yes | Validates before git operations |

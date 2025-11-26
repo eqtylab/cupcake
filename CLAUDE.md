@@ -529,10 +529,9 @@ Example: A policy with `required_events: ["PostToolUse"]` will have its signals 
 
 ## Builtin Abstractions
 
-Eleven builtins provide common patterns without writing Rego:
+Ten builtins provide common patterns without writing Rego:
 
 - **claude_code_always_inject_on_prompt** - Adds context to every user prompt
-- **global_file_lock** - Blocks all file modifications globally
 - **git_pre_check** - Validates before git operations
 - **post_edit_check** - Runs validation after file edits
 - **rulebook_security_guardrails** - Protects .cupcake files from modification

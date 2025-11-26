@@ -69,10 +69,9 @@ actions:
 # Simply configuring a builtin (even with just empty settings) enables it.
 # To disable, either remove the configuration or set 'enabled: false'.
 #
-# FILE PROTECTION BUILTINS (Three-Tier System):
-# 1. global_file_lock: Prevents ALL writes session-wide (most restrictive)
-# 2. protected_paths: Makes specific paths read-only (read allowed, write blocked)
-# 3. rulebook_security_guardrails: Total lockdown of paths (no read OR write)
+# FILE PROTECTION BUILTINS (Two-Tier System):
+# 1. protected_paths: Makes specific paths read-only (read allowed, write blocked)
+# 2. rulebook_security_guardrails: Total lockdown of paths (no read OR write)
 
 builtins:
   # ---------------------------------------------------------------------------
@@ -96,17 +95,6 @@ builtins:
   #     # Context from file
   #     - file: ".cupcake/coding-standards.md"
   #     - file: "docs/current-sprint-goals.md"
-
-  # ---------------------------------------------------------------------------
-  # GLOBAL_FILE_LOCK - Session-wide write prevention
-  # ---------------------------------------------------------------------------
-  # Completely prevent ALL file modifications for the entire session. Useful for
-  # code review, learning/exploration, or when you want to ensure zero changes.
-  # This is the most restrictive option - blocks all write operations globally.
-
-  # global_file_lock:
-  #   message: "File editing is disabled globally by policy"
-  #   # enabled: false  # Uncomment to explicitly disable
 
   # ---------------------------------------------------------------------------
   # GIT_PRE_CHECK - Enforce checks before git operations
@@ -237,20 +225,16 @@ git_pre_check:
 
 ### File Protection Hierarchy
 
-Cupcake provides three levels of file protection:
+Cupcake provides two levels of file protection:
 
-1. **`global_file_lock`** (Most restrictive)
-   - Blocks ALL write operations globally
-   - Use for read-only sessions
-
-2. **`protected_paths`** (Medium)
+1. **`protected_paths`**
    - Blocks writes to specific paths
    - Allows reads
-   - Good for system directories
+   - Good for system directories and configuration files
 
-3. **`rulebook_security_guardrails`** (Most secure)
+2. **`rulebook_security_guardrails`** (Most secure)
    - Blocks reads AND writes
-   - Use for sensitive configuration
+   - Use for sensitive configuration like `.cupcake/` itself
 
 ### Signals vs Static Config
 

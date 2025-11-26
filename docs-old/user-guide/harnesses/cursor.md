@@ -452,10 +452,6 @@ builtins:
       - ".env"
       - ".aws/credentials"
       - "secrets/"
-
-  global_file_lock:
-    enabled: true
-    message: "All file modifications require approval"
 ```
 
 See [Built-in Policies Reference](../policies/builtin-policies-reference.md) for complete list.

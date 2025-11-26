@@ -32,7 +32,6 @@ fixtures/
 ├── claude/
 │   ├── builtins/                 # Claude Code-compatible builtin policies
 │   │   ├── claude_code_always_inject_on_prompt.rego
-│   │   ├── global_file_lock.rego
 │   │   ├── git_pre_check.rego
 │   │   ├── post_edit_check.rego
 │   │   ├── rulebook_security_guardrails.rego
@@ -65,8 +64,8 @@ fixtures/
    - Sets up harness-specific hooks (e.g., `.claude/settings.json` or `~/.cursor/hooks.json`)
 
 3. **Harness-Specific Deployment**:
-   - Claude Code gets all 8 builtins + 3 global builtins
-   - Cursor gets 7 builtins (no `claude_code_enforce_full_file_read` due to incompatibility) + 3 global builtins
+   - Claude Code gets all 7 builtins + 3 global builtins
+   - Cursor gets 6 builtins (no `claude_code_enforce_full_file_read` due to incompatibility) + 3 global builtins
 
 ### 4. **Test Usage**
 

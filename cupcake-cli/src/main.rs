@@ -624,7 +624,6 @@ async fn verify_command(
 /// List of valid project-level builtin names
 const VALID_PROJECT_BUILTINS: &[&str] = &[
     "always_inject_on_prompt",
-    "global_file_lock",
     "git_pre_check",
     "post_edit_check",
     "rulebook_security_guardrails",
@@ -1249,7 +1248,6 @@ async fn init_project_config(
                 "claude_code_always_inject_on_prompt.rego",
                 CLAUDE_ALWAYS_INJECT_POLICY,
             ),
-            ("global_file_lock.rego", CLAUDE_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CLAUDE_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CLAUDE_POST_EDIT_CHECK_POLICY),
             (
@@ -1275,7 +1273,6 @@ async fn init_project_config(
 
         // Cursor builtins - only compatible ones (no always_inject or enforce_full_file_read)
         let cursor_builtins = vec![
-            ("global_file_lock.rego", CURSOR_GLOBAL_FILE_LOCK_POLICY),
             ("git_pre_check.rego", CURSOR_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CURSOR_POST_EDIT_CHECK_POLICY),
             (
@@ -1883,8 +1880,6 @@ const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.ym
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =
     include_str!("../../fixtures/claude/builtins/claude_code_always_inject_on_prompt.rego");
-const CLAUDE_GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/claude/builtins/global_file_lock.rego");
 const CLAUDE_GIT_PRE_CHECK_POLICY: &str =
     include_str!("../../fixtures/claude/builtins/git_pre_check.rego");
 const CLAUDE_POST_EDIT_CHECK_POLICY: &str =
@@ -1900,8 +1895,6 @@ const CLAUDE_ENFORCE_FULL_FILE_READ_POLICY: &str =
 
 // Cursor builtin policies (only compatible ones)
 // Note: Cursor doesn't have always_inject_on_prompt (Claude Code only)
-const CURSOR_GLOBAL_FILE_LOCK_POLICY: &str =
-    include_str!("../../fixtures/cursor/builtins/global_file_lock.rego");
 const CURSOR_GIT_PRE_CHECK_POLICY: &str =
     include_str!("../../fixtures/cursor/builtins/git_pre_check.rego");
 const CURSOR_POST_EDIT_CHECK_POLICY: &str =

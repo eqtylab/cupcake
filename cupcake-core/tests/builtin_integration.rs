@@ -35,7 +35,6 @@ fn test_builtin_signal_generation() {
 
     // Create the full configuration in one go
     let config = BuiltinsConfig {
-        global_file_lock: None,
         claude_code_always_inject_on_prompt: Some(AlwaysInjectConfig {
             enabled: true,
             context: vec![
@@ -114,12 +113,6 @@ fn test_enabled_builtins_list() {
     let mut config = BuiltinsConfig::default();
     assert_eq!(config.enabled_builtins().len(), 0);
 
-    config.global_file_lock = Some(GlobalFileLockConfig {
-        enabled: true,
-        message: "No edits".to_string(),
-    });
-    assert_eq!(config.enabled_builtins(), vec!["global_file_lock"]);
-
     // Test rulebook_security_guardrails
     config.rulebook_security_guardrails = Some(RulebookSecurityConfig {
         enabled: true,
@@ -127,16 +120,15 @@ fn test_enabled_builtins_list() {
         protected_paths: vec![".cupcake/".to_string()],
     });
     let enabled = config.enabled_builtins();
-    assert!(enabled.contains(&"global_file_lock".to_string()));
     assert!(enabled.contains(&"rulebook_security_guardrails".to_string()));
+    assert_eq!(enabled.len(), 1);
 
     config.git_pre_check = Some(GitPreCheckConfig {
         enabled: true,
         checks: vec![],
     });
-    assert_eq!(config.enabled_builtins().len(), 3);
+    assert_eq!(config.enabled_builtins().len(), 2);
     let enabled = config.enabled_builtins();
-    assert!(enabled.contains(&"global_file_lock".to_string()));
     assert!(enabled.contains(&"git_pre_check".to_string()));
     assert!(enabled.contains(&"rulebook_security_guardrails".to_string()));
 }
@@ -408,11 +400,11 @@ fn test_builtin_policy_loading() {
     use cupcake_core::engine::builtins::should_load_builtin_policy;
     use std::path::Path;
 
-    let enabled = vec!["global_file_lock".to_string(), "git_pre_check".to_string()];
+    let enabled = vec!["protected_paths".to_string(), "git_pre_check".to_string()];
 
     // Should load enabled builtins
     assert!(should_load_builtin_policy(
-        Path::new("policies/builtins/global_file_lock.rego"),
+        Path::new("policies/builtins/protected_paths.rego"),
         &enabled
     ));
     assert!(should_load_builtin_policy(

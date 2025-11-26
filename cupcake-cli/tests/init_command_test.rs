@@ -100,7 +100,6 @@ fn test_init_creates_all_required_files() -> Result<()> {
         "policies/claude/builtins/claude_code_enforce_full_file_read.rego",
         "policies/claude/builtins/git_block_no_verify.rego",
         "policies/claude/builtins/git_pre_check.rego",
-        "policies/claude/builtins/global_file_lock.rego",
         "policies/claude/builtins/post_edit_check.rego",
         "policies/claude/builtins/protected_paths.rego",
         "policies/claude/builtins/rulebook_security_guardrails.rego",
@@ -108,7 +107,6 @@ fn test_init_creates_all_required_files() -> Result<()> {
         "policies/cursor/system/evaluate.rego",
         "policies/cursor/builtins/git_block_no_verify.rego",
         "policies/cursor/builtins/git_pre_check.rego",
-        "policies/cursor/builtins/global_file_lock.rego",
         "policies/cursor/builtins/post_edit_check.rego",
         "policies/cursor/builtins/protected_paths.rego",
         "policies/cursor/builtins/rulebook_security_guardrails.rego",
@@ -156,14 +154,10 @@ fn test_rulebook_yml_content() -> Result<()> {
         "rulebook.yml should contain builtins section"
     );
 
-    // Verify all four builtins are documented
+    // Verify builtins are documented
     assert!(
         content.contains("claude_code_always_inject_on_prompt:"),
         "rulebook.yml should document claude_code_always_inject_on_prompt builtin"
-    );
-    assert!(
-        content.contains("global_file_lock:"),
-        "rulebook.yml should document global_file_lock builtin"
     );
     assert!(
         content.contains("git_pre_check:"),
@@ -261,18 +255,6 @@ fn test_builtin_policies_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
     // Check Claude harness builtins (most comprehensive set)
     let builtins_dir = project_path.join(".cupcake/policies/claude/builtins");
-
-    // Test global_file_lock.rego
-    let global_lock_path = builtins_dir.join("global_file_lock.rego");
-    let content = fs::read_to_string(&global_lock_path)?;
-    assert!(
-        content.contains("package cupcake.policies.builtins.global_file_lock"),
-        "global_file_lock.rego should have correct package"
-    );
-    assert!(
-        content.contains("halt contains decision if"),
-        "global_file_lock.rego should use halt verb"
-    );
 
     // Test git_pre_check.rego
     let git_check_path = builtins_dir.join("git_pre_check.rego");
@@ -525,16 +507,16 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 19 files in harness-specific structure:
+    // We should have exactly 17 files in harness-specific structure:
     // - 1 rulebook.yml
     // - 1 example.rego
     // - 1 helper (commands.rego)
-    // - Claude: 1 evaluate.rego + 8 builtins = 9 files
-    // - Cursor: 1 evaluate.rego + 6 builtins = 7 files (no always_inject_on_prompt)
-    // Total: 1 + 1 + 1 + 9 + 7 = 19 files
+    // - Claude: 1 evaluate.rego + 7 builtins = 8 files
+    // - Cursor: 1 evaluate.rego + 5 builtins = 6 files (no always_inject_on_prompt)
+    // Total: 1 + 1 + 1 + 8 + 6 = 17 files
     assert_eq!(
-        file_count, 19,
-        "Should have exactly 19 files (1 rulebook + 1 example + 1 helper + 9 claude + 7 cursor)"
+        file_count, 17,
+        "Should have exactly 17 files (1 rulebook + 1 example + 1 helper + 8 claude + 6 cursor)"
     );
 
     // We should have exactly 10 directories:

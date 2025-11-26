@@ -1,13 +1,12 @@
 # Builtin Policies Reference
 
-Cupcake provides 11 builtin policies that implement common security patterns without writing Rego code. Enable them via `cupcake init --builtins` or by editing `rulebook.yml`.
+Cupcake provides 10 builtin policies that implement common security patterns without writing Rego code. Enable them via `cupcake init --builtins` or by editing `rulebook.yml`.
 
 ## Quick Reference
 
 | Builtin                        | Scope   | Purpose                        | Blocks                            |
 | ------------------------------ | ------- | ------------------------------ | --------------------------------- |
 | `claude_code_always_inject_on_prompt`      | Project | Add context to every prompt    | Nothing                           |
-| `global_file_lock`             | Project | Prevent ALL file writes        | All writes                        |
 | `git_pre_check`                | Project | Validate before git operations | Git ops if checks fail            |
 | `post_edit_check`              | Project | Validate after file edits      | Future edits if checks fail       |
 | `rulebook_security_guardrails` | Project | Protect `.cupcake/` directory  | Reads & writes to protected paths |
@@ -46,26 +45,6 @@ builtins:
 - Enforce coding standards
 - Provide project context
 - Add current state awareness
-
----
-
-### global_file_lock
-
-Prevents ALL file modifications session-wide. Most restrictive builtin.
-
-**Configuration:**
-
-```yaml
-builtins:
-  global_file_lock:
-    message: "Session is in read-only mode"
-```
-
-**Use Cases:**
-
-- Code review sessions
-- Learning/exploration mode
-- Production safety
 
 ---
 
@@ -283,7 +262,7 @@ When multiple builtins could apply:
 cupcake init --builtins git_pre_check
 
 # Multiple builtins
-cupcake init --builtins git_pre_check,protected_paths,global_file_lock
+cupcake init --builtins git_pre_check,protected_paths
 
 # Global builtins
 cupcake init --global --builtins system_protection
@@ -321,7 +300,7 @@ builtins:
 
 - Disable temporarily: Set `enabled: false`
 - Adjust configuration to be less broad
-- Use `protected_paths` instead of `global_file_lock`
+- Use `protected_paths` for specific paths instead of blocking everything
 
 **Not restrictive enough?**
 

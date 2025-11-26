@@ -542,28 +542,30 @@ async fn eval_command(
     };
 
     // Format response based on harness type from engine config
+    //
+    // NOTE: We re-parse stdin_buffer into typed event structs here. This is intentional:
+    // - Earlier we parsed to serde_json::Value for generic engine evaluation
+    // - Here we need strongly-typed event structs for type-safe response formatting
+    // - The format_response() methods require specific event types (ClaudeCodeEvent, CursorEvent, etc.)
+    // - Attempting to convert Value -> typed struct would require the same deserialization work
     let response = match harness_type {
         cupcake_core::harness::types::HarnessType::ClaudeCode => {
-            // Re-parse to get original event structure for response formatting
             let event = serde_json::from_str::<harness::events::claude_code::ClaudeCodeEvent>(
                 &stdin_buffer,
             )?;
             harness::ClaudeHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::Cursor => {
-            // Re-parse Cursor event for response formatting
             let event =
                 serde_json::from_str::<harness::events::cursor::CursorEvent>(&stdin_buffer)?;
             harness::CursorHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::Factory => {
-            // Re-parse Factory AI event for response formatting
             let event =
                 serde_json::from_str::<harness::events::factory::FactoryEvent>(&stdin_buffer)?;
             harness::FactoryHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::OpenCode => {
-            // Re-parse OpenCode event for response formatting
             let event =
                 serde_json::from_str::<harness::events::opencode::OpenCodeEvent>(&stdin_buffer)?;
             harness::OpenCodeHarness::format_response(&event, &decision)?

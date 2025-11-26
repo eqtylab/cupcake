@@ -37,6 +37,9 @@ sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
 
+# HTTP Client
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time", "local-time"] }

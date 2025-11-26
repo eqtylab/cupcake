@@ -3,9 +3,11 @@
 //! Provides trait-based architecture for configuring various agent harnesses
 //! (Claude Code, Cursor, etc.) with Cupcake policy evaluation.
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Trait for agent harness configuration
@@ -31,6 +33,17 @@ pub struct CursorHarness;
 
 /// Factory AI harness implementation
 pub struct FactoryHarness;
+
+/// OpenCode harness implementation
+pub struct OpenCodeHarness;
+
+/// GitHub repository for downloading plugins
+const GITHUB_REPO: &str = "eqtylab/cupcake";
+
+/// Get the current Cupcake version (embedded at compile time)
+fn get_cupcake_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
 
 impl HarnessConfig for ClaudeHarness {
     fn name(&self) -> &str {
@@ -238,6 +251,144 @@ impl HarnessConfig for FactoryHarness {
     }
 }
 
+impl OpenCodeHarness {
+    /// Download the OpenCode plugin from GitHub releases
+    ///
+    /// Downloads cupcake.js to .opencode/plugin/ directory
+    pub async fn download_plugin(target_dir: &Path, global: bool) -> Result<()> {
+        // Determine plugin directory
+        let plugin_dir = if global {
+            dirs::config_dir()
+                .ok_or_else(|| anyhow!("Could not determine config directory"))?
+                .join("opencode")
+                .join("plugin")
+        } else {
+            target_dir.join(".opencode").join("plugin")
+        };
+
+        // Create plugin directory
+        fs::create_dir_all(&plugin_dir)
+            .with_context(|| format!("Failed to create plugin directory: {:?}", plugin_dir))?;
+
+        let plugin_path = plugin_dir.join("cupcake.js");
+
+        // Use latest release to avoid version sync issues between CLI and plugin
+        // The plugin is forward-compatible, so latest is always safe
+        let plugin_url = format!(
+            "https://github.com/{}/releases/latest/download/opencode-plugin.js",
+            GITHUB_REPO
+        );
+        let checksum_url = format!(
+            "https://github.com/{}/releases/latest/download/opencode-plugin.js.sha256",
+            GITHUB_REPO
+        );
+
+        println!("   Downloading OpenCode plugin (latest release)...");
+
+        // Download the plugin
+        let plugin_content = download_file(&plugin_url).await.with_context(|| {
+            format!(
+                "Failed to download OpenCode plugin from {}. \
+                 This may happen if the release doesn't exist yet. \
+                 Try installing from source: cd cupcake-plugins/opencode && npm ci && npm run build",
+                plugin_url
+            )
+        })?;
+
+        // Download and verify checksum
+        match download_file(&checksum_url).await {
+            Ok(checksum_content) => {
+                let checksum_str = String::from_utf8_lossy(&checksum_content);
+                let expected_hash = checksum_str
+                    .split_whitespace()
+                    .next()
+                    .ok_or_else(|| anyhow!("Invalid checksum format"))?;
+
+                // Calculate actual hash
+                let mut hasher = Sha256::new();
+                hasher.update(&plugin_content);
+                let actual_hash = hex::encode(hasher.finalize());
+
+                if actual_hash != expected_hash {
+                    return Err(anyhow!(
+                        "Checksum verification failed!\n  Expected: {}\n  Actual: {}",
+                        expected_hash,
+                        actual_hash
+                    ));
+                }
+
+                println!("   Checksum verified");
+            }
+            Err(e) => {
+                eprintln!(
+                    "   Warning: Could not verify checksum: {}. Proceeding anyway.",
+                    e
+                );
+            }
+        }
+
+        // Write plugin to disk
+        let mut file = fs::File::create(&plugin_path)
+            .with_context(|| format!("Failed to create plugin file: {:?}", plugin_path))?;
+        file.write_all(&plugin_content)
+            .with_context(|| "Failed to write plugin content")?;
+
+        println!("   Plugin installed to: {:?}", plugin_path);
+
+        Ok(())
+    }
+
+    /// Print manual installation instructions as fallback
+    pub fn print_manual_instructions() {
+        eprintln!();
+        eprintln!("   To manually install the OpenCode plugin:");
+        eprintln!();
+        eprintln!("   1. Build the plugin:");
+        eprintln!("      cd cupcake-plugins/opencode && npm ci && npm run build");
+        eprintln!();
+        eprintln!("   2. Copy to your project:");
+        eprintln!("      mkdir -p .opencode/plugin");
+        eprintln!("      cp cupcake-plugins/opencode/dist/cupcake.js .opencode/plugin/");
+        eprintln!();
+        eprintln!("   Or download from GitHub releases:");
+        eprintln!(
+            "      curl -fsSL https://github.com/{}/releases/latest/download/opencode-plugin.js \\",
+            GITHUB_REPO
+        );
+        eprintln!("        -o .opencode/plugin/cupcake.js");
+        eprintln!();
+    }
+}
+
+/// Download a file from a URL
+async fn download_file(url: &str) -> Result<Vec<u8>> {
+    let client = reqwest::Client::builder()
+        .user_agent(format!("cupcake/{}", get_cupcake_version()))
+        .build()
+        .context("Failed to create HTTP client")?;
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("Failed to send request to {}", url))?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!(
+            "HTTP request failed with status {}: {}",
+            response.status(),
+            url
+        ));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .with_context(|| "Failed to read response body")?;
+
+    Ok(bytes.to_vec())
+}
+
 /// Merge hooks into existing settings without duplicates
 fn merge_hooks(existing: &mut Value, new: Value) -> Result<()> {
     // Ensure existing is an object
@@ -422,15 +573,51 @@ pub async fn configure_harness(
             }
         }
         HarnessType::OpenCode => {
-            // OpenCode uses a plugin model, not external hooks
-            println!("✅ Initialized Cupcake for OpenCode");
-            println!();
-            println!("   OpenCode integration requires installing the Cupcake plugin:");
-            println!("   1. Build the plugin: cd cupcake-plugins/opencode && npm install && npm run build");
-            println!("   2. Copy plugin to your project: mkdir -p .opencode/plugin && cp -r cupcake-plugins/opencode/dist .opencode/plugin/cupcake");
-            println!("   3. OpenCode will automatically load the plugin and enforce policies");
-            println!();
-            println!("   See docs/agents/opencode/installation.md for detailed instructions.");
+            // OpenCode uses a plugin model - download the plugin from GitHub releases
+            println!("   Configuring OpenCode integration...");
+
+            // Determine the target directory for the plugin
+            let target_dir = if global {
+                // For global, use config directory
+                dirs::config_dir()
+                    .ok_or_else(|| anyhow!("Could not determine config directory"))?
+            } else {
+                // For project, use the policy_dir parent (project root)
+                policy_dir
+                    .parent()
+                    .unwrap_or(Path::new("."))
+                    .to_path_buf()
+            };
+
+            // Try to download the plugin from GitHub releases
+            match OpenCodeHarness::download_plugin(&target_dir, global).await {
+                Ok(()) => {
+                    let plugin_location = if global {
+                        "~/.config/opencode/plugin/cupcake.js".to_string()
+                    } else {
+                        ".opencode/plugin/cupcake.js".to_string()
+                    };
+
+                    println!("✅ Configured OpenCode integration");
+                    println!("   - Plugin installed to: {}", plugin_location);
+                    println!();
+                    println!(
+                        "   OpenCode will automatically load the Cupcake plugin and enforce policies."
+                    );
+                    println!();
+                    println!("   Optional: Create .cupcake/opencode.json to customize plugin behavior:");
+                    println!("   {{");
+                    println!("     \"enabled\": true,");
+                    println!("     \"logLevel\": \"info\",");
+                    println!("     \"failMode\": \"closed\"");
+                    println!("   }}");
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Could not automatically download OpenCode plugin: {}", e);
+                    OpenCodeHarness::print_manual_instructions();
+                    // Don't fail the entire init - just warn
+                }
+            }
         }
     }
 

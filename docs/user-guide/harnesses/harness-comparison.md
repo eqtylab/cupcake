@@ -4,24 +4,26 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 
 ## Supported Harnesses
 
-| Harness | Status | Description |
-|---------|--------|-------------|
+| Harness         | Status             | Description                                          |
+| --------------- | ------------------ | ---------------------------------------------------- |
 | **Claude Code** | ✅ Fully Supported | Anthropic's official CLI for Claude (claude.ai/code) |
-| **Cursor** | ✅ Fully Supported | AI-powered code editor (cursor.com) |
+| **Cursor**      | ✅ Fully Supported | AI-powered code editor (cursor.com)                  |
+| **Factory AI**  | ✅ Fully Supported | Autonomous coding agent (factory.ai)                 |
+| **OpenCode**    | ✅ Fully Supported | Open-source AI coding assistant (opencode.ai)        |
 
 ---
 
 ## Quick Comparison
 
-| Feature | Claude Code | Cursor |
-|---------|-------------|--------|
-| **Hook Events** | 5 events | 6 events |
-| **File Content Access** | Limited | Full access via `beforeReadFile` |
-| **Prompt Filtering** | Yes (UserPromptSubmit) | Yes (beforeSubmitPrompt) |
-| **MCP Tool Control** | No | Yes (beforeMCPExecution) |
-| **Post-Action Hooks** | Yes (PostToolUse) | Yes (afterFileEdit) |
-| **Context Injection** | Yes (persistent context) | No¹ |
-| **Configuration File** | `.claude/settings.json` | `~/.cursor/hooks.json` |
+| Feature                 | Claude Code              | Cursor                           | Factory AI               | OpenCode          |
+| ----------------------- | ------------------------ | -------------------------------- | ------------------------ | ----------------- |
+| **Hook Events**         | 5 events                 | 6 events                         | 6 events                 | 2 events          |
+| **File Content Access** | Limited                  | Full access via `beforeReadFile` | Limited                  | Limited           |
+| **Prompt Filtering**    | Yes (UserPromptSubmit)   | Yes (beforeSubmitPrompt)         | Yes (UserPromptSubmit)   | No                |
+| **MCP Tool Control**    | No                       | Yes (beforeMCPExecution)         | No                       | No                |
+| **Post-Action Hooks**   | Yes (PostToolUse)        | Yes (afterFileEdit)              | Yes (PostToolUse)        | Yes (PostToolUse) |
+| **Context Injection**   | Yes (persistent context) | No¹                              | Yes                      | No                |
+| **Configuration File**  | `.claude/settings.json`  | `~/.cursor/hooks.json`           | `.factory/settings.json` | Plugin-based      |
 
 ¹ Cursor's `agentMessage` provides agent-specific feedback when blocking, but does not support context injection.
 
@@ -31,26 +33,26 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 
 ### Claude Code Events
 
-| Event Name | When It Fires | Can Block | Can Add Context |
-|------------|---------------|-----------|-----------------|
-| `UserPromptSubmit` | Before sending prompt to LLM | ✅ Yes | ✅ Yes |
-| `PreToolUse` | Before executing any tool | ✅ Yes | ❌ No |
-| `PostToolUse` | After tool execution | ✅ Yes | ✅ Yes |
-| `SessionStart` | When session starts/resumes | ✅ Yes | ✅ Yes |
-| `PreCompact` | Before compacting conversation | ❌ No | ✅ Yes |
+| Event Name         | When It Fires                  | Can Block | Can Add Context |
+| ------------------ | ------------------------------ | --------- | --------------- |
+| `UserPromptSubmit` | Before sending prompt to LLM   | ✅ Yes    | ✅ Yes          |
+| `PreToolUse`       | Before executing any tool      | ✅ Yes    | ❌ No           |
+| `PostToolUse`      | After tool execution           | ✅ Yes    | ✅ Yes          |
+| `SessionStart`     | When session starts/resumes    | ✅ Yes    | ✅ Yes          |
+| `PreCompact`       | Before compacting conversation | ❌ No     | ✅ Yes          |
 
 **Total**: 5 events
 
 ### Cursor Events
 
-| Event Name | When It Fires | Can Block | Can Add Context |
-|------------|---------------|-----------|-----------------|
-| `beforeSubmitPrompt` | Before sending prompt to LLM | ✅ Yes | ❌ No |
-| `beforeShellExecution` | Before running shell commands | ✅ Yes | ❌ No |
-| `beforeMCPExecution` | Before calling MCP tools | ✅ Yes | ❌ No |
-| `beforeReadFile` | Before reading file contents | ✅ Yes | ❌ No |
-| `afterFileEdit` | After file modifications | ❌ No | ❌ No |
-| `stop` | When agent stops | ❌ No | ❌ No |
+| Event Name             | When It Fires                 | Can Block | Can Add Context |
+| ---------------------- | ----------------------------- | --------- | --------------- |
+| `beforeSubmitPrompt`   | Before sending prompt to LLM  | ✅ Yes    | ❌ No           |
+| `beforeShellExecution` | Before running shell commands | ✅ Yes    | ❌ No           |
+| `beforeMCPExecution`   | Before calling MCP tools      | ✅ Yes    | ❌ No           |
+| `beforeReadFile`       | Before reading file contents  | ✅ Yes    | ❌ No           |
+| `afterFileEdit`        | After file modifications      | ❌ No     | ❌ No           |
+| `stop`                 | When agent stops              | ❌ No     | ❌ No           |
 
 **Total**: 6 events
 
@@ -61,6 +63,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ### Shell Command Execution
 
 **Claude Code** (PreToolUse with Bash tool):
+
 ```json
 {
   "hook_event_name": "PreToolUse",
@@ -75,6 +78,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ```
 
 **Cursor** (beforeShellExecution):
+
 ```json
 {
   "hook_event_name": "beforeShellExecution",
@@ -88,6 +92,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ### File Access
 
 **Claude Code** (PreToolUse with Read tool):
+
 ```json
 {
   "hook_event_name": "PreToolUse",
@@ -102,6 +107,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ```
 
 **Cursor** (beforeReadFile):
+
 ```json
 {
   "hook_event_name": "beforeReadFile",
@@ -119,6 +125,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ### Prompt Submission
 
 **Claude Code** (UserPromptSubmit):
+
 ```json
 {
   "hook_event_name": "UserPromptSubmit",
@@ -130,6 +137,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ```
 
 **Cursor** (beforeSubmitPrompt):
+
 ```json
 {
   "hook_event_name": "beforeSubmitPrompt",
@@ -147,6 +155,7 @@ This guide compares Cupcake's support for different AI coding agents (harnesses)
 ### Accessing Shell Commands
 
 **Claude Code**:
+
 ```rego
 deny contains decision if {
     input.tool_name == "Bash"
@@ -156,6 +165,7 @@ deny contains decision if {
 ```
 
 **Cursor**:
+
 ```rego
 deny contains decision if {
     input.hook_event_name == "beforeShellExecution"
@@ -167,6 +177,7 @@ deny contains decision if {
 ### Accessing File Paths
 
 **Claude Code**:
+
 ```rego
 deny contains decision if {
     input.tool_name == "Read"
@@ -176,6 +187,7 @@ deny contains decision if {
 ```
 
 **Cursor**:
+
 ```rego
 deny contains decision if {
     input.hook_event_name == "beforeReadFile"
@@ -187,6 +199,7 @@ deny contains decision if {
 ### Accessing Prompts
 
 **Claude Code**:
+
 ```rego
 deny contains decision if {
     input.hook_event_name == "UserPromptSubmit"
@@ -196,6 +209,7 @@ deny contains decision if {
 ```
 
 **Cursor**:
+
 ```rego
 deny contains decision if {
     input.hook_event_name == "beforeSubmitPrompt"
@@ -211,6 +225,7 @@ deny contains decision if {
 ### Allow Response
 
 **Claude Code**:
+
 ```json
 {
   "continue": true
@@ -218,6 +233,7 @@ deny contains decision if {
 ```
 
 **Cursor**:
+
 ```json
 {
   "permission": "allow"
@@ -227,6 +243,7 @@ deny contains decision if {
 ### Deny Response
 
 **Claude Code**:
+
 ```json
 {
   "continue": false,
@@ -235,6 +252,7 @@ deny contains decision if {
 ```
 
 **Cursor**:
+
 ```json
 {
   "permission": "deny",
@@ -246,6 +264,7 @@ deny contains decision if {
 ### Context Injection (Allow with Context)
 
 **Claude Code**:
+
 ```json
 {
   "continue": true,
@@ -301,24 +320,12 @@ Context injection is not supported in Cursor hooks. You can only provide `userMe
 {
   "version": 1,
   "hooks": {
-    "beforeShellExecution": [
-      { "command": "cupcake eval --harness cursor" }
-    ],
-    "beforeMCPExecution": [
-      { "command": "cupcake eval --harness cursor" }
-    ],
-    "afterFileEdit": [
-      { "command": "cupcake eval --harness cursor" }
-    ],
-    "beforeReadFile": [
-      { "command": "cupcake eval --harness cursor" }
-    ],
-    "beforeSubmitPrompt": [
-      { "command": "cupcake eval --harness cursor" }
-    ],
-    "stop": [
-      { "command": "cupcake eval --harness cursor" }
-    ]
+    "beforeShellExecution": [{ "command": "cupcake eval --harness cursor" }],
+    "beforeMCPExecution": [{ "command": "cupcake eval --harness cursor" }],
+    "afterFileEdit": [{ "command": "cupcake eval --harness cursor" }],
+    "beforeReadFile": [{ "command": "cupcake eval --harness cursor" }],
+    "beforeSubmitPrompt": [{ "command": "cupcake eval --harness cursor" }],
+    "stop": [{ "command": "cupcake eval --harness cursor" }]
   }
 }
 ```
@@ -331,30 +338,30 @@ Context injection is not supported in Cursor hooks. You can only provide `userMe
 
 ### Context Injection Support
 
-| Event | Claude Code | Cursor |
-|-------|-------------|--------|
-| Prompt submission | ✅ Yes | ❌ No |
-| Tool/command execution | ❌ No (PreToolUse) | ❌ No |
-| Post-execution hooks | ✅ Yes | ❌ No |
-| Session start | ✅ Yes | N/A |
-| Stop/cleanup | N/A | ❌ No |
+| Event                  | Claude Code        | Cursor |
+| ---------------------- | ------------------ | ------ |
+| Prompt submission      | ✅ Yes             | ❌ No  |
+| Tool/command execution | ❌ No (PreToolUse) | ❌ No  |
+| Post-execution hooks   | ✅ Yes             | ❌ No  |
+| Session start          | ✅ Yes             | N/A    |
+| Stop/cleanup           | N/A                | ❌ No  |
 
 ### File Access Capabilities
 
-| Capability | Claude Code | Cursor |
-|------------|-------------|--------|
-| Block file reads | ✅ Yes (via PreToolUse) | ✅ Yes (via beforeReadFile) |
-| Block file writes | ✅ Yes (via PreToolUse) | ✅ Yes (via beforeShellExecution) |
-| Access file content in policy | ❌ No (needs signal) | ✅ Yes (via `content` field) |
-| Post-edit validation | ✅ Yes (via PostToolUse) | ✅ Yes (via afterFileEdit) |
+| Capability                    | Claude Code              | Cursor                            |
+| ----------------------------- | ------------------------ | --------------------------------- |
+| Block file reads              | ✅ Yes (via PreToolUse)  | ✅ Yes (via beforeReadFile)       |
+| Block file writes             | ✅ Yes (via PreToolUse)  | ✅ Yes (via beforeShellExecution) |
+| Access file content in policy | ❌ No (needs signal)     | ✅ Yes (via `content` field)      |
+| Post-edit validation          | ✅ Yes (via PostToolUse) | ✅ Yes (via afterFileEdit)        |
 
 ### MCP Tool Control
 
-| Feature | Claude Code | Cursor |
-|---------|-------------|--------|
-| Hook MCP calls | ❌ No | ✅ Yes (beforeMCPExecution) |
-| Block MCP tools | ❌ No | ✅ Yes |
-| Inspect MCP parameters | ❌ No | ✅ Yes |
+| Feature                | Claude Code | Cursor                      |
+| ---------------------- | ----------- | --------------------------- |
+| Hook MCP calls         | ❌ No       | ✅ Yes (beforeMCPExecution) |
+| Block MCP tools        | ❌ No       | ✅ Yes                      |
+| Inspect MCP parameters | ❌ No       | ✅ Yes                      |
 
 ---
 
@@ -365,6 +372,7 @@ Context injection is not supported in Cursor hooks. You can only provide `userMe
 To write policies that work across both harnesses, use the shared module pattern:
 
 **Common Logic** (`.cupcake/policies/common/dangerous_commands.rego`):
+
 ```rego
 package common.dangerous_commands
 
@@ -378,6 +386,7 @@ is_dangerous_rm(cmd) {
 ```
 
 **Claude Code Policy** (`.cupcake/policies/claude/block_rm.rego`):
+
 ```rego
 package cupcake.policies.block_rm
 
@@ -396,6 +405,7 @@ deny contains decision if {
 ```
 
 **Cursor Policy** (`.cupcake/policies/cursor/block_rm.rego`):
+
 ```rego
 package cupcake.policies.cursor.block_rm
 
@@ -415,14 +425,14 @@ deny contains decision if {
 
 ### Portability Table
 
-| Aspect | Portability Level | Notes |
-|--------|-------------------|-------|
-| Business logic | ✅ High | Extract to `common/` modules |
-| Event routing | ❌ Low | Harness-specific event names |
-| Field access | ❌ Low | Different field structures |
-| Response format | ✅ High | Engine handles translation |
-| Signals | ✅ High | Same signal API for both |
-| Actions | ✅ High | Same action system for both |
+| Aspect          | Portability Level | Notes                        |
+| --------------- | ----------------- | ---------------------------- |
+| Business logic  | ✅ High           | Extract to `common/` modules |
+| Event routing   | ❌ Low            | Harness-specific event names |
+| Field access    | ❌ Low            | Different field structures   |
+| Response format | ✅ High           | Engine handles translation   |
+| Signals         | ✅ High           | Same signal API for both     |
+| Actions         | ✅ High           | Same action system for both  |
 
 ---
 
@@ -430,19 +440,19 @@ deny contains decision if {
 
 Most built-in policies are implemented for both harnesses with harness-specific logic:
 
-| Builtin | Claude Code | Cursor | Notes |
-|---------|-------------|--------|-------|
-| `git_block_no_verify` | ✅ Yes | ✅ Yes | Blocks git --no-verify |
-| `protected_paths` | ✅ Yes | ✅ Yes | Protects sensitive files |
-| `system_protection` | ✅ Yes | ✅ Yes | Protects system directories |
-| `sensitive_data_protection` | ✅ Yes | ✅ Yes | Blocks SSH keys, credentials |
-| `cupcake_exec_protection` | ✅ Yes | ✅ Yes | Prevents cupcake manipulation |
-| `global_file_lock` | ✅ Yes | ✅ Yes | Blocks all file modifications |
-| `claude_code_enforce_full_file_read` | ✅ Yes | ❌ No (Claude-only) | Requires full file reads |
-| `claude_code_always_inject_on_prompt` | ✅ Yes | ❌ No (Claude-only) | Adds context to prompts |
-| `git_pre_check` | ✅ Yes | ✅ Yes | Validates before git operations |
-| `post_edit_check` | ✅ Yes | ✅ Yes | Validates after edits |
-| `rulebook_security_guardrails` | ✅ Yes | ✅ Yes | Protects .cupcake directory |
+| Builtin                               | Claude Code | Cursor              | Notes                           |
+| ------------------------------------- | ----------- | ------------------- | ------------------------------- |
+| `git_block_no_verify`                 | ✅ Yes      | ✅ Yes              | Blocks git --no-verify          |
+| `protected_paths`                     | ✅ Yes      | ✅ Yes              | Protects sensitive files        |
+| `system_protection`                   | ✅ Yes      | ✅ Yes              | Protects system directories     |
+| `sensitive_data_protection`           | ✅ Yes      | ✅ Yes              | Blocks SSH keys, credentials    |
+| `cupcake_exec_protection`             | ✅ Yes      | ✅ Yes              | Prevents cupcake manipulation   |
+| `global_file_lock`                    | ✅ Yes      | ✅ Yes              | Blocks all file modifications   |
+| `claude_code_enforce_full_file_read`  | ✅ Yes      | ❌ No (Claude-only) | Requires full file reads        |
+| `claude_code_always_inject_on_prompt` | ✅ Yes      | ❌ No (Claude-only) | Adds context to prompts         |
+| `git_pre_check`                       | ✅ Yes      | ✅ Yes              | Validates before git operations |
+| `post_edit_check`                     | ✅ Yes      | ✅ Yes              | Validates after edits           |
+| `rulebook_security_guardrails`        | ✅ Yes      | ✅ Yes              | Protects .cupcake directory     |
 
 All builtins are configured identically in `.cupcake/rulebook.yml` regardless of harness. Claude-specific builtins are ignored when using Cursor.
 
@@ -480,12 +490,14 @@ All builtins are configured identically in `.cupcake/rulebook.yml` regardless of
 ### Converting Policies from Claude Code to Cursor
 
 **Step 1**: Copy policy to cursor directory
+
 ```bash
 cp .cupcake/policies/claude/my_policy.rego \
    .cupcake/policies/cursor/my_policy.rego
 ```
 
 **Step 2**: Update package name
+
 ```rego
 # Before (Claude Code)
 package cupcake.policies.my_policy
@@ -495,6 +507,7 @@ package cupcake.policies.cursor.my_policy
 ```
 
 **Step 3**: Update event and field access
+
 ```rego
 # Before (Claude Code)
 deny contains decision if {
@@ -512,6 +525,7 @@ deny contains decision if {
 ```
 
 **Step 4**: Update metadata routing
+
 ```rego
 # Before (Claude Code)
 # METADATA
@@ -531,13 +545,13 @@ deny contains decision if {
 
 ## Performance Characteristics
 
-| Aspect | Claude Code | Cursor | Notes |
-|--------|-------------|--------|-------|
-| Policy evaluation | ~1-2ms | ~1-2ms | Both use WASM (similar performance) |
-| Context injection | ~0.5ms | ~0.5ms | JSON serialization overhead |
-| Signal execution | Varies | Varies | Depends on signal command |
-| Startup time | ~50ms | ~50ms | Engine initialization |
-| Memory usage | ~10MB | ~10MB | WASM runtime overhead |
+| Aspect            | Claude Code | Cursor | Notes                               |
+| ----------------- | ----------- | ------ | ----------------------------------- |
+| Policy evaluation | ~1-2ms      | ~1-2ms | Both use WASM (similar performance) |
+| Context injection | ~0.5ms      | ~0.5ms | JSON serialization overhead         |
+| Signal execution  | Varies      | Varies | Depends on signal command           |
+| Startup time      | ~50ms       | ~50ms  | Engine initialization               |
+| Memory usage      | ~10MB       | ~10MB  | WASM runtime overhead               |
 
 Both harnesses have identical performance characteristics because they share the same evaluation engine.
 
@@ -548,6 +562,7 @@ Both harnesses have identical performance characteristics because they share the
 ### Enable Debug Output
 
 **Claude Code**:
+
 ```json
 {
   "hooks": {
@@ -566,6 +581,7 @@ Both harnesses have identical performance characteristics because they share the
 ```
 
 **Cursor**:
+
 ```json
 {
   "version": 1,
@@ -584,11 +600,13 @@ Debug files are written to `.cupcake/debug/` in both cases.
 ### Common Issues by Harness
 
 **Claude Code**:
+
 - Hook not firing: Check `.claude/settings.json` exists and is valid JSON
 - Wrong event structure: Ensure `hook_event_name` matches Claude Code format
 - Context not injecting: PreToolUse doesn't support context injection
 
 **Cursor**:
+
 - Hook not firing: Check `~/.cursor/hooks.json` exists and has correct structure
 - Wrong file: Hooks must be in `hooks.json` NOT `settings.json`
 - Policies not loading: Ensure policies are in `policies/cursor/` not `policies/claude/`
@@ -600,5 +618,7 @@ Debug files are written to `.cupcake/debug/` in both cases.
 
 - **Claude Code Users**: See [Claude Code Integration Guide](claude-code.md)
 - **Cursor Users**: See [Cursor Integration Guide](cursor.md)
+- **Factory AI Users**: See [Factory AI Integration Guide](factory.md)
+- **OpenCode Users**: See [OpenCode Quick Start](../../agents/opencode/quickstart.md)
 - **Architecture Deep Dive**: See [Harness-Specific Architecture](../architecture/harness-model.md)
 - **Writing Policies**: See [Policy Authoring Guide](../policies/writing-policies.md)

@@ -386,10 +386,7 @@ async fn main() -> Result<()> {
 ///
 /// We prioritize workspace_roots because it's Cursor's explicit declaration of which
 /// directories are project roots, while cwd may be set to various locations.
-fn resolve_cursor_policy_dir(policy_dir: &Path, stdin_json: &str) -> Result<PathBuf> {
-    let event: serde_json::Value = serde_json::from_str(stdin_json)
-        .context("Failed to parse event JSON for path resolution")?;
-
+fn resolve_cursor_policy_dir(policy_dir: &Path, event: &serde_json::Value) -> PathBuf {
     // Try workspace_roots first (authoritative source from Cursor)
     if let Some(roots) = event.get("workspace_roots").and_then(|v| v.as_array()) {
         if let Some(first_root) = roots.first().and_then(|v| v.as_str()) {
@@ -398,7 +395,7 @@ fn resolve_cursor_policy_dir(policy_dir: &Path, stdin_json: &str) -> Result<Path
                 "Resolved Cursor policy_dir via workspace_roots: {:?} -> {:?}",
                 policy_dir, resolved
             );
-            return Ok(resolved);
+            return resolved;
         }
     }
 
@@ -410,7 +407,7 @@ fn resolve_cursor_policy_dir(policy_dir: &Path, stdin_json: &str) -> Result<Path
                 "Resolved Cursor policy_dir via cwd fallback: {:?} -> {:?}",
                 policy_dir, resolved
             );
-            return Ok(resolved);
+            return resolved;
         }
     }
 
@@ -419,7 +416,7 @@ fn resolve_cursor_policy_dir(policy_dir: &Path, stdin_json: &str) -> Result<Path
         "No Cursor workspace info found, using original policy_dir: {:?}",
         policy_dir
     );
-    Ok(policy_dir.to_path_buf())
+    policy_dir.to_path_buf()
 }
 
 async fn eval_command(
@@ -432,11 +429,14 @@ async fn eval_command(
     // Get the harness type from engine_config for later use
     let harness_type = engine_config.harness;
 
-    // Read hook event from stdin FIRST (needed to resolve workspace paths for Cursor)
+    // Read hook event from stdin and parse JSON once (reused for path resolution and evaluation)
     let mut stdin_buffer = String::new();
     io::stdin()
         .read_to_string(&mut stdin_buffer)
         .context("Failed to read hook event from stdin")?;
+
+    let mut hook_event_json: serde_json::Value =
+        serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
     info!("Processing harness: {:?}", harness_type);
     debug!("Parsing hook event from stdin");
@@ -447,7 +447,7 @@ async fn eval_command(
     let resolved_policy_dir = if policy_dir.is_relative()
         && harness_type == cupcake_core::harness::types::HarnessType::Cursor
     {
-        resolve_cursor_policy_dir(&policy_dir, &stdin_buffer)?
+        resolve_cursor_policy_dir(&policy_dir, &hook_event_json)
     } else {
         policy_dir
     };
@@ -473,10 +473,6 @@ async fn eval_command(
             std::process::exit(1);
         }
     };
-
-    // Parse the JSON event based on harness type
-    let mut hook_event_json: serde_json::Value =
-        serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
     // Apply input preprocessing to normalize adversarial patterns
     // This protects all policies (user and builtin) from spacing bypasses

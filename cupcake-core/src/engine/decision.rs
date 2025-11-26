@@ -265,4 +265,3 @@ mod tests {
         assert_eq!(allow.agent_messages(), None);
     }
 }
-

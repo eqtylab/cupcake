@@ -387,4 +387,3 @@ async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
 
     Ok(tokio::fs::read(wasm_path).await?)
 }
-

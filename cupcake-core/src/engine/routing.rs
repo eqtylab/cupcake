@@ -115,4 +115,3 @@ mod tests {
         assert!(keys.contains(&"PostToolUse:Bash".to_string()));
     }
 }
-

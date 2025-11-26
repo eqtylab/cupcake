@@ -42,8 +42,12 @@ impl PolicyEngine {
     #[napi(constructor)]
     pub fn new(path: String, harness: Option<String>) -> Result<Self> {
         let harness_str = harness.as_deref().unwrap_or("claude");
-        let engine = BindingEngine::new(&path, harness_str)
-            .map_err(|e| Error::new(Status::GenericFailure, format!("Failed to initialize engine: {}", e)))?;
+        let engine = BindingEngine::new(&path, harness_str).map_err(|e| {
+            Error::new(
+                Status::GenericFailure,
+                format!("Failed to initialize engine: {}", e),
+            )
+        })?;
 
         Ok(Self { inner: engine })
     }
@@ -73,15 +77,13 @@ impl PolicyEngine {
     /// ```
     #[napi(js_name = "evaluateSync")]
     pub fn evaluate_sync(&self, input: String) -> Result<String> {
-        self.inner
-            .evaluate_sync(&input)
-            .map_err(|e| {
-                if e.contains("Invalid input JSON") {
-                    Error::new(Status::InvalidArg, e)
-                } else {
-                    Error::new(Status::GenericFailure, e)
-                }
-            })
+        self.inner.evaluate_sync(&input).map_err(|e| {
+            if e.contains("Invalid input JSON") {
+                Error::new(Status::InvalidArg, e)
+            } else {
+                Error::new(Status::GenericFailure, e)
+            }
+        })
     }
 
     /// Asynchronously evaluate a hook event (RECOMMENDED, non-blocking)

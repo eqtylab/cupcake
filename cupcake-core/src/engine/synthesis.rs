@@ -434,4 +434,3 @@ mod tests {
         assert!(summary.contains("1 context item(s)"));
     }
 }
-

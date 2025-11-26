@@ -329,4 +329,3 @@ import rego.v1
         assert_eq!(package, "cupcake.policies.security.network");
     }
 }
-

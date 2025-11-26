@@ -313,4 +313,3 @@ fn read_string_from_memory(memory: &Memory, store: &mut Store<()>, ptr: i32) -> 
     }
     Ok(String::from_utf8(buffer)?)
 }
-

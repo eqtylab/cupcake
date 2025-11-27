@@ -23,6 +23,7 @@ site_description = "A guard dog that can bark at your agents"
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_author
 site_author = "EQTY Lab"
+repo_url = "https://github.com/eqtylab/cupcake"
 
 # The site_url is the canonical URL for your site. When building online
 # documentation you should set this.
@@ -33,9 +34,7 @@ site_author = "EQTY Lab"
 # fragment.
 #
 # Read more: https://zensical.org/docs/setup/basics/#copyright
-copyright = """
-Copyright &copy; 2025 EQTY Lab
-"""
+copyright = "Copyright &copy; 2025 EQTY Lab"
 
 # Zensical supports both implicit navigation and explicitly defined navigation.
 # If you decide not to define a navigation here then Zensical will simply

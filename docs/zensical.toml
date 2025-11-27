@@ -24,6 +24,7 @@ site_description = "A guard dog that can bark at your agents"
 # Read more: https://zensical.org/docs/setup/basics/#site_author
 site_author = "EQTY Lab"
 repo_url = "https://github.com/eqtylab/cupcake"
+edit_uri = "edit/main/docs/docs/"
 
 # The site_url is the canonical URL for your site. When building online
 # documentation you should set this.
@@ -82,7 +83,7 @@ copyright = "Copyright &copy; 2025 EQTY Lab"
 # Read more:
 # - https://zensical.org/docs/customization/#extending-the-theme
 #
-#custom_dir = "overrides"
+custom_dir = "overrides"
 
 # With the "favicon" option you can set your own image to use as the icon
 # browsers will use in the browser title bar or tab bar. The path provided
@@ -122,7 +123,7 @@ features = [
     # will generate an edit button for the page. This works for common
     # repository hosting services.
     # https://zensical.org/docs/setup/repository/#code-actions
-    #"content.action.edit",
+    "content.action.edit",
 
     # If you have a repository configured and turn feature this on, Zensical
     # will generate a button that allows the user to view the Markdown

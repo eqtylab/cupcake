@@ -374,6 +374,51 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Resolve a relative policy directory for Cursor harness using workspace info from event JSON.
+///
+/// Cursor hooks are always global (~/.cursor/hooks.json), but projects have local .cupcake/ dirs.
+/// This extracts the workspace root from the event to resolve relative paths like ".cupcake".
+///
+/// Resolution order (workspace_roots is authoritative):
+/// 1. First entry in `workspace_roots` array (Cursor's explicit project declaration)
+/// 2. `cwd` field as fallback if workspace_roots is empty/missing
+/// 3. Falls back to original path if neither found
+///
+/// We prioritize workspace_roots because it's Cursor's explicit declaration of which
+/// directories are project roots, while cwd may be set to various locations.
+fn resolve_cursor_policy_dir(policy_dir: &Path, event: &serde_json::Value) -> PathBuf {
+    // Try workspace_roots first (authoritative source from Cursor)
+    if let Some(roots) = event.get("workspace_roots").and_then(|v| v.as_array()) {
+        if let Some(first_root) = roots.first().and_then(|v| v.as_str()) {
+            let resolved = Path::new(first_root).join(policy_dir);
+            debug!(
+                "Resolved Cursor policy_dir via workspace_roots: {:?} -> {:?}",
+                policy_dir, resolved
+            );
+            return resolved;
+        }
+    }
+
+    // Fall back to cwd if workspace_roots is empty/missing
+    if let Some(cwd) = event.get("cwd").and_then(|v| v.as_str()) {
+        if !cwd.is_empty() {
+            let resolved = Path::new(cwd).join(policy_dir);
+            debug!(
+                "Resolved Cursor policy_dir via cwd fallback: {:?} -> {:?}",
+                policy_dir, resolved
+            );
+            return resolved;
+        }
+    }
+
+    // No workspace info found - return original path
+    debug!(
+        "No Cursor workspace info found, using original policy_dir: {:?}",
+        policy_dir
+    );
+    policy_dir.to_path_buf()
+}
+
 async fn eval_command(
     policy_dir: PathBuf,
     strict: bool,
@@ -381,16 +426,39 @@ async fn eval_command(
     debug_dir: Option<PathBuf>,
     engine_config: engine::EngineConfig,
 ) -> Result<()> {
-    debug!(
-        "Initializing Cupcake engine with policies from: {:?}",
-        policy_dir
-    );
-
     // Get the harness type from engine_config for later use
     let harness_type = engine_config.harness;
 
+    // Read hook event from stdin and parse JSON once (reused for path resolution and evaluation)
+    let mut stdin_buffer = String::new();
+    io::stdin()
+        .read_to_string(&mut stdin_buffer)
+        .context("Failed to read hook event from stdin")?;
+
+    let mut hook_event_json: serde_json::Value =
+        serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
+
+    info!("Processing harness: {:?}", harness_type);
+    debug!("Parsing hook event from stdin");
+
+    // Resolve policy_dir for Cursor harness when using relative paths
+    // Cursor hooks are global (~/.cursor/hooks.json) but need to find project-local .cupcake/
+    // We extract the workspace root from the event JSON to resolve relative paths
+    let resolved_policy_dir = if policy_dir.is_relative()
+        && harness_type == cupcake_core::harness::types::HarnessType::Cursor
+    {
+        resolve_cursor_policy_dir(&policy_dir, &hook_event_json)
+    } else {
+        policy_dir
+    };
+
+    debug!(
+        "Initializing Cupcake engine with policies from: {:?}",
+        resolved_policy_dir
+    );
+
     // Initialize the engine with configuration - MUST succeed or we exit
-    let engine = match engine::Engine::new_with_config(&policy_dir, engine_config).await {
+    let engine = match engine::Engine::new_with_config(&resolved_policy_dir, engine_config).await {
         Ok(e) => {
             debug!("Engine initialized successfully");
             e
@@ -405,19 +473,6 @@ async fn eval_command(
             std::process::exit(1);
         }
     };
-
-    // Read hook event from stdin
-    let mut stdin_buffer = String::new();
-    io::stdin()
-        .read_to_string(&mut stdin_buffer)
-        .context("Failed to read hook event from stdin")?;
-
-    info!("Processing harness: {:?}", harness_type);
-    debug!("Parsing hook event from stdin");
-
-    // Parse the JSON event based on harness type
-    let mut hook_event_json: serde_json::Value =
-        serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
     // Apply input preprocessing to normalize adversarial patterns
     // This protects all policies (user and builtin) from spacing bypasses
@@ -487,28 +542,30 @@ async fn eval_command(
     };
 
     // Format response based on harness type from engine config
+    //
+    // NOTE: We re-parse stdin_buffer into typed event structs here. This is intentional:
+    // - Earlier we parsed to serde_json::Value for generic engine evaluation
+    // - Here we need strongly-typed event structs for type-safe response formatting
+    // - The format_response() methods require specific event types (ClaudeCodeEvent, CursorEvent, etc.)
+    // - Attempting to convert Value -> typed struct would require the same deserialization work
     let response = match harness_type {
         cupcake_core::harness::types::HarnessType::ClaudeCode => {
-            // Re-parse to get original event structure for response formatting
             let event = serde_json::from_str::<harness::events::claude_code::ClaudeCodeEvent>(
                 &stdin_buffer,
             )?;
             harness::ClaudeHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::Cursor => {
-            // Re-parse Cursor event for response formatting
             let event =
                 serde_json::from_str::<harness::events::cursor::CursorEvent>(&stdin_buffer)?;
             harness::CursorHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::Factory => {
-            // Re-parse Factory AI event for response formatting
             let event =
                 serde_json::from_str::<harness::events::factory::FactoryEvent>(&stdin_buffer)?;
             harness::FactoryHarness::format_response(&event, &decision)?
         }
         cupcake_core::harness::types::HarnessType::OpenCode => {
-            // Re-parse OpenCode event for response formatting
             let event =
                 serde_json::from_str::<harness::events::opencode::OpenCodeEvent>(&stdin_buffer)?;
             harness::OpenCodeHarness::format_response(&event, &decision)?

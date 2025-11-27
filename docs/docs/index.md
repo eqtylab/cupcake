@@ -37,7 +37,7 @@ Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 ### Core Capabilities
 
 - **Block specific tool calls:** Prevent use of particular tools or arguments based on policy
-- **Behavioral guidance:** Inject lightweight, contextful reminders back to the agent
+- **Behavioral guidance:** Inject lightweight, contextual reminders back to the agent
 - **MCP support:** Govern Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`)
 - **Signals (real-time context):** Pull facts from the environment (current Git branch, changed files, deployment target) and make policy decisions on them
 
@@ -55,8 +55,8 @@ Cupcake provides native integrations for multiple AI coding agents:
 
 | Harness | Status | Integration Guide |
 | --- | --- | --- |
-| **[Claude Code](https://claude.ai/code)** | ✅ Fully Supported | [Setup Guide](/getting-started/installation) |
-| **[Cursor](https://cursor.com)** | ✅ Fully Supported | [Setup Guide](/getting-started/installation) |
+| **[Claude Code](https://claude.ai/code)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/installation) |
+| **[Cursor](https://cursor.com)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/installation) |
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
 

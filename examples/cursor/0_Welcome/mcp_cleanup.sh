@@ -5,11 +5,11 @@ echo "MCP Database Demo Cleanup"
 echo "========================="
 
 # Stop and remove PostgreSQL container
-if docker ps -a | grep -q cupcake-postgres; then
+if docker ps -a | grep -q cupcake-demo-db; then
     echo "Stopping PostgreSQL container..."
-    docker stop cupcake-postgres
+    docker stop cupcake-demo-db
     echo "Removing PostgreSQL container..."
-    docker rm cupcake-postgres
+    docker rm cupcake-demo-db
     echo "✅ PostgreSQL container removed"
 else
     echo "ℹ️  No PostgreSQL container found"

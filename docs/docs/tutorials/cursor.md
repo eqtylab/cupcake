@@ -8,20 +8,6 @@ Cupcake has native support for [Cursor Agent](https://cursor.com/agents). Thank 
 
 This walkthrough demonstrates Cupcake's policy enforcement in action with Cursor hooks.
 
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Interactive Demo](#interactive-demo)
-  - [Step 1: Test Basic Shell Protection](#step-1-test-basic-shell-protection)
-  - [Step 2: Understanding the Block](#step-2-understanding-the-block)
-  - [Step 3: The Challenge - Bypass Attempt](#step-3-the-challenge---bypass-attempt)
-  - [Step 4: Built-in Protection Explained](#step-4-built-in-protection-explained)
-  - [Step 5: Centralized Rule Management](#step-5-centralized-rule-management)
-  - [Step 6: MCP Database Protection Demo](#step-6-mcp-database-protection-demo)
-  - [Step 7: External Context with Signals](#step-7-introducing-external-context-for-more-effective-policy-evaluation)
-- [Key Takeaways](#key-takeaways)
-
 ## Prerequisites
 
 Before starting, ensure you have:

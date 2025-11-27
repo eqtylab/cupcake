@@ -21,6 +21,7 @@ irm https://get.eqtylab.io/cupcake | iex
 ```
 
 The install scripts will:
+
 - Download the appropriate binary for your platform
 - Verify checksums for security
 - Install to your system PATH
@@ -28,51 +29,14 @@ The install scripts will:
 
 ## Manual Installation
 
-If you prefer to install manually or need a specific version, you can download pre-built binaries from [GitHub Releases](https://github.com/eqtylab/cupcake/releases).
-
-### Latest Release (v0.2.0)
-
-Download the appropriate archive for your platform from the [v0.2.0 release](https://github.com/eqtylab/cupcake/releases/tag/v0.2.0):
-
-#### macOS
-
-- **Apple Silicon (M1/M2/M3)**: `cupcake-v0.2.0-aarch64-apple-darwin.tar.gz`
-- **Intel**: `cupcake-v0.2.0-x86_64-apple-darwin.tar.gz`
-
-#### Linux
-
-- **x86_64 (glibc)**: `cupcake-v0.2.0-x86_64-unknown-linux-gnu.tar.gz`
-- **x86_64 (musl)**: `cupcake-v0.2.0-x86_64-unknown-linux-musl.tar.gz`
-- **ARM64**: `cupcake-v0.2.0-aarch64-unknown-linux-gnu.tar.gz`
-
-#### Windows
-
-- **x86_64**: `cupcake-v0.2.0-x86_64-pc-windows-msvc.zip`
+If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest).
 
 ### Install Steps
 
-1. **Download** the archive for your platform
-2. **Verify** the checksum (optional but recommended):
-   ```bash
-   # Download the .sha256 file and verify
-   sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256
-   ```
-3. **Extract** the archive:
-   ```bash
-   # Unix/macOS
-   tar -xzf cupcake-v0.2.0-<platform>.tar.gz
-
-   # Windows (PowerShell)
-   Expand-Archive cupcake-v0.2.0-<platform>.zip
-   ```
-4. **Move** the binary to your PATH:
-   ```bash
-   # Unix/macOS
-   sudo mv cupcake /usr/local/bin/
-
-   # Or to a directory in your PATH
-   mv cupcake ~/.local/bin/
-   ```
+1. Download the archive for your platform
+2. Verify the checksum (optional but recommended): `sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256`
+3. Extract the archive: `tar -xzf cupcake-v0.2.0-<platform>.tar.gz` or if using Windows (PowerShell) `Expand-Archive cupcake-v0.2.0-<platform>.zip`
+4. Move the binary to your PATH: `sudo mv cupcake /usr/local/bin/` or to a directory in your PATH `mv cupcake ~/.local/bin/`
 
 ## Verify Installation
 
@@ -84,7 +48,7 @@ cupcake --version
 
 You should see output like:
 
-```
+```txt
 cupcake 0.2.0
 ```
 
@@ -94,7 +58,7 @@ Once installed, you can:
 
 - Initialize a new Cupcake project: `cupcake init`
 - Evaluate policies: `cupcake eval`
-- Check out the [Usage Guide](/getting-started/usage) to get started with policies
+- Check out the [Usage Guide](usage.md) to get started with policies
 
 ## Security
 

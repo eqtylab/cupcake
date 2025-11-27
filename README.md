@@ -1,13 +1,10 @@
 <p align="left">
-  <picture>
-    <source srcset="docs-old/_assets/cupcake-dark.png" media="(prefers-color-scheme: dark)">
-    <img src="docs-old/_assets/cupcake.png" alt="Cupcake logo" width="180">
-  </picture>
+    <img src="docs/docs/assets/cupcake-responsive.svg" alt="A 2D illustrated guard dog" width="180">
 </p>
 
 # Cupcake
 
-Make AI agents follow the rules.
+A guard dog that makes AI agents follow the rules.
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)

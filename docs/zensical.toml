@@ -94,7 +94,7 @@ custom_dir = "overrides"
 # - https://developer.mozilla.org/en-US/docs/Glossary/Favicon
 #
 favicon = "assets/cupcake-responsive.svg"
-logo = "assets/cupcake-responsive.svg"
+logo = "assets/cupcake-static.svg"
 
 # Zensical supports more than 60 different languages. This means that the
 # labels and tooltips that Zensical's templates produce are translated.

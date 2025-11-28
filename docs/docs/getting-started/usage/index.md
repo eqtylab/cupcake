@@ -12,7 +12,8 @@ After [installation](../installation/), you're ready to set up Cupcake for your 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
   <a href="claude-code/" style="text-decoration: none; color: inherit;">
     <div style="border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px; padding: 1.5rem; text-align: center;">
-      <img src="../../assets/claude.svg" alt="Claude Code" width="100">
+      <img src="../../assets/claude-light.svg#only-light" alt="Claude Code" width="100">
+      <img src="../../assets/claude-dark.svg#only-dark" alt="Claude Code" width="100">
     </div>
   </a>
   <a href="cursor/" style="text-decoration: none; color: inherit;">

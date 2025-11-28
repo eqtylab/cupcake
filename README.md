@@ -1,5 +1,5 @@
 <p align="left">
-    <img src="docs/docs/assets/cupcake-responsive.svg" alt="A 2D illustrated guard dog" width="180">
+    <img src="docs/docs/assets/cupcake-static.svg" alt="A 2D illustrated guard dog" width="180">
 </p>
 
 # Cupcake

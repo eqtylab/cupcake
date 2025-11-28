@@ -9,63 +9,41 @@ After [installation](../installation/), you're ready to set up Cupcake for your 
 
 ## Select Your Harness
 
-Cupcake supports multiple AI coding agents. Select your harness to get started:
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
+  <a href="claude-code/" style="text-decoration: none; color: inherit;">
+    <div style="border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px; padding: 1.5rem; text-align: center;">
+      <img src="../../assets/claude.svg" alt="Claude Code" width="100">
+    </div>
+  </a>
+  <a href="cursor/" style="text-decoration: none; color: inherit;">
+    <div style="border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px; padding: 1.5rem; text-align: center;">
+      <img src="../../assets/cursor-light.svg#only-light" alt="Cursor" width="100">
+      <img src="../../assets/cursor-dark.svg#only-dark" alt="Cursor" width="100">
+    </div>
+  </a>
+  <a href="opencode/" style="text-decoration: none; color: inherit;">
+    <div style="border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px; padding: 1.5rem; text-align: center;">
+      <img src="../../assets/opencode-wordmark-light.svg#only-light" alt="OpenCode" width="100">
+      <img src="../../assets/opencode-wordmark-dark.svg#only-dark" alt="OpenCode" width="100">
+    </div>
+  </a>
+  <a href="factory-ai/" style="text-decoration: none; color: inherit;">
+    <div style="border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px; padding: 1.5rem; text-align: center;">
+      <img src="../../assets/factory.svg" alt="Factory AI" width="100">
+    </div>
+  </a>
+</div>
 
 | Harness | Status | Guide |
 |---------|--------|-------|
 | **Claude Code** | Fully Supported | [Setup Guide](claude-code/) |
 | **Cursor** | Fully Supported | [Setup Guide](cursor/) |
 | **OpenCode** | Fully Supported | [Setup Guide](opencode/) |
-| **Factory AI** | Coming Soon | [Setup Guide](factory-ai/) |
+| **Factory AI** | Fully Supported | [Setup Guide](factory-ai/) |
 
 ## Next Steps
 
-After setting up your harness, you can:
+After setting up your harness, learn how to configure policies:
 
-### Option 1: Use Built-in Policies
-
-Cupcake includes battle-tested security policies ready to use. Edit your `.cupcake/rulebook.yml` to enable and configure them:
-
-```yaml
-builtins:
-  git_pre_check:
-    enabled: true
-    checks:
-      - command: "npm test"
-        message: "Tests must pass before commit"
-
-  protected_paths:
-    enabled: true
-    paths:
-      - "/etc/"
-      - "~/.ssh/"
-```
-
-See the **[Built-in Configuration Reference](../../reference/builtin-config/)** for all available builtins and their options.
-
-### Option 2: Write Custom Policies
-
-Create your own policies in `.cupcake/policies/<harness>/` using OPA Rego:
-
-```rego
-package cupcake.policies.example
-
-import rego.v1
-
-# METADATA
-# scope: package
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
-
-deny contains decision if {
-    input.tool_input.command contains "rm -rf"
-
-    decision := {
-        "rule_id": "SAFETY-001",
-        "reason": "Dangerous command blocked",
-        "severity": "HIGH"
-    }
-}
-```
+- **[Built-in Policies](../../reference/policies/builtins/)** — Enable pre-built security policies
+- **[Custom Policies](../../reference/policies/custom/)** — Write your own policies in Rego

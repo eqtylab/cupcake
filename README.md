@@ -8,7 +8,7 @@ A guard dog that makes AI agents follow the rules.
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
 
 **Policy enforcement** layer for AI agents; yielding better performance, reliability, and security **without consuming model context**.
@@ -138,9 +138,13 @@ No. Cupcake supports multiple AI coding agents with harness-specific integration
 **How fast is evaluation?**
 Sub‑millisecond for cached policies in typical setups.
 
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## License
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
 
 ## Citation
 

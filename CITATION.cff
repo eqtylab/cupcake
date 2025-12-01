@@ -9,5 +9,5 @@ authors:
     name: "EQTYLab"
 type: software
 repository-code: "https://github.com/eqtylab/cupcake"
-license: "MIT"
+license: "Apache-2.0"
 date-released: 2025-11-04

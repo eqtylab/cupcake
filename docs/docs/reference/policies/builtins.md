@@ -32,12 +32,12 @@ See the **[Built-in Configuration Reference](../builtin-config/)** for the compl
 
 ### Common Builtins
 
-| Builtin | Description |
-|---------|-------------|
-| `git_pre_check` | Run validation commands before git operations |
-| `git_block_no_verify` | Prevent `--no-verify` flag in git commits |
-| `protected_paths` | Block modifications to specified paths |
-| `system_protection` | Protect system directories (`/etc`, `/bin`, etc.) |
+| Builtin                     | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| `git_pre_check`             | Run validation commands before git operations           |
+| `git_block_no_verify`       | Prevent `--no-verify` flag in git commits               |
+| `protected_paths`           | Block modifications to specified paths                  |
+| `system_protection`         | Protect system directories (`/etc`, `/bin`, etc.)       |
 | `sensitive_data_protection` | Block access to sensitive files (SSH keys, credentials) |
 
 ## Enabling at Init Time

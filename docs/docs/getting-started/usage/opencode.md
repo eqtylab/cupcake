@@ -134,7 +134,7 @@ Create `.cupcake/opencode.json` to customize behavior:
 ```
 
 | Option           | Default     | Description                                             |
-|------------------|-------------|---------------------------------------------------------|
+| ---------------- | ----------- | ------------------------------------------------------- |
 | `enabled`        | `true`      | Enable/disable the plugin                               |
 | `cupcakePath`    | `"cupcake"` | Path to cupcake binary                                  |
 | `logLevel`       | `"info"`    | Log level: debug, info, warn, error                     |
@@ -146,14 +146,14 @@ Create `.cupcake/opencode.json` to customize behavior:
 
 OpenCode uses lowercase tool names. Cupcake normalizes them automatically:
 
-| OpenCode  | Cupcake Policy |
-|-----------|----------------|
-| `bash`    | `Bash`         |
-| `edit`    | `Edit`         |
-| `write`   | `Write`        |
-| `read`    | `Read`         |
-| `grep`    | `Grep`         |
-| `glob`    | `Glob`         |
+| OpenCode | Cupcake Policy |
+| -------- | -------------- |
+| `bash`   | `Bash`         |
+| `edit`   | `Edit`         |
+| `write`  | `Write`        |
+| `read`   | `Read`         |
+| `grep`   | `Grep`         |
+| `glob`   | `Glob`         |
 
 ## Verify Installation
 
@@ -190,7 +190,7 @@ cupcake eval --harness opencode --policy-dir .cupcake/policies < test-event.json
 ## Key Differences from Other Harnesses
 
 | Aspect            | Claude Code / Cursor            | OpenCode                       |
-|-------------------|--------------------------------|--------------------------------|
+| ----------------- | ------------------------------- | ------------------------------ |
 | Integration       | External hooks (stdin/stdout)   | In-process TypeScript plugin   |
 | Blocking          | Return JSON `{continue: false}` | Throw Error                    |
 | Ask Support       | Native                          | Converted to deny with message |
@@ -199,7 +199,6 @@ cupcake eval --harness opencode --policy-dir .cupcake/policies < test-event.json
 ## Event Support
 
 | Event       | Status    | Description                  |
-|-------------|-----------|------------------------------|
+| ----------- | --------- | ---------------------------- |
 | PreToolUse  | Supported | Block tools before execution |
 | PostToolUse | Supported | Validate after execution     |
-

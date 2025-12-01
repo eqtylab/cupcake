@@ -97,6 +97,7 @@ deny contains decision if {
 ```
 
 **Key points**:
+
 - `PostToolUse` runs after the edit completes
 - Signal checks all files in `src/` directory
 - **Signal return format**:

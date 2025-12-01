@@ -35,12 +35,12 @@ After [installation](../installation/), you're ready to set up Cupcake for your 
   </a>
 </div>
 
-| Harness | Status | Guide |
-|---------|--------|-------|
+| Harness         | Status          | Guide                       |
+| --------------- | --------------- | --------------------------- |
 | **Claude Code** | Fully Supported | [Setup Guide](claude-code/) |
-| **Cursor** | Fully Supported | [Setup Guide](cursor/) |
-| **OpenCode** | Fully Supported | [Setup Guide](opencode/) |
-| **Factory AI** | Fully Supported | [Setup Guide](factory-ai/) |
+| **Cursor**      | Fully Supported | [Setup Guide](cursor/)      |
+| **OpenCode**    | Fully Supported | [Setup Guide](opencode/)    |
+| **Factory AI**  | Fully Supported | [Setup Guide](factory-ai/)  |
 
 ## Next Steps
 

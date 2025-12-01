@@ -69,6 +69,7 @@ package cupcake.policies.components
 ```
 
 **IMPORTANT**: The METADATA block must be the FIRST thing in the file, before the `package` declaration. This tells Cupcake's routing engine when to evaluate this policy:
+
 - `required_events: ["PreToolUse"]` - Run before a tool executes
 - `required_tools: ["Write", "Edit"]` - Only for file operations
 
@@ -84,12 +85,14 @@ deny contains decision if {
 ```
 
 **Key points**:
+
 - `input.tool_name in {"Write", "Edit"}` - Matches either tool using set membership
 - `input.tool_input.new_string` - Unified field for content
 
 ### Content Field Normalization
 
 Cupcake automatically normalizes the content fields:
+
 - **Write tool**: `content` is copied to `new_string`
 - **Edit tool**: Already has `new_string`
 

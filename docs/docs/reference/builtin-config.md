@@ -245,12 +245,12 @@ Builtins can use both:
 
 ```yaml
 protected_paths:
-  paths:  # Static config
+  paths: # Static config
     - "/etc/"
 
 # Meanwhile, in signals:
 signals:
-  current_branch:  # Dynamic signal
+  current_branch: # Dynamic signal
     command: "git branch --show-current"
 ```
 

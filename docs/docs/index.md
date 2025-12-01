@@ -53,12 +53,12 @@ Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
 
 Cupcake provides native integrations for multiple AI coding agents:
 
-| Harness | Status | Integration Guide |
-| --- | --- | --- |
+| Harness                                   | Status                         | Integration Guide                                    |
+| ----------------------------------------- | ------------------------------ | ---------------------------------------------------- |
 | **[Claude Code](https://claude.ai/code)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/claude-code.md) |
-| **[Cursor](https://cursor.com)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/cursor.md) |
-| **[OpenCode](https://opencode.ai/)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/opencode.md) |
-| **[Factory AI](https://factory.ai/)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/factory-ai.md) |
+| **[Cursor](https://cursor.com)**          | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/cursor.md)      |
+| **[OpenCode](https://opencode.ai/)**      | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/opencode.md)    |
+| **[Factory AI](https://factory.ai/)**     | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/factory-ai.md)  |
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
 

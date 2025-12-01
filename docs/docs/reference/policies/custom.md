@@ -56,22 +56,22 @@ The metadata tells Cupcake when to evaluate your policy:
 
 ### Available Events
 
-| Event | Description |
-|-------|-------------|
-| `PreToolUse` | Before a tool executes |
-| `PostToolUse` | After a tool executes |
-| `UserPromptSubmit` | Before sending prompt to LLM |
-| `SessionStart` | When session starts or resumes |
+| Event              | Description                    |
+| ------------------ | ------------------------------ |
+| `PreToolUse`       | Before a tool executes         |
+| `PostToolUse`      | After a tool executes          |
+| `UserPromptSubmit` | Before sending prompt to LLM   |
+| `SessionStart`     | When session starts or resumes |
 
 ## Decision Verbs
 
 Policies emit decisions using these verbs:
 
-| Verb | Effect |
-|------|--------|
-| `deny` | Block the action |
-| `halt` | Block and stop the session |
-| `ask` | Prompt user for confirmation |
+| Verb          | Effect                         |
+| ------------- | ------------------------------ |
+| `deny`        | Block the action               |
+| `halt`        | Block and stop the session     |
+| `ask`         | Prompt user for confirmation   |
 | `add_context` | Inject context into the prompt |
 
 ### Deny Example

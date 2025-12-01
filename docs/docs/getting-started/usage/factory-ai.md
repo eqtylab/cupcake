@@ -102,21 +102,21 @@ The `init` command automatically configures Factory AI hooks in `.factory/settin
 
 Factory AI supports more events than Claude Code:
 
-| Event             | When It Fires               | Use Case                       |
-|-------------------|----------------------------|--------------------------------|
-| `PreToolUse`      | Before executing any tool   | Block dangerous operations     |
-| `PostToolUse`     | After tool execution        | Validate results, run checks   |
-| `UserPromptSubmit`| Before sending prompt to LLM| Filter prompts, inject context |
-| `SessionStart`    | When session starts/resumes | Load context, set environment  |
-| `Stop`            | When agent stops            | Cleanup, logging               |
-| `SubagentStop`    | When subagent completes     | Subagent coordination          |
+| Event              | When It Fires                | Use Case                       |
+| ------------------ | ---------------------------- | ------------------------------ |
+| `PreToolUse`       | Before executing any tool    | Block dangerous operations     |
+| `PostToolUse`      | After tool execution         | Validate results, run checks   |
+| `UserPromptSubmit` | Before sending prompt to LLM | Filter prompts, inject context |
+| `SessionStart`     | When session starts/resumes  | Load context, set environment  |
+| `Stop`             | When agent stops             | Cleanup, logging               |
+| `SubagentStop`     | When subagent completes      | Subagent coordination          |
 
 ## Similarities with Claude Code
 
 Factory AI uses the same event structure as Claude Code, making policies portable between harnesses:
 
 | Field         | Factory AI                   | Claude Code                  |
-|---------------|------------------------------|------------------------------|
+| ------------- | ---------------------------- | ---------------------------- |
 | Event type    | `input.hook_event_name`      | `input.hook_event_name`      |
 | Tool name     | `input.tool_name`            | `input.tool_name`            |
 | Shell command | `input.tool_input.command`   | `input.tool_input.command`   |
@@ -192,4 +192,3 @@ You should see a JSON response indicating the command is allowed:
 ```
 
 Context injection is supported on `UserPromptSubmit` and `SessionStart` events.
-

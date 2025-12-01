@@ -4,6 +4,65 @@ heading: "Installation"
 description: "Install Cupcake on your system"
 ---
 
+## Prerequisites
+
+Cupcake requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
+
+### Install OPA
+
+#### macOS
+
+```bash
+brew install opa
+```
+
+Or download directly:
+
+```bash
+# Apple Silicon (M1/M2/M3)
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_arm64
+
+# Intel Macs
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_amd64
+
+chmod 755 opa
+sudo mv opa /usr/local/bin/
+```
+
+#### Linux
+
+```bash
+# AMD64
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+
+# ARM64
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_arm64
+
+chmod 755 opa
+sudo mv opa /usr/local/bin/
+```
+
+#### Windows (PowerShell)
+
+```powershell
+Invoke-WebRequest -Uri "https://openpolicyagent.org/downloads/latest/opa_windows_amd64.exe" -OutFile "opa.exe"
+
+# Add to PATH (run as Administrator or add to user PATH)
+mkdir C:\Tools\OPA
+move opa.exe C:\Tools\OPA\
+[Environment]::SetEnvironmentVariable("Path", "$env:Path;C:\Tools\OPA", "User")
+```
+
+#### Verify OPA Installation
+
+```bash
+opa version
+```
+
+You should see output like `Version: 1.11.0` or similar.
+
+For more installation options including Docker, see the [OPA documentation](https://www.openpolicyagent.org/docs#1-download-opa).
+
 ## Quick Install
 
 Install Cupcake using the official install scripts:

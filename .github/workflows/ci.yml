@@ -1,140 +1,35 @@
+# Lightweight CI for Pull Requests
+# Runs fast checks only - full test suite runs on merge to main (ci-full.yml)
 name: CI
 
 on:
-  push:
-    branches: [main, develop, v0.1.0]
   pull_request:
     branches: [main]
+    paths:
+      # Rust code changes
+      - '**.rs'
+      - '**/Cargo.toml'
+      - 'Cargo.lock'
+      # CI workflow changes
+      - '.github/workflows/ci.yml'
+      # Policy/fixture changes that affect tests
+      - 'fixtures/**'
+      - '**.rego'
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 jobs:
-  test:
-    name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [cupcake-ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable]
-
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ matrix.rust }}
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # Only cache dependencies, not build artifacts (saves disk space)
-          cache-targets: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install OPA (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          # Download and install OPA v1.7.1
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            # GitHub Actions runners are still x64, not ARM
-            curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_darwin_amd64
-          fi
-          chmod +x opa
-          sudo mv opa /usr/local/bin/
-          opa version
-
-      - name: Install OPA (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # Download OPA v1.7.1 for Windows
-          Write-Host "Downloading OPA..."
-          Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_windows_amd64.exe" -OutFile "opa.exe"
-
-          # Move to a directory in PATH
-          Write-Host "Moving OPA to System32..."
-          Move-Item opa.exe "C:\Windows\System32\opa.exe" -Force
-
-          # Verify installation
-          Write-Host "Verifying OPA installation..."
-          & opa version
-
-          # Double check it's accessible
-          Write-Host "Testing OPA accessibility..."
-          Get-Command opa
-
-          # Test OPA with a simple command
-          Write-Host "Testing OPA functionality..."
-          # Create a temp file since Windows PowerShell pipe doesn't work the same way
-          "package test" | Out-File -FilePath test.rego -Encoding UTF8
-          & opa parse test.rego
-          Remove-Item test.rego
-
-      - name: Install Claude CLI (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          # Install Claude Code CLI from npm
-          npm install -g @anthropic-ai/claude-code
-
-          # Find where npm installed it and set the env var for tests
-          CLAUDE_PATH=$(which claude)
-          echo "Claude CLI installed at: $CLAUDE_PATH"
-          echo "CLAUDE_CLI_PATH=$CLAUDE_PATH" >> $GITHUB_ENV
-
-      - name: Install Claude CLI (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # Install Claude Code CLI from npm
-          npm install -g @anthropic-ai/claude-code
-
-          # Find where npm installed it and set the env var for tests
-          $claudePath = (Get-Command claude -ErrorAction SilentlyContinue).Path
-          if ($claudePath) {
-            Write-Host "Claude CLI installed at: $claudePath"
-            Add-Content -Path $env:GITHUB_ENV -Value "CLAUDE_CLI_PATH=$claudePath"
-          } else {
-            Write-Host "Warning: Claude CLI not found in PATH after npm install"
-          }
-
-      - name: Build release binary first
-        run: cargo build --release
-
-      - name: Run unit and integration tests
-        run: |
-          cargo test --features deterministic-tests --lib --bins --tests
-        env:
-          CI: true
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
-
-      - name: Run doc-tests (serial to avoid linker memory issues)
-        if: runner.os == 'Linux'
-        run: |
-          # Doc-tests link the entire library for each test
-          # Run sequentially with reduced parallelism to avoid OOM/bus errors on CI
-          cargo test --features deterministic-tests --doc -j 1 -- --test-threads=1
-        env:
-          CI: true
-
-      - name: Run doc-tests (macOS/Windows)
-        if: runner.os != 'Linux'
-        run: |
-          cargo test --features deterministic-tests --doc
-        env:
-          CI: true
+          components: rustfmt
+      - run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -147,12 +42,36 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features -- -D warnings
 
-  fmt:
-    name: Format
+  test:
+    name: Unit Tests (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          components: rustfmt
-      - run: cargo fmt --all -- --check
+          cache-targets: false
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Run unit tests
+        run: |
+          cargo test --features deterministic-tests --lib --bins
+        env:
+          CI: true
+
+      - name: Run doc-tests
+        run: |
+          cargo test --features deterministic-tests --doc -j 1 -- --test-threads=1
+        env:
+          CI: true

@@ -1,0 +1,88 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for Cupcake
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! We appreciate your input in making Cupcake better.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Is it related to a frustration you're experiencing?
+      placeholder: |
+        I'm frustrated when...
+        It would be helpful if...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or enhancement you'd like to see.
+      placeholder: |
+        I'd like Cupcake to...
+        This could work by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        I've tried...
+        Another approach could be...
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of Cupcake does this feature relate to?
+      options:
+        - Policy engine / evaluation
+        - Builtin policies
+        - CLI commands
+        - Harness integration (Claude Code, Cursor, etc.)
+        - Configuration / rulebook.yml
+        - Signals system
+        - Trust / integrity verification
+        - Python bindings
+        - TypeScript bindings
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: harness
+    attributes:
+      label: Related Harness
+      description: Is this feature specific to a particular AI coding agent?
+      options:
+        - All harnesses
+        - Claude Code
+        - Cursor
+        - OpenCode
+        - Factory AI (Droid)
+        - Other
+        - Not applicable
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe a concrete scenario where this feature would be useful.
+      placeholder: |
+        As a [type of user], I want to [do something] so that [benefit]...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, or examples for the feature request.

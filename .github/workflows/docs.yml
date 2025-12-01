@@ -2,8 +2,12 @@ name: Documentation
 on:
   push:
     branches:
-      - master
       - main
+    paths:
+      - "docs/**"
+concurrency:
+  group: pages
+  cancel-in-progress: false
 permissions:
   contents: read
   pages: write
@@ -15,14 +19,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/configure-pages@v5
       - uses: actions/checkout@v5
+      - uses: actions/configure-pages@v5
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
       - run: pip install zensical
       - run: zensical build --clean
+        working-directory: docs
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: docs/site
       - uses: actions/deploy-pages@v4
+        id: deployment

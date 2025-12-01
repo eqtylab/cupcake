@@ -17,6 +17,7 @@ For complete details on hooks configuration and behavior, see the [Claude Code H
 Runs **before** Claude processes a tool call. Use this to validate, modify, or block actions before they execute.
 
 **Compatible Tools:**
+
 - `Task` - Subagent tasks
 - `Bash` - Shell commands
 - `Glob` - File pattern matching
@@ -29,11 +30,13 @@ Runs **before** Claude processes a tool call. Use this to validate, modify, or b
 - MCP tools (pattern: `mcp__<server>__<tool>`)
 
 **Decision Control:**
+
 - `"allow"` - Bypass permission system
 - `"deny"` - Block tool execution
 - `"ask"` - Prompt user for confirmation
 
 **Example:**
+
 ```json
 {
   "hooks": {
@@ -57,13 +60,16 @@ Runs **before** Claude processes a tool call. Use this to validate, modify, or b
 Runs **after** a tool completes successfully. Use this for validation, logging, or triggering follow-up actions.
 
 **Compatible Tools:**
+
 - Same as PreToolUse (all tools)
 
 **Decision Control:**
+
 - `"block"` - Provide feedback to Claude about the result
 - `undefined` - No feedback
 
 **Example:**
+
 ```json
 {
   "hooks": {
@@ -87,9 +93,11 @@ Runs **after** a tool completes successfully. Use this for validation, logging, 
 Runs when the user is shown a permission dialog. Use this to automatically allow or deny permissions.
 
 **Compatible Tools:**
+
 - Same as PreToolUse (all tools)
 
 **Decision Control:**
+
 - `"allow"` - Grant permission automatically
 - `"deny"` - Deny permission automatically
 
@@ -100,14 +108,17 @@ Runs when the user submits a prompt, **before** Claude processes it. Use this to
 **No tool matcher** - applies to all user prompts.
 
 **Decision Control:**
+
 - `"block"` - Prevent prompt processing
 - `undefined` - Allow prompt with optional context
 
 **Context Injection:**
+
 - Plain text to stdout (simple)
 - `additionalContext` field (structured)
 
 **Example:**
+
 ```json
 {
   "hooks": {
@@ -132,6 +143,7 @@ Runs when Claude finishes responding. Use this to force continuation or provide 
 **No tool matcher** - applies to main agent stop events.
 
 **Decision Control:**
+
 - `"block"` - Prevent Claude from stopping
 - `undefined` - Allow stop
 
@@ -142,6 +154,7 @@ Runs when a subagent (Task tool) finishes. Use this to validate subagent complet
 **No tool matcher** - applies to subagent stop events.
 
 **Decision Control:**
+
 - Same as Stop
 
 ### SessionStart
@@ -151,12 +164,14 @@ Runs when Claude Code starts or resumes a session. Use this to load context or s
 **No tool matcher** - applies to session start events.
 
 **Matchers:**
+
 - `startup` - Fresh session start
 - `resume` - Resume from `/resume`
 - `clear` - After `/clear`
 - `compact` - After compaction
 
 **Context Injection:**
+
 - `additionalContext` field
 
 ### SessionEnd
@@ -172,10 +187,12 @@ Runs when a Claude Code session ends. Use this for cleanup or logging.
 Runs before Claude Code compacts the conversation. Use this to add context before compaction.
 
 **Matchers:**
+
 - `manual` - User-triggered `/compact`
 - `auto` - Auto-triggered compaction
 
 **Context Injection:**
+
 - stdout joined with `\n\n` (double newline)
 
 ### Notification
@@ -183,6 +200,7 @@ Runs before Claude Code compacts the conversation. Use this to add context befor
 Runs when Claude Code sends notifications. Use this for custom alerts or logging.
 
 **Matchers:**
+
 - `permission_prompt` - Permission requests
 - `idle_prompt` - Idle state (60+ seconds)
 - `auth_success` - Authentication success
@@ -193,6 +211,7 @@ Runs when Claude Code sends notifications. Use this for custom alerts or logging
 Common Cupcake integration patterns:
 
 ### Pattern 1: Validate Before File Changes
+
 ```json
 {
   "hooks": {
@@ -212,6 +231,7 @@ Common Cupcake integration patterns:
 ```
 
 ### Pattern 2: Validate After File Changes
+
 ```json
 {
   "hooks": {
@@ -231,6 +251,7 @@ Common Cupcake integration patterns:
 ```
 
 ### Pattern 3: Add Context to Every Prompt
+
 ```json
 {
   "hooks": {
@@ -249,6 +270,7 @@ Common Cupcake integration patterns:
 ```
 
 ### Pattern 4: Validate Shell Commands
+
 ```json
 {
   "hooks": {
@@ -269,18 +291,18 @@ Common Cupcake integration patterns:
 
 ## Quick Reference Table
 
-| Hook Event | Tool Matcher | When It Runs | Can Block | Can Add Context |
-|------------|--------------|--------------|-----------|-----------------|
-| PreToolUse | Yes | Before tool executes | Yes | No |
-| PostToolUse | Yes | After tool succeeds | Feedback only | Yes |
-| PermissionRequest | Yes | On permission dialog | Yes | No |
-| UserPromptSubmit | No | Before processing prompt | Yes | Yes |
-| Stop | No | After Claude responds | Yes (forces continue) | No |
-| SubagentStop | No | After subagent responds | Yes (forces continue) | No |
-| SessionStart | Trigger type | Session start | No | Yes |
-| SessionEnd | No | Session end | No | No |
-| PreCompact | Trigger type | Before compaction | No | Yes |
-| Notification | Type | On notification | No | No |
+| Hook Event        | Tool Matcher | When It Runs             | Can Block             | Can Add Context |
+| ----------------- | ------------ | ------------------------ | --------------------- | --------------- |
+| PreToolUse        | Yes          | Before tool executes     | Yes                   | No              |
+| PostToolUse       | Yes          | After tool succeeds      | Feedback only         | Yes             |
+| PermissionRequest | Yes          | On permission dialog     | Yes                   | No              |
+| UserPromptSubmit  | No           | Before processing prompt | Yes                   | Yes             |
+| Stop              | No           | After Claude responds    | Yes (forces continue) | No              |
+| SubagentStop      | No           | After subagent responds  | Yes (forces continue) | No              |
+| SessionStart      | Trigger type | Session start            | No                    | Yes             |
+| SessionEnd        | No           | Session end              | No                    | No              |
+| PreCompact        | Trigger type | Before compaction        | No                    | Yes             |
+| Notification      | Type         | On notification          | No                    | No              |
 
 ## Resources
 

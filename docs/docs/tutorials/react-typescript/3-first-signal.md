@@ -1,6 +1,5 @@
 ---
-layout: "@/layouts/mdx-layout.astro"
-heading: "2. First Signal"
+title: "3. First Signal"
 description: "Using signals to run validation scripts after file edits"
 ---
 
@@ -98,6 +97,7 @@ deny contains decision if {
 ```
 
 **Key points**:
+
 - `PostToolUse` runs after the edit completes
 - Signal checks all files in `src/` directory
 - **Signal return format**:

@@ -4,9 +4,7 @@ heading: "Claude Code Walkthrough"
 description: "Getting started with Cupcake and Claude Code"
 ---
 
-Cupcake has native support for [Claude Code](https://www.claude.com/product/claude-code). Thank you to the Claude Code team for enabling this integration by maintaining [Hooks](https://docs.claude.com/en/docs/claude-code/hooks)!
-
-> Fun fact: The cupcake team issued the [original feature request for Hooks in Claude Code](https://github.com/anthropics/claude-code/issues/712)!
+Cupcake has native support for [Claude Code](https://www.claude.com/product/claude-code). Thank you to the Claude Code team for enabling this integration by maintaining [Hooks](https://docs.claude.com/en/docs/claude-code/hooks)![^1]
 
 This walkthrough demonstrates Cupcake's policy enforcement in action with Claude Code hooks.
 
@@ -292,3 +290,5 @@ When done testing:
 5. **AI-resistant** - Agents cannot easily bypass security policies
 
 Explore the policy files in `.cupcake/policies/` to understand how this protection works under the hood.
+
+[^1]: Fun fact: The cupcake team issued the [original feature request for Hooks in Claude Code](https://github.com/anthropics/claude-code/issues/712)!

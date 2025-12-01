@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {{ super() }}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12V1Z"/></svg>`;
+    const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
+
+    async function copyMarkdownForLLM(button) {
+      const editBtn = document.querySelector('a[title="Edit this page"]');
+      if (!editBtn) {
+        const content = document.querySelector('.md-content__inner');
+        if (content) {
+          await navigator.clipboard.writeText(content.innerText);
+          showCopyFeedback(button);
+        }
+        return;
+      }
+
+      let rawUrl = editBtn.href
+        .replace('github.com', 'raw.githubusercontent.com')
+        .replace('/blob/', '/')
+        .replace('/tree/', '/')
+        .replace('/edit/', '/');
+
+      try {
+        const response = await fetch(rawUrl);
+        if (!response.ok) throw new Error('Failed to fetch');
+
+        let markdown = await response.text();
+
+        if (markdown.startsWith('---')) {
+          const frontMatterEnd = markdown.indexOf('\n---\n', 3);
+          if (frontMatterEnd !== -1) {
+            markdown = markdown.substring(frontMatterEnd + 5).trim();
+          }
+        }
+
+        const title = document.querySelector('h1')?.textContent || document.title;
+        const content = `# ${title}\n\nSource: ${window.location.href}\n\n---\n\n${markdown}`;
+
+        await navigator.clipboard.writeText(content);
+        showCopyFeedback(button);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        button.innerHTML = 'Failed';
+        setTimeout(() => { button.innerHTML = copyIcon + 'Copy page'; }, 2000);
+      }
+    }
+
+    function showCopyFeedback(button) {
+      button.innerHTML = checkIcon + 'Copied';
+      setTimeout(() => { button.innerHTML = copyIcon + 'Copy page'; }, 2000);
+    }
+
+    function injectCopyButton() {
+      const editBtn = document.querySelector('a[title="Edit this page"]');
+      if (!editBtn || document.getElementById('copy-md-btn')) return;
+
+      const copyBtn = document.createElement('a');
+      copyBtn.id = 'copy-md-btn';
+      copyBtn.className = 'md-content__button';
+      copyBtn.title = 'Copy as Markdown';
+      copyBtn.style.cssText = 'cursor: pointer; display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 0.5; opacity: 0.7; transition: opacity 0.2s; text-decoration: none;';
+      copyBtn.innerHTML = copyIcon + 'Copy page';
+      copyBtn.addEventListener('mouseenter', () => copyBtn.style.opacity = '1');
+      copyBtn.addEventListener('mouseleave', () => copyBtn.style.opacity = '0.7');
+      copyBtn.addEventListener('click', () => copyMarkdownForLLM(copyBtn));
+
+      editBtn.parentNode.insertBefore(copyBtn, editBtn.nextSibling);
+    }
+
+    document$.subscribe(function() {
+      injectCopyButton();
+    });
+  </script>
+{% endblock %}

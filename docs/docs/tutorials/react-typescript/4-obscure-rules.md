@@ -1,6 +1,5 @@
 ---
-layout: "@/layouts/mdx-layout.astro"
-heading: "3. Obscure Rules"
+title: "4. Obscure Rules"
 description: "Using signals to enforce project-wide restrictions based on README content"
 ---
 
@@ -108,6 +107,7 @@ deny contains decision if {
 ```
 
 **Key points**:
+
 - `PreToolUse` runs before the action executes
 - Signal runs on every Write/Edit attempt
 - When README contains "CODE FREEZE", signal exits with code 1

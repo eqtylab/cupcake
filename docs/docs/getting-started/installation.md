@@ -29,9 +29,64 @@ The install scripts will:
 
 ## Manual Installation
 
-If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest).
+If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest). Cupcake also requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
 
-### Install Steps
+### Install OPA
+
+#### macOS
+
+```bash
+brew install opa
+```
+
+Or download directly:
+
+```bash
+# Apple Silicon (M1/M2/M3)
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_arm64
+
+# Intel Macs
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_amd64
+
+chmod 755 opa
+sudo mv opa /usr/local/bin/
+```
+
+#### Linux
+
+```bash
+# AMD64
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+
+# ARM64
+curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_arm64
+
+chmod 755 opa
+sudo mv opa /usr/local/bin/
+```
+
+#### Windows (PowerShell)
+
+```powershell
+Invoke-WebRequest -Uri "https://openpolicyagent.org/downloads/latest/opa_windows_amd64.exe" -OutFile "opa.exe"
+
+# Add to PATH (run as Administrator or add to user PATH)
+mkdir C:\Tools\OPA
+move opa.exe C:\Tools\OPA\
+[Environment]::SetEnvironmentVariable("Path", "$env:Path;C:\Tools\OPA", "User")
+```
+
+#### Verify OPA Installation
+
+```bash
+opa version
+```
+
+You should see output like `Version: 1.11.0` or similar.
+
+For more installation options including Docker, see the [OPA documentation](https://www.openpolicyagent.org/docs#1-download-opa).
+
+### Install Cupcake
 
 1. Download the archive for your platform
 2. Verify the checksum (optional but recommended): `sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256`

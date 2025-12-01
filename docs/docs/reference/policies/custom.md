@@ -56,23 +56,30 @@ The metadata tells Cupcake when to evaluate your policy:
 
 ### Available Events
 
-| Event              | Description                    |
-| ------------------ | ------------------------------ |
-| `PreToolUse`       | Before a tool executes         |
-| `PostToolUse`      | After a tool executes          |
-| `UserPromptSubmit` | Before sending prompt to LLM   |
-| `SessionStart`     | When session starts or resumes |
+| Event              | Description                              |
+| ------------------ | ---------------------------------------- |
+| `PreToolUse`       | Before a tool executes                   |
+| `PostToolUse`      | After a tool executes                    |
+| `UserPromptSubmit` | Before sending prompt to LLM             |
+| `SessionStart`     | When session starts or resumes           |
+| `SessionEnd`       | When session ends                        |
+| `Stop`             | When agent stops                         |
+| `SubagentStop`     | When subagent (Task tool) completes      |
+| `PreCompact`       | Before memory compaction                 |
+| `Notification`     | On agent notifications                   |
 
 ## Decision Verbs
 
-Policies emit decisions using these verbs:
+Policies emit decisions using these verbs (in priority order):
 
-| Verb          | Effect                         |
-| ------------- | ------------------------------ |
-| `deny`        | Block the action               |
-| `halt`        | Block and stop the session     |
-| `ask`         | Prompt user for confirmation   |
-| `add_context` | Inject context into the prompt |
+| Verb             | Priority | Effect                                    |
+| ---------------- | -------- | ----------------------------------------- |
+| `halt`           | Highest  | Block and stop the session immediately    |
+| `deny`           | High     | Block the action (policy violation)       |
+| `block`          | High     | Block the action (same priority as deny)  |
+| `ask`            | Medium   | Prompt user for confirmation              |
+| `allow_override` | Low      | Explicitly allow (overrides default)      |
+| `add_context`    | N/A      | Inject context into the prompt            |
 
 ### Deny Example
 
@@ -148,8 +155,10 @@ Place policies in the harness-specific directory:
 │   │   └── another.rego
 │   ├── cursor/           # Cursor policies
 │   │   └── cursor_rules.rego
-│   └── factory/          # Factory AI policies
-│       └── factory_rules.rego
+│   ├── factory/          # Factory AI policies
+│   │   └── factory_rules.rego
+│   └── opencode/         # OpenCode policies
+│       └── opencode_rules.rego
 └── rulebook.yml
 ```
 
@@ -164,7 +173,8 @@ echo '{
   "tool_name": "Bash",
   "tool_input": {"command": "rm -rf /"},
   "session_id": "test",
-  "cwd": "/tmp"
+  "cwd": "/tmp",
+  "transcript_path": "/tmp/transcript.md"
 }' > test.json
 
 # Evaluate

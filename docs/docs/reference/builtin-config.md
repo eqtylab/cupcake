@@ -258,8 +258,19 @@ signals:
 
 Some builtins only work with specific harnesses:
 
-- **Claude Code only**: `claude_code_always_inject_on_prompt`, `claude_code_enforce_full_file_read`
-- **Universal**: All other builtins work with both Claude Code and Cursor
+- **Claude Code / Factory AI**: `always_inject_on_prompt`, `enforce_full_file_read` (context injection support required)
+- **Universal**: All other builtins work with Claude Code, Cursor, Factory AI, and OpenCode
+
+## Global vs Project Builtins
+
+- **Project builtins** — Configured in `.cupcake/rulebook.yml`, apply to one project
+- **Global builtins** — Configured in `~/.config/cupcake/rulebook.yml`, apply to all projects
+
+Global builtins take precedence and cannot be overridden by project configuration. The following are global-only:
+
+- `system_protection`
+- `sensitive_data_protection`
+- `cupcake_exec_protection`
 
 ## Next Steps
 

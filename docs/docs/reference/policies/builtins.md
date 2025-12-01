@@ -30,15 +30,25 @@ builtins:
 
 See the **[Built-in Configuration Reference](../builtin-config/)** for the complete list of available builtins and all their configuration options.
 
-### Common Builtins
+### Project-Level Builtins
 
-| Builtin                     | Description                                             |
-| --------------------------- | ------------------------------------------------------- |
-| `git_pre_check`             | Run validation commands before git operations           |
-| `git_block_no_verify`       | Prevent `--no-verify` flag in git commits               |
-| `protected_paths`           | Block modifications to specified paths                  |
-| `system_protection`         | Protect system directories (`/etc`, `/bin`, etc.)       |
-| `sensitive_data_protection` | Block access to sensitive files (SSH keys, credentials) |
+| Builtin                       | Description                                             |
+| ----------------------------- | ------------------------------------------------------- |
+| `always_inject_on_prompt`     | Add context to every user prompt                        |
+| `git_pre_check`               | Run validation commands before git operations           |
+| `git_block_no_verify`         | Prevent `--no-verify` flag in git commits               |
+| `post_edit_check`             | Run validation after file edits                         |
+| `protected_paths`             | Block modifications to specified paths (read allowed)   |
+| `rulebook_security_guardrails`| Protect `.cupcake/` files from any access               |
+| `enforce_full_file_read`      | Enforce reading entire files under a line limit         |
+
+### Global-Level Builtins
+
+| Builtin                       | Description                                             |
+| ----------------------------- | ------------------------------------------------------- |
+| `system_protection`           | Protect system directories (`/etc`, `/bin`, etc.)       |
+| `sensitive_data_protection`   | Block access to sensitive files (SSH keys, credentials) |
+| `cupcake_exec_protection`     | Prevent direct execution of cupcake binary              |
 
 ## Enabling at Init Time
 

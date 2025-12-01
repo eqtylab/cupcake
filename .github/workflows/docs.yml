@@ -27,6 +27,7 @@ jobs:
       - run: pip install zensical
       - run: zensical build --clean
         working-directory: docs
+      - run: echo "cupcake.eqtylab.io" > docs/site/CNAME
       - uses: actions/upload-pages-artifact@v4
         with:
           path: docs/site

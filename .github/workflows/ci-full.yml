@@ -7,14 +7,14 @@ on:
     branches: [main]
     paths:
       # Rust code changes
-      - '**.rs'
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
       # CI workflow changes
-      - '.github/workflows/ci-full.yml'
+      - ".github/workflows/ci-full.yml"
       # Policy/fixture changes that affect tests
-      - 'fixtures/**'
-      - '**.rego'
+      - "fixtures/**"
+      - "**.rego"
   workflow_dispatch:
 
 env:
@@ -102,8 +102,7 @@ jobs:
           cargo test --features deterministic-tests --lib --bins --tests
         env:
           CI: true
-          # Note: ANTHROPIC_API_KEY intentionally not provided
-          # API-consuming tests only run in release.yml
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CLI_PATH: ${{ env.CLAUDE_CLI_PATH }}
 
       - name: Run doc-tests (serial to avoid linker memory issues)

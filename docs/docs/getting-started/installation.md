@@ -4,9 +4,32 @@ heading: "Installation"
 description: "Install Cupcake on your system"
 ---
 
-## Prerequisites
+## Quick Install
 
-Cupcake requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
+Install Cupcake using the official install scripts:
+
+### Unix/macOS
+
+```bash
+curl -fsSL https://get.eqtylab.io/cupcake | bash
+```
+
+### Windows PowerShell
+
+```powershell
+irm https://get.eqtylab.io/cupcake | iex
+```
+
+The install scripts will:
+
+- Download the appropriate binary for your platform
+- Verify checksums for security
+- Install to your system PATH
+- Set up the `cupcake` command globally
+
+## Manual Installation
+
+If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest). Cupcake also requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
 
 ### Install OPA
 
@@ -63,34 +86,7 @@ You should see output like `Version: 1.11.0` or similar.
 
 For more installation options including Docker, see the [OPA documentation](https://www.openpolicyagent.org/docs#1-download-opa).
 
-## Quick Install
-
-Install Cupcake using the official install scripts:
-
-### Unix/macOS
-
-```bash
-curl -fsSL https://get.eqtylab.io/cupcake | bash
-```
-
-### Windows PowerShell
-
-```powershell
-irm https://get.eqtylab.io/cupcake | iex
-```
-
-The install scripts will:
-
-- Download the appropriate binary for your platform
-- Verify checksums for security
-- Install to your system PATH
-- Set up the `cupcake` command globally
-
-## Manual Installation
-
-If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest).
-
-### Install Steps
+### Install Cupcake
 
 1. Download the archive for your platform
 2. Verify the checksum (optional but recommended): `sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256`

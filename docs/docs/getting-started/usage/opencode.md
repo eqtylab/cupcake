@@ -19,83 +19,47 @@ Unlike Claude Code/Cursor which use stdin/stdout hooks, OpenCode's plugin:
 - Spawns `cupcake eval --harness opencode` for each tool call
 - Throws an Error to block tool execution
 
-## Project Setup
+## Project Setup (Recommended)
 
-### Step 1: Initialize Cupcake
+Navigate to your project directory and initialize Cupcake:
 
 ```bash
-cd /path/to/your/project
 cupcake init --harness opencode
 ```
 
-This creates a `.cupcake/` directory with policies and configuration.
+This automatically:
 
-### Step 2: Create the System Evaluator
+- Creates a `.cupcake/` directory with policies and configuration
+- Sets up the system evaluator for OpenCode
+- Downloads and installs the Cupcake plugin to `.opencode/plugin/cupcake.js`
 
-```bash
-mkdir -p .cupcake/policies/opencode/system
-
-cat > .cupcake/policies/opencode/system/evaluate.rego << 'EOF'
-package cupcake.system
-
-import rego.v1
-
-evaluate := decision_set if {
-    decision_set := {
-        "halts": collect_verbs("halt"),
-        "denials": collect_verbs("deny"),
-        "blocks": collect_verbs("block"),
-        "asks": collect_verbs("ask"),
-        "allow_overrides": collect_verbs("allow_override"),
-        "add_context": collect_verbs("add_context")
-    }
-}
-
-collect_verbs(verb_name) := result if {
-    verb_sets := [value |
-        walk(data.cupcake.policies, [path, value])
-        path[count(path) - 1] == verb_name
-    ]
-
-    all_decisions := [decision |
-        some verb_set in verb_sets
-        some decision in verb_set
-    ]
-
-    result := all_decisions
-}
-
-default collect_verbs(_) := []
-EOF
-```
-
-### Step 3: Install the Plugin
-
-Build and install the Cupcake plugin for OpenCode:
-
-```bash
-# Build the plugin
-cd /path/to/cupcake/cupcake-plugins/opencode
-npm install && npm run build
-
-# Install to your project
-cd /path/to/your/project
-mkdir -p .opencode/plugins/cupcake
-cp -r /path/to/cupcake/cupcake-plugins/opencode/dist/* .opencode/plugins/cupcake/
-cp /path/to/cupcake/cupcake-plugins/opencode/package.json .opencode/plugins/cupcake/
-```
+OpenCode will automatically load the plugin and enforce your policies.
 
 ## Global Setup
 
-For organization-wide policies:
+For organization-wide policies that apply to all projects:
 
 ```bash
-# Initialize global config
 cupcake init --global --harness opencode
+```
 
-# Install plugin globally
-mkdir -p ~/.config/opencode/plugins/cupcake
-cp -r /path/to/cupcake/cupcake-plugins/opencode/dist/* ~/.config/opencode/plugins/cupcake/
+This creates configuration at `~/.config/cupcake/` and installs the plugin globally to `~/.config/opencode/plugin/cupcake.js`.
+
+## Manual Plugin Installation
+
+If automatic download fails (e.g., network issues), you can install the plugin manually:
+
+```bash
+# Option 1: Download from GitHub releases
+mkdir -p .opencode/plugin
+curl -fsSL https://github.com/eqtylab/cupcake/releases/latest/download/opencode-plugin.js \
+  -o .opencode/plugin/cupcake.js
+
+# Option 2: Build from source
+cd /path/to/cupcake/cupcake-plugins/opencode
+npm install && npm run build
+mkdir -p /path/to/your/project/.opencode/plugin
+cp dist/cupcake.js /path/to/your/project/.opencode/plugin/
 ```
 
 ## Enable Built-in Policies (Optional)
@@ -117,9 +81,9 @@ Available builtins include:
 
 See the [Built-in Configuration Reference](../../reference/builtin-config/) for complete details.
 
-## Plugin Configuration
+## Plugin Configuration (Optional)
 
-Create `.cupcake/opencode.json` to customize behavior:
+Create `.cupcake/opencode.json` to customize plugin behavior:
 
 ```json
 {
@@ -163,8 +127,7 @@ Save this to `test-event.json`:
 
 ```json
 {
-  "hook_event_name": "PreToolUse",
-  "session_id": "test",
+  "session_id": "test-session",
   "cwd": "/tmp",
   "tool": "bash",
   "args": {

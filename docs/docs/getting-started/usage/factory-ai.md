@@ -51,7 +51,7 @@ Available builtins include:
 - `system_protection` — Protect system directories
 - `sensitive_data_protection` — Block access to sensitive files
 - `protected_paths` — Make specific paths read-only
-- `factory_enforce_full_file_read` — Enforce reading entire files
+- `enforce_full_file_read` — Enforce reading entire files
 
 See the [Built-in Configuration Reference](../../reference/builtin-config/) for complete details.
 
@@ -93,6 +93,36 @@ The `init` command automatically configures Factory AI hooks in `.factory/settin
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
+          }
+        ]
+      }
     ]
   }
 }
@@ -100,7 +130,7 @@ The `init` command automatically configures Factory AI hooks in `.factory/settin
 
 ## Supported Events
 
-Factory AI supports more events than Claude Code:
+Factory AI supports these hook events:
 
 | Event              | When It Fires                | Use Case                       |
 | ------------------ | ---------------------------- | ------------------------------ |
@@ -108,8 +138,11 @@ Factory AI supports more events than Claude Code:
 | `PostToolUse`      | After tool execution         | Validate results, run checks   |
 | `UserPromptSubmit` | Before sending prompt to LLM | Filter prompts, inject context |
 | `SessionStart`     | When session starts/resumes  | Load context, set environment  |
+| `SessionEnd`       | When session ends            | Cleanup, logging               |
 | `Stop`             | When agent stops             | Cleanup, logging               |
 | `SubagentStop`     | When subagent completes      | Subagent coordination          |
+| `PreCompact`       | Before memory compaction     | Preserve important context     |
+| `Notification`     | On agent notifications       | Monitor agent activity         |
 
 ## Similarities with Claude Code
 
@@ -135,9 +168,11 @@ Save this to `test-event.json`:
 
 ```json
 {
-  "hook_event_name": "PreToolUse",
-  "session_id": "test-session",
+  "hookEventName": "PreToolUse",
+  "sessionId": "test-session",
+  "transcriptPath": "/tmp/transcript.md",
   "cwd": "/tmp",
+  "permissionMode": "default",
   "tool_name": "Bash",
   "tool_input": {
     "command": "echo 'Hello from Cupcake!'"
@@ -157,35 +192,56 @@ You should see a JSON response indicating the command is allowed:
 
 ```json
 {
-  "continue": true
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow"
+  }
 }
 ```
 
 ## Response Formats
 
-### Allow (Continue)
+### PreToolUse - Allow
 
 ```json
 {
-  "continue": true
-}
-```
-
-### Deny (Block)
-
-```json
-{
-  "continue": false,
-  "stopReason": "Dangerous command blocked"
-}
-```
-
-### Allow with Context Injection
-
-```json
-{
-  "continue": true,
   "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow"
+  }
+}
+```
+
+### PreToolUse - Deny
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Dangerous command blocked by policy"
+  }
+}
+```
+
+### PreToolUse - Ask
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "This operation requires confirmation"
+  }
+}
+```
+
+### UserPromptSubmit - Context Injection
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
     "additionalContext": "Remember to run tests before committing"
   }
 }

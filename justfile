@@ -229,3 +229,54 @@ watch:
 # Watch and run tests on change
 watch-test:
     cargo watch -x "test --workspace --features cupcake-core/deterministic-tests"
+
+# ==================== ASSET GENERATION (asciicast) ====================
+
+# Check Python dependencies for cast generation
+check-cast-deps:
+    #!/usr/bin/env bash
+    if ! python3 -c "import yaml" 2>/dev/null; then
+        echo "❌ PyYAML not installed"
+        echo ""
+        echo "Install with:"
+        echo "  pip install pyyaml"
+        exit 1
+    fi
+    echo "✅ Python dependencies available"
+
+# Generate all documentation assets from castfiles
+casts: check-cast-deps build-cli
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Generating documentation assets..."
+    echo ""
+    
+    # Ensure cupcake is in PATH
+    export PATH="$PWD/target/release:$PATH"
+    
+    # Run the cast generator
+    python3 docs/assets/generate-cast.py --all
+    
+    echo ""
+    echo "✅ Assets generated in docs/docs/assets/"
+
+# Generate a specific cast file
+cast NAME: check-cast-deps build-cli
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$PWD/target/release:$PATH"
+    
+    python3 docs/assets/generate-cast.py "{{NAME}}"
+
+# List available castfiles
+list-casts:
+    @echo "Available castfiles:"
+    @echo ""
+    @python3 docs/assets/generate-cast.py --list 2>/dev/null || find docs/assets/casts -name "*.yaml" -not -name "schema.yaml" | sort | while read f; do echo "  $(basename $f .yaml)"; done
+
+# Alias for backwards compatibility
+assets: casts
+
+# Alias for backwards compatibility  
+asset NAME:
+    just cast "{{NAME}}"

@@ -10,7 +10,7 @@ OpenCode uses an **in-process plugin architecture** rather than external hooks. 
 ## How It Works
 
 ```
-OpenCode → Plugin → cupcake eval → Policy Decision → Allow/Block
+OpenCode -> Plugin -> cupcake eval -> Policy Decision -> Allow/Block
 ```
 
 Unlike Claude Code/Cursor which use stdin/stdout hooks, OpenCode's plugin:
@@ -29,15 +29,14 @@ cupcake init --harness opencode
 
 This automatically:
 
-- Creates a `.cupcake/` directory with policies and configuration
-- Sets up the system evaluator for OpenCode
+- Creates `.cupcake/` directory with policies and configuration
 - Downloads and installs the Cupcake plugin to `.opencode/plugin/cupcake.js`
 
 OpenCode will automatically load the plugin and enforce your policies.
 
 ## Global Setup
 
-For organization-wide policies that apply to all projects:
+For organization-wide policies:
 
 ```bash
 cupcake init --global --harness opencode
@@ -47,102 +46,52 @@ This creates configuration at `~/.config/cupcake/` and installs the plugin globa
 
 ## Manual Plugin Installation
 
-If automatic download fails (e.g., network issues), you can install the plugin manually:
+If automatic download fails (e.g., network issues):
 
 ```bash
-# Option 1: Download from GitHub releases
+# Download from GitHub releases
 mkdir -p .opencode/plugin
 curl -fsSL https://github.com/eqtylab/cupcake/releases/latest/download/opencode-plugin.js \
   -o .opencode/plugin/cupcake.js
 
-# Option 2: Build from source
+# Or build from source
 cd /path/to/cupcake/cupcake-plugins/opencode
 npm install && npm run build
-mkdir -p /path/to/your/project/.opencode/plugin
 cp dist/cupcake.js /path/to/your/project/.opencode/plugin/
 ```
 
-## Enable Built-in Policies (Optional)
+## Enable Built-in Policies
 
 ```bash
-# Enable specific builtins
-cupcake init --harness opencode --builtins git_pre_check,git_block_no_verify
+# Project-level builtins
+cupcake init --harness opencode --builtins git_pre_check,protected_paths
 
-# Global with builtins
+# Global security builtins
 cupcake init --global --harness opencode --builtins system_protection,sensitive_data_protection
 ```
 
-Available builtins include:
-
-- `git_pre_check` — Run checks before git operations
-- `git_block_no_verify` — Prevent `--no-verify` flag usage
-- `system_protection` — Protect system directories
-- `sensitive_data_protection` — Block access to sensitive files
-
-See the [Built-in Configuration Reference](../../reference/builtin-config/) for complete details.
-
-## Plugin Configuration (Optional)
-
-Create `.cupcake/opencode.json` to customize plugin behavior:
-
-```json
-{
-  "enabled": true,
-  "cupcakePath": "cupcake",
-  "harness": "opencode",
-  "logLevel": "info",
-  "timeoutMs": 5000,
-  "failMode": "closed",
-  "cacheDecisions": false
-}
-```
-
-| Option           | Default     | Description                                             |
-| ---------------- | ----------- | ------------------------------------------------------- |
-| `enabled`        | `true`      | Enable/disable the plugin                               |
-| `cupcakePath`    | `"cupcake"` | Path to cupcake binary                                  |
-| `logLevel`       | `"info"`    | Log level: debug, info, warn, error                     |
-| `timeoutMs`      | `5000`      | Max policy evaluation time (ms)                         |
-| `failMode`       | `"closed"`  | `"open"` (allow on error) or `"closed"` (deny on error) |
-| `cacheDecisions` | `false`     | Cache decisions (experimental)                          |
-
-## Tool Name Mapping
-
-OpenCode uses lowercase tool names. Cupcake normalizes them automatically:
-
-| OpenCode | Cupcake Policy |
-| -------- | -------------- |
-| `bash`   | `Bash`         |
-| `edit`   | `Edit`         |
-| `write`  | `Write`        |
-| `read`   | `Read`         |
-| `grep`   | `Grep`         |
-| `glob`   | `Glob`         |
+See the [Built-in Configuration Reference](../../reference/builtin-config.md) for complete details.
 
 ## Verify Installation
 
-### 1. Create a test event
-
-Save this to `test-event.json`:
-
-```json
-{
-  "session_id": "test-session",
-  "cwd": "/tmp",
-  "tool": "bash",
-  "args": {
-    "command": "echo 'Hello from Cupcake!'"
-  }
-}
-```
-
-### 2. Evaluate the event
+Test that Cupcake is working:
 
 ```bash
-cupcake eval --harness opencode --policy-dir .cupcake/policies < test-event.json
+# Create test event
+cat > test-event.json << 'EOF'
+{
+  "session_id": "test",
+  "cwd": "/tmp",
+  "tool": "bash",
+  "args": { "command": "echo 'Hello from Cupcake!'" }
+}
+EOF
+
+# Evaluate
+cupcake eval --harness opencode < test-event.json
 ```
 
-### 3. Expected output
+Expected output:
 
 ```json
 {
@@ -150,18 +99,8 @@ cupcake eval --harness opencode --policy-dir .cupcake/policies < test-event.json
 }
 ```
 
-## Key Differences from Other Harnesses
+## Next Steps
 
-| Aspect            | Claude Code / Cursor            | OpenCode                       |
-| ----------------- | ------------------------------- | ------------------------------ |
-| Integration       | External hooks (stdin/stdout)   | In-process TypeScript plugin   |
-| Blocking          | Return JSON `{continue: false}` | Throw Error                    |
-| Ask Support       | Native                          | Converted to deny with message |
-| Context Injection | `additionalContext` field       | Limited (future enhancement)   |
-
-## Event Support
-
-| Event       | Status    | Description                  |
-| ----------- | --------- | ---------------------------- |
-| PreToolUse  | Supported | Block tools before execution |
-| PostToolUse | Supported | Validate after execution     |
+- [OpenCode Reference](../../reference/harnesses/opencode.md) - Events, response formats, plugin configuration
+- [Writing Policies](../../reference/policies/custom.md) - Create custom Rego policies
+- [OpenCode Tutorial](../../tutorials/opencode.md) - Hands-on walkthrough

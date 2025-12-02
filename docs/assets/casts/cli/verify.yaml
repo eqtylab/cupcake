@@ -1,0 +1,20 @@
+# Cupcake Verify Command Demo
+# Generates: cupcake-verify.cast
+# Run from repo root: just cast verify
+
+name: cupcake-verify
+title: "Cupcake Verify Command"
+description: "Verify configuration and policy validity"
+cols: 100
+rows: 30
+idle_time_limit: 2
+
+setup:
+  - "cd /tmp && rm -rf cupcake-demo && mkdir cupcake-demo && cd cupcake-demo"
+  - "cupcake init --harness claude 2>/dev/null"
+
+steps:
+  # Run verify command
+  - type: run
+    command: "cupcake verify --harness claude"
+    wait: "3s"

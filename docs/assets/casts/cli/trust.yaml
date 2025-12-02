@@ -1,0 +1,35 @@
+# Cupcake Trust Command Demo
+# Generates: cupcake-trust.cast
+# Run from repo root: just cast trust
+
+name: cupcake-trust
+title: "Cupcake Trust Command"
+description: "Manage script trust and integrity verification"
+cols: 100
+rows: 30
+idle_time_limit: 2
+
+setup:
+  - "cd /tmp && rm -rf cupcake-demo && mkdir cupcake-demo && cd cupcake-demo"
+  - "cupcake init --harness claude 2>/dev/null"
+
+steps:
+  # Show trust help
+  - type: run
+    command: "cupcake trust --help"
+    wait: "2s"
+
+  # Initialize trust
+  - type: run
+    command: "cupcake trust init"
+    wait: "1.5s"
+
+  # List trusted items
+  - type: run
+    command: "cupcake trust list"
+    wait: "2s"
+
+  # Verify trusted items
+  - type: run
+    command: "cupcake trust verify"
+    wait: "2s"

@@ -1,5 +1,6 @@
 ---
 layout: "@/layouts/mdx-layout.astro"
+title: "Cupcake"
 heading: "Cupcake"
 description: "Make AI agents follow the rules"
 ---

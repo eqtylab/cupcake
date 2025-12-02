@@ -1,0 +1,61 @@
+# Castfile Schema Definition
+# Version: 1.0
+#
+# Castfiles define terminal recording sessions that are converted to .cast files
+# using asciinema. The generator script reads these YAML files and produces
+# asciicast v3 recordings.
+#
+# Required fields:
+#   - name: Base name for output file (produces {name}.cast)
+#   - steps: Array of recording steps
+#
+# Optional fields:
+#   - title: Recording title (shown in player)
+#   - description: Human-readable description
+#   - cols: Terminal columns (default: 100)
+#   - rows: Terminal rows (default: 30)
+#   - idle_time_limit: Max idle time in seconds (default: 2)
+#   - setup: Commands to run before recording (hidden from output)
+#   - env: Environment variables to set
+#
+# Step types:
+#   - type: "run"     - Execute a command and show output
+#     command: "..."  - The command to execute
+#     wait: "1s"      - Wait after command completes (optional)
+#     hidden: false   - Hide from recording (optional, default: false)
+#
+#   - type: "type"    - Simulate typing (for interactive demos)
+#     text: "..."     - Text to type
+#     speed: 50       - Milliseconds between keystrokes (optional)
+#     wait: "500ms"   - Wait after typing (optional)
+#
+#   - type: "keys"    - Send special keys
+#     keys: "enter"   - Key name: enter, ctrl+c, ctrl+d, up, down, etc.
+#     repeat: 1       - Number of times to repeat (optional)
+#     wait: "100ms"   - Wait after keypress (optional)
+#
+#   - type: "wait"    - Just wait
+#     duration: "1s"  - How long to wait
+#
+#   - type: "clear"   - Clear the terminal screen
+#
+# Duration format: "500ms", "1s", "1.5s", "2s"
+#
+# Example castfile:
+#
+# name: my-demo
+# title: "My Demo Recording"
+# cols: 120
+# rows: 35
+# idle_time_limit: 2
+# setup:
+#   - "cd /tmp && mkdir -p demo && cd demo"
+# steps:
+#   - type: run
+#     command: "echo 'Hello, World!'"
+#     wait: "1s"
+#   - type: type
+#     text: "ls -la"
+#   - type: keys
+#     keys: enter
+#     wait: "500ms"

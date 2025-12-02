@@ -48,7 +48,6 @@ nav = [
   { "Home" = "index.md" },
   { "Getting Started" = [
     "getting-started/installation.md",
-    "getting-started/cupcake-cli.md",
     { "Usage" = [
       "getting-started/usage/index.md",
       "getting-started/usage/claude-code.md",
@@ -58,6 +57,7 @@ nav = [
     ]}
   ]},
   { "Reference" = [
+    { "Cupcake CLI" = "reference/cupcake-cli.md"},
     { "Harnesses" = [
       "reference/harnesses/index.md",
       "reference/harnesses/claude-code.md",

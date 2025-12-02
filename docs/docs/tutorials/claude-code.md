@@ -196,11 +196,11 @@ Later on, we cover how to `verify` and `test` policies.
 
 ---
 
-## Step 6: MCP Database Protection Demo
+### Step 6: MCP Database Protection Demo
 
 This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers. This capability expands to any MCP.
 
-### Setup the Database Demo
+#### Setup the Database Demo
 
 **Requires Docker.**
 
@@ -222,7 +222,7 @@ This will:
 - Install a policy that prevents database deletions and last-minute cancellations
 - Configure Claude Code to access the database via MCP
 
-### Test Database Protection
+#### Test Database Protection
 
 After restarting Claude Code, try these scenarios:
 
@@ -242,11 +242,11 @@ After restarting Claude Code, try these scenarios:
 # Blocked - no deletions allowed on production data
 ```
 
-### So How Did That Work?
+#### So How Did That Work?
 
 The appointment cancellation was blocked using **signals** - external scripts that provide runtime data to policies.
 
-## Step 7: Introducing external context for more effective policy evaluation.
+### Step 7: Introducing external context for more effective policy evaluation.
 
 Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Agentic event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the appointment's ID (from the agent tool call parameter) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Claude from executing the action.
 
@@ -266,7 +266,7 @@ Claude Code              Cupcake Engine                  Signal Script          
 
 The signal (`check_appointment_time.py`) dynamically extracts the appointment ID from the SQL, queries the database, and returns whether it's within 24 hours. This enables policies to make real-time decisions based on actual data - no hardcoded values.
 
-### When to use signals
+#### When to use signals
 
 1. Use signals anytime you want to enrich an agent event with deeper context and information you can only get at a point in time.
 

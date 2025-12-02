@@ -44,10 +44,41 @@ copyright = "Copyright &copy; 2025 EQTY Lab"
 # can be defined using TOML syntax.
 #
 # Read more: https://zensical.org/docs/setup/navigation/
-# nav = [
-#   { "Get started" = "index.md" },
-#   { "Markdown in 5min" = "markdown.md" },
-# ]
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = [
+    "getting-started/installation.md",
+    "getting-started/cupcake-cli.md",
+    { "Usage" = [
+      "getting-started/usage/index.md",
+      "getting-started/usage/claude-code.md",
+      "getting-started/usage/cursor.md",
+      "getting-started/usage/opencode.md",
+      "getting-started/usage/factory-ai.md"
+    ]}
+  ]},
+  { "Reference" = [
+    { "Policies" = [
+      "reference/policies/index.md",
+      "reference/policies/builtins.md",
+      "reference/policies/custom.md"
+    ]},
+    "reference/builtin-config.md",
+    "reference/hooks.md"
+  ]},
+  { "Tutorials" = [
+    "tutorials/claude-code.md",
+    "tutorials/cursor.md",
+    "tutorials/opencode.md",
+    { "React + TypeScript" = [
+      "tutorials/react-typescript/index.md",
+      "tutorials/react-typescript/1-setup.md",
+      "tutorials/react-typescript/2-first-policy.md",
+      "tutorials/react-typescript/3-first-signal.md",
+      "tutorials/react-typescript/4-obscure-rules.md"
+    ]}
+  ]}
+]
 
 # With the "extra_css" option you can add your own CSS styling to customize
 # your Zensical project according to your needs. You can add any number of

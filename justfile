@@ -258,8 +258,8 @@ assets: check-vhs build-cli
     # Ensure cupcake is in PATH
     export PATH="$PWD/target/release:$PATH"
     
-    # VHS requires running from assets/ directory for paths to work
-    cd assets
+    # VHS requires running from docs/assets/ directory for paths to work
+    cd docs/assets
     
     # Find and process all tape files (excluding common/)
     for tape in tapes/cli/*.tape tapes/getting-started/*.tape; do
@@ -270,10 +270,9 @@ assets: check-vhs build-cli
         fi
     done
     
-    echo "✅ Assets generated in assets/output/"
+    echo "✅ Assets generated in docs/docs/assets/"
     echo ""
-    ls -la output/gifs/ 2>/dev/null || true
-    ls -la output/screenshots/ 2>/dev/null || true
+    ls -la ../docs/assets/*.gif 2>/dev/null || true
 
 # Generate a specific tape file
 asset TAPE: check-vhs build-cli
@@ -287,8 +286,8 @@ asset TAPE: check-vhs build-cli
         tape_file="${tape_file}.tape"
     fi
     
-    # VHS requires running from assets/ directory for paths to work
-    cd assets
+    # VHS requires running from docs/assets/ directory for paths to work
+    cd docs/assets
     
     # Check common locations
     if [[ -f "tapes/cli/$tape_file" ]]; then
@@ -310,7 +309,7 @@ asset TAPE: check-vhs build-cli
 list-tapes:
     @echo "Available tape files:"
     @echo ""
-    @find assets/tapes -name "*.tape" -not -path "*/common/*" | sort | while read f; do echo "  $(basename $f .tape)"; done
+    @find docs/assets/tapes -name "*.tape" -not -path "*/common/*" | sort | while read f; do echo "  $(basename $f .tape)"; done
 
 # Preview a tape file without generating output (validates syntax)
 preview-tape TAPE: check-vhs
@@ -320,7 +319,7 @@ preview-tape TAPE: check-vhs
         tape_file="${tape_file}.tape"
     fi
     
-    cd assets
+    cd docs/assets
     
     if [[ -f "tapes/cli/$tape_file" ]]; then
         vhs "tapes/cli/$tape_file" --dry-run

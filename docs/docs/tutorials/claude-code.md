@@ -1,5 +1,6 @@
 ---
 layout: "@/layouts/mdx-layout.astro"
+title: "Claude Code"
 heading: "Claude Code Walkthrough"
 description: "Getting started with Cupcake and Claude Code"
 ---

@@ -70,13 +70,7 @@ nav = [
     "tutorials/claude-code.md",
     "tutorials/cursor.md",
     "tutorials/opencode.md",
-    { "React + TypeScript" = [
-      "tutorials/react-typescript/index.md",
-      "tutorials/react-typescript/1-setup.md",
-      "tutorials/react-typescript/2-first-policy.md",
-      "tutorials/react-typescript/3-first-signal.md",
-      "tutorials/react-typescript/4-obscure-rules.md"
-    ]}
+    "tutorials/react-typescript.md"
   ]}
 ]
 

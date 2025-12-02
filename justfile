@@ -229,3 +229,104 @@ watch:
 # Watch and run tests on change
 watch-test:
     cargo watch -x "test --workspace --features cupcake-core/deterministic-tests"
+
+# ==================== ASSET GENERATION (VHS) ====================
+
+# Check if VHS is installed
+check-vhs:
+    #!/usr/bin/env bash
+    if ! command -v vhs &> /dev/null; then
+        echo "❌ VHS not installed"
+        echo ""
+        echo "Install with:"
+        echo "  brew install vhs        # macOS"
+        echo "  scoop install vhs       # Windows"
+        echo "  go install github.com/charmbracelet/vhs@latest"
+        echo ""
+        echo "VHS also requires ttyd and ffmpeg"
+        exit 1
+    fi
+    echo "✅ VHS is available: $(vhs --version)"
+
+# Generate all documentation assets from tape files
+assets: check-vhs build-cli
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Generating documentation assets..."
+    echo ""
+    
+    # Ensure cupcake is in PATH
+    export PATH="$PWD/target/release:$PATH"
+    
+    # VHS requires running from assets/ directory for paths to work
+    cd assets
+    
+    # Find and process all tape files (excluding common/)
+    for tape in tapes/cli/*.tape tapes/getting-started/*.tape; do
+        if [[ -f "$tape" ]]; then
+            echo "📼 Processing: $tape"
+            vhs "$tape"
+            echo ""
+        fi
+    done
+    
+    echo "✅ Assets generated in assets/output/"
+    echo ""
+    ls -la output/gifs/ 2>/dev/null || true
+    ls -la output/screenshots/ 2>/dev/null || true
+
+# Generate a specific tape file
+asset TAPE: check-vhs build-cli
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$PWD/target/release:$PATH"
+    
+    # Handle both with and without .tape extension
+    tape_file="{{TAPE}}"
+    if [[ ! "$tape_file" == *.tape ]]; then
+        tape_file="${tape_file}.tape"
+    fi
+    
+    # VHS requires running from assets/ directory for paths to work
+    cd assets
+    
+    # Check common locations
+    if [[ -f "tapes/cli/$tape_file" ]]; then
+        vhs "tapes/cli/$tape_file"
+    elif [[ -f "tapes/getting-started/$tape_file" ]]; then
+        vhs "tapes/getting-started/$tape_file"
+    elif [[ -f "$tape_file" ]]; then
+        vhs "$tape_file"
+    else
+        echo "❌ Tape file not found: $tape_file"
+        echo "Looked in:"
+        echo "  - tapes/cli/$tape_file"
+        echo "  - tapes/getting-started/$tape_file"
+        echo "  - $tape_file"
+        exit 1
+    fi
+
+# List available tape files
+list-tapes:
+    @echo "Available tape files:"
+    @echo ""
+    @find assets/tapes -name "*.tape" -not -path "*/common/*" | sort | while read f; do echo "  $(basename $f .tape)"; done
+
+# Preview a tape file without generating output (validates syntax)
+preview-tape TAPE: check-vhs
+    #!/usr/bin/env bash
+    tape_file="{{TAPE}}"
+    if [[ ! "$tape_file" == *.tape ]]; then
+        tape_file="${tape_file}.tape"
+    fi
+    
+    cd assets
+    
+    if [[ -f "tapes/cli/$tape_file" ]]; then
+        vhs "tapes/cli/$tape_file" --dry-run
+    elif [[ -f "tapes/getting-started/$tape_file" ]]; then
+        vhs "tapes/getting-started/$tape_file" --dry-run
+    else
+        echo "❌ Tape file not found: $tape_file"
+        exit 1
+    fi

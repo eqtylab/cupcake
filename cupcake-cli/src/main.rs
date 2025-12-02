@@ -20,6 +20,8 @@ use cupcake_core::{debug::DebugCapture, engine, harness, validator};
 
 mod harness_config;
 mod trust_cli;
+#[cfg(feature = "watchdog")]
+mod watchdog_cli;
 
 /// Trace modules for evaluation tracing
 #[derive(Debug, Clone, ValueEnum)]
@@ -168,6 +170,26 @@ enum Command {
         /// Strict mode (exit non-zero on deny)
         #[clap(long)]
         strict: bool,
+    },
+
+    /// Evaluate an event using Watchdog (LLM-as-judge) directly
+    #[cfg(feature = "watchdog")]
+    Watchdog {
+        /// Path to rulebook.yml for Watchdog configuration
+        #[clap(long, default_value = ".cupcake/rulebook.yml")]
+        config: PathBuf,
+
+        /// Override the model (e.g., "google/gemini-2.5-flash")
+        #[clap(long)]
+        model: Option<String>,
+
+        /// Read event JSON from a file instead of stdin
+        #[clap(long)]
+        input: Option<PathBuf>,
+
+        /// Dry run mode - log what would be sent but skip API calls
+        #[clap(long)]
+        dry_run: bool,
     },
 
     /// Verify the engine configuration and policies
@@ -364,6 +386,13 @@ async fn main() -> Result<()> {
             builtins,
         } => init_command(global, harness, builtins).await,
         Command::Trust { command } => command.execute().await,
+        #[cfg(feature = "watchdog")]
+        Command::Watchdog {
+            config,
+            model,
+            input,
+            dry_run,
+        } => watchdog_cli::run(config, model, input, dry_run).await,
         Command::Validate { policy_dir, json } => validate_command(policy_dir, json).await,
         Command::Inspect {
             policy_dir,

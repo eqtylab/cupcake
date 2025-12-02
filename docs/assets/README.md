@@ -1,45 +1,46 @@
 # Cupcake Documentation Assets
 
-This directory contains VHS tape files for generating reproducible GIFs for documentation. Generated GIFs are output directly to `docs/docs/assets/` for the zensical doc site.
+This directory contains castfile definitions for generating terminal recordings using asciinema. Generated `.cast` files are output to `docs/docs/assets/` for the Zensical doc site.
 
 ## Prerequisites
 
-Install [VHS](https://github.com/charmbracelet/vhs) (includes dependencies):
+Install [asciinema](https://docs.asciinema.org/) and PyYAML:
 
 ```bash
 # macOS
-brew install vhs
+brew install asciinema
+pip install pyyaml
 
-# Windows
-scoop install vhs
+# Linux
+pip install asciinema pyyaml
 
-# From source
-go install github.com/charmbracelet/vhs@latest
+# From source (Rust)
+cargo install asciinema
+pip install pyyaml
 ```
-
-VHS requires `ttyd` and `ffmpeg`. The brew/scoop installers handle these automatically.
 
 ## Directory Structure
 
 ```
 docs/
-├── assets/                    # VHS tape source files (this directory)
-│   ├── tapes/
-│   │   ├── common/
-│   │   │   └── settings.tape  # Shared terminal settings (theme, font, size)
+├── assets/                    # Castfile source files (this directory)
+│   ├── casts/
 │   │   ├── cli/               # CLI command demos
-│   │   │   ├── help.tape
-│   │   │   ├── init.tape
-│   │   │   ├── inspect.tape
-│   │   │   ├── verify.tape
-│   │   │   └── trust.tape
-│   │   └── getting-started/   # Getting started demos (future)
+│   │   │   ├── help.yaml
+│   │   │   ├── init.yaml
+│   │   │   ├── inspect.yaml
+│   │   │   ├── verify.yaml
+│   │   │   └── trust.yaml
+│   │   └── schema.yaml        # Castfile format documentation
+│   ├── generate-cast.py       # Cast generator script
 │   └── README.md
 ├── docs/
-│   └── assets/                # Generated GIFs output here
-│       ├── cupcake-help.gif
-│       ├── cupcake-init.gif
-│       └── ...
+│   ├── assets/                # Generated .cast files output here
+│   │   ├── cupcake-help.cast
+│   │   ├── cupcake-init.cast
+│   │   └── ...
+│   ├── javascripts/           # asciinema-player JS
+│   └── stylesheets/           # asciinema-player CSS
 └── zensical.toml
 ```
 
@@ -50,135 +51,169 @@ Run these commands from the **repository root**:
 ### Generate All Assets
 
 ```bash
-just assets
+just casts
 ```
 
-This builds cupcake and generates all GIFs from tape files into `docs/docs/assets/`.
+This builds cupcake and generates all `.cast` files from castfile definitions.
 
 ### Generate a Specific Asset
 
 ```bash
-just asset help        # Generate from cli/help.tape
-just asset init        # Generate from cli/init.tape
-just asset inspect     # etc.
+just cast help        # Generate from casts/cli/help.yaml
+just cast init        # Generate from casts/cli/init.yaml
+just cast inspect     # etc.
 ```
 
-### List Available Tapes
+### List Available Castfiles
 
 ```bash
-just list-tapes
+just list-casts
 ```
 
-### Preview a Tape (Dry Run)
+## Castfile Format
 
-```bash
-just preview-tape help
-```
-
-## Writing Tape Files
+Castfiles are YAML definitions that describe terminal recording sessions. See `casts/schema.yaml` for the full specification.
 
 ### Basic Structure
 
-All paths in tape files are relative to the `docs/assets/` directory (VHS runs from there).
+```yaml
+# Required fields
+name: my-demo           # Output filename (produces my-demo.cast)
+steps:                  # Recording steps
+  - type: run
+    command: "echo hello"
 
-```tape
-# Source common settings
-Source tapes/common/settings.tape
-
-# Output to docs/docs/assets/ for the doc site
-Output ../docs/assets/my-demo.gif
-
-# Hide setup commands
-Hide
-Type "cd /tmp && mkdir demo && cd demo"
-Enter
-Sleep 300ms
-Type "clear"
-Enter
-Show
-
-# The actual demo - pipe to less for scrollable output
-Type "cupcake --help | less"
-Sleep 500ms
-Enter
-Sleep 2s
-
-# Scroll through output with j/k keys
-Type "jjjjjjjjjj"
-Sleep 800ms
-
-# Return to top
-Type "gg"
-Sleep 1s
-
-# Exit less
-Type "q"
+# Optional fields
+title: "My Demo"        # Recording title
+description: "..."      # Human-readable description
+cols: 100               # Terminal columns (default: 100)
+rows: 30                # Terminal rows (default: 30)
+idle_time_limit: 2      # Max idle time in seconds (default: 2)
+setup:                  # Commands to run before recording (hidden)
+  - "cd /tmp"
+env:                    # Environment variables
+  MY_VAR: "value"
 ```
 
-### Scrolling Long Output
+### Step Types
 
-For commands with long output, pipe to `less` and use vim-style navigation:
+| Type    | Description                  | Example                                    |
+| ------- | ---------------------------- | ------------------------------------------ |
+| `run`   | Execute command, show output | `{type: run, command: "ls -la"}`           |
+| `wait`  | Pause recording              | `{type: wait, duration: "1s"}`             |
+| `clear` | Clear terminal screen        | `{type: clear}`                            |
 
-| Key     | Action               |
-| ------- | -------------------- |
-| `j`     | Scroll down one line |
-| `k`     | Scroll up one line   |
-| `Space` | Page down            |
-| `b`     | Page up              |
-| `gg`    | Go to top            |
-| `G`     | Go to bottom         |
-| `q`     | Quit less            |
+### Step Options
 
-### Key Commands
-
-| Command            | Description                                  |
-| ------------------ | -------------------------------------------- |
-| `Source <file>`    | Include another tape file (use for settings) |
-| `Output <path>`    | Set output file (.gif, .mp4, .webm)          |
-| `Type "<text>"`    | Type text into the terminal                  |
-| `Enter`            | Press Enter key                              |
-| `Sleep <duration>` | Wait (e.g., `500ms`, `2s`)                   |
-| `Hide` / `Show`    | Hide/show commands from recording            |
-| `Ctrl+<key>`       | Press Ctrl+key combo                         |
-
-### Settings (in common/settings.tape)
-
-| Setting                      | Description                              |
-| ---------------------------- | ---------------------------------------- |
-| `Set Width <px>`             | Terminal width                           |
-| `Set Height <px>`            | Terminal height                          |
-| `Set FontSize <px>`          | Font size                                |
-| `Set FontFamily "<font>"`    | Font family                              |
-| `Set Theme "<name>"`         | Color theme (see `vhs themes`)           |
-| `Set TypingSpeed <duration>` | Delay between keystrokes                 |
-| `Set Padding <px>`           | Terminal padding                         |
-| `Set WindowBar <style>`      | Window bar style (Colorful, Rings, etc.) |
-
-## Tips
-
-1. **Use `less` for long output**: Pipe commands to `less` and use j/k to scroll
-2. **Use Hide/Show**: Setup and cleanup should be hidden from recording
-3. **Add sleep after commands**: Let output render before continuing
-4. **Test with dry-run first**: `just preview-tape <name>` validates syntax
-
-## Customizing Theme
-
-The current theme is `Catppuccin Mocha`. To change it, edit `tapes/common/settings.tape`.
-
-List available themes:
-
-```bash
-vhs themes
+```yaml
+steps:
+  - type: run
+    command: "cupcake --help"
+    wait: "2s"           # Wait after command (optional)
+    hidden: false        # Hide from output (optional)
 ```
+
+### Duration Format
+
+Durations can be specified as:
+- `500ms` - milliseconds
+- `1s` - seconds
+- `1.5s` - fractional seconds
+
+## Example Castfile
+
+```yaml
+name: cupcake-init
+title: "Cupcake Init Command"
+description: "Initialize cupcake in a project directory"
+cols: 100
+rows: 30
+idle_time_limit: 2
+
+setup:
+  - "cd /tmp && rm -rf demo && mkdir demo && cd demo"
+
+steps:
+  - type: run
+    command: "ls -la"
+    wait: "1s"
+
+  - type: run
+    command: "cupcake init --harness claude"
+    wait: "2s"
+
+  - type: run
+    command: "tree -a .cupcake"
+    wait: "2s"
+```
+
+## Using in Documentation
+
+In markdown files, embed the player with:
+
+```html
+<div class="cast-player" data-cast="../assets/cupcake-help.cast"></div>
+```
+
+### Optional Attributes
+
+| Attribute       | Description                          | Default   |
+| --------------- | ------------------------------------ | --------- |
+| `data-cast`     | Path to .cast file (required)        | -         |
+| `data-autoplay` | Auto-play on load                    | `false`   |
+| `data-loop`     | Loop playback                        | `false`   |
+| `data-speed`    | Playback speed multiplier            | `1`       |
+| `data-poster`   | Poster frame (e.g., `npt:0:30`)      | -         |
+| `data-fit`      | Fit mode: width, height, both, none  | `width`   |
+
+## Benefits Over GIFs
+
+| Aspect          | GIFs (VHS)              | asciinema              |
+| --------------- | ----------------------- | ---------------------- |
+| File size       | Large (~2-6 MB)         | Tiny (~5-50 KB)        |
+| Text quality    | Rasterized, blurry      | Crisp, vector-like     |
+| Copy/paste      | Not possible            | Users can copy text    |
+| Accessibility   | Poor                    | Better (text-based)    |
+| Speed control   | Fixed                   | User-adjustable        |
+| Search indexing | None                    | Potentially indexable  |
 
 ## Generated Assets
 
-After running `just assets`, you'll have GIFs in `docs/docs/assets/`:
+After running `just casts`, you'll have `.cast` files in `docs/docs/assets/`:
 
-| GIF                   | Description                               |
+| File                  | Description                               |
 | --------------------- | ----------------------------------------- |
-| `cupcake-help.gif`    | Main CLI help output                      |
-| `cupcake-init.gif`    | Project initialization                    |
-| `cupcake-inspect.gif` | Policy inspection (detailed + table view) |
-| `cupcake-verify.gif`  | Configuration verification                |
-| `cupcake-trust.gif`   | Trust management workflow                 |
+| `cupcake-help.cast`   | Main CLI help output                      |
+| `cupcake-init.cast`   | Project initialization                    |
+| `cupcake-inspect.cast`| Policy inspection (detailed + table view) |
+| `cupcake-verify.cast` | Configuration verification                |
+| `cupcake-trust.cast`  | Trust management workflow                 |
+
+## Troubleshooting
+
+### asciinema not found
+
+Install asciinema using your package manager or pip:
+```bash
+brew install asciinema  # macOS
+pip install asciinema   # cross-platform
+```
+
+### PyYAML not found
+
+Install the Python YAML library:
+```bash
+pip install pyyaml
+```
+
+### Cast file is empty or corrupted
+
+1. Check that the commands in your castfile work when run manually
+2. Ensure cupcake is built: `just build-cli`
+3. Try running with verbose output: `python3 docs/assets/generate-cast.py help -v`
+
+### Player not loading
+
+1. Verify the `.cast` file exists and is valid JSON
+2. Check browser console for JavaScript errors
+3. Ensure the path in `data-cast` is correct relative to the markdown file

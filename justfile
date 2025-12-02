@@ -230,26 +230,22 @@ watch:
 watch-test:
     cargo watch -x "test --workspace --features cupcake-core/deterministic-tests"
 
-# ==================== ASSET GENERATION (VHS) ====================
+# ==================== ASSET GENERATION (asciicast) ====================
 
-# Check if VHS is installed
-check-vhs:
+# Check Python dependencies for cast generation
+check-cast-deps:
     #!/usr/bin/env bash
-    if ! command -v vhs &> /dev/null; then
-        echo "❌ VHS not installed"
+    if ! python3 -c "import yaml" 2>/dev/null; then
+        echo "❌ PyYAML not installed"
         echo ""
         echo "Install with:"
-        echo "  brew install vhs        # macOS"
-        echo "  scoop install vhs       # Windows"
-        echo "  go install github.com/charmbracelet/vhs@latest"
-        echo ""
-        echo "VHS also requires ttyd and ffmpeg"
+        echo "  pip install pyyaml"
         exit 1
     fi
-    echo "✅ VHS is available: $(vhs --version)"
+    echo "✅ Python dependencies available"
 
-# Generate all documentation assets from tape files
-assets: check-vhs build-cli
+# Generate all documentation assets from castfiles
+casts: check-cast-deps build-cli
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Generating documentation assets..."
@@ -258,74 +254,29 @@ assets: check-vhs build-cli
     # Ensure cupcake is in PATH
     export PATH="$PWD/target/release:$PATH"
     
-    # VHS requires running from docs/assets/ directory for paths to work
-    cd docs/assets
+    # Run the cast generator
+    python3 docs/assets/generate-cast.py --all
     
-    # Find and process all tape files (excluding common/)
-    for tape in tapes/cli/*.tape tapes/getting-started/*.tape; do
-        if [[ -f "$tape" ]]; then
-            echo "📼 Processing: $tape"
-            vhs "$tape"
-            echo ""
-        fi
-    done
-    
-    echo "✅ Assets generated in docs/docs/assets/"
     echo ""
-    ls -la ../docs/assets/*.gif 2>/dev/null || true
+    echo "✅ Assets generated in docs/docs/assets/"
 
-# Generate a specific tape file
-asset TAPE: check-vhs build-cli
+# Generate a specific cast file
+cast NAME: check-cast-deps build-cli
     #!/usr/bin/env bash
     set -euo pipefail
     export PATH="$PWD/target/release:$PATH"
     
-    # Handle both with and without .tape extension
-    tape_file="{{TAPE}}"
-    if [[ ! "$tape_file" == *.tape ]]; then
-        tape_file="${tape_file}.tape"
-    fi
-    
-    # VHS requires running from docs/assets/ directory for paths to work
-    cd docs/assets
-    
-    # Check common locations
-    if [[ -f "tapes/cli/$tape_file" ]]; then
-        vhs "tapes/cli/$tape_file"
-    elif [[ -f "tapes/getting-started/$tape_file" ]]; then
-        vhs "tapes/getting-started/$tape_file"
-    elif [[ -f "$tape_file" ]]; then
-        vhs "$tape_file"
-    else
-        echo "❌ Tape file not found: $tape_file"
-        echo "Looked in:"
-        echo "  - tapes/cli/$tape_file"
-        echo "  - tapes/getting-started/$tape_file"
-        echo "  - $tape_file"
-        exit 1
-    fi
+    python3 docs/assets/generate-cast.py "{{NAME}}"
 
-# List available tape files
-list-tapes:
-    @echo "Available tape files:"
+# List available castfiles
+list-casts:
+    @echo "Available castfiles:"
     @echo ""
-    @find docs/assets/tapes -name "*.tape" -not -path "*/common/*" | sort | while read f; do echo "  $(basename $f .tape)"; done
+    @python3 docs/assets/generate-cast.py --list 2>/dev/null || find docs/assets/casts -name "*.yaml" -not -name "schema.yaml" | sort | while read f; do echo "  $(basename $f .yaml)"; done
 
-# Preview a tape file without generating output (validates syntax)
-preview-tape TAPE: check-vhs
-    #!/usr/bin/env bash
-    tape_file="{{TAPE}}"
-    if [[ ! "$tape_file" == *.tape ]]; then
-        tape_file="${tape_file}.tape"
-    fi
-    
-    cd docs/assets
-    
-    if [[ -f "tapes/cli/$tape_file" ]]; then
-        vhs "tapes/cli/$tape_file" --dry-run
-    elif [[ -f "tapes/getting-started/$tape_file" ]]; then
-        vhs "tapes/getting-started/$tape_file" --dry-run
-    else
-        echo "❌ Tape file not found: $tape_file"
-        exit 1
-    fi
+# Alias for backwards compatibility
+assets: casts
+
+# Alias for backwards compatibility  
+asset NAME:
+    just cast "{{NAME}}"

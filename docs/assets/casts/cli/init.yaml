@@ -1,0 +1,29 @@
+# Cupcake Init Command Demo
+# Generates: cupcake-init.cast
+# Run from repo root: just cast init
+
+name: cupcake-init
+title: "Cupcake Init Command"
+description: "Initialize cupcake in a project directory"
+cols: 100
+rows: 30
+idle_time_limit: 2
+
+setup:
+  - "cd /tmp && rm -rf cupcake-demo && mkdir cupcake-demo && cd cupcake-demo"
+
+steps:
+  # Show we're in an empty directory
+  - type: run
+    command: "ls -la"
+    wait: "1s"
+
+  # Initialize cupcake for Claude Code
+  - type: run
+    command: "cupcake init --harness claude"
+    wait: "2s"
+
+  # Show what was created
+  - type: run
+    command: "tree -a .cupcake"
+    wait: "2s"

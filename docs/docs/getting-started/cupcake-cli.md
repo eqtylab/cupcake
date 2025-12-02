@@ -19,7 +19,7 @@ Set up Cupcake in your project with a single command:
 cupcake init --harness claude
 ```
 
-![Cupcake Init](../assets/cupcake-init.gif)
+<div class="cast-player" data-cast="/assets/cupcake-init.cast" data-autoplay="true"></div>
 
 This creates the `.cupcake/` directory with:
 
@@ -38,7 +38,7 @@ View all available commands and options:
 cupcake --help
 ```
 
-![Cupcake Help](../assets/cupcake-help.gif)
+<div class="cast-player" data-cast="/assets/cupcake-help.cast" data-autoplay="true"></div>
 
 ### `cupcake inspect`
 
@@ -49,7 +49,7 @@ cupcake inspect
 cupcake inspect --table  # Compact table view
 ```
 
-![Cupcake Inspect](../assets/cupcake-inspect.gif)
+<div class="cast-player" data-cast="/assets/cupcake-inspect.cast" data-autoplay="true"></div>
 
 This shows:
 
@@ -65,7 +65,7 @@ Verify your configuration and policies are valid:
 cupcake verify --harness claude
 ```
 
-![Cupcake Verify](../assets/cupcake-verify.gif)
+<div class="cast-player" data-cast="/assets/cupcake-verify.cast" data-autoplay="true"></div>
 
 Use this to:
 
@@ -83,7 +83,7 @@ cupcake trust list      # List trusted scripts
 cupcake trust verify    # Verify against manifest
 ```
 
-![Cupcake Trust](../assets/cupcake-trust.gif)
+<div class="cast-player" data-cast="/assets/cupcake-trust.cast" data-autoplay="true"></div>
 
 The trust system ensures:
 

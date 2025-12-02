@@ -58,13 +58,19 @@ nav = [
     ]}
   ]},
   { "Reference" = [
+    { "Harnesses" = [
+      "reference/harnesses/index.md",
+      "reference/harnesses/claude-code.md",
+      "reference/harnesses/cursor.md",
+      "reference/harnesses/opencode.md",
+      "reference/harnesses/factory-ai.md"
+    ]},
     { "Policies" = [
       "reference/policies/index.md",
       "reference/policies/builtins.md",
       "reference/policies/custom.md"
     ]},
-    "reference/builtin-config.md",
-    "reference/hooks.md"
+    "reference/builtin-config.md"
   ]},
   { "Tutorials" = [
     "tutorials/claude-code.md",

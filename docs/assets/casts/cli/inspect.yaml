@@ -1,0 +1,25 @@
+# Cupcake Inspect Command Demo
+# Generates: cupcake-inspect.cast
+# Run from repo root: just cast inspect
+
+name: cupcake-inspect
+title: "Cupcake Inspect Command"
+description: "Inspect loaded policies and their routing metadata"
+cols: 100
+rows: 30
+idle_time_limit: 2
+
+setup:
+  - "cd /tmp && rm -rf cupcake-demo && mkdir cupcake-demo && cd cupcake-demo"
+  - "cupcake init --harness claude 2>/dev/null"
+
+steps:
+  # Show detailed inspect output
+  - type: run
+    command: "cupcake inspect"
+    wait: "3s"
+
+  # Show table format
+  - type: run
+    command: "cupcake inspect --table"
+    wait: "2s"

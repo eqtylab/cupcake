@@ -15,7 +15,10 @@ Navigate to your project directory and initialize Cupcake:
 cupcake init --harness cursor
 ```
 
-This creates a `.cupcake/` directory in your project with policies and configuration, and sets up **global hooks** at `~/.cursor/hooks.json` that use relative paths (`.cupcake`).
+This creates:
+
+- `.cupcake/` directory in your project with policies
+- `~/.cursor/hooks.json` with global hook configuration (uses relative paths)
 
 When you open this project in Cursor, the hooks will automatically find the project's `.cupcake/` directory.
 
@@ -27,121 +30,58 @@ For organization-wide policies:
 cupcake init --global --harness cursor
 ```
 
-This creates configuration at `~/.config/cupcake/` and sets up global hooks at `~/.cursor/hooks.json` with absolute paths.
+This creates configuration at `~/.config/cupcake/` and sets up global hooks with absolute paths.
 
-## Enable Built-in Policies (Optional)
-
-Cupcake includes pre-built security policies you can enable during initialization:
+## Enable Built-in Policies
 
 ```bash
-# Enable specific project builtins
-cupcake init --harness cursor --builtins git_pre_check,git_block_no_verify
+# Project-level builtins
+cupcake init --harness cursor --builtins git_pre_check,protected_paths
 
-# Global with security builtins
+# Global security builtins
 cupcake init --global --harness cursor --builtins system_protection,sensitive_data_protection
 ```
 
-**Project-level builtins** (use with `cupcake init --harness cursor`):
+**Project-level builtins:**
 
-- `always_inject_on_prompt` — Add context to every user prompt
-- `git_pre_check` — Run checks before git operations
-- `git_block_no_verify` — Prevent `--no-verify` flag usage
-- `post_edit_check` — Run validation after file edits
-- `protected_paths` — Make specific paths read-only
-- `rulebook_security_guardrails` — Protect `.cupcake/` files from modification
-- `enforce_full_file_read` — Enforce reading entire files under a line limit
+- `always_inject_on_prompt` - Add context to every user prompt
+- `git_pre_check` - Run checks before git operations
+- `git_block_no_verify` - Prevent `--no-verify` flag usage
+- `post_edit_check` - Run validation after file edits
+- `protected_paths` - Make specific paths read-only
+- `rulebook_security_guardrails` - Protect `.cupcake/` files
+- `enforce_full_file_read` - Enforce reading entire files
 
-**Global-level builtins** (use with `cupcake init --global --harness cursor`):
+**Global-level builtins:**
 
-- `system_protection` — Protect system directories
-- `sensitive_data_protection` — Block access to sensitive files (SSH keys, credentials)
-- `cupcake_exec_protection` — Prevent direct execution of cupcake binary
+- `system_protection` - Protect system directories
+- `sensitive_data_protection` - Block access to sensitive files
+- `cupcake_exec_protection` - Prevent cupcake binary execution
 
-See the [Built-in Configuration Reference](../../reference/builtin-config/) for complete details.
-
-## Hook Configuration
-
-The `init` command automatically configures Cursor hooks in `~/.cursor/hooks.json`:
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "beforeShellExecution": [
-      {
-        "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-      }
-    ],
-    "beforeMCPExecution": [
-      {
-        "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-      }
-    ],
-    "afterFileEdit": [
-      {
-        "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-      }
-    ],
-    "beforeReadFile": [
-      {
-        "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-      }
-    ],
-    "beforeSubmitPrompt": [
-      {
-        "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-      }
-    ],
-    "stop": [
-      {
-        "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-      }
-    ]
-  }
-}
-```
-
-## Supported Events
-
-Cursor supports these hook events:
-
-| Event                  | When It Fires             | Use Case                        |
-| ---------------------- | ------------------------- | ------------------------------- |
-| `beforeShellExecution` | Before shell command      | Block dangerous commands        |
-| `beforeMCPExecution`   | Before MCP tool execution | Control MCP tool access         |
-| `afterFileEdit`        | After file is edited      | Validate changes, run checks    |
-| `beforeReadFile`       | Before reading a file     | Block access to sensitive files |
-| `beforeSubmitPrompt`   | Before prompt submission  | Filter prompts                  |
-| `stop`                 | When agent loop ends      | Cleanup, logging                |
+See the [Built-in Configuration Reference](../../reference/builtin-config.md) for complete details.
 
 ## Verify Installation
 
-Test that Cupcake is working correctly:
+Test that Cupcake is working:
 
-### 1. Create a test event
-
-Save this to `test-event.json`:
-
-```json
+```bash
+# Create test event
+cat > test-event.json << 'EOF'
 {
   "hook_event_name": "beforeShellExecution",
-  "conversation_id": "test-conversation",
-  "generation_id": "test-generation",
+  "conversation_id": "test",
+  "generation_id": "test",
   "workspace_roots": ["/tmp"],
   "command": "echo 'Hello from Cupcake!'",
   "cwd": "/tmp"
 }
+EOF
+
+# Evaluate
+cupcake eval --harness cursor < test-event.json
 ```
 
-### 2. Evaluate the event
-
-```bash
-cupcake eval --harness cursor --policy-dir .cupcake < test-event.json
-```
-
-### 3. Expected output
-
-You should see a JSON response indicating the command is allowed:
+Expected output:
 
 ```json
 {
@@ -149,85 +89,8 @@ You should see a JSON response indicating the command is allowed:
 }
 ```
 
-## Response Formats
+## Next Steps
 
-Cursor events return different response formats depending on the event type.
-
-### beforeShellExecution / beforeMCPExecution - Allow
-
-```json
-{
-  "permission": "allow"
-}
-```
-
-### beforeShellExecution / beforeMCPExecution - Deny
-
-```json
-{
-  "permission": "deny",
-  "userMessage": "Command blocked by policy",
-  "agentMessage": "Command blocked by policy"
-}
-```
-
-### beforeShellExecution / beforeMCPExecution - Ask
-
-```json
-{
-  "permission": "ask",
-  "question": "This operation requires confirmation",
-  "userMessage": "This operation requires confirmation",
-  "agentMessage": "This operation requires confirmation"
-}
-```
-
-### beforeReadFile - Allow/Deny
-
-```json
-{
-  "permission": "allow"
-}
-```
-
-```json
-{
-  "permission": "deny"
-}
-```
-
-Note: `beforeReadFile` does not support `userMessage` or `agentMessage` fields.
-
-### beforeSubmitPrompt - Allow/Deny
-
-```json
-{
-  "continue": true
-}
-```
-
-```json
-{
-  "continue": false
-}
-```
-
-Note: `beforeSubmitPrompt` only supports a boolean `continue` field. Context injection is **not** supported for Cursor prompts (unlike Claude Code).
-
-### afterFileEdit / stop
-
-These events return an empty response:
-
-```json
-{}
-```
-
-## Key Differences from Claude Code
-
-| Aspect              | Claude Code                    | Cursor                     |
-| ------------------- | ------------------------------ | -------------------------- |
-| Hook location       | Project or global              | Global only (`~/.cursor/`) |
-| Config file         | `.claude/settings.json`        | `~/.cursor/hooks.json`     |
-| Hook format         | Complex with `matcher`, `type` | Simple with just `command` |
-| Context injection   | Supported on prompts           | Not supported              |
-| PreToolUse response | `permissionDecision` in output | `permission` at top level  |
+- [Cursor Reference](../../reference/harnesses/cursor.md) - Events, response formats, hook configuration
+- [Writing Policies](../../reference/policies/custom.md) - Create custom Rego policies
+- [Cursor Tutorial](../../tutorials/cursor.md) - Hands-on walkthrough

@@ -5,7 +5,7 @@ description: "Setting up Cupcake with Factory AI"
 
 # Factory AI Setup
 
-Factory AI (Droid) supports both **project-level** and **global** configurations, similar to Claude Code. It uses the same hooks-based architecture.
+Factory AI (Droid) supports both **project-level** and **global** configurations. It uses a hooks-based architecture similar to Claude Code.
 
 ## Project Setup (Recommended)
 
@@ -15,18 +15,14 @@ Navigate to your project directory and initialize Cupcake:
 cupcake init --harness factory
 ```
 
-This creates a `.cupcake/` directory in your project with:
+This creates:
 
-- `policies/` - Your policy files
-- `rulebook.yml` - Configuration file
-- `signals/` - External data providers
-- `actions/` - Automated responses
-
-And configures Factory AI hooks at `.factory/settings.json`.
+- `.cupcake/` directory with policies and configuration
+- `.factory/settings.json` with hook configuration
 
 ## Global Setup
 
-For organization-wide policies that apply to all projects:
+For organization-wide policies:
 
 ```bash
 cupcake init --global --harness factory
@@ -34,161 +30,57 @@ cupcake init --global --harness factory
 
 This creates configuration at `~/.config/cupcake/` and sets up global hooks.
 
-## Enable Built-in Policies (Optional)
+## Enable Built-in Policies
 
 ```bash
-# Enable specific builtins
-cupcake init --harness factory --builtins git_pre_check,git_block_no_verify
+# Project-level builtins
+cupcake init --harness factory --builtins git_pre_check,protected_paths
 
-# Global with builtins
+# Global security builtins
 cupcake init --global --harness factory --builtins system_protection,sensitive_data_protection
 ```
 
-Available builtins include:
+**Project-level builtins:**
 
-- `git_pre_check` — Run checks before git operations
-- `git_block_no_verify` — Prevent `--no-verify` flag usage
-- `system_protection` — Protect system directories
-- `sensitive_data_protection` — Block access to sensitive files
-- `protected_paths` — Make specific paths read-only
-- `enforce_full_file_read` — Enforce reading entire files
+- `always_inject_on_prompt` - Add context to every user prompt
+- `git_pre_check` - Run checks before git operations
+- `git_block_no_verify` - Prevent `--no-verify` flag usage
+- `post_edit_check` - Run validation after file edits
+- `protected_paths` - Make specific paths read-only
+- `rulebook_security_guardrails` - Protect `.cupcake/` files
+- `enforce_full_file_read` - Enforce reading entire files
 
-See the [Built-in Configuration Reference](../../reference/builtin-config/) for complete details.
+**Global-level builtins:**
 
-## Hook Configuration
+- `system_protection` - Protect system directories
+- `sensitive_data_protection` - Block access to sensitive files
+- `cupcake_exec_protection` - Prevent cupcake binary execution
 
-The `init` command automatically configures Factory AI hooks in `.factory/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cupcake eval --harness factory --policy-dir \"$FACTORY_PROJECT_DIR\"/.cupcake"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Supported Events
-
-Factory AI supports these hook events:
-
-| Event              | When It Fires                | Use Case                       |
-| ------------------ | ---------------------------- | ------------------------------ |
-| `PreToolUse`       | Before executing any tool    | Block dangerous operations     |
-| `PostToolUse`      | After tool execution         | Validate results, run checks   |
-| `UserPromptSubmit` | Before sending prompt to LLM | Filter prompts, inject context |
-| `SessionStart`     | When session starts/resumes  | Load context, set environment  |
-| `SessionEnd`       | When session ends            | Cleanup, logging               |
-| `Stop`             | When agent stops             | Cleanup, logging               |
-| `SubagentStop`     | When subagent completes      | Subagent coordination          |
-| `PreCompact`       | Before memory compaction     | Preserve important context     |
-| `Notification`     | On agent notifications       | Monitor agent activity         |
-
-## Similarities with Claude Code
-
-Factory AI uses the same event structure as Claude Code, making policies portable between harnesses:
-
-| Field         | Factory AI                   | Claude Code                  |
-| ------------- | ---------------------------- | ---------------------------- |
-| Event type    | `input.hook_event_name`      | `input.hook_event_name`      |
-| Tool name     | `input.tool_name`            | `input.tool_name`            |
-| Shell command | `input.tool_input.command`   | `input.tool_input.command`   |
-| File path     | `input.tool_input.file_path` | `input.tool_input.file_path` |
-| Prompt        | `input.prompt`               | `input.prompt`               |
-
-Many policies can be shared across both harnesses without modification.
+See the [Built-in Configuration Reference](../../reference/builtin-config.md) for complete details.
 
 ## Verify Installation
 
-Test that Cupcake is working correctly:
+Test that Cupcake is working:
 
-### 1. Create a test event
-
-Save this to `test-event.json`:
-
-```json
+```bash
+# Create test event
+cat > test-event.json << 'EOF'
 {
   "hookEventName": "PreToolUse",
-  "sessionId": "test-session",
+  "sessionId": "test",
   "transcriptPath": "/tmp/transcript.md",
   "cwd": "/tmp",
   "permissionMode": "default",
   "tool_name": "Bash",
-  "tool_input": {
-    "command": "echo 'Hello from Cupcake!'"
-  }
+  "tool_input": { "command": "echo 'Hello from Cupcake!'" }
 }
+EOF
+
+# Evaluate
+cupcake eval --harness factory < test-event.json
 ```
 
-### 2. Evaluate the event
-
-```bash
-cupcake eval --harness factory --policy-dir .cupcake/policies < test-event.json
-```
-
-### 3. Expected output
-
-You should see a JSON response indicating the command is allowed:
+Expected output:
 
 ```json
 {
@@ -199,52 +91,7 @@ You should see a JSON response indicating the command is allowed:
 }
 ```
 
-## Response Formats
+## Next Steps
 
-### PreToolUse - Allow
-
-```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow"
-  }
-}
-```
-
-### PreToolUse - Deny
-
-```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "Dangerous command blocked by policy"
-  }
-}
-```
-
-### PreToolUse - Ask
-
-```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "This operation requires confirmation"
-  }
-}
-```
-
-### UserPromptSubmit - Context Injection
-
-```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "UserPromptSubmit",
-    "additionalContext": "Remember to run tests before committing"
-  }
-}
-```
-
-Context injection is supported on `UserPromptSubmit` and `SessionStart` events.
+- [Factory AI Reference](../../reference/harnesses/factory-ai.md) - Events, response formats, hook configuration
+- [Writing Policies](../../reference/policies/custom.md) - Create custom Rego policies

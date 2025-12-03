@@ -10,30 +10,21 @@ description: "Make AI agents follow the rules"
 Cupcake is a guard dog (more specifically, a policy enforcement layer) for AI coding agents that delivers better performance, reliability, and security _without_ consuming model context.
 
 - **Deterministic rule-following** for your agents
-- **Boost performance** by moving rules out of context and into guarantees
+- **Better performance** by moving rules out of context and into guarantees
 - **Trigger alerts** when agents repeatedly violate rules
+- **LLM-as-a-judge** for more dynamic governance
 
 Cupcake intercepts agent tool calls and evaluates them against user-defined rules written in [Open Policy Agent (OPA) Rego](https://www.openpolicyagent.org/). Agent actions can be blocked or auto-corrected, with reactive automation for tasks you don't need to rely on the agent to conduct.
 
-Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
-
-## Why Cupcake?
-
-Modern AI agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into enforceable guardrails that run before actions execute.
-
-- **Multi-harness support** with first-class integrations for Claude Code and Cursor
-- **Governance-as-code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation
-- **Enterprise-ready controls:** allow/deny/review, audit trails, and proactive warnings
-
 ## How It Works
+
+[![Cupcake architecture diagram showing policy-based control flow: rules from Claude Code, Cursor and other agents are compiled to OPA Rego policies via WebAssembly, then Cupcake evaluates agent events and returns allow, deny, or halt decisions](assets/cupcake-flow.png)](assets/cupcake-flow.png)
 
 Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
 
-**Allow** · **Block** · **Warn** · **Require Review**
+**Allow** · **Deny** · **Halt**
 
-```text
-Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
-```
+A core pillar of Cupcake is **deterministic guarantees**—policies that always behave the same way given the same input. However, the nature of AI and where it's headed requires more dynamic policy gating. Agents can be prompted, confused, or manipulated in ways that static rules can't anticipate. That's why we developed [**Cupcake Watchdog**](/watchdog/getting-started.md), a built-in feature that uses LLM-as-a-judge to evaluate your rules and context and make intelligent determinations on the fly.
 
 ### Core Capabilities
 
@@ -66,3 +57,15 @@ Each harness uses native event formats—no normalization layer. Policies are ph
 ## Getting Started
 
 Install Cupcake and set up your first policy in minutes. Check out our [Installation Guide](/getting-started/installation.md) to get started.
+
+## Why Cupcake?
+
+Modern AI agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into enforceable guardrails that run before actions execute.
+
+- **Multi-harness support** with first-class integrations for Claude Code and Cursor
+- **Governance-as-code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation
+- **Enterprise-ready controls:** allow/deny/review, audit trails, and proactive warnings
+
+## Built By
+
+Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).

@@ -57,6 +57,7 @@ nav = [
     ]}
   ]},
   { "Reference" = [
+    "reference/determinism.md",
     { "Cupcake CLI" = "reference/cupcake-cli.md"},
     { "Harnesses" = [
       "reference/harnesses/index.md",

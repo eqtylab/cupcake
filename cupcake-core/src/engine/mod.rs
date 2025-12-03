@@ -221,6 +221,11 @@ pub struct EngineConfig {
     /// If None, uses platform-specific default (~/.config/cupcake or ~/Library/Application Support/cupcake)
     pub global_config: Option<PathBuf>,
 
+    /// Skip global config discovery entirely
+    /// If true, no global policies will be loaded regardless of global_config setting
+    /// Useful for testing and isolated environments
+    pub skip_global_config: bool,
+
     /// Enable routing diagnostics debug output
     /// If true, writes routing maps to .cupcake/debug/routing/
     pub debug_routing: bool,
@@ -234,6 +239,20 @@ impl EngineConfig {
             wasm_max_memory: None,
             opa_path: None,
             global_config: None,
+            skip_global_config: false,
+            debug_routing: false,
+        }
+    }
+
+    /// Create a new EngineConfig that skips global config discovery
+    /// Useful for testing to ensure isolation from system-wide configuration
+    pub fn new_without_global(harness: crate::harness::types::HarnessType) -> Self {
+        Self {
+            harness,
+            wasm_max_memory: None,
+            opa_path: None,
+            global_config: None,
+            skip_global_config: true,
             debug_routing: false,
         }
     }
@@ -371,10 +390,12 @@ impl Engine {
     async fn initialize(&mut self) -> Result<()> {
         info!("Starting engine initialization...");
 
-        // Step 0A: Initialize global configuration first (if it exists)
-        if self.paths.global_root.is_some() {
+        // Step 0A: Initialize global configuration first (if it exists and not skipped)
+        if self.paths.global_root.is_some() && !self.config.skip_global_config {
             info!("Global configuration detected - initializing global policies first");
             self.initialize_global().await?;
+        } else if self.config.skip_global_config {
+            info!("Skipping global configuration (skip_global_config=true)");
         }
 
         // Step 0B: Load project rulebook to get builtin configuration

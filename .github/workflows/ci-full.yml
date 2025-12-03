@@ -15,6 +15,18 @@ on:
       # Policy/fixture changes that affect tests
       - "fixtures/**"
       - "**.rego"
+  pull_request:
+    branches: [main]
+    paths:
+      # Rust code changes
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      # CI workflow changes
+      - ".github/workflows/ci-full.yml"
+      # Policy/fixture changes that affect tests
+      - "fixtures/**"
+      - "**.rego"
   workflow_dispatch:
 
 env:

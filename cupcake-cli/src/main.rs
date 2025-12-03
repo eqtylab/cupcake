@@ -401,6 +401,7 @@ async fn main() -> Result<()> {
                 wasm_max_memory: Some(cli.wasm_max_memory.bytes),
                 opa_path: cli.opa_path.clone(),
                 global_config: cli.global_config.clone(),
+                skip_global_config: false, // CLI never skips global config
                 debug_routing: cli.debug_routing,
             };
 

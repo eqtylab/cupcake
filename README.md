@@ -32,6 +32,8 @@ Cupcake provides **native integrations** for multiple AI coding agents:
 | **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
+Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
+
 #### Language Bindings
 
 Cupcake can be embedded in Python or JavaScript agent applications through native bindings. This enables integration with web-based agent frameworks like LangChain, Google ADK, NVIDIA NIM, Vercel AI SDK, and more.
@@ -40,10 +42,6 @@ Cupcake can be embedded in Python or JavaScript agent applications through nativ
 | ----------------------------------------------------------------------------- | -------------- |
 | <img src="docs/docs/assets/python.svg" width="24" height="24"> Python         | `./cupcake-py` |
 | <img src="docs/docs/assets/typescript.svg" width="24" height="24"> TypeScript | `./cupcake-ts` |
-
-Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
-
-**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
 
 ## Why Cupcake?
 

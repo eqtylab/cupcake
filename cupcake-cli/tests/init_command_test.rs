@@ -26,27 +26,38 @@ fn get_cupcake_binary() -> PathBuf {
     }
 }
 
-/// Helper to run the init command in a test directory
-fn run_init_in_temp_dir() -> Result<(TempDir, PathBuf)> {
+/// Helper to run the init command with a specific harness in a test directory
+fn run_init_with_harness(harness: &str) -> Result<(TempDir, PathBuf)> {
     // Create a temporary directory that will be cleaned up automatically
     let temp_dir = TempDir::new()?;
     let project_path = temp_dir.path().to_path_buf();
 
-    // Run cupcake init in the temp directory
+    // Run cupcake init --harness <harness> in the temp directory
     let output = Command::new(get_cupcake_binary())
-        .arg("init")
+        .args(["init", "--harness", harness])
         .current_dir(&project_path)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("cupcake init failed: {}", stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        anyhow::bail!(
+            "cupcake init --harness {} failed:\nstderr: {}\nstdout: {}",
+            harness,
+            stderr,
+            stdout
+        );
     }
 
     Ok((temp_dir, project_path))
 }
 
-/// Verify the exact directory structure is created
+/// Helper to run init with claude harness (most common case)
+fn run_init_in_temp_dir() -> Result<(TempDir, PathBuf)> {
+    run_init_with_harness("claude")
+}
+
+/// Verify the exact directory structure is created for Claude harness
 #[test]
 fn test_init_creates_correct_directory_structure() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
@@ -56,15 +67,13 @@ fn test_init_creates_correct_directory_structure() -> Result<()> {
     assert!(cupcake_dir.exists(), ".cupcake directory should exist");
     assert!(cupcake_dir.is_dir(), ".cupcake should be a directory");
 
-    // Verify all required subdirectories exist (harness-specific structure)
+    // Verify all required subdirectories exist (only claude harness)
     let expected_dirs = vec![
         "policies",
         "policies/claude",
         "policies/claude/system",
         "policies/claude/builtins",
-        "policies/cursor",
-        "policies/cursor/system",
-        "policies/cursor/builtins",
+        "policies/helpers",
         "signals",
         "actions",
     ];
@@ -81,19 +90,34 @@ fn test_init_creates_correct_directory_structure() -> Result<()> {
         );
     }
 
+    // Verify other harness directories do NOT exist
+    assert!(
+        !cupcake_dir.join("policies/cursor").exists(),
+        "Cursor directory should NOT exist when initializing with Claude"
+    );
+    assert!(
+        !cupcake_dir.join("policies/factory").exists(),
+        "Factory directory should NOT exist when initializing with Claude"
+    );
+    assert!(
+        !cupcake_dir.join("policies/opencode").exists(),
+        "OpenCode directory should NOT exist when initializing with Claude"
+    );
+
     Ok(())
 }
 
-/// Verify all expected files are created
+/// Verify all expected files are created for Claude harness
 #[test]
 fn test_init_creates_all_required_files() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
     let cupcake_dir = project_path.join(".cupcake");
 
-    // List of all files that should be created (harness-specific structure)
+    // List of all files that should be created (Claude harness only)
     let expected_files = vec![
         "rulebook.yml",
         "policies/example.rego",
+        "policies/helpers/commands.rego",
         // Claude harness files
         "policies/claude/system/evaluate.rego",
         "policies/claude/builtins/claude_code_always_inject_on_prompt.rego",
@@ -103,13 +127,6 @@ fn test_init_creates_all_required_files() -> Result<()> {
         "policies/claude/builtins/post_edit_check.rego",
         "policies/claude/builtins/protected_paths.rego",
         "policies/claude/builtins/rulebook_security_guardrails.rego",
-        // Cursor harness files
-        "policies/cursor/system/evaluate.rego",
-        "policies/cursor/builtins/git_block_no_verify.rego",
-        "policies/cursor/builtins/git_pre_check.rego",
-        "policies/cursor/builtins/post_edit_check.rego",
-        "policies/cursor/builtins/protected_paths.rego",
-        "policies/cursor/builtins/rulebook_security_guardrails.rego",
     ];
 
     for file_name in expected_files {
@@ -181,7 +198,7 @@ fn test_rulebook_yml_content() -> Result<()> {
 #[test]
 fn test_system_evaluate_policy_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    // Check Claude harness evaluate.rego (both harnesses have the same content)
+    // Check Claude harness evaluate.rego
     let evaluate_path = project_path.join(".cupcake/policies/claude/system/evaluate.rego");
 
     let content = fs::read_to_string(&evaluate_path)?;
@@ -253,7 +270,7 @@ fn test_system_evaluate_policy_content() -> Result<()> {
 #[test]
 fn test_builtin_policies_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    // Check Claude harness builtins (most comprehensive set)
+    // Check Claude harness builtins
     let builtins_dir = project_path.join(".cupcake/policies/claude/builtins");
 
     // Test git_pre_check.rego
@@ -315,7 +332,7 @@ fn test_builtin_policies_content() -> Result<()> {
     Ok(())
 }
 
-/// Test that init is idempotent - running twice doesn't break anything
+/// Test that init is idempotent - running twice with same harness doesn't break anything
 #[test]
 fn test_init_idempotent() -> Result<()> {
     let temp_dir = TempDir::new()?;
@@ -324,7 +341,7 @@ fn test_init_idempotent() -> Result<()> {
 
     // First init
     let output = Command::new(&cupcake_bin)
-        .arg("init")
+        .args(["init", "--harness", "claude"])
         .current_dir(&project_path)
         .output()?;
     assert!(output.status.success(), "First init should succeed");
@@ -336,9 +353,9 @@ fn test_init_idempotent() -> Result<()> {
     let rulebook_path = project_path.join(".cupcake/rulebook.yml");
     let original_content = fs::read_to_string(&rulebook_path)?;
 
-    // Second init should be safe
+    // Second init with same harness should be safe
     let output = Command::new(&cupcake_bin)
-        .arg("init")
+        .args(["init", "--harness", "claude"])
         .current_dir(&project_path)
         .output()?;
     assert!(output.status.success(), "Second init should succeed");
@@ -481,7 +498,7 @@ fn test_rulebook_yml_is_valid_yaml() -> Result<()> {
     Ok(())
 }
 
-/// Verify file count matches expectations
+/// Verify file count matches expectations for Claude harness
 #[test]
 fn test_correct_number_of_files_created() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
@@ -507,27 +524,271 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // We should have exactly 33 files in harness-specific structure:
+    // For Claude harness only:
     // - 1 rulebook.yml
     // - 1 example.rego
     // - 1 helper (commands.rego)
     // - Claude: 1 evaluate.rego + 7 builtins = 8 files
-    // - Cursor: 1 evaluate.rego + 5 builtins = 6 files (no always_inject_on_prompt or enforce_full_file_read)
-    // - Factory: 1 evaluate.rego + 7 builtins = 8 files
-    // - OpenCode: 1 evaluate.rego + 7 builtins = 8 files
-    // Total: 1 + 1 + 1 + 8 + 6 + 8 + 8 = 33 files
+    // Total: 1 + 1 + 1 + 8 = 11 files
     assert_eq!(
-        file_count, 33,
-        "Should have exactly 33 files (1 rulebook + 1 example + 1 helper + 8 claude + 6 cursor + 8 factory + 8 opencode)"
+        file_count, 11,
+        "Should have exactly 11 files (1 rulebook + 1 example + 1 helper + 1 evaluate + 7 builtins)"
     );
 
-    // We should have exactly 16 directories:
+    // We should have exactly 7 directories:
     // actions, signals, policies, policies/helpers,
-    // policies/claude, policies/claude/system, policies/claude/builtins,
-    // policies/cursor, policies/cursor/system, policies/cursor/builtins,
-    // policies/factory, policies/factory/system, policies/factory/builtins,
-    // policies/opencode, policies/opencode/system, policies/opencode/builtins
-    assert_eq!(dir_count, 16, "Should have exactly 16 directories");
+    // policies/claude, policies/claude/system, policies/claude/builtins
+    assert_eq!(dir_count, 7, "Should have exactly 7 directories");
 
     Ok(())
 }
+
+/// Test that Cursor harness creates correct structure
+#[test]
+fn test_init_cursor_creates_cursor_only() -> Result<()> {
+    let (_temp_dir, project_path) = run_init_with_harness("cursor")?;
+    let cupcake_dir = project_path.join(".cupcake");
+
+    // Cursor directory should exist
+    assert!(cupcake_dir.join("policies/cursor/system").exists());
+    assert!(cupcake_dir.join("policies/cursor/builtins").exists());
+
+    // Other harness directories should NOT exist
+    assert!(
+        !cupcake_dir.join("policies/claude").exists(),
+        "Claude directory should NOT exist when initializing with Cursor"
+    );
+    assert!(
+        !cupcake_dir.join("policies/factory").exists(),
+        "Factory directory should NOT exist when initializing with Cursor"
+    );
+    assert!(
+        !cupcake_dir.join("policies/opencode").exists(),
+        "OpenCode directory should NOT exist when initializing with Cursor"
+    );
+
+    // Cursor should have 5 builtins (no always_inject_on_prompt or enforce_full_file_read)
+    let builtins_dir = cupcake_dir.join("policies/cursor/builtins");
+    let builtin_count = fs::read_dir(&builtins_dir)?.count();
+    assert_eq!(builtin_count, 5, "Cursor should have 5 builtins");
+
+    Ok(())
+}
+
+/// Test that OpenCode harness creates correct structure
+#[test]
+fn test_init_opencode_creates_opencode_only() -> Result<()> {
+    let (_temp_dir, project_path) = run_init_with_harness("opencode")?;
+    let cupcake_dir = project_path.join(".cupcake");
+
+    // OpenCode directory should exist
+    assert!(cupcake_dir.join("policies/opencode/system").exists());
+    assert!(cupcake_dir.join("policies/opencode/builtins").exists());
+
+    // Other harness directories should NOT exist
+    assert!(
+        !cupcake_dir.join("policies/claude").exists(),
+        "Claude directory should NOT exist when initializing with OpenCode"
+    );
+    assert!(
+        !cupcake_dir.join("policies/cursor").exists(),
+        "Cursor directory should NOT exist when initializing with OpenCode"
+    );
+    assert!(
+        !cupcake_dir.join("policies/factory").exists(),
+        "Factory directory should NOT exist when initializing with OpenCode"
+    );
+
+    // OpenCode should have 7 builtins (same as Claude)
+    let builtins_dir = cupcake_dir.join("policies/opencode/builtins");
+    let builtin_count = fs::read_dir(&builtins_dir)?.count();
+    assert_eq!(builtin_count, 7, "OpenCode should have 7 builtins");
+
+    Ok(())
+}
+
+/// Test that Factory harness creates correct structure
+#[test]
+fn test_init_factory_creates_factory_only() -> Result<()> {
+    let (_temp_dir, project_path) = run_init_with_harness("factory")?;
+    let cupcake_dir = project_path.join(".cupcake");
+
+    // Factory directory should exist
+    assert!(cupcake_dir.join("policies/factory/system").exists());
+    assert!(cupcake_dir.join("policies/factory/builtins").exists());
+
+    // Other harness directories should NOT exist
+    assert!(
+        !cupcake_dir.join("policies/claude").exists(),
+        "Claude directory should NOT exist when initializing with Factory"
+    );
+    assert!(
+        !cupcake_dir.join("policies/cursor").exists(),
+        "Cursor directory should NOT exist when initializing with Factory"
+    );
+    assert!(
+        !cupcake_dir.join("policies/opencode").exists(),
+        "OpenCode directory should NOT exist when initializing with Factory"
+    );
+
+    // Factory should have 7 builtins (same as Claude)
+    let builtins_dir = cupcake_dir.join("policies/factory/builtins");
+    let builtin_count = fs::read_dir(&builtins_dir)?.count();
+    assert_eq!(builtin_count, 7, "Factory should have 7 builtins");
+
+    Ok(())
+}
+
+/// Test adding a second harness to an existing project
+#[test]
+fn test_init_can_add_second_harness() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_path = temp_dir.path().to_path_buf();
+    let cupcake_bin = get_cupcake_binary();
+
+    // First init with claude
+    let output = Command::new(&cupcake_bin)
+        .args(["init", "--harness", "claude"])
+        .current_dir(&project_path)
+        .output()?;
+    assert!(
+        output.status.success(),
+        "First init with claude should succeed"
+    );
+
+    // Verify only claude exists
+    assert!(project_path.join(".cupcake/policies/claude").exists());
+    assert!(!project_path.join(".cupcake/policies/cursor").exists());
+
+    // Second init with cursor
+    let output = Command::new(&cupcake_bin)
+        .args(["init", "--harness", "cursor"])
+        .current_dir(&project_path)
+        .output()?;
+    assert!(
+        output.status.success(),
+        "Second init with cursor should succeed"
+    );
+
+    // Verify output indicates adding harness
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Added cursor harness"),
+        "Should indicate adding cursor harness to existing project"
+    );
+
+    // Both should now exist
+    assert!(
+        project_path
+            .join(".cupcake/policies/claude/system")
+            .exists(),
+        "Claude should still exist after adding cursor"
+    );
+    assert!(
+        project_path
+            .join(".cupcake/policies/cursor/system")
+            .exists(),
+        "Cursor should exist after being added"
+    );
+
+    // Verify cursor has correct builtins
+    let cursor_builtins_dir = project_path.join(".cupcake/policies/cursor/builtins");
+    let cursor_builtin_count = fs::read_dir(&cursor_builtins_dir)?.count();
+    assert_eq!(cursor_builtin_count, 5, "Cursor should have 5 builtins");
+
+    // Verify claude still has its builtins
+    let claude_builtins_dir = project_path.join(".cupcake/policies/claude/builtins");
+    let claude_builtin_count = fs::read_dir(&claude_builtins_dir)?.count();
+    assert_eq!(
+        claude_builtin_count, 7,
+        "Claude should still have 7 builtins"
+    );
+
+    Ok(())
+}
+
+/// Test that init without --harness flag prompts for selection (or fails with no stdin)
+#[test]
+fn test_init_without_harness_requires_selection() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let cupcake_bin = get_cupcake_binary();
+
+    // Run without --harness flag and with empty stdin
+    let output = Command::new(&cupcake_bin)
+        .arg("init")
+        .current_dir(temp_dir.path())
+        .stdin(std::process::Stdio::null()) // No interactive input
+        .output()?;
+
+    // Should fail because no harness was selected
+    // (stdin is null so the interactive prompt can't get input)
+    assert!(
+        !output.status.success(),
+        "Init without --harness and no stdin should fail"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show the selection menu in stdout or indicate invalid selection
+    assert!(
+        stdout.contains("Select a harness to initialize")
+            || stderr.contains("Invalid selection")
+            || stderr.contains("error"),
+        "Should show harness selection menu or error. stdout: {}, stderr: {}",
+        stdout,
+        stderr
+    );
+
+    Ok(())
+}
+
+/// Test that each harness can be loaded by the engine
+#[tokio::test]
+async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
+    // Test each harness type
+    let harnesses = [
+        (
+            "claude",
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        ),
+        ("cursor", cupcake_core::harness::types::HarnessType::Cursor),
+        (
+            "factory",
+            cupcake_core::harness::types::HarnessType::Factory,
+        ),
+        (
+            "opencode",
+            cupcake_core::harness::types::HarnessType::OpenCode,
+        ),
+    ];
+
+    for (harness_name, harness_type) in harnesses {
+        let (_temp_dir, project_path) = run_init_with_harness(harness_name)?;
+
+        // Try to create an engine with the initialized structure
+        let engine = cupcake_core::engine::Engine::new(&project_path, harness_type)
+            .await
+            .with_context(|| format!("Engine creation failed for {harness_name} harness"))?;
+
+        // Verify we can evaluate a simple input
+        let test_input = serde_json::json!({
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "test"
+        });
+
+        let decision = engine.evaluate(&test_input, None).await?;
+
+        assert!(
+            matches!(
+                decision,
+                cupcake_core::engine::decision::FinalDecision::Allow { .. }
+            ),
+            "{harness_name} harness should return Allow decision for simple test input"
+        );
+    }
+
+    Ok(())
+}
+
+use anyhow::Context;

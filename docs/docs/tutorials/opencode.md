@@ -174,15 +174,3 @@ cupcake inspect --harness opencode # will show policies currently loaded
 ```bash
 cupcake inspect --harness opencode --table # shows a compact table format
 ```
-
----
-
-## Key Takeaways
-
-1. **Policies work transparently** - No changes needed to OpenCode itself
-2. **Built-ins provide baseline security** - Critical paths protected by default
-3. **Layered protection** - Global policies + project policies + built-ins
-4. **Real-time enforcement** - Commands blocked before execution
-5. **AI-resistant** - Agents cannot easily bypass security policies
-
-Explore the policy files in `.cupcake/policies/opencode/` to understand how this protection works under the hood.

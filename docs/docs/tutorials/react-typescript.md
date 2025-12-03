@@ -489,18 +489,3 @@ Update src/App.tsx and add a new button
 Cupcake will block the action with: "CODE FREEZE is active. Remove 'CODE FREEZE' from README.md to resume development."
 
 Remove "CODE FREEZE" from README.md and Claude can edit files normally.
-
----
-
-## Key Takeaways
-
-1. **Routing metadata** controls when policies run (which events, which tools)
-2. **Content normalization** lets you write DRY policies for Write and Edit
-3. **Signals** provide dynamic data from external scripts
-4. **Decision objects** give Claude clear feedback on what went wrong and how to fix it
-
-## Next Steps
-
-- [Built-in Policies](../reference/policies/builtins.md) - Enable pre-built security policies
-- [Custom Policies](../reference/policies/custom.md) - Deep dive into Rego policy syntax
-- [Hooks Reference](../reference/hooks.md) - Complete hook and tool compatibility matrix

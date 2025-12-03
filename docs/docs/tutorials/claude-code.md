@@ -272,24 +272,12 @@ The signal (`check_appointment_time.py`) dynamically extracts the appointment ID
 
 2. Signals also allow you to do advanced guard railing. Cupcake itself does not intend to be a scanning or classifier type of system, such as NVIDIA NeMo or Invariant guardrails. However, you can use those types of guardrails (LLM-based evaluations, AI as a judge, AI classifiers, etc.) to evaluate the tool calls and ultimately make the decision on whether to allow or deny. Cupcake is simple in that it can accept outputs from the advance guardrail systems as the decision. The Cupcake policy is simple in those cases.
 
-### Cleanup
+#### Cleanup
 
 When done testing:
 
 ```bash
 ./mcp_cleanup.sh
 ```
-
----
-
-## Key Takeaways
-
-1. **Policies work transparently** - No changes needed to Claude Code itself
-2. **Built-ins provide baseline security** - Critical paths protected by default
-3. **Layered protection** - Global policies + project policies + built-ins
-4. **Real-time enforcement** - Commands blocked before execution
-5. **AI-resistant** - Agents cannot easily bypass security policies
-
-Explore the policy files in `.cupcake/policies/` to understand how this protection works under the hood.
 
 [^1]: Fun fact: The cupcake team issued the [original feature request for Hooks in Claude Code](https://github.com/anthropics/claude-code/issues/712)!

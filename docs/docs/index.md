@@ -18,7 +18,7 @@ Cupcake intercepts agent tool calls and evaluates them against user-defined rule
 
 ## How It Works
 
-[![Cupcake architecture diagram showing policy-based control flow: rules from Claude Code, Cursor and other agents are compiled to OPA Rego policies via WebAssembly, then Cupcake evaluates agent events and returns allow, deny, or halt decisions](assets/flow-cupcake.avif)](assets/flow-cupcake.avif)
+[![Cupcake architecture diagram showing policy-based control flow: rules from Claude Code, Cursor and other agents are compiled to OPA Rego policies via WebAssembly, then Cupcake evaluates agent events and returns allow, deny, or halt decisions](assets/flow-cupcake.png)](assets/flow-cupcake.png)
 
 Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
 

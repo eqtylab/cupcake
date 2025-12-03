@@ -4,7 +4,7 @@ Cupcake supports both **deterministic** and **non-deterministic** guardrails, gi
 
 ## Deterministic Guardrails
 
-[![Cupcake deterministic policy engine: rules are compiled to OPA Rego policies via WebAssembly for fast, predictable evaluation with allow, deny, or halt decisions](../assets/flow-cupcake.avif)](../assets/flow-cupcake.avif)
+[![Cupcake deterministic policy engine: rules are compiled to OPA Rego policies via WebAssembly for fast, predictable evaluation with allow, deny, or halt decisions](../assets/flow-cupcake.png)](../assets/flow-cupcake.png)
 
 Deterministic policies always produce the same output given the same input. They are:
 
@@ -17,7 +17,7 @@ Use deterministic policies for hard requirements: blocking dangerous commands, p
 
 ## Non-Deterministic Guardrails (Watchdog)
 
-[![Cupcake Watchdog LLM-as-a-judge: uses AI to dynamically evaluate agent actions against your rules and context, catching threats that static patterns miss](../assets/flow-watchdog.avif)](../assets/flow-watchdog.avif)
+[![Cupcake Watchdog LLM-as-a-judge: uses AI to dynamically evaluate agent actions against your rules and context, catching threats that static patterns miss](../assets/flow-watchdog.png)](../assets/flow-watchdog.png)
 
 Non-deterministic policies use LLM-as-a-judge to evaluate actions semantically. They are:
 

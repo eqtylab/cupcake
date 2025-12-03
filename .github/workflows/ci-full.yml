@@ -97,6 +97,28 @@ jobs:
       - name: Build release binary first
         run: cargo build --release
 
+      - name: Clean up any existing global config (test isolation)
+        shell: bash
+        run: |
+          # Remove any pre-existing global cupcake config to ensure test isolation
+          # This prevents interference from previous CI runs on self-hosted runners
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            CONFIG_DIR="$HOME/.config/cupcake"
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            CONFIG_DIR="$HOME/Library/Application Support/cupcake"
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            CONFIG_DIR="$APPDATA/cupcake"
+          fi
+
+          if [ -d "$CONFIG_DIR" ]; then
+            echo "Found existing global config at: $CONFIG_DIR"
+            echo "Removing for test isolation..."
+            rm -rf "$CONFIG_DIR"
+            echo "Cleaned up global config directory"
+          else
+            echo "No existing global config found at: $CONFIG_DIR"
+          fi
+
       - name: Run unit and integration tests
         run: |
           cargo test --features deterministic-tests --lib --bins --tests

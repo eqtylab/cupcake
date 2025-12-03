@@ -7,14 +7,14 @@ on:
     branches: [main]
     paths:
       # Rust code changes
-      - '**.rs'
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
       # CI workflow changes
-      - '.github/workflows/ci.yml'
+      - ".github/workflows/ci.yml"
       # Policy/fixture changes that affect tests
-      - 'fixtures/**'
-      - '**.rego'
+      - "fixtures/**"
+      - "**.rego"
   workflow_dispatch:
 
 env:
@@ -63,6 +63,19 @@ jobs:
           chmod +x opa
           sudo mv opa /usr/local/bin/
           opa version
+
+      - name: Clean up any existing global config (test isolation)
+        run: |
+          # Remove any pre-existing global cupcake config to ensure test isolation
+          CONFIG_DIR="$HOME/.config/cupcake"
+          if [ -d "$CONFIG_DIR" ]; then
+            echo "Found existing global config at: $CONFIG_DIR"
+            echo "Removing for test isolation..."
+            rm -rf "$CONFIG_DIR"
+            echo "Cleaned up global config directory"
+          else
+            echo "No existing global config found at: $CONFIG_DIR"
+          fi
 
       - name: Run unit tests
         run: |

@@ -382,33 +382,51 @@ fn test_init_idempotent() -> Result<()> {
 #[tokio::test]
 #[serial(home_env)]
 async fn test_init_creates_valid_engine_structure() -> Result<()> {
-    let (_temp_dir, project_path) = run_init_in_temp_dir()?;
+    // Save original HOME and set to a temp directory to prevent global config discovery
+    let original_home = std::env::var("HOME").ok();
+    let home_temp_dir = TempDir::new()?;
+    std::env::set_var("HOME", home_temp_dir.path());
 
-    // Try to create an engine with the initialized structure
-    // This verifies that all policies compile and the structure is valid
-    let engine = cupcake_core::engine::Engine::new(
-        &project_path,
-        cupcake_core::harness::types::HarnessType::ClaudeCode,
-    )
-    .await?;
+    let result = async {
+        let (_temp_dir, project_path) = run_init_in_temp_dir()?;
 
-    // Verify we can evaluate a simple input
-    let test_input = serde_json::json!({
-        "hook_event_name": "UserPromptSubmit",
-        "prompt": "test"
-    });
+        // Try to create an engine with the initialized structure
+        // This verifies that all policies compile and the structure is valid
+        let engine = cupcake_core::engine::Engine::new(
+            &project_path,
+            cupcake_core::harness::types::HarnessType::ClaudeCode,
+        )
+        .await?;
 
-    let decision = engine.evaluate(&test_input, None).await?;
+        // Verify we can evaluate a simple input
+        let test_input = serde_json::json!({
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "test"
+        });
 
-    // Should get an Allow decision (no policies should fire on this simple input)
-    assert!(
-        matches!(
-            decision,
-            cupcake_core::engine::decision::FinalDecision::Allow { .. }
-        ),
-        "Should get Allow decision for simple test input"
-    );
+        let decision = engine.evaluate(&test_input, None).await?;
 
+        // Should get an Allow decision (no policies should fire on this simple input)
+        assert!(
+            matches!(
+                decision,
+                cupcake_core::engine::decision::FinalDecision::Allow { .. }
+            ),
+            "Should get Allow decision for simple test input"
+        );
+
+        Ok::<(), anyhow::Error>(())
+    }
+    .await;
+
+    // Restore original HOME (cleanup even if test fails)
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+
+    result?;
     Ok(())
 }
 
@@ -749,6 +767,12 @@ fn test_init_without_harness_requires_selection() -> Result<()> {
 #[tokio::test]
 #[serial(home_env)]
 async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
+    // Save original HOME and set to a temp directory to prevent global config discovery
+    // This ensures the test is isolated from any pre-existing global config on CI runners
+    let original_home = std::env::var("HOME").ok();
+    let home_temp_dir = TempDir::new()?;
+    std::env::set_var("HOME", home_temp_dir.path());
+
     // Test each harness type
     let harnesses = [
         (
@@ -766,31 +790,43 @@ async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
         ),
     ];
 
-    for (harness_name, harness_type) in harnesses {
-        let (_temp_dir, project_path) = run_init_with_harness(harness_name)?;
+    let result = async {
+        for (harness_name, harness_type) in harnesses {
+            let (_temp_dir, project_path) = run_init_with_harness(harness_name)?;
 
-        // Try to create an engine with the initialized structure
-        let engine = cupcake_core::engine::Engine::new(&project_path, harness_type)
-            .await
-            .with_context(|| format!("Engine creation failed for {harness_name} harness"))?;
+            // Try to create an engine with the initialized structure
+            let engine = cupcake_core::engine::Engine::new(&project_path, harness_type)
+                .await
+                .with_context(|| format!("Engine creation failed for {harness_name} harness"))?;
 
-        // Verify we can evaluate a simple input
-        let test_input = serde_json::json!({
-            "hook_event_name": "UserPromptSubmit",
-            "prompt": "test"
-        });
+            // Verify we can evaluate a simple input
+            let test_input = serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "test"
+            });
 
-        let decision = engine.evaluate(&test_input, None).await?;
+            let decision = engine.evaluate(&test_input, None).await?;
 
-        assert!(
-            matches!(
-                decision,
-                cupcake_core::engine::decision::FinalDecision::Allow { .. }
-            ),
-            "{harness_name} harness should return Allow decision for simple test input"
-        );
+            assert!(
+                matches!(
+                    decision,
+                    cupcake_core::engine::decision::FinalDecision::Allow { .. }
+                ),
+                "{harness_name} harness should return Allow decision for simple test input"
+            );
+        }
+        Ok::<(), anyhow::Error>(())
+    }
+    .await;
+
+    // Restore original HOME (cleanup even if test fails)
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
     }
 
+    result?;
     Ok(())
 }
 

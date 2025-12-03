@@ -5,6 +5,7 @@
 //! all environments including CI.
 
 use anyhow::Result;
+use serial_test::serial;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -379,6 +380,7 @@ fn test_init_idempotent() -> Result<()> {
 
 /// Test that the created structure can be loaded by the engine
 #[tokio::test]
+#[serial(home_env)]
 async fn test_init_creates_valid_engine_structure() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
 
@@ -745,6 +747,7 @@ fn test_init_without_harness_requires_selection() -> Result<()> {
 
 /// Test that each harness can be loaded by the engine
 #[tokio::test]
+#[serial(home_env)]
 async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
     // Test each harness type
     let harnesses = [

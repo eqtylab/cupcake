@@ -320,7 +320,7 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
             wasm_max_memory: None,
             opa_path: None,
             skip_global_config: false,
-        debug_routing: false,
+            debug_routing: false,
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed without trust
@@ -340,7 +340,7 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
             wasm_max_memory: None,
             opa_path: None,
             skip_global_config: false,
-        debug_routing: false,
+            debug_routing: false,
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should succeed with trust
@@ -359,7 +359,7 @@ async fn test_trust_verifier_lifecycle() -> Result<()> {
             wasm_max_memory: None,
             opa_path: None,
             skip_global_config: false,
-        debug_routing: false,
+            debug_routing: false,
         };
         let _engine = Engine::new_with_config(project.path(), config).await?;
         // Should still succeed

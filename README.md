@@ -32,13 +32,14 @@ Cupcake provides **native integrations** for multiple AI coding agents:
 | **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-Cupcake provides native integrations for multiple web agent frameworks:
+#### Language Bindings
 
-| Harness    | Status      | Integration Guide |
-| ---------- | ----------- | ----------------- |
-| LangChain  | Coming soon | Coming soon       |
-| Google ADK | Coming soon | Coming soon       |
-| NVIDIA NAT | Coming soon | Coming soon       |
+Cupcake can be embedded in Python or JavaScript agent applications through native bindings. This enables integration with web-based agent frameworks like LangChain, Google ADK, NVIDIA NIM, Vercel AI SDK, and more.
+
+| Language                                                                | Binding            |
+| ----------------------------------------------------------------------- | ------------------ |
+| ![Python](docs/docs/assets/python.svg){ width="24" } Python             | `cupcake`          |
+| ![TypeScript](docs/docs/assets/typescript.svg){ width="24" } TypeScript | `@eqtylab/cupcake` |
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
 

@@ -148,6 +148,32 @@ impl ProjectPaths {
             global_rulebook,
         })
     }
+
+    /// Get project-level watchdog directory path (.cupcake/watchdog/)
+    ///
+    /// Returns Some if the directory exists, None otherwise.
+    pub fn project_watchdog_dir(&self) -> Option<PathBuf> {
+        let watchdog_dir = self.cupcake_dir.join("watchdog");
+        if watchdog_dir.exists() {
+            Some(watchdog_dir)
+        } else {
+            None
+        }
+    }
+
+    /// Get global watchdog directory path (~/.config/cupcake/watchdog/)
+    ///
+    /// Returns Some if the directory exists, None otherwise.
+    pub fn global_watchdog_dir(&self) -> Option<PathBuf> {
+        self.global_root.as_ref().and_then(|root| {
+            let watchdog_dir = root.join("watchdog");
+            if watchdog_dir.exists() {
+                Some(watchdog_dir)
+            } else {
+                None
+            }
+        })
+    }
 }
 
 // Core engine modules - discovery and compilation
@@ -270,6 +296,9 @@ pub struct Engine {
 
     /// Optional global rulebook
     global_rulebook: Option<rulebook::Rulebook>,
+
+    /// Watchdog LLM-as-judge instance (optional)
+    watchdog: Option<crate::watchdog::Watchdog>,
 }
 
 impl Engine {
@@ -328,6 +357,8 @@ impl Engine {
             global_wasm_runtime: None,
             global_policies: Vec::new(),
             global_rulebook: None,
+            // Watchdog initialized later from rulebook config
+            watchdog: None,
         };
 
         // Initialize the engine (scan, parse, compile)
@@ -356,6 +387,43 @@ impl Engine {
             .await?,
         );
         info!("Project rulebook loaded with convention-based discovery");
+
+        // Step 0C: Initialize Watchdog if enabled in rulebook
+        // Watchdog uses directory-based configuration from .cupcake/watchdog/
+        // with fallback to ~/.config/cupcake/watchdog/ for global settings
+        if let Some(ref rulebook) = self.rulebook {
+            if rulebook.watchdog.enabled {
+                // Get watchdog directories for config/prompt loading
+                let project_watchdog_dir = self.paths.project_watchdog_dir();
+                let global_watchdog_dir = self.paths.global_watchdog_dir();
+
+                debug!(
+                    "Watchdog directories: project={:?}, global={:?}",
+                    project_watchdog_dir, global_watchdog_dir
+                );
+
+                // Use from_directories() for full directory-based config loading
+                match crate::watchdog::Watchdog::from_directories(
+                    project_watchdog_dir.as_deref(),
+                    global_watchdog_dir.as_deref(),
+                ) {
+                    Ok(watchdog) => {
+                        if watchdog.is_enabled() {
+                            info!("Watchdog initialized and ready");
+                            self.watchdog = Some(watchdog);
+                        } else {
+                            warn!("Watchdog enabled in config but failed to initialize backend");
+                        }
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Failed to initialize Watchdog: {e}. Continuing without it. \
+                            Check that your API key environment variable is set and the watchdog configuration is valid."
+                        );
+                    }
+                }
+            }
+        }
 
         // Get list of enabled builtins for filtering
         let enabled_builtins = self
@@ -1424,10 +1492,60 @@ impl Engine {
         };
 
         // Merge signal data into already-enriched input (which has builtin_config)
-        let signal_count = signal_data.len();
+        let mut signal_count = signal_data.len();
         // enriched_input already has builtin_config from above
         if let Some(input_obj) = enriched_input.as_object_mut() {
-            input_obj.insert("signals".to_string(), serde_json::to_value(signal_data)?);
+            let mut signals_obj = serde_json::to_value(signal_data)?;
+
+            // Execute Watchdog if enabled - only for pre-action events (MVP scope)
+            // This avoids unnecessary LLM API calls for post-action or session events
+            // Supported events by harness:
+            // - Claude Code / OpenCode: PreToolUse
+            // - Cursor: beforeShellExecution, beforeMCPExecution
+            let is_pre_action_event = input
+                .get("hook_event_name")
+                .and_then(|v| v.as_str())
+                .map(|s| {
+                    matches!(
+                        s,
+                        // Claude Code / OpenCode
+                        "PreToolUse" |
+                        // Cursor pre-action events
+                        "beforeShellExecution" |
+                        "beforeMCPExecution"
+                    )
+                })
+                .unwrap_or(false);
+
+            if let Some(ref watchdog) = self.watchdog {
+                if is_pre_action_event {
+                    debug!(
+                        "Executing Watchdog evaluation for {:?} event",
+                        input.get("hook_event_name")
+                    );
+                    let watchdog_input = crate::watchdog::Watchdog::input_from_event(input);
+                    let watchdog_output = watchdog.evaluate(watchdog_input).await;
+                    debug!(
+                        "Watchdog result: allow={}, confidence={}",
+                        watchdog_output.allow, watchdog_output.confidence
+                    );
+
+                    if let Some(signals_map) = signals_obj.as_object_mut() {
+                        signals_map.insert(
+                            "watchdog".to_string(),
+                            serde_json::to_value(&watchdog_output)?,
+                        );
+                        signal_count += 1;
+                    }
+                } else {
+                    debug!(
+                        "Skipping Watchdog - only runs on pre-action events (got {:?})",
+                        input.get("hook_event_name")
+                    );
+                }
+            }
+
+            input_obj.insert("signals".to_string(), signals_obj);
         }
 
         // Record span fields

@@ -1,6 +1,7 @@
 //! Integration tests for harness configuration
 
 use serde_json::{json, Value};
+use serial_test::serial;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -139,33 +140,46 @@ fn test_init_with_claude_harness_duplicate_prevention() {
 }
 
 #[test]
-fn test_init_without_harness() {
+fn test_init_without_harness_requires_selection() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path();
 
-    // Run init without harness flag
-    let output = run_init(dir_path, &["init"]);
+    // Run init without harness flag (with no stdin, should fail)
+    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
+        .args(["init"])
+        .current_dir(dir_path)
+        .stdin(Stdio::null()) // No interactive input
+        .output()
+        .unwrap();
 
+    // Should fail because no harness was selected
     assert!(
-        output.status.success(),
-        "Init command failed: {}",
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "Init without --harness and no stdin should fail"
     );
 
-    // Check .cupcake directory was created
-    assert!(dir_path.join(".cupcake").exists());
-
-    // Check .claude/settings.json was NOT created
+    // Check .cupcake directory was NOT created
     assert!(
-        !dir_path.join(".claude/settings.json").exists(),
-        "Claude settings should not be created without --harness flag"
+        !dir_path.join(".cupcake").exists(),
+        ".cupcake should not be created when no harness selected"
+    );
+
+    // Verify the output shows the selection menu
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Select a harness to initialize"),
+        "Should show harness selection menu"
     );
 }
 
 #[test]
+#[serial(home_env)]
 fn test_init_global_with_claude_harness() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path();
+
+    // Save original HOME to restore later
+    let original_home = std::env::var("HOME").ok();
 
     // Set HOME to temp directory for this test
     std::env::set_var("HOME", dir_path);
@@ -190,6 +204,13 @@ fn test_init_global_with_claude_harness() {
                 "Global config should use absolute paths"
             );
         }
+    }
+
+    // Restore original HOME
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
     }
 }
 
@@ -375,12 +396,15 @@ deny contains decision if {
 
 /// Test that Cursor falls back to cwd when workspace_roots is empty
 #[test]
+#[serial(home_env)]
 fn test_cursor_eval_falls_back_to_cwd_when_workspace_roots_empty() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
 
-    // Set HOME to project_path to avoid test isolation issues
-    // (test_init_global_with_claude_harness may have leaked HOME env var)
+    // Save original HOME to restore later
+    let original_home = std::env::var("HOME").ok();
+
+    // Set HOME to project_path to ensure no global config interferes
     std::env::set_var("HOME", project_path);
 
     // Initialize Cupcake
@@ -408,6 +432,13 @@ fn test_cursor_eval_falls_back_to_cwd_when_workspace_roots_empty() {
         &["eval", "--harness", "cursor", "--policy-dir", ".cupcake"],
         &cursor_event.to_string(),
     );
+
+    // Restore original HOME before assertions (to ensure cleanup even on failure)
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(

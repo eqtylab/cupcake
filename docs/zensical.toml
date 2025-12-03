@@ -57,6 +57,7 @@ nav = [
     ]}
   ]},
   { "Reference" = [
+    "reference/determinism.md",
     { "Cupcake CLI" = "reference/cupcake-cli.md"},
     { "Harnesses" = [
       "reference/harnesses/index.md",
@@ -71,6 +72,12 @@ nav = [
       "reference/policies/custom.md"
     ]},
     "reference/builtin-config.md"
+  ]},
+  { "Watchdog" = [
+    { "Getting Started" = "watchdog/getting-started.md" },
+    "watchdog/configuration.md",
+    "watchdog/policies.md",
+    "watchdog/backends.md"
   ]},
   { "Tutorials" = [
     "tutorials/claude-code.md",

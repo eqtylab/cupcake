@@ -17,20 +17,16 @@ A guard dog that makes AI agents follow the rules.
 
 **Policy enforcement** layer for AI agents; yielding better performance, reliability, and security **without consuming model context**.
 
-- **Deterministic rule‑following** for your agents.
-- **Boost performance** by moving rules out of context and into guarantees.
+- **Deterministic rule-following** for your agents.
+- **Better performance** by moving rules out of context and into guarantees.
 - **Trigger alerts** when agents repeatedly violate rules.
+- **LLM-as-a-judge** for more dynamic governance.
 
 Cupcake intercepts agent tool calls and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, or auto-corrected. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
-Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
-
-> [!NOTE]
-> Official release is not until December 2025
-
 ## Supported Agent Harnesses
 
-Cupcake provides native integrations for multiple AI coding agents:
+Cupcake provides **native integrations** for multiple AI coding agents:
 
 | Harness                                                                           | Status             | Integration Guide                                                      |
 | --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
@@ -40,17 +36,16 @@ Cupcake provides native integrations for multiple AI coding agents:
 | **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-Cupcake provides native integrations for multiple web agent frameworks:
-
-| Harness    | Status      | Integration Guide |
-| ---------- | ----------- | ----------------- |
-| LangChain  | Coming soon | Coming soon       |
-| Google ADK | Coming soon | Coming soon       |
-| NVIDIA NAT | Coming soon | Coming soon       |
-
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
 
-**See also**: [Harness Comparison Matrix](./docs/user-guide/harnesses/harness-comparison.md) · [Harness Architecture](./docs/user-guide/architecture/harness-model.md)
+#### Language Bindings
+
+Cupcake can be embedded in Python or JavaScript agent applications through native bindings. This enables integration with web-based agent frameworks like LangChain, Google ADK, NVIDIA NIM, Vercel AI SDK, and more.
+
+| Language                                                                      | Binding        |
+| ----------------------------------------------------------------------------- | -------------- |
+| <img src="docs/docs/assets/python.svg" width="24" height="24"> Python         | `./cupcake-py` |
+| <img src="docs/docs/assets/typescript.svg" width="24" height="24"> TypeScript | `./cupcake-ts` |
 
 ## Why Cupcake?
 
@@ -116,7 +111,7 @@ See [Writing Policies](./docs/user-guide/policies/writing-policies.md) for detai
   "command": "git push",
   "args": [],
   "signals": { "tests_passed": false, "git_branch": "feature/x" },
-  "actor": { "id": "agent-1", "session": "abc123" },
+  "actor": { "id": "agent-1", "session": "abc123" }
 }
 ```
 
@@ -163,3 +158,5 @@ If you use Cupcake in your research or project, please cite it as follows:
   url = {[https://github.com/eqtylab/cupcake](https://github.com/eqtylab/cupcake)}
 }
 ```
+
+Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).

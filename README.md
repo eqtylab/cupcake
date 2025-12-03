@@ -1,8 +1,12 @@
-<p align="left">
-    <img src="docs/docs/assets/cupcake-static.svg" alt="A 2D illustrated guard dog" width="180">
-</p>
-
 # Cupcake
+
+<div align="left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/docs/assets/cupcake-light.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/docs/assets/cupcake-dark.svg">
+    <img alt="Fallback image description" src="docs/docs/assets/cupcake-responsive.svg" width="200">
+  </picture>
+</div>
 
 A guard dog that makes AI agents follow the rules.
 

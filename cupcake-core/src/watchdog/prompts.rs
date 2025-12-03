@@ -72,18 +72,22 @@ impl WatchdogPrompts {
     /// 1. Project: `.cupcake/watchdog/{system,user}.txt`
     /// 2. Global: `~/.config/cupcake/watchdog/{system,user}.txt`
     /// 3. Built-in default
-    pub fn load(project_watchdog_dir: Option<&Path>, global_watchdog_dir: Option<&Path>) -> Self {
+    pub fn load(
+        project_watchdog_dir: Option<&Path>,
+        global_watchdog_dir: Option<&Path>,
+    ) -> Result<Self, std::io::Error> {
         Self::load_with_rules_context(project_watchdog_dir, global_watchdog_dir, None)
     }
 
     /// Load prompts from watchdog directories with rules context
     ///
     /// If `rules_context` is provided, files will be loaded relative to `project_watchdog_dir`.
+    /// Returns an error if rules context is configured with `strict: true` and any file fails to load.
     pub fn load_with_rules_context(
         project_watchdog_dir: Option<&Path>,
         global_watchdog_dir: Option<&Path>,
         rules_context_config: Option<&RulesContext>,
-    ) -> Self {
+    ) -> Result<Self, std::io::Error> {
         let system_prompt =
             Self::load_file("system.txt", project_watchdog_dir, global_watchdog_dir)
                 .unwrap_or_else(|| DEFAULT_SYSTEM_PROMPT.to_string());
@@ -92,24 +96,23 @@ impl WatchdogPrompts {
             .unwrap_or_else(|| DEFAULT_USER_TEMPLATE.to_string());
 
         // Load rules context files if configured
-        let rules_context = rules_context_config
-            .and_then(|rc| {
-                project_watchdog_dir.map(|dir| {
-                    let content = rc.load_files(dir);
-                    if content.is_empty() {
-                        String::new()
-                    } else {
-                        format!("{DEFAULT_RULES_CONTEXT_PREFIX}\n\n{content}")
-                    }
-                })
-            })
-            .unwrap_or_default();
+        let rules_context = match (rules_context_config, project_watchdog_dir) {
+            (Some(rc), Some(dir)) => {
+                let content = rc.load_files(dir)?;
+                if content.is_empty() {
+                    String::new()
+                } else {
+                    format!("{DEFAULT_RULES_CONTEXT_PREFIX}\n\n{content}")
+                }
+            }
+            _ => String::new(),
+        };
 
-        Self {
+        Ok(Self {
             system_prompt,
             user_template,
             rules_context,
-        }
+        })
     }
 
     /// Load a specific file from watchdog directories
@@ -192,7 +195,7 @@ mod tests {
         fs::write(watchdog_dir.join("system.txt"), "Custom system prompt").unwrap();
         fs::write(watchdog_dir.join("user.txt"), "Event: {{event}}").unwrap();
 
-        let prompts = WatchdogPrompts::load(Some(&watchdog_dir), None);
+        let prompts = WatchdogPrompts::load(Some(&watchdog_dir), None).unwrap();
         assert_eq!(prompts.system_prompt, "Custom system prompt");
         assert_eq!(prompts.user_template, "Event: {{event}}");
     }
@@ -213,14 +216,14 @@ mod tests {
         // Only user.txt in global
         fs::write(global_dir.join("user.txt"), "Global user: {{event}}").unwrap();
 
-        let prompts = WatchdogPrompts::load(Some(&project_dir), Some(&global_dir));
+        let prompts = WatchdogPrompts::load(Some(&project_dir), Some(&global_dir)).unwrap();
         assert_eq!(prompts.system_prompt, "Project system");
         assert_eq!(prompts.user_template, "Global user: {{event}}");
     }
 
     #[test]
     fn test_load_fallback_to_defaults() {
-        let prompts = WatchdogPrompts::load(None, None);
+        let prompts = WatchdogPrompts::load(None, None).unwrap();
         assert!(prompts.system_prompt.contains("security reviewer"));
         assert!(prompts.user_template.contains("{{event}}"));
     }
@@ -286,13 +289,15 @@ mod tests {
         let rules_context = RulesContext {
             root_path: "../..".to_string(),
             files: vec!["CLAUDE.md".to_string()],
+            strict: true,
         };
 
         let prompts = WatchdogPrompts::load_with_rules_context(
             Some(&watchdog_dir),
             None,
             Some(&rules_context),
-        );
+        )
+        .unwrap();
 
         assert!(prompts.rules_context.contains("Do not delete files"));
         assert!(prompts.rules_context.contains("=== CLAUDE.md ==="));
@@ -308,19 +313,21 @@ mod tests {
         let rules_context = RulesContext {
             root_path: "../..".to_string(),
             files: vec![], // No files configured
+            strict: true,
         };
 
         let prompts = WatchdogPrompts::load_with_rules_context(
             Some(&watchdog_dir),
             None,
             Some(&rules_context),
-        );
+        )
+        .unwrap();
 
         assert!(prompts.rules_context.is_empty());
     }
 
     #[test]
-    fn test_load_with_missing_rules_file() {
+    fn test_load_with_missing_rules_file_strict_fails() {
         let temp = TempDir::new().unwrap();
         let watchdog_dir = temp.path().join(".cupcake").join("watchdog");
         fs::create_dir_all(&watchdog_dir).unwrap();
@@ -328,15 +335,41 @@ mod tests {
         let rules_context = RulesContext {
             root_path: "../..".to_string(),
             files: vec!["nonexistent.md".to_string()],
+            strict: true, // Default - should fail
+        };
+
+        let result = WatchdogPrompts::load_with_rules_context(
+            Some(&watchdog_dir),
+            None,
+            Some(&rules_context),
+        );
+
+        assert!(
+            result.is_err(),
+            "Should fail when strict=true and file missing"
+        );
+    }
+
+    #[test]
+    fn test_load_with_missing_rules_file_non_strict_succeeds() {
+        let temp = TempDir::new().unwrap();
+        let watchdog_dir = temp.path().join(".cupcake").join("watchdog");
+        fs::create_dir_all(&watchdog_dir).unwrap();
+
+        let rules_context = RulesContext {
+            root_path: "../..".to_string(),
+            files: vec!["nonexistent.md".to_string()],
+            strict: false, // Graceful degradation
         };
 
         let prompts = WatchdogPrompts::load_with_rules_context(
             Some(&watchdog_dir),
             None,
             Some(&rules_context),
-        );
+        )
+        .unwrap();
 
-        // Should still load but rules_context will be empty (no files found)
+        // Should load but rules_context will be empty (no files found)
         assert!(prompts.rules_context.is_empty());
     }
 }

@@ -54,8 +54,20 @@ impl OpenRouterBackend {
             })?
         };
 
+        // Clamp timeout to a minimum of 5 seconds - LLM API calls need time
+        const MIN_TIMEOUT_SECONDS: u64 = 5;
+        let timeout_seconds = if config.timeout_seconds < MIN_TIMEOUT_SECONDS {
+            warn!(
+                "Configured timeout_seconds={} is too low; using minimum of {} seconds",
+                config.timeout_seconds, MIN_TIMEOUT_SECONDS
+            );
+            MIN_TIMEOUT_SECONDS
+        } else {
+            config.timeout_seconds
+        };
+
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(config.timeout_seconds))
+            .timeout(std::time::Duration::from_secs(timeout_seconds))
             .build()
             .context("Failed to create HTTP client")?;
 
@@ -130,7 +142,7 @@ impl WatchdogBackend for OpenRouterBackend {
             info!(
                 "Watchdog dry_run: user_message ({} chars): {}...",
                 user_message.len(),
-                user_message.chars().take(200).collect::<String>()
+                user_message.chars().take(500).collect::<String>()
             );
             return Ok(WatchdogOutput::dry_run(&input.event_type));
         }

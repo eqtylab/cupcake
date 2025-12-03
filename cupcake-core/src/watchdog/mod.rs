@@ -141,7 +141,7 @@ impl Watchdog {
             project_watchdog_dir,
             global_watchdog_dir,
             rules_context,
-        );
+        )?;
 
         // Convert dir config to full config
         let mut config = dir_config
@@ -247,7 +247,7 @@ impl Watchdog {
                 Ok(output) => output,
                 Err(e) => {
                     warn!("Watchdog evaluation error: {}", e);
-                    if self.config.fail_open() {
+                    if self.config.allows_on_error() {
                         WatchdogOutput::fail_open(&e.to_string())
                     } else {
                         WatchdogOutput::fail_closed(&e.to_string())

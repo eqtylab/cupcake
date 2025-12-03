@@ -74,7 +74,7 @@ pub async fn run(
 
     if !watchdog.is_enabled() {
         return Err(anyhow!(
-            "Watchdog failed to initialize. Check that OPENROUTER_API_KEY is set."
+            "Watchdog failed to initialize. Check that the required API key environment variable for your configured backend is set."
         ));
     }
 

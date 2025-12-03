@@ -417,8 +417,8 @@ impl Engine {
                     }
                     Err(e) => {
                         warn!(
-                            "Failed to initialize Watchdog: {}. Continuing without it.",
-                            e
+                            "Failed to initialize Watchdog: {e}. Continuing without it. \
+                            Check that your API key environment variable is set and the watchdog configuration is valid."
                         );
                     }
                 }
@@ -1497,22 +1497,51 @@ impl Engine {
         if let Some(input_obj) = enriched_input.as_object_mut() {
             let mut signals_obj = serde_json::to_value(signal_data)?;
 
-            // Execute Watchdog if enabled and add result to signals
-            if let Some(ref watchdog) = self.watchdog {
-                debug!("Executing Watchdog evaluation");
-                let watchdog_input = crate::watchdog::Watchdog::input_from_event(input);
-                let watchdog_output = watchdog.evaluate(watchdog_input).await;
-                debug!(
-                    "Watchdog result: allow={}, confidence={}",
-                    watchdog_output.allow, watchdog_output.confidence
-                );
+            // Execute Watchdog if enabled - only for pre-action events (MVP scope)
+            // This avoids unnecessary LLM API calls for post-action or session events
+            // Supported events by harness:
+            // - Claude Code / OpenCode: PreToolUse
+            // - Cursor: beforeShellExecution, beforeMCPExecution
+            let is_pre_action_event = input
+                .get("hook_event_name")
+                .and_then(|v| v.as_str())
+                .map(|s| {
+                    matches!(
+                        s,
+                        // Claude Code / OpenCode
+                        "PreToolUse" |
+                        // Cursor pre-action events
+                        "beforeShellExecution" |
+                        "beforeMCPExecution"
+                    )
+                })
+                .unwrap_or(false);
 
-                if let Some(signals_map) = signals_obj.as_object_mut() {
-                    signals_map.insert(
-                        "watchdog".to_string(),
-                        serde_json::to_value(&watchdog_output)?,
+            if let Some(ref watchdog) = self.watchdog {
+                if is_pre_action_event {
+                    debug!(
+                        "Executing Watchdog evaluation for {:?} event",
+                        input.get("hook_event_name")
                     );
-                    signal_count += 1;
+                    let watchdog_input = crate::watchdog::Watchdog::input_from_event(input);
+                    let watchdog_output = watchdog.evaluate(watchdog_input).await;
+                    debug!(
+                        "Watchdog result: allow={}, confidence={}",
+                        watchdog_output.allow, watchdog_output.confidence
+                    );
+
+                    if let Some(signals_map) = signals_obj.as_object_mut() {
+                        signals_map.insert(
+                            "watchdog".to_string(),
+                            serde_json::to_value(&watchdog_output)?,
+                        );
+                        signal_count += 1;
+                    }
+                } else {
+                    debug!(
+                        "Skipping Watchdog - only runs on pre-action events (got {:?})",
+                        input.get("hook_event_name")
+                    );
                 }
             }
 

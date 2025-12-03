@@ -203,6 +203,10 @@ fn default_rules_context_root_path() -> String {
     "../..".to_string()
 }
 
+fn default_strict() -> bool {
+    true
+}
+
 /// Configuration for injecting rules context into prompts
 ///
 /// Allows loading files (like CLAUDE.md, .cursorrules) to provide
@@ -218,6 +222,11 @@ pub struct RulesContext {
     /// List of files to load, relative to root_path
     #[serde(default)]
     pub files: Vec<String>,
+
+    /// If true (default), fail initialization when any rules file cannot be loaded.
+    /// If false, log a warning and continue with available files.
+    #[serde(default = "default_strict")]
+    pub strict: bool,
 }
 
 impl WatchdogConfig {
@@ -241,8 +250,8 @@ impl WatchdogConfig {
         config
     }
 
-    /// Check if we should fail-open on errors
-    pub fn fail_open(&self) -> bool {
+    /// Check if errors should allow actions to proceed (fail-open behavior)
+    pub fn allows_on_error(&self) -> bool {
         self.on_error == "allow"
     }
 
@@ -275,7 +284,9 @@ impl WatchdogConfig {
 /// Configuration loaded from `.cupcake/watchdog/config.json`
 ///
 /// This is a flattened structure (no nested `openrouter:` key) for simplicity.
-/// Note: `dry_run` is intentionally not included - it's a CLI-only flag.
+/// Note: While `WatchdogConfig` includes a `dry_run` field for programmatic use,
+/// it is intentionally excluded here—`dry_run` cannot be set via config files
+/// and should only be set from CLI flags.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WatchdogDirConfig {
     /// Which backend to use
@@ -322,9 +333,12 @@ impl RulesContext {
     ///
     /// `config_dir` is the directory containing config.json (e.g., `.cupcake/watchdog/`)
     /// Files are resolved as: config_dir / root_path / file
-    pub fn load_files(&self, config_dir: &Path) -> String {
+    ///
+    /// Returns an error if `strict` is true and any file fails to load.
+    /// If `strict` is false, logs warnings for missing files and continues.
+    pub fn load_files(&self, config_dir: &Path) -> Result<String, std::io::Error> {
         if self.files.is_empty() {
-            return String::new();
+            return Ok(String::new());
         }
 
         let root = config_dir.join(&self.root_path);
@@ -338,6 +352,12 @@ impl RulesContext {
                     contents.push(format!("=== {file} ===\n{content}"));
                 }
                 Err(e) => {
+                    if self.strict {
+                        return Err(std::io::Error::new(
+                            e.kind(),
+                            format!("Failed to load rules context file '{file}': {e}"),
+                        ));
+                    }
                     tracing::warn!(
                         "Failed to load rules context file {}: {}",
                         file_path.display(),
@@ -347,7 +367,7 @@ impl RulesContext {
             }
         }
 
-        contents.join("\n\n")
+        Ok(contents.join("\n\n"))
     }
 }
 
@@ -408,7 +428,7 @@ mod tests {
         assert!(!config.enabled);
         assert_eq!(config.backend, "openrouter");
         assert_eq!(config.timeout_seconds, 10);
-        assert!(config.fail_open());
+        assert!(config.allows_on_error());
     }
 
     #[test]
@@ -426,7 +446,7 @@ openrouter:
         let config: WatchdogConfig = serde_yaml_ng::from_str(yaml).unwrap();
         assert!(config.enabled);
         assert_eq!(config.timeout_seconds, 15);
-        assert!(!config.fail_open());
+        assert!(!config.allows_on_error());
 
         let or = config.openrouter.unwrap();
         assert_eq!(or.model, "google/gemini-2.5-flash");
@@ -464,7 +484,7 @@ openrouter:
 
         let config = dir_config.into_watchdog_config();
         assert!(config.enabled);
-        assert!(!config.fail_open());
+        assert!(!config.allows_on_error());
     }
 
     #[test]
@@ -530,7 +550,7 @@ on_error: deny
 
         assert!(config.enabled);
         assert_eq!(config.timeout_seconds, 15);
-        assert!(!config.fail_open());
+        assert!(!config.allows_on_error());
     }
 
     #[test]

@@ -82,8 +82,13 @@ The `rulesContext` option allows you to inject the contents of rule files (like 
 |-------|------|---------|-------------|
 | `rootPath` | string | `"../.."` | Path relative to config.json location to find files |
 | `files` | array | `[]` | List of files to load, relative to rootPath |
+| `strict` | boolean | `true` | If true, fail initialization when any file is missing. If false, log a warning and continue. |
 
 Since `config.json` is in `.cupcake/watchdog/`, the default `rootPath` of `"../.."` points to the project root.
+
+**Strict mode** (default): Watchdog will fail to initialize if any configured file cannot be loaded. This ensures you're always protected by your documented rules.
+
+**Non-strict mode**: Set `"strict": false` to allow graceful degradation when files are missing. Useful when files may be optional or environment-dependent.
 
 ### system.txt
 
@@ -228,6 +233,19 @@ Inject your project's rules (like `CLAUDE.md`) into the Watchdog prompt:
 ```
 
 This loads the contents of `CLAUDE.md` from your project root and injects it into the prompt, allowing the LLM evaluator to check if agent actions comply with your documented rules.
+
+By default, `strict` is `true`, so Watchdog will fail to initialize if any file is missing. For optional rules files:
+
+```json
+// .cupcake/watchdog/config.json
+{
+  "rulesContext": {
+    "rootPath": "../..",
+    "files": ["CLAUDE.md", ".cursorrules"],
+    "strict": false
+  }
+}
+```
 
 ### Organization-Wide Defaults
 

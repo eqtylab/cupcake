@@ -55,7 +55,10 @@ fn test_global_only_config() {
         .as_ref()
         .expect("Should have openrouter config");
     assert_eq!(or_config.model, "global-model");
-    assert!(!config.fail_open(), "on_error=deny means fail_open=false");
+    assert!(
+        !config.allows_on_error(),
+        "on_error=deny means allows_on_error=false"
+    );
 }
 
 #[test]
@@ -101,7 +104,8 @@ fn test_no_dirs_uses_defaults() {
 fn test_project_only_prompts() {
     let fixtures = fixtures_path().join("project_only");
 
-    let prompts = WatchdogPrompts::load(Some(&fixtures.join("project")), None);
+    let prompts =
+        WatchdogPrompts::load(Some(&fixtures.join("project")), None).expect("Should load prompts");
 
     assert_eq!(prompts.system_prompt, "Project system prompt");
     assert_eq!(prompts.user_template, "Project: {{event}}");
@@ -111,7 +115,8 @@ fn test_project_only_prompts() {
 fn test_global_only_prompts() {
     let fixtures = fixtures_path().join("global_only");
 
-    let prompts = WatchdogPrompts::load(None, Some(&fixtures.join("global")));
+    let prompts =
+        WatchdogPrompts::load(None, Some(&fixtures.join("global"))).expect("Should load prompts");
 
     assert_eq!(prompts.system_prompt, "Global system prompt");
     // No user.txt in global_only, should use default (includes {{rules_context}})
@@ -139,7 +144,8 @@ fn test_mixed_sources_project_config_global_prompts() {
     let prompts = WatchdogPrompts::load(
         Some(&fixtures.join("project")),
         Some(&fixtures.join("global")),
-    );
+    )
+    .expect("Should load prompts");
 
     assert_eq!(prompts.system_prompt, "Org-wide security prompt");
     assert_eq!(prompts.user_template, "Org template: {{event}}");
@@ -152,7 +158,8 @@ fn test_prompts_render_template() {
     let prompts = WatchdogPrompts::load(
         Some(&fixtures.join("project")),
         Some(&fixtures.join("global")),
-    );
+    )
+    .expect("Should load prompts");
 
     let event = serde_json::json!({
         "tool_name": "Bash",
@@ -168,7 +175,7 @@ fn test_prompts_render_template() {
 
 #[test]
 fn test_default_prompts_when_no_files() {
-    let prompts = WatchdogPrompts::load(None, None);
+    let prompts = WatchdogPrompts::load(None, None).expect("Should load default prompts");
 
     assert!(
         prompts.system_prompt.contains("security reviewer"),
@@ -198,6 +205,8 @@ fn test_rules_context_loads_files() {
     assert_eq!(rules_context.files.len(), 2);
     assert!(rules_context.files.contains(&"CLAUDE.md".to_string()));
     assert!(rules_context.files.contains(&"RULES.md".to_string()));
+    // Default strict mode should be true
+    assert!(rules_context.strict, "strict should default to true");
 }
 
 #[test]
@@ -212,7 +221,8 @@ fn test_rules_context_included_in_prompts() {
     let rules_context = dir_config.rules_context.as_ref();
 
     // Load prompts with rules context
-    let prompts = WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, rules_context);
+    let prompts = WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, rules_context)
+        .expect("Should load prompts");
 
     // Verify rules_context contains both files
     assert!(
@@ -272,7 +282,8 @@ fn test_rules_context_rendered_in_user_message() {
     let dir_config = WatchdogDirConfig::load_from_dir(&project_dir).expect("Should load config");
     let rules_context = dir_config.rules_context.as_ref();
 
-    let prompts = WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, rules_context);
+    let prompts = WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, rules_context)
+        .expect("Should load prompts");
 
     // Render a user message
     let event = serde_json::json!({
@@ -299,20 +310,50 @@ fn test_rules_context_rendered_in_user_message() {
 }
 
 #[test]
-fn test_rules_context_missing_file_gracefully_ignored() {
+fn test_rules_context_strict_mode_fails_on_missing_file() {
     use cupcake_core::watchdog::RulesContext;
 
     let fixtures = fixtures_path().join("rules_context");
     let project_dir = fixtures.join("project");
 
-    // Create a rules context with a non-existent file
+    // Create a rules context with strict mode (default) and a non-existent file
     let rules_context = RulesContext {
         root_path: "..".to_string(),
         files: vec!["CLAUDE.md".to_string(), "nonexistent.md".to_string()],
+        strict: true, // Default behavior
+    };
+
+    let result =
+        WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, Some(&rules_context));
+
+    assert!(
+        result.is_err(),
+        "Should fail when strict=true and file is missing"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("nonexistent.md"),
+        "Error message should mention the missing file"
+    );
+}
+
+#[test]
+fn test_rules_context_non_strict_mode_ignores_missing_file() {
+    use cupcake_core::watchdog::RulesContext;
+
+    let fixtures = fixtures_path().join("rules_context");
+    let project_dir = fixtures.join("project");
+
+    // Create a rules context with strict=false and a non-existent file
+    let rules_context = RulesContext {
+        root_path: "..".to_string(),
+        files: vec!["CLAUDE.md".to_string(), "nonexistent.md".to_string()],
+        strict: false, // Graceful degradation
     };
 
     let prompts =
-        WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, Some(&rules_context));
+        WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, Some(&rules_context))
+            .expect("Should load prompts with strict=false");
 
     // CLAUDE.md should be loaded
     assert!(prompts.rules_context.contains("=== CLAUDE.md ==="));

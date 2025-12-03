@@ -35,7 +35,9 @@ pub mod types;
 pub mod openrouter;
 
 // Re-export main types
-pub use config::{OpenRouterConfig, WatchdogConfig, WatchdogConfigInput, WatchdogDirConfig};
+pub use config::{
+    OpenRouterConfig, RulesContext, WatchdogConfig, WatchdogConfigInput, WatchdogDirConfig,
+};
 pub use prompts::WatchdogPrompts;
 pub use types::{WatchdogInput, WatchdogOutput};
 
@@ -127,9 +129,28 @@ impl Watchdog {
         global_watchdog_dir: Option<&Path>,
         dry_run: bool,
     ) -> Result<Self> {
-        let mut config =
-            WatchdogConfig::load_from_directory(project_watchdog_dir, global_watchdog_dir);
-        let prompts = WatchdogPrompts::load(project_watchdog_dir, global_watchdog_dir);
+        // Load dir config first to get rules_context before converting to WatchdogConfig
+        let dir_config = project_watchdog_dir
+            .and_then(WatchdogDirConfig::load_from_dir)
+            .or_else(|| global_watchdog_dir.and_then(WatchdogDirConfig::load_from_dir));
+
+        let rules_context = dir_config.as_ref().and_then(|dc| dc.rules_context.as_ref());
+
+        // Load prompts with rules context
+        let prompts = WatchdogPrompts::load_with_rules_context(
+            project_watchdog_dir,
+            global_watchdog_dir,
+            rules_context,
+        );
+
+        // Convert dir config to full config
+        let mut config = dir_config
+            .map(WatchdogDirConfig::into_watchdog_config)
+            .unwrap_or_else(|| WatchdogConfig {
+                enabled: true,
+                openrouter: Some(OpenRouterConfig::default()),
+                ..Default::default()
+            });
 
         // Apply CLI-provided dry_run flag (overrides any file config)
         config.dry_run = dry_run;
@@ -148,22 +169,28 @@ impl Watchdog {
                 or_config.map(|o| o.api_key_env.as_str()).unwrap_or("OPENROUTER_API_KEY")
             );
             info!(
-                "Watchdog resolved prompts: system_prompt_len={} chars, user_template_len={} chars",
+                "Watchdog resolved prompts: system_prompt_len={} chars, user_template_len={} chars, rules_context_len={} chars",
                 prompts.system_prompt.len(),
-                prompts.user_template.len()
+                prompts.user_template.len(),
+                prompts.rules_context.len()
             );
             // Log first 100 chars of system prompt for verification
             let system_preview: String = prompts.system_prompt.chars().take(100).collect();
             info!("Watchdog system_prompt preview: {}...", system_preview);
             let user_preview: String = prompts.user_template.chars().take(100).collect();
             info!("Watchdog user_template preview: {}...", user_preview);
+            if !prompts.rules_context.is_empty() {
+                let rules_preview: String = prompts.rules_context.chars().take(200).collect();
+                info!("Watchdog rules_context preview: {}...", rules_preview);
+            }
         } else {
             debug!(
-                "Watchdog config: enabled={}, backend={}, model={}, dry_run={}",
+                "Watchdog config: enabled={}, backend={}, model={}, dry_run={}, rules_context_len={}",
                 config.enabled,
                 config.backend,
                 or_config.map(|o| o.model.as_str()).unwrap_or("default"),
-                config.dry_run
+                config.dry_run,
+                prompts.rules_context.len()
             );
         }
 

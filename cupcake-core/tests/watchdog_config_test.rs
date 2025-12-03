@@ -112,8 +112,9 @@ fn test_global_only_prompts() {
     );
 
     assert_eq!(prompts.system_prompt, "Global system prompt");
-    // No user.txt in global_only, should use default
-    assert_eq!(prompts.user_template, "{{event}}");
+    // No user.txt in global_only, should use default (includes {{rules_context}})
+    assert!(prompts.user_template.contains("{{event}}"));
+    assert!(prompts.user_template.contains("{{rules_context}}"));
 }
 
 #[test]
@@ -168,5 +169,154 @@ fn test_default_prompts_when_no_files() {
         prompts.system_prompt.contains("security reviewer"),
         "Default system prompt should contain 'security reviewer'"
     );
-    assert_eq!(prompts.user_template, "{{event}}");
+    assert!(prompts.user_template.contains("{{event}}"));
+    assert!(prompts.user_template.contains("{{rules_context}}"));
+}
+
+// ============================================================================
+// Rules Context Tests
+// ============================================================================
+
+#[test]
+fn test_rules_context_loads_files() {
+    use cupcake_core::watchdog::WatchdogDirConfig;
+
+    let fixtures = fixtures_path().join("rules_context");
+    let project_dir = fixtures.join("project");
+
+    // Load config to get rules_context
+    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir)
+        .expect("Should load config");
+
+    let rules_context = dir_config.rules_context.expect("Should have rules_context");
+
+    assert_eq!(rules_context.root_path, "..");
+    assert_eq!(rules_context.files.len(), 2);
+    assert!(rules_context.files.contains(&"CLAUDE.md".to_string()));
+    assert!(rules_context.files.contains(&"RULES.md".to_string()));
+}
+
+#[test]
+fn test_rules_context_included_in_prompts() {
+    use cupcake_core::watchdog::WatchdogDirConfig;
+
+    let fixtures = fixtures_path().join("rules_context");
+    let project_dir = fixtures.join("project");
+
+    // Load config to get rules_context
+    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir)
+        .expect("Should load config");
+    let rules_context = dir_config.rules_context.as_ref();
+
+    // Load prompts with rules context
+    let prompts = WatchdogPrompts::load_with_rules_context(
+        Some(&project_dir),
+        None,
+        rules_context,
+    );
+
+    // Verify rules_context contains both files
+    assert!(
+        prompts.rules_context.contains("=== CLAUDE.md ==="),
+        "Should contain CLAUDE.md header"
+    );
+    assert!(
+        prompts.rules_context.contains("=== RULES.md ==="),
+        "Should contain RULES.md header"
+    );
+
+    // Verify content from CLAUDE.md
+    assert!(
+        prompts.rules_context.contains("Never delete files without explicit user confirmation"),
+        "Should contain CLAUDE.md content"
+    );
+    assert!(
+        prompts.rules_context.contains("Do not access files outside the project directory"),
+        "Should contain CLAUDE.md content"
+    );
+
+    // Verify content from RULES.md
+    assert!(
+        prompts.rules_context.contains("Always use parameterized queries"),
+        "Should contain RULES.md content"
+    );
+    assert!(
+        prompts.rules_context.contains("Never drop tables in production"),
+        "Should contain RULES.md content"
+    );
+
+    // Verify the prefix instruction is included
+    assert!(
+        prompts.rules_context.contains("Determine if the agent action breaks any of the rules"),
+        "Should contain rules context prefix"
+    );
+}
+
+#[test]
+fn test_rules_context_rendered_in_user_message() {
+    use cupcake_core::watchdog::{WatchdogDirConfig};
+
+    let fixtures = fixtures_path().join("rules_context");
+    let project_dir = fixtures.join("project");
+
+    // Load config and prompts
+    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir)
+        .expect("Should load config");
+    let rules_context = dir_config.rules_context.as_ref();
+
+    let prompts = WatchdogPrompts::load_with_rules_context(
+        Some(&project_dir),
+        None,
+        rules_context,
+    );
+
+    // Render a user message
+    let event = serde_json::json!({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+            "command": "rm -rf /important/data"
+        }
+    });
+
+    let rendered = prompts.render_user_message(&event);
+
+    // Event should be included
+    assert!(rendered.contains("\"tool_name\": \"Bash\""));
+    assert!(rendered.contains("rm -rf /important/data"));
+
+    // Rules context should be included
+    assert!(rendered.contains("Never delete files without explicit user confirmation"));
+    assert!(rendered.contains("=== CLAUDE.md ==="));
+
+    // Placeholders should be replaced
+    assert!(!rendered.contains("{{event}}"));
+    assert!(!rendered.contains("{{rules_context}}"));
+}
+
+#[test]
+fn test_rules_context_missing_file_gracefully_ignored() {
+    use cupcake_core::watchdog::RulesContext;
+
+    let fixtures = fixtures_path().join("rules_context");
+    let project_dir = fixtures.join("project");
+
+    // Create a rules context with a non-existent file
+    let rules_context = RulesContext {
+        root_path: "..".to_string(),
+        files: vec!["CLAUDE.md".to_string(), "nonexistent.md".to_string()],
+    };
+
+    let prompts = WatchdogPrompts::load_with_rules_context(
+        Some(&project_dir),
+        None,
+        Some(&rules_context),
+    );
+
+    // CLAUDE.md should be loaded
+    assert!(prompts.rules_context.contains("=== CLAUDE.md ==="));
+    assert!(prompts.rules_context.contains("Never delete files"));
+
+    // nonexistent.md should be silently skipped
+    assert!(!prompts.rules_context.contains("nonexistent.md"));
 }

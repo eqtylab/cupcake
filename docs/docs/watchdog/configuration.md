@@ -55,7 +55,11 @@ Create `.cupcake/watchdog/config.json` to customize settings:
   "model": "google/gemini-2.5-flash",
   "timeout_seconds": 10,
   "on_error": "allow",
-  "api_key_env": "OPENROUTER_API_KEY"
+  "api_key_env": "OPENROUTER_API_KEY",
+  "rulesContext": {
+    "rootPath": "../..",
+    "files": ["CLAUDE.md", ".cursorrules"]
+  }
 }
 ```
 
@@ -68,6 +72,18 @@ All fields are optional - unspecified fields use defaults.
 | `timeout_seconds` | integer | `10` | API call timeout |
 | `on_error` | string | `"allow"` | `"allow"` (fail-open) or `"deny"` (fail-closed) |
 | `api_key_env` | string | `"OPENROUTER_API_KEY"` | Environment variable for API key |
+| `rulesContext` | object | `null` | Configuration for injecting rules files into prompts |
+
+#### rulesContext
+
+The `rulesContext` option allows you to inject the contents of rule files (like `CLAUDE.md` or `.cursorrules`) into the Watchdog prompt, so the LLM can evaluate actions against your project-specific rules.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `rootPath` | string | `"../.."` | Path relative to config.json location to find files |
+| `files` | array | `[]` | List of files to load, relative to rootPath |
+
+Since `config.json` is in `.cupcake/watchdog/`, the default `rootPath` of `"../.."` points to the project root.
 
 ### system.txt
 
@@ -79,16 +95,45 @@ You are a security reviewer for an AI coding agent...
 
 ### user.txt
 
-Template for the user message sent to the LLM. Use `{{event}}` as a placeholder for the event JSON.
+Template for the user message sent to the LLM. Available placeholders:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `{{event}}` | Pretty-printed JSON of the event being evaluated |
+| `{{rules_context}}` | Contents of files specified in `rulesContext` config |
+
+Example custom template:
 
 ```
 Evaluate this tool call:
 {{event}}
 
+{{rules_context}}
+
 Focus on security implications.
 ```
 
-Default is just `{{event}}` (raw event JSON).
+Default template:
+
+```
+{{event}}
+
+{{rules_context}}
+```
+
+When `rulesContext` is configured, the `{{rules_context}}` placeholder is replaced with:
+
+```
+Determine if the agent action breaks any of the rules provided below:
+
+=== CLAUDE.md ===
+[contents of CLAUDE.md]
+
+=== .cursorrules ===
+[contents of .cursorrules]
+```
+
+If no `rulesContext` is configured, `{{rules_context}}` is replaced with an empty string.
 
 ## Configuration Precedence
 
@@ -167,6 +212,22 @@ Be extra cautious about:
 - File access outside /app
 - Network requests to external services
 ```
+
+### Using Rules Context
+
+Inject your project's rules (like `CLAUDE.md`) into the Watchdog prompt:
+
+```json
+// .cupcake/watchdog/config.json
+{
+  "rulesContext": {
+    "rootPath": "../..",
+    "files": ["CLAUDE.md"]
+  }
+}
+```
+
+This loads the contents of `CLAUDE.md` from your project root and injects it into the prompt, allowing the LLM evaluator to check if agent actions comply with your documented rules.
 
 ### Organization-Wide Defaults
 

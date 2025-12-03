@@ -200,6 +200,27 @@ fn default_api_key_env() -> String {
     "OPENROUTER_API_KEY".to_string()
 }
 
+fn default_rules_context_root_path() -> String {
+    "../..".to_string()
+}
+
+/// Configuration for injecting rules context into prompts
+///
+/// Allows loading files (like CLAUDE.md, .cursorrules) to provide
+/// context to the Watchdog LLM about project-specific rules.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RulesContext {
+    /// Root path for resolving file paths, relative to config.json location
+    /// Default: "../.." (project root, assuming config is in .cupcake/watchdog/)
+    #[serde(default = "default_rules_context_root_path")]
+    pub root_path: String,
+
+    /// List of files to load, relative to root_path
+    #[serde(default)]
+    pub files: Vec<String>,
+}
+
 impl WatchdogConfig {
     /// Check if watchdog is properly configured and can be used
     pub fn is_usable(&self) -> bool {
@@ -280,6 +301,11 @@ pub struct WatchdogDirConfig {
     /// Environment variable name for API key
     #[serde(default = "default_api_key_env")]
     pub api_key_env: String,
+
+    /// Rules context configuration for injecting file contents into prompts
+    /// Uses camelCase in JSON: `rulesContext`
+    #[serde(default, rename = "rulesContext")]
+    pub rules_context: Option<RulesContext>,
 }
 
 impl Default for WatchdogDirConfig {
@@ -290,7 +316,42 @@ impl Default for WatchdogDirConfig {
             timeout_seconds: default_timeout(),
             on_error: default_on_error(),
             api_key_env: default_api_key_env(),
+            rules_context: None,
         }
+    }
+}
+
+impl RulesContext {
+    /// Load the contents of all configured files
+    ///
+    /// `config_dir` is the directory containing config.json (e.g., `.cupcake/watchdog/`)
+    /// Files are resolved as: config_dir / root_path / file
+    pub fn load_files(&self, config_dir: &Path) -> String {
+        if self.files.is_empty() {
+            return String::new();
+        }
+
+        let root = config_dir.join(&self.root_path);
+        let mut contents = Vec::new();
+
+        for file in &self.files {
+            let file_path = root.join(file);
+            match std::fs::read_to_string(&file_path) {
+                Ok(content) => {
+                    tracing::debug!("Loaded rules context file: {}", file_path.display());
+                    contents.push(format!("=== {} ===\n{}", file, content));
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to load rules context file {}: {}",
+                        file_path.display(),
+                        e
+                    );
+                }
+            }
+        }
+
+        contents.join("\n\n")
     }
 }
 

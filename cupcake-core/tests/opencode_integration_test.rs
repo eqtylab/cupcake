@@ -114,6 +114,7 @@ deny contains decision if {
         wasm_max_memory: Some(10 * 1024 * 1024),
         opa_path: None,
         global_config: Some(setup._empty_global.path().to_path_buf()),
+        skip_global_config: false,
         debug_routing: false,
     };
     let engine = Engine::new_with_config(setup.project_dir.path(), config).await?;
@@ -175,6 +176,7 @@ deny contains decision if {
         wasm_max_memory: Some(10 * 1024 * 1024),
         opa_path: None,
         global_config: Some(setup._empty_global.path().to_path_buf()),
+        skip_global_config: false,
         debug_routing: false,
     };
     let engine = Engine::new_with_config(setup.project_dir.path(), config).await?;
@@ -235,6 +237,7 @@ add_context contains message if {
         wasm_max_memory: Some(10 * 1024 * 1024),
         opa_path: None,
         global_config: Some(setup._empty_global.path().to_path_buf()),
+        skip_global_config: false,
         debug_routing: false,
     };
     let engine = Engine::new_with_config(setup.project_dir.path(), config).await?;

@@ -5,7 +5,6 @@
 //! all environments including CI.
 
 use anyhow::Result;
-use serial_test::serial;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -380,53 +379,33 @@ fn test_init_idempotent() -> Result<()> {
 
 /// Test that the created structure can be loaded by the engine
 #[tokio::test]
-#[serial(home_env)]
 async fn test_init_creates_valid_engine_structure() -> Result<()> {
-    // Save original HOME and set to a temp directory to prevent global config discovery
-    let original_home = std::env::var("HOME").ok();
-    let home_temp_dir = TempDir::new()?;
-    std::env::set_var("HOME", home_temp_dir.path());
+    let (_temp_dir, project_path) = run_init_in_temp_dir()?;
 
-    let result = async {
-        let (_temp_dir, project_path) = run_init_in_temp_dir()?;
+    // Use new_without_global to skip global config discovery
+    // This ensures test isolation from any pre-existing global config on CI runners
+    let config = cupcake_core::engine::EngineConfig::new_without_global(
+        cupcake_core::harness::types::HarnessType::ClaudeCode,
+    );
+    let engine = cupcake_core::engine::Engine::new_with_config(&project_path, config).await?;
 
-        // Try to create an engine with the initialized structure
-        // This verifies that all policies compile and the structure is valid
-        let engine = cupcake_core::engine::Engine::new(
-            &project_path,
-            cupcake_core::harness::types::HarnessType::ClaudeCode,
-        )
-        .await?;
+    // Verify we can evaluate a simple input
+    let test_input = serde_json::json!({
+        "hook_event_name": "UserPromptSubmit",
+        "prompt": "test"
+    });
 
-        // Verify we can evaluate a simple input
-        let test_input = serde_json::json!({
-            "hook_event_name": "UserPromptSubmit",
-            "prompt": "test"
-        });
+    let decision = engine.evaluate(&test_input, None).await?;
 
-        let decision = engine.evaluate(&test_input, None).await?;
+    // Should get an Allow decision (no policies should fire on this simple input)
+    assert!(
+        matches!(
+            decision,
+            cupcake_core::engine::decision::FinalDecision::Allow { .. }
+        ),
+        "Should get Allow decision for simple test input"
+    );
 
-        // Should get an Allow decision (no policies should fire on this simple input)
-        assert!(
-            matches!(
-                decision,
-                cupcake_core::engine::decision::FinalDecision::Allow { .. }
-            ),
-            "Should get Allow decision for simple test input"
-        );
-
-        Ok::<(), anyhow::Error>(())
-    }
-    .await;
-
-    // Restore original HOME (cleanup even if test fails)
-    if let Some(home) = original_home {
-        std::env::set_var("HOME", home);
-    } else {
-        std::env::remove_var("HOME");
-    }
-
-    result?;
     Ok(())
 }
 
@@ -765,14 +744,7 @@ fn test_init_without_harness_requires_selection() -> Result<()> {
 
 /// Test that each harness can be loaded by the engine
 #[tokio::test]
-#[serial(home_env)]
 async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
-    // Save original HOME and set to a temp directory to prevent global config discovery
-    // This ensures the test is isolated from any pre-existing global config on CI runners
-    let original_home = std::env::var("HOME").ok();
-    let home_temp_dir = TempDir::new()?;
-    std::env::set_var("HOME", home_temp_dir.path());
-
     // Test each harness type
     let harnesses = [
         (
@@ -790,43 +762,33 @@ async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
         ),
     ];
 
-    let result = async {
-        for (harness_name, harness_type) in harnesses {
-            let (_temp_dir, project_path) = run_init_with_harness(harness_name)?;
+    for (harness_name, harness_type) in harnesses {
+        let (_temp_dir, project_path) = run_init_with_harness(harness_name)?;
 
-            // Try to create an engine with the initialized structure
-            let engine = cupcake_core::engine::Engine::new(&project_path, harness_type)
-                .await
-                .with_context(|| format!("Engine creation failed for {harness_name} harness"))?;
+        // Use new_without_global to skip global config discovery
+        // This ensures test isolation from any pre-existing global config on CI runners
+        let config = cupcake_core::engine::EngineConfig::new_without_global(harness_type);
+        let engine = cupcake_core::engine::Engine::new_with_config(&project_path, config)
+            .await
+            .with_context(|| format!("Engine creation failed for {harness_name} harness"))?;
 
-            // Verify we can evaluate a simple input
-            let test_input = serde_json::json!({
-                "hook_event_name": "UserPromptSubmit",
-                "prompt": "test"
-            });
+        // Verify we can evaluate a simple input
+        let test_input = serde_json::json!({
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "test"
+        });
 
-            let decision = engine.evaluate(&test_input, None).await?;
+        let decision = engine.evaluate(&test_input, None).await?;
 
-            assert!(
-                matches!(
-                    decision,
-                    cupcake_core::engine::decision::FinalDecision::Allow { .. }
-                ),
-                "{harness_name} harness should return Allow decision for simple test input"
-            );
-        }
-        Ok::<(), anyhow::Error>(())
-    }
-    .await;
-
-    // Restore original HOME (cleanup even if test fails)
-    if let Some(home) = original_home {
-        std::env::set_var("HOME", home);
-    } else {
-        std::env::remove_var("HOME");
+        assert!(
+            matches!(
+                decision,
+                cupcake_core::engine::decision::FinalDecision::Allow { .. }
+            ),
+            "{harness_name} harness should return Allow decision for simple test input"
+        );
     }
 
-    result?;
     Ok(())
 }
 

@@ -136,6 +136,7 @@ builtins: {}
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
             opa_path: None,
+            skip_global_config: false,
             debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
@@ -192,6 +193,7 @@ builtins: {}
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
             opa_path: None,
+            skip_global_config: false,
             debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
@@ -242,6 +244,7 @@ builtins: {}
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
             opa_path: None,
+            skip_global_config: false,
             debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
@@ -369,6 +372,7 @@ builtins:
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
             opa_path: None,
+            skip_global_config: false,
             debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;
@@ -518,6 +522,7 @@ builtins:
             harness: cupcake_core::harness::types::HarnessType::ClaudeCode,
             wasm_max_memory: None,
             opa_path: None,
+            skip_global_config: false,
             debug_routing: false,
         };
         let engine = Engine::new_with_config(project_temp.path(), config).await?;

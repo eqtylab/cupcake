@@ -60,6 +60,7 @@ builtins:
         harness: HarnessType::ClaudeCode,
         wasm_max_memory: None,
         opa_path: None,
+        skip_global_config: false,
         debug_routing: false,
     };
 

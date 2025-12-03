@@ -279,6 +279,43 @@ impl From<HarnessType> for cupcake_core::harness::types::HarnessType {
     }
 }
 
+/// Get the directory name for a harness type
+fn harness_dir_name(harness: &HarnessType) -> &'static str {
+    match harness {
+        HarnessType::Claude => "claude",
+        HarnessType::Cursor => "cursor",
+        HarnessType::Factory => "factory",
+        HarnessType::OpenCode => "opencode",
+    }
+}
+
+/// Prompt user to select a harness interactively
+fn prompt_harness_selection() -> Result<HarnessType> {
+    println!("Select a harness to initialize:");
+    println!();
+    println!("  1) claude   - Claude Code (claude.ai/code)");
+    println!("  2) cursor   - Cursor (cursor.com)");
+    println!("  3) factory  - Factory AI Droid (factory.ai)");
+    println!("  4) opencode - OpenCode (opencode.ai)");
+    println!();
+    print!("Enter choice [1-4]: ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    match input.trim().to_lowercase().as_str() {
+        "1" | "claude" => Ok(HarnessType::Claude),
+        "2" | "cursor" => Ok(HarnessType::Cursor),
+        "3" | "factory" => Ok(HarnessType::Factory),
+        "4" | "opencode" => Ok(HarnessType::OpenCode),
+        _ => Err(anyhow!(
+            "Invalid selection '{}'. Please enter 1-4 or a harness name (claude, cursor, factory, opencode)",
+            input.trim()
+        )),
+    }
+}
+
 /// Initialize tracing with CLI flags
 ///
 /// Configures logging based on --log-level and --trace flags.
@@ -967,11 +1004,24 @@ async fn init_command(
     }
 
     if global {
-        // Initialize global configuration
+        // Initialize global configuration (keeps all harnesses for machine-wide baseline)
         init_global_config(harness, builtins).await
     } else {
-        // Initialize project configuration
-        init_project_config(harness, builtins).await
+        // Project init requires a specific harness
+        let selected_harness = match harness {
+            Some(h) => h,
+            None => {
+                // Check if .cupcake already exists - if so, require --harness flag
+                if Path::new(".cupcake").exists() {
+                    return Err(anyhow!(
+                        "Cupcake project already initialized. Use --harness to configure a specific harness integration."
+                    ));
+                }
+                // Prompt user to select a harness interactively
+                prompt_harness_selection()?
+            }
+        };
+        init_project_config(selected_harness, builtins).await
     }
 }
 
@@ -1372,25 +1422,56 @@ import rego.v1
     Ok(())
 }
 
-async fn init_project_config(
-    harness: Option<HarnessType>,
-    builtins: Option<Vec<String>>,
-) -> Result<()> {
+async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>) -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
+    let harness_name = harness_dir_name(&harness);
 
     // Check if cupcake directory exists
     let cupcake_exists = cupcake_dir.exists();
 
-    if cupcake_exists {
-        println!("Cupcake project already initialized (.cupcake/ exists)");
-        // Continue to configure harness if specified
+    // Check if this specific harness is already initialized
+    let harness_dir = cupcake_dir.join("policies").join(harness_name);
+    let harness_exists = harness_dir.exists();
+
+    if cupcake_exists && harness_exists {
+        println!(
+            "Cupcake project already initialized with {} harness (.cupcake/policies/{}/)",
+            harness_name, harness_name
+        );
+        println!("Reconfiguring harness integration...");
+    } else if cupcake_exists && !harness_exists {
+        // Adding a new harness to an existing project
+        info!(
+            "Adding {} harness to existing Cupcake project...",
+            harness_name
+        );
+
+        // Create the harness-specific directories
+        fs::create_dir_all(format!(".cupcake/policies/{harness_name}/system"))
+            .context("Failed to create harness system directory")?;
+        fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
+            .context("Failed to create harness builtins directory")?;
+
+        // Write the system evaluate policy for this harness
+        fs::write(
+            format!(".cupcake/policies/{harness_name}/system/evaluate.rego"),
+            SYSTEM_EVALUATE_TEMPLATE,
+        )
+        .context("Failed to create system evaluate.rego file")?;
+
+        // Deploy builtin policies for this harness
+        deploy_harness_builtins(&harness, harness_name)?;
+
+        println!("✅ Added {} harness to Cupcake project", harness_name);
+        println!("   Policies: .cupcake/policies/{}/", harness_name);
+        println!();
     } else {
+        // Fresh initialization
         info!("Initializing Cupcake project structure...");
 
-        // Create harness-specific directories for all supported harnesses
-        // This allows projects to work with any harness
-        fs::create_dir_all(".cupcake/policies/claude/system")
-            .context("Failed to create .cupcake/policies/claude/system directory")?;
+        // Create only the specified harness directory (plus shared directories)
+        fs::create_dir_all(format!(".cupcake/policies/{harness_name}/system"))
+            .context("Failed to create harness system directory")?;
 
         // Set Unix permissions on .cupcake directory (TOB-EQTY-LAB-CUPCAKE-4)
         #[cfg(unix)]
@@ -1407,26 +1488,13 @@ async fn init_project_config(
         {
             eprintln!("Warning: .cupcake directory permissions should be restricted manually on non-Unix systems");
         }
-        fs::create_dir_all(".cupcake/policies/claude/builtins")
-            .context("Failed to create .cupcake/policies/claude/builtins directory")?;
-        fs::create_dir_all(".cupcake/policies/cursor/system")
-            .context("Failed to create .cupcake/policies/cursor/system directory")?;
-        fs::create_dir_all(".cupcake/policies/cursor/builtins")
-            .context("Failed to create .cupcake/policies/cursor/builtins directory")?;
-        fs::create_dir_all(".cupcake/policies/factory/system")
-            .context("Failed to create .cupcake/policies/factory/system directory")?;
-        fs::create_dir_all(".cupcake/policies/factory/builtins")
-            .context("Failed to create .cupcake/policies/factory/builtins directory")?;
-        fs::create_dir_all(".cupcake/policies/opencode/system")
-            .context("Failed to create .cupcake/policies/opencode/system directory")?;
-        fs::create_dir_all(".cupcake/policies/opencode/builtins")
-            .context("Failed to create .cupcake/policies/opencode/builtins directory")?;
+
+        fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
+            .context("Failed to create harness builtins directory")?;
         fs::create_dir_all(".cupcake/policies/helpers")
-            .context("Failed to create .cupcake/policies/helpers directory")?;
-        fs::create_dir_all(".cupcake/signals")
-            .context("Failed to create .cupcake/signals directory")?;
-        fs::create_dir_all(".cupcake/actions")
-            .context("Failed to create .cupcake/actions directory")?;
+            .context("Failed to create helpers directory")?;
+        fs::create_dir_all(".cupcake/signals").context("Failed to create signals directory")?;
+        fs::create_dir_all(".cupcake/actions").context("Failed to create actions directory")?;
 
         // Write rulebook.yml - either with enabled builtins or commented template
         let rulebook_content = if let Some(ref builtin_list) = builtins {
@@ -1438,35 +1506,59 @@ async fn init_project_config(
         fs::write(".cupcake/rulebook.yml", rulebook_content)
             .context("Failed to create rulebook.yml file")?;
 
-        // Write the authoritative system evaluate policy to all harness directories
+        // Write the system evaluate policy for this harness only
         fs::write(
-            ".cupcake/policies/claude/system/evaluate.rego",
+            format!(".cupcake/policies/{harness_name}/system/evaluate.rego"),
             SYSTEM_EVALUATE_TEMPLATE,
         )
-        .context("Failed to create Claude system evaluate.rego file")?;
-        fs::write(
-            ".cupcake/policies/cursor/system/evaluate.rego",
-            SYSTEM_EVALUATE_TEMPLATE,
-        )
-        .context("Failed to create Cursor system evaluate.rego file")?;
-        fs::write(
-            ".cupcake/policies/factory/system/evaluate.rego",
-            SYSTEM_EVALUATE_TEMPLATE,
-        )
-        .context("Failed to create Factory system evaluate.rego file")?;
-        fs::write(
-            ".cupcake/policies/opencode/system/evaluate.rego",
-            SYSTEM_EVALUATE_TEMPLATE,
-        )
-        .context("Failed to create OpenCode system evaluate.rego file")?;
+        .context("Failed to create system evaluate.rego file")?;
 
         // Write helper library (shared by all harnesses)
         fs::write(".cupcake/policies/helpers/commands.rego", HELPERS_COMMANDS)
             .context("Failed to create helpers/commands.rego file")?;
 
-        // Deploy harness-specific builtin policies
-        // Claude Code builtins - all builtins available
-        let claude_builtins = vec![
+        // Deploy builtin policies for this harness only
+        deploy_harness_builtins(&harness, harness_name)?;
+
+        // Write a simple example policy
+        fs::write(".cupcake/policies/example.rego", EXAMPLE_POLICY_TEMPLATE)
+            .context("Failed to create example policy file")?;
+
+        println!("✅ Initialized Cupcake project in .cupcake/");
+        println!("   Harness:       {}", harness_name);
+        println!("   Configuration: .cupcake/rulebook.yml");
+        println!("   Policies:      .cupcake/policies/{}/", harness_name);
+        println!("   Signals:       .cupcake/signals/");
+        println!("   Actions:       .cupcake/actions/");
+        println!();
+
+        // Show which builtins were enabled
+        if let Some(ref builtin_list) = builtins {
+            if !builtin_list.is_empty() {
+                println!("   Enabled builtins:");
+                for builtin in builtin_list {
+                    println!("     - {builtin}");
+                }
+                println!();
+            }
+        }
+
+        println!("   Edit rulebook.yml to enable builtins and configure your project.");
+    }
+
+    // Always configure harness integration
+    if cupcake_exists && harness_exists {
+        println!();
+    }
+    harness_config::configure_harness(harness, Path::new(".cupcake"), false).await?;
+
+    Ok(())
+}
+
+/// Deploy builtin policies for a specific harness
+fn deploy_harness_builtins(harness: &HarnessType, harness_name: &str) -> Result<()> {
+    let builtins_to_deploy: Vec<(&str, &str)> = match harness {
+        HarnessType::Claude => vec![
             (
                 "claude_code_always_inject_on_prompt.rego",
                 CLAUDE_ALWAYS_INJECT_POLICY,
@@ -1486,16 +1578,8 @@ async fn init_project_config(
                 "claude_code_enforce_full_file_read.rego",
                 CLAUDE_ENFORCE_FULL_FILE_READ_POLICY,
             ),
-        ];
-
-        for (filename, content) in claude_builtins {
-            let path = format!(".cupcake/policies/claude/builtins/{filename}");
-            fs::write(&path, content)
-                .with_context(|| format!("Failed to create Claude builtin: {filename}"))?;
-        }
-
-        // Cursor builtins - only compatible ones (no always_inject or enforce_full_file_read)
-        let cursor_builtins = vec![
+        ],
+        HarnessType::Cursor => vec![
             ("git_pre_check.rego", CURSOR_GIT_PRE_CHECK_POLICY),
             ("post_edit_check.rego", CURSOR_POST_EDIT_CHECK_POLICY),
             (
@@ -1508,18 +1592,10 @@ async fn init_project_config(
                 CURSOR_GIT_BLOCK_NO_VERIFY_POLICY,
             ),
             // Note: enforce_full_file_read intentionally NOT included - incompatible with Cursor
-        ];
-
-        for (filename, content) in cursor_builtins {
-            let path = format!(".cupcake/policies/cursor/builtins/{filename}");
-            fs::write(&path, content)
-                .with_context(|| format!("Failed to create Cursor builtin: {filename}"))?;
-        }
-
-        // Factory AI builtins - all builtins available (same as Claude Code)
-        let factory_builtins = vec![
+        ],
+        HarnessType::Factory => vec![
             (
-                "claude_code_always_inject_on_prompt.rego",
+                "factory_always_inject_on_prompt.rego",
                 FACTORY_ALWAYS_INJECT_POLICY,
             ),
             ("git_pre_check.rego", FACTORY_GIT_PRE_CHECK_POLICY),
@@ -1534,19 +1610,11 @@ async fn init_project_config(
                 FACTORY_GIT_BLOCK_NO_VERIFY_POLICY,
             ),
             (
-                "claude_code_enforce_full_file_read.rego",
+                "factory_enforce_full_file_read.rego",
                 FACTORY_ENFORCE_FULL_FILE_READ_POLICY,
             ),
-        ];
-
-        for (filename, content) in factory_builtins {
-            let path = format!(".cupcake/policies/factory/builtins/{filename}");
-            fs::write(&path, content)
-                .with_context(|| format!("Failed to create Factory builtin: {filename}"))?;
-        }
-
-        // OpenCode builtins - all builtins available (same tools as Claude Code)
-        let opencode_builtins = vec![
+        ],
+        HarnessType::OpenCode => vec![
             (
                 "opencode_always_inject_on_prompt.rego",
                 OPENCODE_ALWAYS_INJECT_POLICY,
@@ -1566,45 +1634,13 @@ async fn init_project_config(
                 "opencode_enforce_full_file_read.rego",
                 OPENCODE_ENFORCE_FULL_FILE_READ_POLICY,
             ),
-        ];
+        ],
+    };
 
-        for (filename, content) in opencode_builtins {
-            let path = format!(".cupcake/policies/opencode/builtins/{filename}");
-            fs::write(&path, content)
-                .with_context(|| format!("Failed to create OpenCode builtin: {filename}"))?;
-        }
-
-        // Write a simple example policy
-        fs::write(".cupcake/policies/example.rego", EXAMPLE_POLICY_TEMPLATE)
-            .context("Failed to create example policy file")?;
-
-        println!("✅ Initialized Cupcake project in .cupcake/");
-        println!("   Configuration: .cupcake/rulebook.yml (with examples)");
-        println!("   Add policies:  .cupcake/policies/");
-        println!("   Add signals:   .cupcake/signals/");
-        println!("   Add actions:   .cupcake/actions/");
-        println!();
-
-        // Show which builtins were enabled
-        if let Some(ref builtin_list) = builtins {
-            if !builtin_list.is_empty() {
-                println!("   Enabled builtins:");
-                for builtin in builtin_list {
-                    println!("     - {builtin}");
-                }
-                println!();
-            }
-        }
-
-        println!("   Edit rulebook.yml to enable builtins and configure your project.");
-    }
-
-    // Configure harness if specified (whether cupcake exists or not)
-    if let Some(harness_type) = harness {
-        if cupcake_exists {
-            println!();
-        }
-        harness_config::configure_harness(harness_type, Path::new(".cupcake"), false).await?;
+    for (filename, content) in builtins_to_deploy {
+        let path = format!(".cupcake/policies/{harness_name}/builtins/{filename}");
+        fs::write(&path, content)
+            .with_context(|| format!("Failed to create builtin: {filename}"))?;
     }
 
     Ok(())

@@ -139,26 +139,35 @@ fn test_init_with_claude_harness_duplicate_prevention() {
 }
 
 #[test]
-fn test_init_without_harness() {
+fn test_init_without_harness_requires_selection() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path();
 
-    // Run init without harness flag
-    let output = run_init(dir_path, &["init"]);
+    // Run init without harness flag (with no stdin, should fail)
+    let output = Command::new(env!("CARGO_BIN_EXE_cupcake"))
+        .args(["init"])
+        .current_dir(dir_path)
+        .stdin(Stdio::null()) // No interactive input
+        .output()
+        .unwrap();
 
+    // Should fail because no harness was selected
     assert!(
-        output.status.success(),
-        "Init command failed: {}",
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "Init without --harness and no stdin should fail"
     );
 
-    // Check .cupcake directory was created
-    assert!(dir_path.join(".cupcake").exists());
-
-    // Check .claude/settings.json was NOT created
+    // Check .cupcake directory was NOT created
     assert!(
-        !dir_path.join(".claude/settings.json").exists(),
-        "Claude settings should not be created without --harness flag"
+        !dir_path.join(".cupcake").exists(),
+        ".cupcake should not be created when no harness selected"
+    );
+
+    // Verify the output shows the selection menu
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Select a harness to initialize"),
+        "Should show harness selection menu"
     );
 }
 

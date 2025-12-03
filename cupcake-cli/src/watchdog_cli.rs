@@ -33,7 +33,7 @@ pub async fn run(
     // Read event JSON from file or stdin
     let event_json: serde_json::Value = if let Some(path) = input_file {
         let content = fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read input file: {:?}", path))?;
+            .with_context(|| format!("Failed to read input file: {path:?}"))?;
         serde_json::from_str(&content).context("Failed to parse input JSON")?
     } else {
         let mut stdin_buffer = String::new();

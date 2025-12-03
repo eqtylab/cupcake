@@ -69,9 +69,8 @@ impl<'de> Deserialize<'de> for WatchdogConfigInput {
             where
                 M: MapAccess<'de>,
             {
-                let config = WatchdogConfig::deserialize(
-                    serde::de::value::MapAccessDeserializer::new(map),
-                )?;
+                let config =
+                    WatchdogConfig::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
                 Ok(WatchdogConfigInput::Full(config))
             }
         }
@@ -229,10 +228,7 @@ impl WatchdogConfig {
         }
 
         // When using directory-based config, openrouter config is auto-created
-        match self.backend.as_str() {
-            "openrouter" => true,
-            _ => false,
-        }
+        matches!(self.backend.as_str(), "openrouter")
     }
 
     /// Get the effective OpenRouter config, applying defaults
@@ -260,8 +256,8 @@ impl WatchdogConfig {
     ) -> Self {
         // Try project config first, then global
         let dir_config = project_watchdog_dir
-            .and_then(|p| WatchdogDirConfig::load_from_dir(p))
-            .or_else(|| global_watchdog_dir.and_then(|p| WatchdogDirConfig::load_from_dir(p)));
+            .and_then(WatchdogDirConfig::load_from_dir)
+            .or_else(|| global_watchdog_dir.and_then(WatchdogDirConfig::load_from_dir));
 
         if let Some(dir_config) = dir_config {
             dir_config.into_watchdog_config()
@@ -339,7 +335,7 @@ impl RulesContext {
             match std::fs::read_to_string(&file_path) {
                 Ok(content) => {
                     tracing::debug!("Loaded rules context file: {}", file_path.display());
-                    contents.push(format!("=== {} ===\n{}", file, content));
+                    contents.push(format!("=== {file} ===\n{content}"));
                 }
                 Err(e) => {
                     tracing::warn!(

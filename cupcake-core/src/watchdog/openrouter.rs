@@ -165,7 +165,11 @@ impl WatchdogBackend for OpenRouterBackend {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             warn!("OpenRouter API error: {} - {}", status, body);
-            return Err(anyhow::anyhow!("OpenRouter API error: {} - {}", status, body));
+            return Err(anyhow::anyhow!(
+                "OpenRouter API error: {} - {}",
+                status,
+                body
+            ));
         }
 
         let chat_response: ChatResponse = response
@@ -190,10 +194,8 @@ impl WatchdogBackend for OpenRouterBackend {
             .trim_end_matches("```")
             .trim();
 
-        let output: WatchdogOutput =
-            serde_json::from_str(cleaned).with_context(|| {
-                format!("Failed to parse watchdog response as JSON: {}", cleaned)
-            })?;
+        let output: WatchdogOutput = serde_json::from_str(cleaned)
+            .with_context(|| format!("Failed to parse watchdog response as JSON: {cleaned}"))?;
 
         debug!(
             "Watchdog decision: allow={}, confidence={}, reasoning={}",
@@ -219,8 +221,9 @@ mod tests {
 
     #[test]
     fn test_default_system_prompt_exists() {
-        assert!(!DEFAULT_SYSTEM_PROMPT.is_empty());
+        // Check prompt is non-empty by verifying it contains expected content
         assert!(DEFAULT_SYSTEM_PROMPT.contains("security"));
+        assert!(DEFAULT_SYSTEM_PROMPT.contains("reviewer"));
     }
 
     #[test]

@@ -416,7 +416,10 @@ impl Engine {
                         }
                     }
                     Err(e) => {
-                        warn!("Failed to initialize Watchdog: {}. Continuing without it.", e);
+                        warn!(
+                            "Failed to initialize Watchdog: {}. Continuing without it.",
+                            e
+                        );
                     }
                 }
             }

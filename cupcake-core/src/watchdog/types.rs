@@ -45,7 +45,7 @@ impl WatchdogOutput {
         Self {
             allow: true,
             confidence: 0.0,
-            reasoning: format!("Watchdog evaluation failed: {}. Defaulting to allow.", error_message),
+            reasoning: format!("Watchdog evaluation failed: {error_message}. Defaulting to allow."),
             concerns: vec!["watchdog_error".to_string()],
             suggestions: vec![],
         }
@@ -56,7 +56,7 @@ impl WatchdogOutput {
         Self {
             allow: false,
             confidence: 0.0,
-            reasoning: format!("Watchdog evaluation failed: {}. Defaulting to deny.", error_message),
+            reasoning: format!("Watchdog evaluation failed: {error_message}. Defaulting to deny."),
             concerns: vec!["watchdog_error".to_string()],
             suggestions: vec![],
         }
@@ -68,8 +68,7 @@ impl WatchdogOutput {
             allow: true,
             confidence: 1.0,
             reasoning: format!(
-                "Watchdog dry_run mode: {} event would be evaluated but API call was skipped.",
-                event_type
+                "Watchdog dry_run mode: {event_type} event would be evaluated but API call was skipped."
             ),
             concerns: vec![],
             suggestions: vec!["dry_run_mode".to_string()],

@@ -164,7 +164,11 @@ impl Rulebook {
             rulebook.signals.len(),
             rulebook.actions.by_rule_id.len(),
             rulebook.builtins.enabled_builtins().len(),
-            if rulebook.watchdog.enabled { "enabled" } else { "disabled" }
+            if rulebook.watchdog.enabled {
+                "enabled"
+            } else {
+                "disabled"
+            }
         );
 
         // Debug: show loaded actions

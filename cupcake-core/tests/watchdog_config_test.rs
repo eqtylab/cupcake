@@ -15,8 +15,7 @@ use std::path::Path;
 
 /// Get the fixtures base path
 fn fixtures_path() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/watchdog/config-setup")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/watchdog/config-setup")
 }
 
 // ============================================================================
@@ -33,7 +32,10 @@ fn test_project_only_config() {
     );
 
     assert!(config.enabled);
-    let or_config = config.openrouter.as_ref().expect("Should have openrouter config");
+    let or_config = config
+        .openrouter
+        .as_ref()
+        .expect("Should have openrouter config");
     assert_eq!(or_config.model, "project-model");
     assert_eq!(config.timeout_seconds, 30);
 }
@@ -48,7 +50,10 @@ fn test_global_only_config() {
     );
 
     assert!(config.enabled);
-    let or_config = config.openrouter.as_ref().expect("Should have openrouter config");
+    let or_config = config
+        .openrouter
+        .as_ref()
+        .expect("Should have openrouter config");
     assert_eq!(or_config.model, "global-model");
     assert!(!config.fail_open(), "on_error=deny means fail_open=false");
 }
@@ -63,15 +68,15 @@ fn test_project_overrides_global() {
     );
 
     assert!(config.enabled);
-    let or_config = config.openrouter.as_ref().expect("Should have openrouter config");
+    let or_config = config
+        .openrouter
+        .as_ref()
+        .expect("Should have openrouter config");
     assert_eq!(
         or_config.model, "project-wins",
         "Project config should override global"
     );
-    assert_eq!(
-        config.timeout_seconds, 25,
-        "Project timeout should be used"
-    );
+    assert_eq!(config.timeout_seconds, 25, "Project timeout should be used");
 }
 
 #[test]
@@ -80,7 +85,10 @@ fn test_no_dirs_uses_defaults() {
     let config = WatchdogConfig::load_from_directory(None, None);
 
     assert!(config.enabled, "Should be enabled with defaults");
-    let or_config = config.openrouter.as_ref().expect("Should have default openrouter config");
+    let or_config = config
+        .openrouter
+        .as_ref()
+        .expect("Should have default openrouter config");
     assert_eq!(or_config.model, "google/gemini-2.5-flash");
     assert_eq!(or_config.api_key_env, "OPENROUTER_API_KEY");
 }
@@ -93,10 +101,7 @@ fn test_no_dirs_uses_defaults() {
 fn test_project_only_prompts() {
     let fixtures = fixtures_path().join("project_only");
 
-    let prompts = WatchdogPrompts::load(
-        Some(&fixtures.join("project")),
-        None,
-    );
+    let prompts = WatchdogPrompts::load(Some(&fixtures.join("project")), None);
 
     assert_eq!(prompts.system_prompt, "Project system prompt");
     assert_eq!(prompts.user_template, "Project: {{event}}");
@@ -106,10 +111,7 @@ fn test_project_only_prompts() {
 fn test_global_only_prompts() {
     let fixtures = fixtures_path().join("global_only");
 
-    let prompts = WatchdogPrompts::load(
-        None,
-        Some(&fixtures.join("global")),
-    );
+    let prompts = WatchdogPrompts::load(None, Some(&fixtures.join("global")));
 
     assert_eq!(prompts.system_prompt, "Global system prompt");
     // No user.txt in global_only, should use default (includes {{rules_context}})
@@ -127,7 +129,10 @@ fn test_mixed_sources_project_config_global_prompts() {
         Some(&fixtures.join("global")),
     );
 
-    let or_config = config.openrouter.as_ref().expect("Should have openrouter config");
+    let or_config = config
+        .openrouter
+        .as_ref()
+        .expect("Should have openrouter config");
     assert_eq!(or_config.model, "project-model");
 
     // Prompts from global (project has no prompt files)
@@ -185,8 +190,7 @@ fn test_rules_context_loads_files() {
     let project_dir = fixtures.join("project");
 
     // Load config to get rules_context
-    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir)
-        .expect("Should load config");
+    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir).expect("Should load config");
 
     let rules_context = dir_config.rules_context.expect("Should have rules_context");
 
@@ -204,16 +208,11 @@ fn test_rules_context_included_in_prompts() {
     let project_dir = fixtures.join("project");
 
     // Load config to get rules_context
-    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir)
-        .expect("Should load config");
+    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir).expect("Should load config");
     let rules_context = dir_config.rules_context.as_ref();
 
     // Load prompts with rules context
-    let prompts = WatchdogPrompts::load_with_rules_context(
-        Some(&project_dir),
-        None,
-        rules_context,
-    );
+    let prompts = WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, rules_context);
 
     // Verify rules_context contains both files
     assert!(
@@ -227,48 +226,53 @@ fn test_rules_context_included_in_prompts() {
 
     // Verify content from CLAUDE.md
     assert!(
-        prompts.rules_context.contains("Never delete files without explicit user confirmation"),
+        prompts
+            .rules_context
+            .contains("Never delete files without explicit user confirmation"),
         "Should contain CLAUDE.md content"
     );
     assert!(
-        prompts.rules_context.contains("Do not access files outside the project directory"),
+        prompts
+            .rules_context
+            .contains("Do not access files outside the project directory"),
         "Should contain CLAUDE.md content"
     );
 
     // Verify content from RULES.md
     assert!(
-        prompts.rules_context.contains("Always use parameterized queries"),
+        prompts
+            .rules_context
+            .contains("Always use parameterized queries"),
         "Should contain RULES.md content"
     );
     assert!(
-        prompts.rules_context.contains("Never drop tables in production"),
+        prompts
+            .rules_context
+            .contains("Never drop tables in production"),
         "Should contain RULES.md content"
     );
 
     // Verify the prefix instruction is included
     assert!(
-        prompts.rules_context.contains("Determine if the agent action breaks any of the rules"),
+        prompts
+            .rules_context
+            .contains("Determine if the agent action breaks any of the rules"),
         "Should contain rules context prefix"
     );
 }
 
 #[test]
 fn test_rules_context_rendered_in_user_message() {
-    use cupcake_core::watchdog::{WatchdogDirConfig};
+    use cupcake_core::watchdog::WatchdogDirConfig;
 
     let fixtures = fixtures_path().join("rules_context");
     let project_dir = fixtures.join("project");
 
     // Load config and prompts
-    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir)
-        .expect("Should load config");
+    let dir_config = WatchdogDirConfig::load_from_dir(&project_dir).expect("Should load config");
     let rules_context = dir_config.rules_context.as_ref();
 
-    let prompts = WatchdogPrompts::load_with_rules_context(
-        Some(&project_dir),
-        None,
-        rules_context,
-    );
+    let prompts = WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, rules_context);
 
     // Render a user message
     let event = serde_json::json!({
@@ -307,11 +311,8 @@ fn test_rules_context_missing_file_gracefully_ignored() {
         files: vec!["CLAUDE.md".to_string(), "nonexistent.md".to_string()],
     };
 
-    let prompts = WatchdogPrompts::load_with_rules_context(
-        Some(&project_dir),
-        None,
-        Some(&rules_context),
-    );
+    let prompts =
+        WatchdogPrompts::load_with_rules_context(Some(&project_dir), None, Some(&rules_context));
 
     // CLAUDE.md should be loaded
     assert!(prompts.rules_context.contains("=== CLAUDE.md ==="));

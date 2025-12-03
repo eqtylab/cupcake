@@ -72,10 +72,7 @@ impl WatchdogPrompts {
     /// 1. Project: `.cupcake/watchdog/{system,user}.txt`
     /// 2. Global: `~/.config/cupcake/watchdog/{system,user}.txt`
     /// 3. Built-in default
-    pub fn load(
-        project_watchdog_dir: Option<&Path>,
-        global_watchdog_dir: Option<&Path>,
-    ) -> Self {
+    pub fn load(project_watchdog_dir: Option<&Path>, global_watchdog_dir: Option<&Path>) -> Self {
         Self::load_with_rules_context(project_watchdog_dir, global_watchdog_dir, None)
     }
 
@@ -87,8 +84,9 @@ impl WatchdogPrompts {
         global_watchdog_dir: Option<&Path>,
         rules_context_config: Option<&RulesContext>,
     ) -> Self {
-        let system_prompt = Self::load_file("system.txt", project_watchdog_dir, global_watchdog_dir)
-            .unwrap_or_else(|| DEFAULT_SYSTEM_PROMPT.to_string());
+        let system_prompt =
+            Self::load_file("system.txt", project_watchdog_dir, global_watchdog_dir)
+                .unwrap_or_else(|| DEFAULT_SYSTEM_PROMPT.to_string());
 
         let user_template = Self::load_file("user.txt", project_watchdog_dir, global_watchdog_dir)
             .unwrap_or_else(|| DEFAULT_USER_TEMPLATE.to_string());
@@ -101,7 +99,7 @@ impl WatchdogPrompts {
                     if content.is_empty() {
                         String::new()
                     } else {
-                        format!("{}\n\n{}", DEFAULT_RULES_CONTEXT_PREFIX, content)
+                        format!("{DEFAULT_RULES_CONTEXT_PREFIX}\n\n{content}")
                     }
                 })
             })
@@ -290,14 +288,15 @@ mod tests {
             files: vec!["CLAUDE.md".to_string()],
         };
 
-        let prompts =
-            WatchdogPrompts::load_with_rules_context(Some(&watchdog_dir), None, Some(&rules_context));
+        let prompts = WatchdogPrompts::load_with_rules_context(
+            Some(&watchdog_dir),
+            None,
+            Some(&rules_context),
+        );
 
         assert!(prompts.rules_context.contains("Do not delete files"));
         assert!(prompts.rules_context.contains("=== CLAUDE.md ==="));
-        assert!(prompts
-            .rules_context
-            .contains(DEFAULT_RULES_CONTEXT_PREFIX));
+        assert!(prompts.rules_context.contains(DEFAULT_RULES_CONTEXT_PREFIX));
     }
 
     #[test]
@@ -311,8 +310,11 @@ mod tests {
             files: vec![], // No files configured
         };
 
-        let prompts =
-            WatchdogPrompts::load_with_rules_context(Some(&watchdog_dir), None, Some(&rules_context));
+        let prompts = WatchdogPrompts::load_with_rules_context(
+            Some(&watchdog_dir),
+            None,
+            Some(&rules_context),
+        );
 
         assert!(prompts.rules_context.is_empty());
     }
@@ -328,8 +330,11 @@ mod tests {
             files: vec!["nonexistent.md".to_string()],
         };
 
-        let prompts =
-            WatchdogPrompts::load_with_rules_context(Some(&watchdog_dir), None, Some(&rules_context));
+        let prompts = WatchdogPrompts::load_with_rules_context(
+            Some(&watchdog_dir),
+            None,
+            Some(&rules_context),
+        );
 
         // Should still load but rules_context will be empty (no files found)
         assert!(prompts.rules_context.is_empty());

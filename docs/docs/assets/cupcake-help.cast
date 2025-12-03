@@ -1,4 +1,4 @@
-{"version": 3, "term": {"cols": 100, "rows": 30}, "timestamp": 1764706079, "idle_time_limit": 2, "title": "Cupcake CLI Help"}
+{"version": 3, "term": {"cols": 100, "rows": 30}, "timestamp": 1764772238, "idle_time_limit": 2, "title": "Cupcake CLI Help"}
 [1.5, "o", "$ cupcake --help\r\n"]
 [0.5, "o", "Governance and augmentation orchestrator for agentic AI systems\r\n"]
 [0.075, "o", "\r\n"]

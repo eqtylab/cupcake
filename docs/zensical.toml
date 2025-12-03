@@ -89,7 +89,9 @@ nav = [
 # Read more: https://zensical.org/docs/customization/#additional-css
 extra_css = [
     "stylesheets/asciinema-player.css",
-    "stylesheets/asciinema-custom.css"
+    "stylesheets/asciinema-custom.css",
+    "stylesheets/equality.css",
+    "stylesheets/zensical-custom.css"
 ]
 
 # With the `extra_javascript` option you can add your own JavaScript to your
@@ -303,6 +305,9 @@ toggle.name = "Switch to dark mode"
 scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+scheme = "custom"
 
 # ----------------------------------------------------------------------------
 # In the "font" subsection you can configure the fonts used. By default, fonts

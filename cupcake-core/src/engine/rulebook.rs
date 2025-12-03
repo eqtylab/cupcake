@@ -9,6 +9,7 @@ use std::path::Path;
 use tracing::{debug, info};
 
 use super::builtins::BuiltinsConfig;
+use crate::watchdog::{WatchdogConfig, WatchdogConfigInput};
 
 /// Signal configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +47,31 @@ pub struct Rulebook {
     /// Builtin abstractions configuration
     #[serde(default)]
     pub builtins: BuiltinsConfig,
+
+    /// Watchdog LLM-as-judge configuration (top-level, not under builtins)
+    ///
+    /// Supports both shorthand (`watchdog: true`) and full config:
+    /// ```yaml
+    /// # Shorthand - enables with defaults
+    /// watchdog: true
+    ///
+    /// # Full config
+    /// watchdog:
+    ///   enabled: true
+    ///   backend: openrouter
+    ///   # ...
+    /// ```
+    #[serde(default, deserialize_with = "deserialize_watchdog_config")]
+    pub watchdog: WatchdogConfig,
+}
+
+/// Custom deserializer for watchdog config that handles both `true` and full object
+fn deserialize_watchdog_config<'de, D>(deserializer: D) -> Result<WatchdogConfig, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let input = WatchdogConfigInput::deserialize(deserializer)?;
+    Ok(input.into())
 }
 
 /// Action section with both general and ID-specific actions
@@ -134,10 +160,15 @@ impl Rulebook {
         }
 
         info!(
-            "Final rulebook: {} signals, {} action rules, {} enabled builtins",
+            "Final rulebook: {} signals, {} action rules, {} enabled builtins, watchdog={}",
             rulebook.signals.len(),
             rulebook.actions.by_rule_id.len(),
-            rulebook.builtins.enabled_builtins().len()
+            rulebook.builtins.enabled_builtins().len(),
+            if rulebook.watchdog.enabled {
+                "enabled"
+            } else {
+                "disabled"
+            }
         );
 
         // Debug: show loaded actions

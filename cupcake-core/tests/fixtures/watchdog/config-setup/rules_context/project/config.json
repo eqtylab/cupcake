@@ -1,0 +1,7 @@
+{
+  "model": "test-model",
+  "rulesContext": {
+    "rootPath": "..",
+    "files": ["CLAUDE.md", "RULES.md"]
+  }
+}

@@ -17,6 +17,8 @@ dirs = { workspace = true }
 
 # Core dependencies needed for CLI
 serde_json = { workspace = true }
+serde = { workspace = true }
+serde_yaml_ng = "0.10.0"
 anyhow = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -39,3 +41,5 @@ tempfile = "3.8"
 
 [features]
 deterministic-tests = ["cupcake-core/deterministic-tests"]
+watchdog = ["cupcake-core/watchdog"]
+default = ["watchdog"]

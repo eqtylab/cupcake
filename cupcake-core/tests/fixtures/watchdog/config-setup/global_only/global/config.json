@@ -1,0 +1,4 @@
+{
+  "model": "global-model",
+  "on_error": "deny"
+}

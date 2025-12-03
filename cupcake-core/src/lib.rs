@@ -7,3 +7,4 @@ pub mod harness;
 pub mod preprocessing;
 pub mod trust;
 pub mod validator;
+pub mod watchdog;

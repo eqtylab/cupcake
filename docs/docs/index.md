@@ -54,6 +54,15 @@ Cupcake provides native integrations for multiple AI coding agents:
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
 
+## Language Bindings
+
+Cupcake can be embedded in Python or JavaScript agent applications through native bindings. This enables integration with web-based agent frameworks like LangChain, Google ADK, NVIDIA NIM, Vercel AI SDK, and more.
+
+| Language | Binding |
+| -------- | ------- |
+| ![Python](assets/python.svg){ width="24" } Python | `cupcake` |
+| ![TypeScript](assets/typescript.svg){ width="24" } TypeScript | `@eqtylab/cupcake` |
+
 ## Getting Started
 
 Install Cupcake and set up your first policy in minutes. Check out our [Installation Guide](/getting-started/installation.md) to get started.

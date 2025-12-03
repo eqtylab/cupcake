@@ -116,6 +116,7 @@ steps:
 ### Duration Format
 
 Durations can be specified as:
+
 - `500ms` - milliseconds
 - `1s` - seconds
 - `1.5s` - fractional seconds
@@ -166,17 +167,6 @@ In markdown files, embed the player with:
 | `data-poster`   | Poster frame (e.g., `npt:0:30`)      | -         |
 | `data-fit`      | Fit mode: width, height, both, none  | `width`   |
 
-## Benefits Over GIFs
-
-| Aspect          | GIFs (VHS)              | asciinema              |
-| --------------- | ----------------------- | ---------------------- |
-| File size       | Large (~2-6 MB)         | Tiny (~5-50 KB)        |
-| Text quality    | Rasterized, blurry      | Crisp, vector-like     |
-| Copy/paste      | Not possible            | Users can copy text    |
-| Accessibility   | Poor                    | Better (text-based)    |
-| Speed control   | Fixed                   | User-adjustable        |
-| Search indexing | None                    | Potentially indexable  |
-
 ## Generated Assets
 
 After running `just casts`, you'll have `.cast` files in `docs/docs/assets/`:
@@ -194,6 +184,7 @@ After running `just casts`, you'll have `.cast` files in `docs/docs/assets/`:
 ### asciinema not found
 
 Install asciinema using your package manager or pip:
+
 ```bash
 brew install asciinema  # macOS
 pip install asciinema   # cross-platform
@@ -202,6 +193,7 @@ pip install asciinema   # cross-platform
 ### PyYAML not found
 
 Install the Python YAML library:
+
 ```bash
 pip install pyyaml
 ```

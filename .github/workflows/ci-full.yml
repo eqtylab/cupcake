@@ -55,7 +55,7 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          cache-targets: false
+          cache-targets: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -105,9 +105,6 @@ jobs:
           } else {
             Write-Host "Warning: Claude CLI not found in PATH after npm install"
           }
-
-      - name: Build release binary first
-        run: cargo build --release
 
       - name: Clean up any existing global config (test isolation)
         shell: bash

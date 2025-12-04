@@ -22,11 +22,17 @@ tokio = { workspace = true }
 futures = { workspace = true }
 async-trait = "0.1"
 
-# HTTP Client (for Watchdog)
+# HTTP Client (for Watchdog and Catalog)
 reqwest = { version = "0.12", features = ["json"], optional = true }
+
+# Archive handling (for Catalog)
+flate2 = { version = "1.0", optional = true }
+tar = { version = "0.4", optional = true }
 
 # Utilities
 chrono = { workspace = true }
+semver = "1.0"
+dirs = { workspace = true }
 regex = { workspace = true }
 once_cell = { workspace = true }
 directories = "6.0.0"
@@ -58,6 +64,9 @@ deterministic-tests = []
 
 # Enable Watchdog LLM-as-judge feature
 watchdog = ["reqwest"]
+
+# Enable Catalog feature (registry browsing, installation)
+catalog = ["reqwest", "flate2", "tar"]
 
 [lib]
 name = "cupcake_core"

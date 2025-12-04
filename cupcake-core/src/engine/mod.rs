@@ -1525,12 +1525,25 @@ impl Engine {
                         "Executing Watchdog evaluation for {:?} event",
                         input.get("hook_event_name")
                     );
+                    let watchdog_start = std::time::Instant::now();
                     let watchdog_input = crate::watchdog::Watchdog::input_from_event(input);
                     let watchdog_output = watchdog.evaluate(watchdog_input).await;
+                    let watchdog_duration = watchdog_start.elapsed();
                     debug!(
                         "Watchdog result: allow={}, confidence={}",
                         watchdog_output.allow, watchdog_output.confidence
                     );
+
+                    // Capture watchdog in debug output
+                    if let Some(ref mut debug) = debug_capture {
+                        debug.signals_configured.push("watchdog".to_string());
+                        debug.signals_executed.push(crate::debug::SignalExecution {
+                            name: "watchdog".to_string(),
+                            command: format!("LLM evaluation via {}", watchdog.backend_name()),
+                            result: serde_json::to_value(&watchdog_output).unwrap_or_default(),
+                            duration_ms: Some(watchdog_duration.as_millis()),
+                        });
+                    }
 
                     if let Some(signals_map) = signals_obj.as_object_mut() {
                         signals_map.insert(

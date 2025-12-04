@@ -155,7 +155,7 @@ If you use Cupcake in your research or project, please cite it as follows:
   title = {{Cupcake: Policy enforcement for AI agents}},
   year = {2025},
   publisher = {EQTYLab},
-  url = {[https://github.com/eqtylab/cupcake](https://github.com/eqtylab/cupcake)}
+  url = {https://cupcake.eqtylab.io}
 }
 ```
 

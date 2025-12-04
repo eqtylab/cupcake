@@ -1,0 +1,66 @@
+/* This file maps Zensical's class styling structure to our Equality Tokens classes for custom colour theming.
+
+To update the Equality tokens, build the design system in the equality repo with pnpm build, then grab the color-vars.css file from equality/packages/ui/dist/generated/color-vars.css and replace it under /stylesheets here with the updated file. */
+
+/* Light (default) theme */
+[data-md-color-scheme="light"] {
+  --md-primary-fg-color: var(--color-lilac-600);
+  --md-primary-fg-color--light: var(--color-lilac-600);
+  --md-accent-fg-color: var(--color-lilac-500);
+  --md-accent-fg-color-light: var(--color-lilac-500);
+  --md-accent-fg-color--transparent: var(--color-lilac-100);
+  --md-main: var(--color-background);
+
+  --md-typeset-a-color: var(--color-lilac-500);
+
+  --md-default-fg-color: var(--color-lilac-800);
+
+  /* Menu bar overrides */
+
+  .md-header {
+    background-color: var(--color-lilac-800);
+    color: var(--dark-color-text-primary);
+    color-scheme: dark;
+  }
+
+  .md-search__input,
+  .md-search__icon {
+    color: var(--md-primary-bg-color--dark, #fff);
+  }
+
+  .md-search__input {
+    background-color: var(--md-primary-bg-color, #2b2b2b);
+  }
+
+  .md-search__button {
+    color: var(--md-primary-bg-color--dark, #fff);
+    background-color: var(--color-lilac-700);
+  }
+
+  .md-search__button:hover {
+    background-color: var(--color-lilac-600);
+  }
+
+  .md-search__button::after {
+    color: var(--color-text-primary);
+  }
+
+  .md-search__button::before {
+    background-color: var(--dark-color-text-secondary);
+  }
+}
+
+/* Dark theme */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: var(--color-lilac-300);
+  --md-accent-fg-color: var(--color-lilac-200);
+  --md-accent-fg-color--transparent: var(--color-lilac-800);
+
+  --md-accent-bg-color: #121212;
+  --md-accent-bg-color--light: hsla(0, 0%, 0%, 0.7);
+
+  .md-header {
+    background-color: var(--color-lilac-900);
+    color: var(--dark-color-text-primary);
+  }
+}

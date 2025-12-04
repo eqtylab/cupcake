@@ -35,7 +35,7 @@ site_url = "https://cupcake.eqtylab.io/"
 # fragment.
 #
 # Read more: https://zensical.org/docs/setup/basics/#copyright
-copyright = "Copyright &copy; 2025 EQTY Lab"
+copyright = "&copy; 2025 EQTY Lab"
 
 # Zensical supports both implicit navigation and explicitly defined navigation.
 # If you decide not to define a navigation here then Zensical will simply
@@ -96,7 +96,9 @@ nav = [
 # Read more: https://zensical.org/docs/customization/#additional-css
 extra_css = [
     "stylesheets/asciinema-player.css",
-    "stylesheets/asciinema-custom.css"
+    "stylesheets/asciinema-custom.css",
+    "stylesheets/color-vars.css",
+    "stylesheets/zensical-custom.css"
 ]
 
 # With the `extra_javascript` option you can add your own JavaScript to your
@@ -137,7 +139,7 @@ custom_dir = "overrides"
 # - https://developer.mozilla.org/en-US/docs/Glossary/Favicon
 #
 favicon = "assets/cupcake-responsive.svg"
-logo = "assets/cupcake-static.svg"
+logo = "assets/cupcake-light.svg"
 
 # Zensical supports more than 60 different languages. This means that the
 # labels and tooltips that Zensical's templates produce are translated.
@@ -302,7 +304,7 @@ features = [
 # - https://zensical.org/docs/setup/colors/
 # ----------------------------------------------------------------------------
 [[project.theme.palette]]
-scheme = "default"
+scheme = "light"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
@@ -310,6 +312,9 @@ toggle.name = "Switch to dark mode"
 scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
+
+# [[project.theme.palette]]
+# primary = "custom"
 
 # ----------------------------------------------------------------------------
 # In the "font" subsection you can configure the fonts used. By default, fonts

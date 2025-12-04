@@ -49,12 +49,13 @@ Install Cupcake and set up your first policy in minutes. Check out our [Installa
 
 Cupcake provides native integrations for multiple AI coding agents:
 
-| Harness                                   | Status                         | Integration Guide                                    |
-| ----------------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| **[Claude Code](https://claude.ai/code)** | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/claude-code.md) |
-| **[Cursor](https://cursor.com)**          | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/cursor.md)      |
-| **[OpenCode](https://opencode.ai/)**      | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/opencode.md)    |
-| **[Factory AI](https://factory.ai/)**     | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/factory-ai.md)  |
+<!-- If you update this table you should also update it on usage page! -->
+| Harness                                                                                                                                                                              | Status                         | Guide                                                |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|------------------------------------------------------|
+| <img src="../../assets/claude-light.svg#only-light" alt="Claude Code" width="90"><img src="../../assets/claude-dark.svg#only-dark" width="90" aria-hidden="true">                    | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/claude-code.md) |
+| <img src="../../assets/cursor-light.svg#only-light" alt="Cursor" width="90"><img src="../../assets/cursor-dark.svg#only-dark" width="90" aria-hidden="true">                         | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/cursor.md)      |
+| <img src="../../assets/opencode-wordmark-light.svg#only-light" alt="OpenCode" width="90"><img src="../../assets/opencode-wordmark-dark.svg#only-dark" width="90" aria-hidden="true"> | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/opencode.md)    |
+| <img src="../../assets/factory-dark.svg#only-light" alt="Factory AI" width="100"><img src="../../assets/factory-light.svg#only-dark" width="100" aria-hidden="true">                 | :lucide-check: Fully Supported | [Setup Guide](/getting-started/usage/factory-ai.md)  |
 
 Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`) to ensure clarity and full access to harness-specific capabilities.
 

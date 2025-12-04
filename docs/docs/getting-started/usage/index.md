@@ -10,12 +10,13 @@ After [installation](../installation/), you're ready to set up Cupcake for your 
 ## Select Your Harness
 
 <!-- If you update this table you should also update it on the homepage! -->
+
 | Harness                                                                                                                                                                              | Status                         | Guide                         |
-|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|-------------------------------|
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ | ----------------------------- |
 | <img src="../../assets/claude-light.svg#only-light" alt="Claude Code" width="90"><img src="../../assets/claude-dark.svg#only-dark" width="90" aria-hidden="true">                    | :lucide-check: Fully Supported | [Setup Guide](claude-code.md) |
 | <img src="../../assets/cursor-light.svg#only-light" alt="Cursor" width="90"><img src="../../assets/cursor-dark.svg#only-dark" width="90" aria-hidden="true">                         | :lucide-check: Fully Supported | [Setup Guide](cursor.md)      |
 | <img src="../../assets/opencode-wordmark-light.svg#only-light" alt="OpenCode" width="90"><img src="../../assets/opencode-wordmark-dark.svg#only-dark" width="90" aria-hidden="true"> | :lucide-check: Fully Supported | [Setup Guide](opencode.md)    |
-| <img src="../../assets/factory-dark.svg#only-light" alt="Factory AI" width="100"><img src="../../assets/factory-light.svg#only-dark" width="100" aria-hidden="true">                 | :lucide-check: Fully Supported | [Setup Guide](factory-ai.md)  |
+| <img src="../../assets/factory-light.svg#only-light" alt="Factory AI" width="100"><img src="../../assets/factory-dark.svg#only-dark" width="100" aria-hidden="true">                 | :lucide-check: Fully Supported | [Setup Guide](factory-ai.md)  |
 
 ## Next Steps
 

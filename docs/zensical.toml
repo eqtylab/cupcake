@@ -97,7 +97,7 @@ nav = [
 extra_css = [
     "stylesheets/asciinema-player.css",
     "stylesheets/asciinema-custom.css",
-    "stylesheets/equality.css",
+    "stylesheets/color-vars.css",
     "stylesheets/zensical-custom.css"
 ]
 

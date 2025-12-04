@@ -94,10 +94,7 @@ impl CatalogIndex {
     /// the same rulebook, versions are merged and sorted newest-first.
     pub fn merge(&mut self, other: CatalogIndex) {
         for (name, versions) in other.entries {
-            self.entries
-                .entry(name)
-                .or_default()
-                .extend(versions);
+            self.entries.entry(name).or_default().extend(versions);
         }
 
         // Sort versions (newest first) and deduplicate

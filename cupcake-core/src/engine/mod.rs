@@ -1454,8 +1454,29 @@ impl Engine {
             }
         }
 
-        if required_signals.is_empty() {
-            debug!("No signals required - returning with builtin config");
+        // Check if watchdog should run (needed to decide whether to skip signal gathering)
+        // Watchdog only runs on pre-action events (MVP scope)
+        // Supported events by harness:
+        // - Claude Code / OpenCode: PreToolUse
+        // - Cursor: beforeShellExecution, beforeMCPExecution
+        let is_pre_action_event = input
+            .get("hook_event_name")
+            .and_then(|v| v.as_str())
+            .map(|s| {
+                matches!(
+                    s,
+                    // Claude Code / OpenCode
+                    "PreToolUse" |
+                    // Cursor pre-action events
+                    "beforeShellExecution" |
+                    "beforeMCPExecution"
+                )
+            })
+            .unwrap_or(false);
+        let watchdog_should_run = self.watchdog.is_some() && is_pre_action_event;
+
+        if required_signals.is_empty() && !watchdog_should_run {
+            debug!("No signals required and watchdog not enabled - returning with builtin config");
             return Ok(enriched_input);
         }
 
@@ -1497,26 +1518,7 @@ impl Engine {
         if let Some(input_obj) = enriched_input.as_object_mut() {
             let mut signals_obj = serde_json::to_value(signal_data)?;
 
-            // Execute Watchdog if enabled - only for pre-action events (MVP scope)
-            // This avoids unnecessary LLM API calls for post-action or session events
-            // Supported events by harness:
-            // - Claude Code / OpenCode: PreToolUse
-            // - Cursor: beforeShellExecution, beforeMCPExecution
-            let is_pre_action_event = input
-                .get("hook_event_name")
-                .and_then(|v| v.as_str())
-                .map(|s| {
-                    matches!(
-                        s,
-                        // Claude Code / OpenCode
-                        "PreToolUse" |
-                        // Cursor pre-action events
-                        "beforeShellExecution" |
-                        "beforeMCPExecution"
-                    )
-                })
-                .unwrap_or(false);
-
+            // Execute Watchdog if enabled (is_pre_action_event already computed above)
             if let Some(ref watchdog) = self.watchdog {
                 if is_pre_action_event {
                     debug!(

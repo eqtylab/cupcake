@@ -32,6 +32,16 @@ reqwest = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
+# File system utilities
+walkdir = "2.5"
+
+# Archive handling (for catalog package command)
+flate2 = "1.0"
+tar = "0.4"
+
+# Version comparison
+semver = "1.0"
+
 [[bin]]
 name = "cupcake"
 path = "src/main.rs"
@@ -43,4 +53,5 @@ serial_test = "3.2"
 [features]
 deterministic-tests = ["cupcake-core/deterministic-tests"]
 watchdog = ["cupcake-core/watchdog"]
-default = ["watchdog"]
+catalog = ["cupcake-core/catalog"]
+default = ["watchdog", "catalog"]

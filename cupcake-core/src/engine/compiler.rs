@@ -346,6 +346,149 @@ pub async fn compile_policies_with_namespace(
     Ok(wasm_bytes)
 }
 
+/// Compile catalog overlay policies with explicit root path
+///
+/// This is a specialized version of compile_policies_with_namespace that uses
+/// an explicit root path instead of trying to detect it. This is necessary for
+/// catalog overlays because they have both policies/ and helpers/ directories
+/// at the same level under the rulebook root.
+pub async fn compile_catalog_overlay_policies(
+    policies: &[PolicyUnit],
+    namespace: &str,
+    rulebook_root: &Path,
+    opa_path_override: Option<PathBuf>,
+) -> Result<Vec<u8>> {
+    if policies.is_empty() {
+        bail!("No policies to compile");
+    }
+
+    info!(
+        "Compiling {} catalog overlay policies into unified WASM module",
+        policies.len()
+    );
+
+    // Create a temporary directory for the compilation that auto-cleans on drop
+    let temp_dir = TempDir::new().context("Failed to create temp directory for OPA compilation")?;
+    let temp_path = temp_dir.path();
+    debug!("Using temp directory: {:?}", temp_path);
+
+    // Copy all policy and helper files to temp directory, preserving relative paths from rulebook root
+    debug!(
+        "Copying {} policies to temp dir from rulebook root {:?}",
+        policies.len(),
+        rulebook_root
+    );
+
+    for policy in policies.iter() {
+        // Get the relative path from the rulebook root
+        let relative_path = policy
+            .path
+            .strip_prefix(rulebook_root)
+            .unwrap_or_else(|_| policy.path.file_name().unwrap().as_ref());
+
+        let dest_path = temp_path.join(relative_path);
+
+        // Create parent directories if needed
+        if let Some(parent) = dest_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        // Read and write the policy content
+        let content = tokio::fs::read_to_string(&policy.path)
+            .await
+            .context(format!("Failed to read policy {:?}", policy.path))?;
+
+        tokio::fs::write(&dest_path, &content)
+            .await
+            .context(format!("Failed to write policy {dest_path:?}"))?;
+
+        debug!(
+            "Wrote policy {} to temp: {:?}",
+            policy.package_name, dest_path
+        );
+    }
+
+    // Build the OPA command
+    let opa_path = find_opa_binary(opa_path_override)?;
+    debug!("Using OPA binary: {:?}", opa_path);
+    let mut opa_cmd = Command::new(&opa_path);
+    opa_cmd
+        .arg("build")
+        .arg("-t")
+        .arg("wasm")
+        .arg("-O")
+        .arg("2");
+
+    // Add the single aggregation entrypoint
+    let entrypoint = format!("{}/evaluate", namespace.replace('.', "/"));
+    opa_cmd.arg("-e").arg(&entrypoint);
+    debug!("Added catalog overlay entrypoint: {}", entrypoint);
+
+    // Add the temp directory as input
+    let temp_path_str = temp_path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Failed to convert temp path to string"))?;
+
+    let temp_path_arg = if cfg!(windows) {
+        let url_path = temp_path_str.replace('\\', "/");
+        format!("file:///{url_path}")
+    } else {
+        temp_path_str.to_string()
+    };
+
+    debug!("Temp path for OPA: {:?}", temp_path_arg);
+    opa_cmd.arg(&temp_path_arg);
+
+    // Output to bundle.tar.gz in temp dir
+    let bundle_path = temp_path.join("bundle.tar.gz");
+    let bundle_path_str = bundle_path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Failed to convert bundle path to string"))?;
+
+    let bundle_path_arg = if cfg!(windows) {
+        opa_cmd.current_dir(temp_path);
+        "bundle.tar.gz".to_string()
+    } else {
+        bundle_path_str.to_string()
+    };
+
+    debug!("Bundle path: {:?}", bundle_path_arg);
+    opa_cmd.arg("-o").arg(&bundle_path_arg);
+
+    info!("Executing OPA build command for catalog overlay...");
+    debug!("OPA command: {:?}", opa_cmd);
+
+    let output = opa_cmd.output().context("Failed to execute OPA command")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        error!(
+            "OPA command failed: {:?}\nStderr: {}\nStdout: {}",
+            opa_cmd, stderr, stdout
+        );
+        let error_msg = if !stderr.is_empty() {
+            format!("stderr: {stderr}")
+        } else if !stdout.is_empty() {
+            format!("stdout: {stdout}")
+        } else {
+            format!("No output from OPA. Exit code: {:?}", output.status.code())
+        };
+        bail!("OPA compilation failed: {}", error_msg);
+    }
+
+    info!("OPA compilation successful for catalog overlay");
+
+    // Extract the WASM module from the bundle
+    let wasm_bytes = extract_wasm_from_bundle(&bundle_path)
+        .await
+        .context("Failed to extract WASM from bundle")?;
+
+    info!("Extracted WASM module: {} bytes", wasm_bytes.len());
+
+    Ok(wasm_bytes)
+}
+
 /// Extract the policy.wasm file from the OPA bundle
 async fn extract_wasm_from_bundle(bundle_path: &Path) -> Result<Vec<u8>> {
     // OPA creates a tar.gz bundle, we need to extract policy.wasm from it

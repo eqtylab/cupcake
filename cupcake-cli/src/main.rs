@@ -18,6 +18,8 @@ use tracing_subscriber::EnvFilter;
 
 use cupcake_core::{debug::DebugCapture, engine, harness, validator};
 
+#[cfg(feature = "catalog")]
+mod catalog_cli;
 mod harness_config;
 mod trust_cli;
 #[cfg(feature = "watchdog")]
@@ -252,6 +254,13 @@ enum Command {
 
     /// Launch the interactive onboarding wizard to convert rule files into Cupcake policies
     Onboard,
+
+    /// Browse and manage rulebooks from the Cupcake Catalog
+    #[cfg(feature = "catalog")]
+    Catalog {
+        #[clap(subcommand)]
+        command: catalog_cli::CatalogSubcommand,
+    },
 }
 
 /// Supported agent harness types for integration
@@ -437,6 +446,8 @@ async fn main() -> Result<()> {
             table,
         } => inspect_command(policy_dir, json, table).await,
         Command::Onboard => onboard_command().await,
+        #[cfg(feature = "catalog")]
+        Command::Catalog { command } => catalog_cli::CatalogCommand { command }.execute().await,
     }
 }
 

@@ -186,11 +186,11 @@ Later on, we cover how to `verify` and `test` policies.
 
 ---
 
-## Step 6: MCP Database Protection Demo
+### Step 6: MCP Database Protection Demo
 
 This demo shows how Cupcake can protect databases accessed through MCP (Model Context Protocol) servers. This capability expands to any MCP.
 
-### Setup the Database Demo
+#### Setup the Database Demo
 
 **Requires Docker.**
 
@@ -212,7 +212,7 @@ This will:
 - Install a policy that prevents database deletions and last-minute cancellations
 - Configure Cursor to access the database via MCP
 
-### Test Database Protection
+#### Test Database Protection
 
 After restarting Cursor, try these scenarios:
 
@@ -232,11 +232,11 @@ After restarting Cursor, try these scenarios:
 # Blocked - no deletions allowed on production data
 ```
 
-### So How Did That Work?
+#### So How Did That Work?
 
 The appointment cancellation was blocked using **signals** - external scripts that provide runtime data to policies.
 
-## Step 7: Introducing external context for more effective policy evaluation.
+### Step 7: Introducing external context for more effective policy evaluation.
 
 Cupcake allows you to configure signals, arbitrary scripts, strings, and commands that can be used in conjunction with the Cursor event. It can take the event as input and use it to query real-world systems that you might need further context from. In the example, there's a Python script that takes the appointment's ID (from the agent tool call parameter) to change the appointment to canceled. That script then queries an external system, the Appointments Database, and calculates whether or not that appointment is within 24 hours. Passes that data back to Cupcake, and Cupcake makes the decision. Ultimately blocking Cursor from executing the action.
 
@@ -256,28 +256,16 @@ Cursor                  Cupcake Engine                  Signal Script           
 
 The signal (`check_appointment_time.py`) dynamically extracts the appointment ID from the SQL, queries the database, and returns whether it's within 24 hours. This enables policies to make real-time decisions based on actual data - no hardcoded values.
 
-### When to use signals
+#### When to use signals
 
 1. Use signals anytime you want to enrich an agent event with deeper context and information you can only get at a point in time.
 
 2. Signals also allow you to do advanced guard railing. Cupcake itself does not intend to be a scanning or classifier type of system, such as NVIDIA NeMo or Invariant guardrails. However, you can use those types of guardrails (LLM-based evaluations, AI as a judge, AI classifiers, etc.) to evaluate the tool calls and ultimately make the decision on whether to allow or deny. Cupcake is simple in that it can accept outputs from the advance guardrail systems as the decision. The Cupcake policy is simple in those cases.
 
-### Cleanup
+#### Cleanup
 
 When done testing:
 
 ```bash
 ./mcp_cleanup.sh
 ```
-
----
-
-## Key Takeaways
-
-1. **Policies work transparently** - No changes needed to Cursor itself
-2. **Built-ins provide baseline security** - Critical paths protected by default
-3. **Layered protection** - Global policies + project policies + built-ins
-4. **Real-time enforcement** - Commands blocked before execution
-5. **AI-resistant** - Agents cannot easily bypass security policies
-
-Explore the policy files in `.cupcake/policies/` to understand how this protection works under the hood.

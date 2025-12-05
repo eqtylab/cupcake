@@ -2,13 +2,14 @@ cff-version: 1.2.0
 message: "If you use this software in your work, please cite it using the information below."
 title: "Cupcake: Policy enforcement layer for AI agents"
 authors:
-  - type: person
-    given-names: "Michael"
-    family-names: "Ramos"
+  - given-names: Michael
+    family-names: Ramos
     affiliation: EQTY Lab
-  - type: entity
-    name: "EQTYLab"
-    website: "https://eqtylab.io"
+  - given-names: Jordan
+    family-names: Taylor
+    affiliation: EQTY Lab
+  - name: EQTY Lab
+    website: 'https://eqtylab.io'
 type: software
 license: "Apache-2.0"
 date-released: 2025-11-04

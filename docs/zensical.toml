@@ -372,6 +372,7 @@ toggle.name = "Switch to light mode"
 #link = "https://github.com/user/repo"
 
 # Markdown extension support
+[project.markdown_extensions.admonition]
 [project.markdown_extensions.pymdownx.superfences]
 [project.markdown_extensions.pymdownx.tabbed]
 alternate_style = true

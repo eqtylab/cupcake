@@ -4,8 +4,6 @@ heading: "Installation"
 description: "Install Cupcake on your system"
 ---
 
-## Quick Install
-
 Install Cupcake using the official install scripts:
 
 ### Unix/macOS
@@ -33,48 +31,52 @@ If you prefer to install manually or need a specific version, you can download p
 
 ### Install OPA
 
-#### macOS
+???+ info "Install OPA"
 
-```bash
-brew install opa
-```
+    === "macOS"
 
-Or download directly:
+        Using Homebrew
 
-```bash
-# Apple Silicon (M1/M2/M3)
-curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_arm64
+        ```bash
+        brew install opa
+        ```
 
-# Intel Macs
-curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_amd64
+        Or download directly:
 
-chmod 755 opa
-sudo mv opa /usr/local/bin/
-```
+        ```bash
+        # Apple Silicon (M1/M2/M3)
+        curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_arm64
 
-#### Linux
+        # Intel Macs
+        curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_darwin_amd64
 
-```bash
-# AMD64
-curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+        chmod 755 opa
+        sudo mv opa /usr/local/bin/
+        ```
 
-# ARM64
-curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_arm64
+    === "Linux"
 
-chmod 755 opa
-sudo mv opa /usr/local/bin/
-```
+        ```bash
+        # AMD64
+        curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
 
-#### Windows (PowerShell)
+        # ARM64
+        curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_arm64
 
-```powershell
-Invoke-WebRequest -Uri "https://openpolicyagent.org/downloads/latest/opa_windows_amd64.exe" -OutFile "opa.exe"
+        chmod 755 opa
+        sudo mv opa /usr/local/bin/
+        ```
 
-# Add to PATH (run as Administrator or add to user PATH)
-mkdir C:\Tools\OPA
-move opa.exe C:\Tools\OPA\
-[Environment]::SetEnvironmentVariable("Path", "$env:Path;C:\Tools\OPA", "User")
-```
+    === "Windows (PowerShell)"
+
+        ```powershell
+        Invoke-WebRequest -Uri "https://openpolicyagent.org/downloads/latest/opa_windows_amd64.exe" -OutFile "opa.exe"
+
+        # Add to PATH (run as Administrator or add to user PATH)
+        mkdir C:\Tools\OPA
+        move opa.exe C:\Tools\OPA\
+        [Environment]::SetEnvironmentVariable("Path", "$env:Path;C:\Tools\OPA", "User")
+        ```
 
 #### Verify OPA Installation
 

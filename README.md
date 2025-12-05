@@ -119,18 +119,6 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 [Apache 2.0](LICENSE)
 
-## Citation
-
-If you use Cupcake in your research or project, please cite it as follows:
-
-```bibtex
-@software{Cupcake2025,
-  author = {Ramos, Michael and EQTYLab},
-  title = {{Cupcake: Policy enforcement for AI agents}},
-  year = {2025},
-  publisher = {EQTYLab},
-  url = {https://cupcake.eqtylab.io}
-}
-```
+---
 
 Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).

@@ -209,6 +209,11 @@ impl Watchdog {
         }
     }
 
+    /// Get the backend name for debug output
+    pub fn backend_name(&self) -> &str {
+        &self.config.backend
+    }
+
     /// Override the model at runtime (useful for CLI --model flag)
     pub fn override_model(&mut self, model: String) {
         #[cfg(feature = "watchdog")]

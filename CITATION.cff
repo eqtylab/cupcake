@@ -5,9 +5,26 @@ authors:
   - type: person
     given-names: "Michael"
     family-names: "Ramos"
+    affiliation: EQTY Lab
   - type: entity
     name: "EQTYLab"
+    website: "https://eqtylab.io"
 type: software
-repository-code: "https://github.com/eqtylab/cupcake"
 license: "Apache-2.0"
 date-released: 2025-11-04
+identifiers:
+  - type: url
+    value: "https://cupcake.eqtylab.io"
+    description: Cupcake documentation website
+repository-code: "https://github.com/eqtylab/cupcake"
+url: "https://cupcake.eqtylab.io/"
+abstract: >-
+  Cupcake is a policy enforcement layer for AI coding agents
+  that delivers better performance, reliability, and
+  security without consuming model context.
+keywords:
+  - agent
+  - harness
+  - policy
+  - enforcement
+  - Open Policy Agent

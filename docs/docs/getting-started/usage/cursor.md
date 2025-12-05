@@ -5,7 +5,7 @@ description: "Setting up Cupcake with Cursor"
 
 # Cursor Setup
 
-**Important**: Cursor only supports **global** hooks (not project-level). All hooks are configured at `~/.cursor/hooks.json`.
+Cursor only supports **global** hooks (not project-level). All hooks are configured at `~/.cursor/hooks.json`.
 
 ## Project Setup with Global Hooks
 

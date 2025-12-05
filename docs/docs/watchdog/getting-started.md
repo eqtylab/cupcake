@@ -1,8 +1,8 @@
 # Watchdog
 
-[![Cupcake Watchdog architecture diagram showing how the LLM-as-a-judge evaluates AI coding agent tool calls, with rules from Claude Code, Cursor, and other agents flowing into Watchdog which makes allow or deny decisions](../assets/flow-watchdog.png)](../assets/flow-watchdog.png)
-
 Watchdog is Cupcake's LLM-as-a-judge capability. It evaluates AI agent tool calls using another LLM before they execute, providing semantic security analysis that complements deterministic policy rules.
+
+[![Cupcake Watchdog architecture diagram showing how the LLM-as-a-judge evaluates AI coding agent tool calls, with rules from Claude Code, Cursor, and other agents flowing into Watchdog which makes allow or deny decisions](../assets/flow-watchdog.png)](../assets/flow-watchdog.png)
 
 ## What is LLM-as-a-Judge?
 

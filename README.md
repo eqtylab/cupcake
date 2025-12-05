@@ -11,7 +11,7 @@
 A guard dog that makes AI agents follow the rules.
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
+[![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](https://cupcake.eqtylab.io/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
 
@@ -53,69 +53,43 @@ Modern agents are powerful but inconsistent at following operational and securit
 
 - **Multi-harness support** with first‑class integrations for **Claude Code**, **Cursor**, **Factory AI**, and **OpenCode**.
 - **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
-- **Enterprise‑ready** controls: allow/deny/review, audit trails, and proactive warnings.
-
-## How it Works
-
-Cupcake integrates with AI coding agents like **Claude Code**, **Cursor**, **Factory AI**, and **OpenCode** through lightweight hooks that monitor operations such as shell commands, file edits, and tool calls. Policies are **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation.
-
-Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run a shell command, edit a file, call a tool), the details are sent to Cupcake. Cupcake evaluates your policies and returns a decision in milliseconds:
-
-**Allow** · **Block** · **Warn** (and optionally **Require Review**)
-
-```text
-Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime
-```
+- **Enterprise‑ready** controls: allow/deny/review, **enriched audit** trails for AI SOCs, and proactive warnings.
 
 ### Core Capabilities
 
-- **Block specific tool calls**
-  Prevent use of particular tools or arguments based on policy.
+- **Granular Tool Control**: Prevent specific tools or arguments (e.g., blocking `rm -rf /`).
+- **MCP Support**: Native governance for Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
+- **LLM‑as‑Judge**: Use a secondary LLM or agent to evaluate actions for more dynamic oversight.
+- **Guardrail Libraries**: First‑class integrations with `NeMo` and `Invariant` for content and safety checks.
+- **Observability**: All inputs, signals, and decisions generate structured logs and evaluation traces for debugging.
 
-- **Behavioral guidance**
-  Inject lightweight, contextful reminders back to the agent (e.g., "run tests before pushing").
+## How it Works
 
-- **MCP support**
-  Govern Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
+Cupcake acts as an enforcement layer between your coding agents and their runtime environment **via hooks** directly in the agent action path.
 
-- **LLM‑as‑Judge**
-  Chain in a review step by another model/agent when policies say a human‑style check is needed.
+<img src="./docs/docs/assets/flow-cupcake.png" alt="Cupcake agent hooks security architecture" width="600"/>
 
-- **Guardrail libraries**
-  First‑class integrations with `NeMo` and `Invariant` for content and safety checks.
+`Agent → (proposed action) → Cupcake → (policy decision) → Agent runtime`
 
-- **Signals (real‑time context)**
-  Pull facts from the environment (current Git branch, changed files, deployment target, etc.) and make policy decisions on them.
+1. **Interception**: The agent prepares to execute an action/tool-call (e.g., `git push`, `fs_write`).
+2. **Enrichment**: Cupcake gathers real-time **Signals**—facts from the environment such as the current Git branch, CI status, or database metadata.
+3. **Evaluation**: The action and signals are packaged into a JSON input and evaluated against your Wasm policies in milliseconds.
 
-### Influencing Agent Behavior
+### Deterministic and Non-Deterministic Evaluation
 
-Cupcake policies can influence agents in two primary ways:
+Cupcake supports two evaluation models:
 
-- **Feedback (when blocking)**: When a policy blocks an action, you can provide explanatory messages that help the agent understand what went wrong and how to fix it. For Cursor, policies can provide separate messages for users (`reason`) and agents (`agent_context`) to optimize both experiences.
+1. **Deterministic Policies**: Policies are written in **OPA/Rego** and **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation. [Writing Policies](https://cupcake.eqtylab.io/reference/policies/custom/) guide for implementation details.
+2. **LLM‑as‑Judge**: For simpler, yet more advanced, oversight of your rules, Cucpake can interject via a secondary LLM or agent to evaluate how an action should proceed. [Cupcake Watchdog](https://cupcake.eqtylab.io/watchdog/getting-started/) guide for implementation details.
 
-- **Context injection (when allowing)**: Claude Code supports injecting additional context alongside allowed actions (e.g., "Remember: you're on the main branch"). This helps guide agent behavior without blocking. _Note: Cursor does not support context injection._
+### Decisions & Feedback
 
-See [Writing Policies](./docs/user-guide/policies/writing-policies.md) for details on using these capabilities.
+Based on the evaluation, Cupcake returns one of four decisions to the agent runtime, along with a human-readable message:
 
-## Architecture
-
-- **Policies**: OPA/Rego compiled to **WASM** and executed in a sandbox.
-- **Signals**: Extensible providers (Git, CI, DB metadata, feature flags) available to policy via `input.signals`.
-- **Decisions**: `allow | block | warn | require_review` plus a human‑readable message.
-- **Observability**: Structured logs and optional evaluation traces for debugging.
-
-```jsonc
-// Example input passed to policy evaluation
-{
-  "kind": "shell", // action type (shell, fs_read, fs_write, mcp_call, ...)
-  "command": "git push",
-  "args": [],
-  "signals": { "tests_passed": false, "git_branch": "feature/x" },
-  "actor": { "id": "agent-1", "session": "abc123" }
-}
-```
-
-See the **[Architecture Reference](./docs/reference/architecture.md)** for a comprehensive technical overview.
+- **Allow**: The action proceeds. Optionally, Cupcake can inject **Context** (e.g., "Remember: you're on the main branch") to guide subsequent behavior without blocking. _Note: Context injection is currently supported in Claude Code but not Cursor._
+- **Block**: The action is stopped. Cupcake sends **Feedback** explaining _why_ it was blocked (e.g., "Tests must pass before pushing"), allowing the agent to self-correct.
+- **Warn**: The action proceeds, but a warning is logged or displayed.
+- **Require Review**: The action pauses until a human approves it.
 
 ## Security Model
 

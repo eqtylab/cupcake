@@ -28,10 +28,8 @@ body:
     id: location
     attributes:
       label: Documentation Location
-      description: Where is the documentation issue? Provide a URL, file path, or section name.
-      placeholder: "https://docs.getcupcake.io/... or docs/getting-started/..."
-    validations:
-      required: true
+      description: If the issue is related to a certain page, provide a URL.
+      placeholder: "https://cupcake.eqtylab.io/"
 
   - type: textarea
     id: description

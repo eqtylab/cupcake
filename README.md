@@ -11,7 +11,7 @@
 A guard dog that makes AI agents follow the rules.
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](./docs/README.md)
+[![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](https://cupcake.eqtylab.io)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
 

@@ -16,8 +16,10 @@ use crate::harness::types::HarnessType;
 pub struct CatalogOverlay {
     /// Rulebook name (e.g., "security-hardened")
     pub name: String,
-    /// Path to the installed rulebook
+    /// Path to the harness-specific policies directory (e.g., policies/opencode/)
     pub path: PathBuf,
+    /// Path to the rulebook root (for accessing helpers/)
+    pub rulebook_root: PathBuf,
     /// Discovered policy units for this overlay
     pub policies: Vec<PolicyUnit>,
     /// The namespace prefix for this overlay
@@ -99,6 +101,7 @@ pub async fn discover_catalog_overlays(
         overlays.push(CatalogOverlay {
             name,
             path: harness_policies_dir,
+            rulebook_root: path, // Store the rulebook root for accessing helpers/
             policies: Vec::new(), // Will be populated by scan_catalog_policies
             namespace,
         });
@@ -118,7 +121,7 @@ pub async fn scan_catalog_policies(
     for overlay in overlays.iter_mut() {
         info!("Scanning catalog overlay: {}", overlay.name);
 
-        // Scan for policy files - no builtin filtering for catalog policies
+        // Scan for policy files in the harness-specific directory
         // (catalog policies define their own namespace)
         let policy_files = match scanner::scan_policies(&overlay.path).await {
             Ok(files) => files,
@@ -134,7 +137,32 @@ pub async fn scan_catalog_policies(
             overlay.name
         );
 
-        // Parse each policy
+        // Also scan for helper files in the helpers/ directory at rulebook root
+        let helpers_dir = overlay.rulebook_root.join("helpers");
+        let helper_files = if helpers_dir.exists() {
+            match scanner::scan_policies(&helpers_dir).await {
+                Ok(files) => {
+                    info!(
+                        "Found {} helper files in catalog overlay {}",
+                        files.len(),
+                        overlay.name
+                    );
+                    files
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to scan helpers for catalog overlay {}: {}",
+                        overlay.name, e
+                    );
+                    Vec::new()
+                }
+            }
+        } else {
+            debug!("No helpers directory for catalog overlay {}", overlay.name);
+            Vec::new()
+        };
+
+        // Parse each policy file
         for path in policy_files {
             match parse_catalog_policy(&path, &overlay.namespace).await {
                 Ok(unit) => {
@@ -146,6 +174,22 @@ pub async fn scan_catalog_policies(
                 }
                 Err(e) => {
                     warn!("Failed to parse catalog policy {:?}: {}", path, e);
+                }
+            }
+        }
+
+        // Parse each helper file (helpers use a different namespace pattern)
+        for path in helper_files {
+            match parse_catalog_helper(&path, &overlay.namespace).await {
+                Ok(unit) => {
+                    debug!(
+                        "Parsed catalog helper: {} from {:?}",
+                        unit.package_name, path
+                    );
+                    overlay.policies.push(unit);
+                }
+                Err(e) => {
+                    warn!("Failed to parse catalog helper {:?}: {}", path, e);
                 }
             }
         }
@@ -209,6 +253,44 @@ async fn parse_catalog_policy(path: &Path, expected_namespace: &str) -> Result<P
     })
 }
 
+/// Parse a single catalog helper file
+/// Helpers have a different namespace pattern: cupcake.catalog.<name>.helpers.*
+async fn parse_catalog_helper(path: &Path, expected_namespace: &str) -> Result<PolicyUnit> {
+    use super::metadata::{self, RoutingDirective};
+
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .context("Failed to read helper file")?;
+
+    // Extract package name
+    let package_name =
+        metadata::extract_package_name(&content).context("Failed to extract package name")?;
+
+    // Validate namespace - helpers MUST use the helpers namespace
+    let expected_prefix = format!("{}.helpers.", expected_namespace);
+
+    if !package_name.starts_with(&expected_prefix) {
+        return Err(anyhow::anyhow!(
+            "Catalog helper {} has invalid namespace. Expected prefix '{}'",
+            package_name,
+            expected_prefix
+        ));
+    }
+
+    // Parse OPA metadata (optional for helpers)
+    let policy_metadata = metadata::parse_metadata(&content).ok().flatten();
+
+    // Helpers don't need routing - they're just utility functions
+    let routing = RoutingDirective::default();
+
+    Ok(PolicyUnit {
+        path: path.to_path_buf(),
+        package_name,
+        routing,
+        metadata: policy_metadata,
+    })
+}
+
 /// Compile catalog overlay policies to WASM
 pub async fn compile_catalog_overlay(
     overlay: &CatalogOverlay,
@@ -223,7 +305,7 @@ pub async fn compile_catalog_overlay(
         ));
     }
 
-    // Check if we have non-system policies
+    // Check if we have non-system policies (helpers count as non-system)
     let non_system_count = overlay
         .policies
         .iter()
@@ -244,11 +326,16 @@ pub async fn compile_catalog_overlay(
         non_system_count
     );
 
-    // Compile with the catalog namespace
+    // Use the specialized catalog overlay compilation function that understands
+    // the rulebook root structure (policies/ and helpers/ at same level)
     let system_namespace = format!("{}.system", overlay.namespace);
-    let wasm_bytes =
-        compiler::compile_policies_with_namespace(&overlay.policies, &system_namespace, opa_path)
-            .await?;
+    let wasm_bytes = compiler::compile_catalog_overlay_policies(
+        &overlay.policies,
+        &system_namespace,
+        &overlay.rulebook_root,
+        opa_path,
+    )
+    .await?;
 
     info!(
         "Compiled catalog overlay {} to {} bytes",
@@ -332,6 +419,8 @@ metadata:
         assert_eq!(overlays.len(), 1);
         assert_eq!(overlays[0].name, "test-rulebook");
         assert_eq!(overlays[0].namespace, "cupcake.catalog.test_rulebook");
+        assert_eq!(overlays[0].rulebook_root, rulebook_dir);
+        assert_eq!(overlays[0].path, policies_dir);
     }
 
     #[tokio::test]

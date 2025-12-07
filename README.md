@@ -18,7 +18,7 @@ Make AI agents follow the rules.
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
-- **Better performance** by moving rules out of context and into policy-as-code (OPA/Rego or Typescript).
+- **Better performance** by moving rules out of context and into policy-as-code.
 - **LLM-as-a-judge** for more dynamic governance.
 - **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 

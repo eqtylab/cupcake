@@ -13,12 +13,12 @@ Make AI agents follow the rules.
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](https://cupcake.eqtylab.io/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://github.com/eqtylab/cupcake/actions/runs/19737865145/job/56558251812)
 
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
-- **Better performance** by moving rules out of context and into guarantees.
+- **Better performance** by moving rules out of context and into policy-as-code (OPA/Rego or Typescript).
 - **LLM-as-a-judge** for more dynamic governance.
 - **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
@@ -32,7 +32,7 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 
 ## Supported Agent Harnesses
 
-Cupcake provides **native integrations** for multiple AI coding agents:
+Cupcake provides lightweight **native integrations** for multiple AI coding agents:
 
 | Harness                                                                           | Status             | Integration Guide                                                      |
 | --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
@@ -42,7 +42,7 @@ Cupcake provides **native integrations** for multiple AI coding agents:
 | **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
+Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities. It a particular harness is not supported, it is because it has no means for runtime integration.
 
 #### Language Bindings
 

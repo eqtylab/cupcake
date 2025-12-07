@@ -8,21 +8,27 @@
   </picture>
 </div>
 
-A guard dog that makes AI agents follow the rules.
+Make AI agents follow the rules.
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](https://cupcake.eqtylab.io/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
 
-**Policy enforcement** layer for AI agents; yielding better performance, reliability, and security **without consuming model context**.
+**Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
 - **Better performance** by moving rules out of context and into guarantees.
-- **Trigger alerts** when agents repeatedly violate rules.
 - **LLM-as-a-judge** for more dynamic governance.
+- **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
-Cupcake intercepts agent tool calls and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, or auto-corrected. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+
+## Updates
+
+**`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
+
+**`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignement requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
 ## Supported Agent Harnesses
 
@@ -36,7 +42,7 @@ Cupcake provides **native integrations** for multiple AI coding agents:
 | **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-Each harness uses native event formats—no normalization layer. Policies are physically separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
+Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
 
 #### Language Bindings
 
@@ -84,9 +90,10 @@ Cupcake supports two evaluation models:
 
 ### Decisions & Feedback
 
-Based on the evaluation, Cupcake returns one of four decisions to the agent runtime, along with a human-readable message:
+Based on the evaluation, Cupcake returns one of five decisions to the agent runtime, along with a human-readable message:
 
-- **Allow**: The action proceeds. Optionally, Cupcake can inject **Context** (e.g., "Remember: you're on the main branch") to guide subsequent behavior without blocking. _Note: Context injection is currently supported in Claude Code but not Cursor._
+- **Allow**: The action proceeds. Optionally, Cupcake can inject **Context** (e.g., "Remember: you're on the main branch") to guide subsequent behavior without blocking. _Note: Context injection is supported in Claude Code and Factory AI, but not Cursor._
+- **Modify**: The action proceeds with transformed input. Policies can sanitize commands, add safety flags, or enforce conventions before execution. _Note: Supported in Claude Code and Factory AI only._
 - **Block**: The action is stopped. Cupcake sends **Feedback** explaining _why_ it was blocked (e.g., "Tests must pass before pushing"), allowing the agent to self-correct.
 - **Warn**: The action proceeds, but a warning is logged or displayed.
 - **Require Review**: The action pauses until a human approves it.

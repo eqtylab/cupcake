@@ -1,6 +1,7 @@
 //! Decision types - [`DecisionSet`] from WASM and [`FinalDecision`] after synthesis.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// A single decision object from a policy rule
 /// This is the standard format returned by decision verb rules
@@ -22,6 +23,42 @@ pub struct DecisionObject {
     pub agent_context: Option<String>,
 }
 
+/// A modification decision that transforms tool input before execution
+/// This is used by the `modify` verb to sanitize or transform commands
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ModificationObject {
+    /// Human-readable explanation of the modification
+    pub reason: String,
+
+    /// Severity level (HIGH, MEDIUM, LOW)
+    #[serde(default = "default_severity")]
+    pub severity: String,
+
+    /// Unique identifier for the rule that generated this modification
+    pub rule_id: String,
+
+    /// Priority for conflict resolution when multiple policies modify (1-100, higher wins)
+    /// Default is 50 (medium priority)
+    #[serde(default = "default_priority")]
+    pub priority: u8,
+
+    /// The modified input parameters to use instead of the original
+    /// This will be passed as `updatedInput` in the response
+    pub updated_input: Value,
+
+    /// Optional agent-specific context
+    #[serde(default)]
+    pub agent_context: Option<String>,
+}
+
+fn default_severity() -> String {
+    "MEDIUM".to_string()
+}
+
+fn default_priority() -> u8 {
+    50
+}
+
 /// The complete set of all decisions from Rego aggregation
 /// This is what the single cupcake.system.evaluate entrypoint returns
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -41,6 +78,11 @@ pub struct DecisionSet {
     /// User confirmation required decisions (medium priority)
     #[serde(default)]
     pub asks: Vec<DecisionObject>,
+
+    /// Input modification decisions (medium-low priority)
+    /// Allows policies to transform tool input before execution
+    #[serde(default)]
+    pub modifications: Vec<ModificationObject>,
 
     /// Explicit permission override decisions (low priority)
     #[serde(default)]
@@ -83,6 +125,14 @@ pub enum FinalDecision {
         agent_messages: Vec<String>,
     },
 
+    /// Modify input and allow - medium-low priority
+    /// The action proceeds with the modified input parameters
+    Modify {
+        reason: String,
+        updated_input: Value,
+        agent_messages: Vec<String>,
+    },
+
     /// Allow with explicit override - low priority
     AllowOverride {
         reason: String,
@@ -112,6 +162,16 @@ impl FinalDecision {
         matches!(self, FinalDecision::Ask { .. })
     }
 
+    /// Check if this is an Ask decision (alias for requires_confirmation)
+    pub fn is_ask(&self) -> bool {
+        self.requires_confirmation()
+    }
+
+    /// Check if this decision modifies input
+    pub fn is_modify(&self) -> bool {
+        matches!(self, FinalDecision::Modify { .. })
+    }
+
     /// Get the primary reason for this decision
     pub fn reason(&self) -> Option<&str> {
         match self {
@@ -119,6 +179,7 @@ impl FinalDecision {
             FinalDecision::Deny { reason, .. } => Some(reason),
             FinalDecision::Block { reason, .. } => Some(reason),
             FinalDecision::Ask { reason, .. } => Some(reason),
+            FinalDecision::Modify { reason, .. } => Some(reason),
             FinalDecision::AllowOverride { reason, .. } => Some(reason),
             FinalDecision::Allow { .. } => None,
         }
@@ -131,8 +192,17 @@ impl FinalDecision {
             FinalDecision::Deny { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Block { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Ask { agent_messages, .. } => Some(agent_messages),
+            FinalDecision::Modify { agent_messages, .. } => Some(agent_messages),
             FinalDecision::AllowOverride { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Allow { .. } => None,
+        }
+    }
+
+    /// Get the updated input if this is a Modify decision
+    pub fn updated_input(&self) -> Option<&Value> {
+        match self {
+            FinalDecision::Modify { updated_input, .. } => Some(updated_input),
+            _ => None,
         }
     }
 }
@@ -163,12 +233,18 @@ impl DecisionSet {
         !self.allow_overrides.is_empty()
     }
 
+    /// Check if any modification decisions are present
+    pub fn has_modifications(&self) -> bool {
+        !self.modifications.is_empty()
+    }
+
     /// Check if the decision set is completely empty (no decisions)
     pub fn is_empty(&self) -> bool {
         self.halts.is_empty()
             && self.denials.is_empty()
             && self.blocks.is_empty()
             && self.asks.is_empty()
+            && self.modifications.is_empty()
             && self.allow_overrides.is_empty()
             && self.add_context.is_empty()
     }
@@ -190,6 +266,7 @@ impl DecisionSet {
             + self.denials.len()
             + self.blocks.len()
             + self.asks.len()
+            + self.modifications.len()
             + self.allow_overrides.len()
     }
 }

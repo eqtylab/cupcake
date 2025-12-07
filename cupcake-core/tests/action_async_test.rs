@@ -400,14 +400,9 @@ deny contains decision if {
     }
 }
 
-# Another rule that allows
-allow_override contains decision if {
+# Another rule that adds context (effectively allows)
+add_context contains "Quick context for fast-allow" if {
     contains(input.tool_input.command, "fast-allow")
-    decision := {
-        "reason": "Quick allow",
-        "severity": "LOW",
-        "rule_id": "ALLOW-001"
-    }
 }
 "#;
 
@@ -461,10 +456,16 @@ allow_override contains decision if {
         "Second evaluation blocked by first action"
     );
 
-    // Verify second decision is correct
+    // Verify second decision is correct (Allow with context)
     match decision2 {
-        cupcake_core::engine::decision::FinalDecision::AllowOverride { .. } => {}
-        _ => panic!("Expected AllowOverride decision, got {decision2:?}"),
+        cupcake_core::engine::decision::FinalDecision::Allow { context } => {
+            assert!(
+                context.iter().any(|c| c.contains("Quick context")),
+                "Expected context to contain 'Quick context', got {:?}",
+                context
+            );
+        }
+        _ => panic!("Expected Allow decision, got {decision2:?}"),
     }
 }
 
@@ -480,7 +481,7 @@ evaluate := decision_set if {
         "denials": collect_verbs("deny"),
         "blocks": collect_verbs("block"),
         "asks": collect_verbs("ask"),
-        "allow_overrides": collect_verbs("allow_override"),
+        "modifications": collect_verbs("modify"),
         "add_context": collect_verbs("add_context")
     }
 }

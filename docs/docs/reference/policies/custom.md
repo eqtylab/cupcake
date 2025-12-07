@@ -79,7 +79,6 @@ Policies emit decisions using these verbs (in priority order):
 | `block`          | High     | Block the action (same priority as deny)  | All              |
 | `ask`            | Medium   | Prompt user for confirmation              | Tool events      |
 | `modify`         | Medium   | Allow with modified input                 | PreToolUse only  |
-| `allow_override` | Low      | Explicitly allow (overrides default)      | All              |
 | `add_context`    | N/A      | Inject context into the prompt            | Prompt events    |
 
 ### Deny Example

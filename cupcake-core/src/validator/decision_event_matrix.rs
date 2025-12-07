@@ -13,7 +13,6 @@ pub enum DecisionVerb {
     Block,
     Ask,
     Modify,
-    AllowOverride,
     AddContext,
 }
 
@@ -26,7 +25,6 @@ impl DecisionVerb {
             Self::Block,
             Self::Ask,
             Self::Modify,
-            Self::AllowOverride,
             Self::AddContext,
         ]
     }
@@ -39,7 +37,6 @@ impl DecisionVerb {
             "block" => Some(Self::Block),
             "ask" => Some(Self::Ask),
             "modify" => Some(Self::Modify),
-            "allow_override" => Some(Self::AllowOverride),
             "add_context" => Some(Self::AddContext),
             _ => None,
         }
@@ -53,7 +50,6 @@ impl DecisionVerb {
             Self::Block => "block",
             Self::Ask => "ask",
             Self::Modify => "modify",
-            Self::AllowOverride => "allow_override",
             Self::AddContext => "add_context",
         }
     }
@@ -66,7 +62,6 @@ impl DecisionVerb {
             Self::Block => "Block action (post-execution feedback)",
             Self::Ask => "Request user confirmation",
             Self::Modify => "Modify tool input before execution",
-            Self::AllowOverride => "Explicitly allow action",
             Self::AddContext => "Inject additional context",
         }
     }
@@ -91,31 +86,28 @@ impl DecisionEventMatrix {
                 DecisionVerb::Block,
                 DecisionVerb::Ask,
                 DecisionVerb::Modify,
-                DecisionVerb::AllowOverride,
                 DecisionVerb::AddContext,
             ],
         );
 
-        // PostToolUse: Block (feedback loop), allow, context
+        // PostToolUse: Block (feedback loop), context
         // NO Ask - tool already executed
         compatibility.insert(
             "PostToolUse",
             vec![
                 DecisionVerb::Halt,
                 DecisionVerb::Block,
-                DecisionVerb::AllowOverride,
                 DecisionVerb::AddContext,
             ],
         );
 
-        // Stop/SubagentStop: Block (prevent stopping), allow
+        // Stop/SubagentStop: Block (prevent stopping)
         // NO Ask - doesn't make sense for stop events
         compatibility.insert(
             "Stop",
             vec![
                 DecisionVerb::Halt,
                 DecisionVerb::Block,
-                DecisionVerb::AllowOverride,
             ],
         );
         compatibility.insert(
@@ -123,18 +115,16 @@ impl DecisionEventMatrix {
             vec![
                 DecisionVerb::Halt,
                 DecisionVerb::Block,
-                DecisionVerb::AllowOverride,
             ],
         );
 
-        // UserPromptSubmit: Block (prevent prompt), allow, context
+        // UserPromptSubmit: Block (prevent prompt), context
         // NO Ask - doesn't make sense to ask about user's own prompt
         compatibility.insert(
             "UserPromptSubmit",
             vec![
                 DecisionVerb::Halt,
                 DecisionVerb::Block,
-                DecisionVerb::AllowOverride,
                 DecisionVerb::AddContext,
             ],
         );
@@ -150,13 +140,12 @@ impl DecisionEventMatrix {
         // PreCompact: Context injection (custom instructions)
         compatibility.insert("PreCompact", vec![DecisionVerb::AddContext]);
 
-        // Notification: Allow/deny (though rarely used)
+        // Notification: Block (though rarely used)
         compatibility.insert(
             "Notification",
             vec![
                 DecisionVerb::Halt,
                 DecisionVerb::Block,
-                DecisionVerb::AllowOverride,
             ],
         );
 

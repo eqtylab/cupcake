@@ -308,17 +308,6 @@ impl DebugCapture {
                 ));
             }
 
-            output.push_str(&format!(
-                "  Allow Overrides: {}\n",
-                decision_set.allow_overrides.len()
-            ));
-            for allow in &decision_set.allow_overrides {
-                output.push_str(&format!(
-                    "    - [{}] {} ({})\n",
-                    allow.rule_id, allow.reason, allow.severity
-                ));
-            }
-
             output.push_str(&format!("  Context: {}\n", decision_set.add_context.len()));
             for context in &decision_set.add_context {
                 output.push_str(&format!("    - {context}\n"));
@@ -343,11 +332,6 @@ impl DebugCapture {
                 }
                 FinalDecision::Ask { reason, .. } => {
                     output.push_str(&format!("Final Decision: Ask\nReason: {reason}\n"));
-                }
-                FinalDecision::AllowOverride { reason, .. } => {
-                    output.push_str(&format!(
-                        "Final Decision: AllowOverride\nReason: {reason}\n"
-                    ));
                 }
                 FinalDecision::Allow { context } => {
                     output.push_str("Final Decision: Allow\n");

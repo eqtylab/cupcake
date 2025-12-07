@@ -1,6 +1,6 @@
 //! Decision Synthesis Layer - Transforms [`DecisionSet`] into [`FinalDecision`].
 //!
-//! Applies strict priority: Halt > Deny/Block > Ask > Modify > AllowOverride > Allow.
+//! Applies strict priority: Halt > Deny/Block > Ask > Modify > Allow.
 
 mod merge_input_updates;
 
@@ -12,7 +12,7 @@ use super::decision::{DecisionObject, DecisionSet, FinalDecision};
 
 /// The Decision Synthesis Engine.
 ///
-/// Implements strict priority: Halt > Deny/Block > Ask > Modify > AllowOverride > Allow.
+/// Implements strict priority: Halt > Deny/Block > Ask > Modify > Allow.
 pub struct SynthesisEngine;
 
 impl SynthesisEngine {
@@ -40,13 +40,12 @@ impl SynthesisEngine {
             decision_set.decision_count()
         );
 
-        debug!("Synthesis input - Halts: {}, Denials: {}, Blocks: {}, Asks: {}, Modifications: {}, Allow Overrides: {}, Context Items: {}",
+        debug!("Synthesis input - Halts: {}, Denials: {}, Blocks: {}, Asks: {}, Modifications: {}, Context Items: {}",
             decision_set.halts.len(),
             decision_set.denials.len(),
             decision_set.blocks.len(),
             decision_set.asks.len(),
             decision_set.modifications.len(),
-            decision_set.allow_overrides.len(),
             decision_set.add_context.len());
 
         // Apply strict priority hierarchy
@@ -134,20 +133,6 @@ impl SynthesisEngine {
                 FinalDecision::Modify {
                     reason,
                     updated_input,
-                    agent_messages,
-                },
-            );
-        }
-
-        // Priority 5: Allow Override (Low - explicit permission)
-        if decision_set.has_allow_overrides() {
-            let reason = Self::aggregate_reasons(&decision_set.allow_overrides);
-            let agent_messages = Self::collect_agent_messages(&decision_set.allow_overrides);
-            debug!("Synthesized ALLOW OVERRIDE decision: {}", reason);
-            return record_and_return(
-                "AllowOverride",
-                FinalDecision::AllowOverride {
-                    reason,
                     agent_messages,
                 },
             );
@@ -281,12 +266,6 @@ impl SynthesisEngine {
             summary_parts.push(format!(
                 "{} modification(s)",
                 decision_set.modifications.len()
-            ));
-        }
-        if !decision_set.allow_overrides.is_empty() {
-            summary_parts.push(format!(
-                "{} override(s)",
-                decision_set.allow_overrides.len()
             ));
         }
         if !decision_set.add_context.is_empty() {

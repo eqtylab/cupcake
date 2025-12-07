@@ -296,7 +296,7 @@ halts := collect_verbs("halt")
 denials := collect_verbs("deny")
 blocks := collect_verbs("block")
 asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
+modifications := collect_verbs("modify")
 add_context := collect_verbs("add_context")
 
 evaluate := {
@@ -304,7 +304,7 @@ evaluate := {
     "denials": denials,
     "blocks": blocks,
     "asks": asks,
-    "allow_overrides": allow_overrides,
+    "modifications": modifications,
     "add_context": add_context
 }
 
@@ -425,7 +425,7 @@ halts := collect_verbs("halt")
 denials := collect_verbs("deny")
 blocks := collect_verbs("block")
 asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
+modifications := collect_verbs("modify")
 add_context := collect_verbs("add_context")
 
 evaluate := {
@@ -433,7 +433,7 @@ evaluate := {
     "denials": denials,
     "blocks": blocks,
     "asks": asks,
-    "allow_overrides": allow_overrides,
+    "modifications": modifications,
     "add_context": add_context
 }
 

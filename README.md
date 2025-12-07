@@ -8,21 +8,27 @@
   </picture>
 </div>
 
-A guard dog that makes AI agents follow the rules.
+Make AI agents follow the rules.
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-Start%20here-8A2BE2)](https://cupcake.eqtylab.io/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](./docs/sbom/slsa-verification.md)
 
-**Policy enforcement** layer for AI agents; yielding better performance, reliability, and security **without consuming model context**.
+**Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
 - **Better performance** by moving rules out of context and into guarantees.
-- **Trigger alerts** when agents repeatedly violate rules.
 - **LLM-as-a-judge** for more dynamic governance.
+- **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
-Cupcake intercepts agent tool calls and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, or auto-corrected. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+
+## Updates
+
+**`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
+
+**`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignement requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
 ## Supported Agent Harnesses
 

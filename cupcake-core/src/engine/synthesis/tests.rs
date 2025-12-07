@@ -217,36 +217,6 @@ fn test_modify_priority_below_ask() {
 }
 
 #[test]
-fn test_modify_priority_above_allow_override() {
-    use serde_json::json;
-
-    // Modify should take precedence over AllowOverride
-    let decision_set = DecisionSet {
-        allow_overrides: vec![DecisionObject {
-            reason: "Explicitly allowed".to_string(),
-            severity: "LOW".to_string(),
-            rule_id: "ALLOW-001".to_string(),
-            agent_context: None,
-        }],
-        modifications: vec![ModificationObject {
-            reason: "Modified input".to_string(),
-            severity: "HIGH".to_string(),
-            rule_id: "MOD-001".to_string(),
-            priority: 50,
-            updated_input: json!({"command": "safe command"}),
-            agent_context: None,
-        }],
-        ..Default::default()
-    };
-
-    let result = SynthesisEngine::synthesize(&decision_set).unwrap();
-    assert!(
-        result.is_modify(),
-        "Modify should have higher priority than AllowOverride"
-    );
-}
-
-#[test]
 fn test_modify_merge_multiple_modifications() {
     use serde_json::json;
 

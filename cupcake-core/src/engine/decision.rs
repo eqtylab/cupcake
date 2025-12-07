@@ -84,10 +84,6 @@ pub struct DecisionSet {
     #[serde(default)]
     pub modifications: Vec<ModificationObject>,
 
-    /// Explicit permission override decisions (low priority)
-    #[serde(default)]
-    pub allow_overrides: Vec<DecisionObject>,
-
     /// Context injection decisions (informational)
     #[serde(default)]
     pub add_context: Vec<String>,
@@ -133,12 +129,6 @@ pub enum FinalDecision {
         agent_messages: Vec<String>,
     },
 
-    /// Allow with explicit override - low priority
-    AllowOverride {
-        reason: String,
-        agent_messages: Vec<String>,
-    },
-
     /// Allow with optional context - default
     Allow { context: Vec<String> },
 }
@@ -180,7 +170,6 @@ impl FinalDecision {
             FinalDecision::Block { reason, .. } => Some(reason),
             FinalDecision::Ask { reason, .. } => Some(reason),
             FinalDecision::Modify { reason, .. } => Some(reason),
-            FinalDecision::AllowOverride { reason, .. } => Some(reason),
             FinalDecision::Allow { .. } => None,
         }
     }
@@ -193,7 +182,6 @@ impl FinalDecision {
             FinalDecision::Block { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Ask { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Modify { agent_messages, .. } => Some(agent_messages),
-            FinalDecision::AllowOverride { agent_messages, .. } => Some(agent_messages),
             FinalDecision::Allow { .. } => None,
         }
     }
@@ -228,11 +216,6 @@ impl DecisionSet {
         !self.asks.is_empty()
     }
 
-    /// Check if any allow override decisions are present
-    pub fn has_allow_overrides(&self) -> bool {
-        !self.allow_overrides.is_empty()
-    }
-
     /// Check if any modification decisions are present
     pub fn has_modifications(&self) -> bool {
         !self.modifications.is_empty()
@@ -245,7 +228,6 @@ impl DecisionSet {
             && self.blocks.is_empty()
             && self.asks.is_empty()
             && self.modifications.is_empty()
-            && self.allow_overrides.is_empty()
             && self.add_context.is_empty()
     }
 
@@ -256,7 +238,6 @@ impl DecisionSet {
         decisions.extend(&self.denials);
         decisions.extend(&self.blocks);
         decisions.extend(&self.asks);
-        decisions.extend(&self.allow_overrides);
         decisions
     }
 
@@ -267,7 +248,6 @@ impl DecisionSet {
             + self.blocks.len()
             + self.asks.len()
             + self.modifications.len()
-            + self.allow_overrides.len()
     }
 }
 

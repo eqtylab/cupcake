@@ -79,9 +79,6 @@ impl ClaudeHarness {
                 reason: reason.clone(),
                 updated_input: updated_input.clone(),
             },
-            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
-                reason: Some(reason.clone()),
-            },
             FinalDecision::Allow { context } => EngineDecision::Allow {
                 reason: if !context.is_empty() {
                     Some(context.join("\n"))
@@ -156,9 +153,6 @@ impl CursorHarness {
             FinalDecision::Modify { reason, .. } => EngineDecision::Allow {
                 reason: Some(reason.clone()),
             },
-            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
-                reason: Some(reason.clone()),
-            },
             FinalDecision::Allow { context } => EngineDecision::Allow {
                 reason: if !context.is_empty() {
                     Some(context.join("\n"))
@@ -177,8 +171,7 @@ impl CursorHarness {
             | FinalDecision::Deny { agent_messages, .. }
             | FinalDecision::Block { agent_messages, .. }
             | FinalDecision::Ask { agent_messages, .. }
-            | FinalDecision::Modify { agent_messages, .. }
-            | FinalDecision::AllowOverride { agent_messages, .. } => {
+            | FinalDecision::Modify { agent_messages, .. } => {
                 if agent_messages.is_empty() {
                     None
                 } else {
@@ -243,9 +236,6 @@ impl FactoryHarness {
                 reason: reason.clone(),
                 updated_input: updated_input.clone(),
             },
-            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
-                reason: Some(reason.clone()),
-            },
             FinalDecision::Allow { context } => EngineDecision::Allow {
                 reason: if !context.is_empty() {
                     Some(context.join("\n"))
@@ -301,10 +291,6 @@ impl OpenCodeHarness {
             }
             // OpenCode doesn't support updatedInput - treat Modify as Allow with reason
             FinalDecision::Modify { reason, .. } => {
-                OpenCodeResponse::allow_with_context(vec![reason.clone()])
-            }
-            FinalDecision::AllowOverride { reason, .. } => {
-                // Allow with reason - context injection TBD in Phase 2
                 OpenCodeResponse::allow_with_context(vec![reason.clone()])
             }
             FinalDecision::Allow { context } => {

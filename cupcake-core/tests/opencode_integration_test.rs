@@ -36,7 +36,7 @@ evaluate := decision_set if {
         "denials": collect_verbs("deny"),
         "blocks": collect_verbs("block"),
         "asks": collect_verbs("ask"),
-        "allow_overrides": collect_verbs("allow_override"),
+        "modifications": collect_verbs("modify"),
         "add_context": collect_verbs("add_context")
     }
 }
@@ -263,12 +263,6 @@ add_context contains message if {
         cupcake_core::engine::decision::FinalDecision::Allow { context } => {
             assert!(!context.is_empty());
             assert!(context.iter().any(|msg| msg.contains("Command succeeded")));
-        }
-        cupcake_core::engine::decision::FinalDecision::AllowOverride { agent_messages, .. } => {
-            assert!(!agent_messages.is_empty());
-            assert!(agent_messages
-                .iter()
-                .any(|msg| msg.contains("Command succeeded")));
         }
         _ => {}
     }

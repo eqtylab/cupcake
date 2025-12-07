@@ -172,7 +172,7 @@ jobs:
                   "denials": [],
                   "blocks": [],
                   "asks": [],
-                  "allow_overrides": [],
+                  "modifications": [],
                   "add_context": []
               }
           }

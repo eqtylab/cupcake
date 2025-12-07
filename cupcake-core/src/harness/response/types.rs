@@ -80,4 +80,5 @@ pub enum EngineDecision {
     Allow { reason: Option<String> },
     Block { feedback: String },
     Ask { reason: String },
+    Modify { reason: String, updated_input: serde_json::Value },
 }

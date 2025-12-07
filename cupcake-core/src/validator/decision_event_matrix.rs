@@ -12,6 +12,7 @@ pub enum DecisionVerb {
     Deny,
     Block,
     Ask,
+    Modify,
     AllowOverride,
     AddContext,
 }
@@ -24,6 +25,7 @@ impl DecisionVerb {
             Self::Deny,
             Self::Block,
             Self::Ask,
+            Self::Modify,
             Self::AllowOverride,
             Self::AddContext,
         ]
@@ -36,6 +38,7 @@ impl DecisionVerb {
             "deny" => Some(Self::Deny),
             "block" => Some(Self::Block),
             "ask" => Some(Self::Ask),
+            "modify" => Some(Self::Modify),
             "allow_override" => Some(Self::AllowOverride),
             "add_context" => Some(Self::AddContext),
             _ => None,
@@ -49,6 +52,7 @@ impl DecisionVerb {
             Self::Deny => "deny",
             Self::Block => "block",
             Self::Ask => "ask",
+            Self::Modify => "modify",
             Self::AllowOverride => "allow_override",
             Self::AddContext => "add_context",
         }
@@ -61,6 +65,7 @@ impl DecisionVerb {
             Self::Deny => "Block action with feedback to Claude",
             Self::Block => "Block action (post-execution feedback)",
             Self::Ask => "Request user confirmation",
+            Self::Modify => "Modify tool input before execution",
             Self::AllowOverride => "Explicitly allow action",
             Self::AddContext => "Inject additional context",
         }
@@ -77,7 +82,7 @@ impl DecisionEventMatrix {
     pub fn new() -> Self {
         let mut compatibility = HashMap::new();
 
-        // PreToolUse: Supports all decision types
+        // PreToolUse: Supports all decision types including Modify
         compatibility.insert(
             "PreToolUse",
             vec![
@@ -85,6 +90,7 @@ impl DecisionEventMatrix {
                 DecisionVerb::Deny,
                 DecisionVerb::Block,
                 DecisionVerb::Ask,
+                DecisionVerb::Modify,
                 DecisionVerb::AllowOverride,
                 DecisionVerb::AddContext,
             ],
@@ -200,10 +206,16 @@ impl DecisionEventMatrix {
             ("Stop" | "SubagentStop", DecisionVerb::Ask) => {
                 format!("{event} events do not support 'ask' decisions. Use 'block' to prevent stopping.")
             }
-            ("PreCompact", DecisionVerb::Ask | DecisionVerb::Block | DecisionVerb::Deny | DecisionVerb::Halt) => {
+            ("PreCompact", DecisionVerb::Ask | DecisionVerb::Block | DecisionVerb::Deny | DecisionVerb::Halt | DecisionVerb::Modify) => {
                 format!(
                     "PreCompact events only support 'add_context' for custom instructions. '{}' decisions are not supported.",
                     verb.rego_name()
+                )
+            }
+            (_, DecisionVerb::Modify) => {
+                format!(
+                    "'modify' decisions are only supported for PreToolUse events. {} events do not support tool input modification.",
+                    event
                 )
             }
             _ => {
@@ -284,7 +296,23 @@ mod tests {
             DecisionVerb::from_rego_name("add_context"),
             Some(DecisionVerb::AddContext)
         );
+        assert_eq!(
+            DecisionVerb::from_rego_name("modify"),
+            Some(DecisionVerb::Modify)
+        );
         assert_eq!(DecisionVerb::from_rego_name("invalid"), None);
+    }
+
+    #[test]
+    fn test_modify_only_pre_tool_use() {
+        let matrix = DecisionEventMatrix::new();
+
+        // Modify should only be supported for PreToolUse
+        assert!(matrix.is_compatible("PreToolUse", DecisionVerb::Modify));
+        assert!(!matrix.is_compatible("PostToolUse", DecisionVerb::Modify));
+        assert!(!matrix.is_compatible("UserPromptSubmit", DecisionVerb::Modify));
+        assert!(!matrix.is_compatible("SessionStart", DecisionVerb::Modify));
+        assert!(!matrix.is_compatible("Stop", DecisionVerb::Modify));
     }
 
     #[test]

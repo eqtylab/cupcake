@@ -1754,6 +1754,9 @@ impl Engine {
             decision::FinalDecision::AllowOverride { .. } => {
                 debug!("ALLOW_OVERRIDE decision - no actions needed");
             }
+            decision::FinalDecision::Modify { .. } => {
+                debug!("MODIFY decision - no actions needed (tool input modified)");
+            }
         }
     }
 
@@ -1820,7 +1823,7 @@ impl Engine {
                     }
                 }
                 _ => {
-                    // No actions for Ask, Allow, AllowOverride
+                    // No actions for Ask, Allow, AllowOverride, Modify
                 }
             }
 
@@ -1903,6 +1906,9 @@ impl Engine {
             }
             decision::FinalDecision::AllowOverride { .. } => {
                 debug!("ALLOW_OVERRIDE decision - no actions needed");
+            }
+            decision::FinalDecision::Modify { .. } => {
+                debug!("MODIFY decision - no actions needed (tool input modified)");
             }
         }
     }

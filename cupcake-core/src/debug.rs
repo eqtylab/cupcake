@@ -358,6 +358,10 @@ impl DebugCapture {
                         }
                     }
                 }
+                FinalDecision::Modify { reason, updated_input, .. } => {
+                    output.push_str(&format!("Final Decision: Modify\nReason: {reason}\n"));
+                    output.push_str(&format!("Updated Input: {}\n", serde_json::to_string_pretty(updated_input).unwrap_or_else(|_| updated_input.to_string())));
+                }
             }
         } else {
             output.push_str("No synthesis performed\n");

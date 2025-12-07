@@ -59,6 +59,19 @@ impl ContextInjectionResponseBuilder {
                     additional_context: Some(reason.clone()),
                 });
             }
+            EngineDecision::Modify { reason, .. } => {
+                // Modify is only meaningful for PreToolUse - treat as Allow with reason as context
+                tracing::warn!("Modify action not supported for context injection events - treating as Allow");
+                if is_user_prompt_submit {
+                    response.hook_specific_output = Some(HookSpecificOutput::UserPromptSubmit {
+                        additional_context: Some(reason.clone()),
+                    });
+                } else {
+                    response.hook_specific_output = Some(HookSpecificOutput::SessionStart {
+                        additional_context: Some(reason.clone()),
+                    });
+                }
+            }
         }
 
         // Apply suppress_output if requested

@@ -84,9 +84,10 @@ Cupcake supports two evaluation models:
 
 ### Decisions & Feedback
 
-Based on the evaluation, Cupcake returns one of four decisions to the agent runtime, along with a human-readable message:
+Based on the evaluation, Cupcake returns one of five decisions to the agent runtime, along with a human-readable message:
 
-- **Allow**: The action proceeds. Optionally, Cupcake can inject **Context** (e.g., "Remember: you're on the main branch") to guide subsequent behavior without blocking. _Note: Context injection is currently supported in Claude Code but not Cursor._
+- **Allow**: The action proceeds. Optionally, Cupcake can inject **Context** (e.g., "Remember: you're on the main branch") to guide subsequent behavior without blocking. _Note: Context injection is supported in Claude Code and Factory AI, but not Cursor._
+- **Modify**: The action proceeds with transformed input. Policies can sanitize commands, add safety flags, or enforce conventions before execution. _Note: Supported in Claude Code and Factory AI only._
 - **Block**: The action is stopped. Cupcake sends **Feedback** explaining _why_ it was blocked (e.g., "Tests must pass before pushing"), allowing the agent to self-correct.
 - **Warn**: The action proceeds, but a warning is logged or displayed.
 - **Require Review**: The action pauses until a human approves it.

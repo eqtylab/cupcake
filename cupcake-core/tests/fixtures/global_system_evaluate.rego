@@ -5,8 +5,9 @@ import rego.v1
 evaluate := {
     "halts": collect_verbs("halt"),
     "denials": collect_verbs("deny"),
-    "blocks": collect_verbs("block"), 
+    "blocks": collect_verbs("block"),
     "asks": collect_verbs("ask"),
+    "modifications": collect_verbs("modify"),
     "allow_overrides": collect_verbs("allow_override"),
     "add_context": collect_verbs("add_context")
 }

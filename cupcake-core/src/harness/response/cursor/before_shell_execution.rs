@@ -48,6 +48,10 @@ pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> 
                 "agentMessage": agent_message
             })
         }
+        EngineDecision::Modify { .. } => {
+            // Cursor doesn't support updatedInput - treat Modify as Allow
+            json!({ "permission": "allow" })
+        }
     }
 }
 

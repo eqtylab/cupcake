@@ -1,4 +1,4 @@
-{"version": 3, "term": {"cols": 100, "rows": 30}, "timestamp": 1764772238, "idle_time_limit": 2, "title": "Cupcake CLI Help"}
+{"version": 3, "term": {"cols": 100, "rows": 30}, "timestamp": 1765218523, "idle_time_limit": 2, "title": "Cupcake CLI Help"}
 [1.5, "o", "$ cupcake --help\r\n"]
 [0.5, "o", "Governance and augmentation orchestrator for agentic AI systems\r\n"]
 [0.075, "o", "\r\n"]
@@ -6,12 +6,14 @@
 [0.075, "o", "\r\n"]
 [0.4, "o", "Commands:\r\n"]
 [0.15, "o", "  eval      Evaluate a hook event against policies\r\n"]
+[0.15, "o", "  watchdog  Evaluate an event using Watchdog (LLM-as-judge) directly\r\n"]
 [0.15, "o", "  verify    Verify the engine configuration and policies\r\n"]
 [0.15, "o", "  init      Initialize a new Cupcake project\r\n"]
 [0.15, "o", "  trust     Manage script trust and integrity verification\r\n"]
 [0.15, "o", "  validate  Validate policies for Cupcake requirements and best practices\r\n"]
 [0.15, "o", "  inspect   Inspect policies to show metadata and routing information\r\n"]
 [0.15, "o", "  onboard   Launch the interactive onboarding wizard to convert rule files into Cupcake policies\r\n"]
+[0.15, "o", "  catalog   Browse and manage rulebooks from the Cupcake Catalog\r\n"]
 [0.15, "o", "  help      Print this message or the help of the given subcommand(s)\r\n"]
 [0.075, "o", "\r\n"]
 [0.4, "o", "Options:\r\n"]

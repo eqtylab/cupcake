@@ -34,13 +34,14 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 
 Cupcake provides lightweight **native integrations** for multiple AI coding agents:
 
-| Harness                                                                           | Status             | Integration Guide                                                      |
-| --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
-| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
-| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
-| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/factory.md)                  |
-| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
-| **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
+| Harness                                                                           | Status             | Integration Guide                                                           |
+| --------------------------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)                   |
+| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                        |
+| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/factory.md)                       |
+| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                         |
+| **[AMP](https://ampcode.com)**                                                    | Coming soon        | [Awaiting release](https://ampcode.com/manual?internal#hooks)               |
+| **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting release](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
 Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities. If a particular harness is not supported, it is because it has no means for runtime integration.
 

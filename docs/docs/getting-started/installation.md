@@ -38,7 +38,7 @@ If you prefer to install manually or need a specific version, you can download p
 
 ### Install OPA
 
-Cupcake also requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
+Cupcake requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
 
 ???+ info "Install OPA"
 

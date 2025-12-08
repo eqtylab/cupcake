@@ -1476,18 +1476,27 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
             harness_name
         );
 
-        // Create the harness-specific directories
-        fs::create_dir_all(format!(".cupcake/policies/{harness_name}/system"))
-            .context("Failed to create harness system directory")?;
+        // Verify shared directories exist (system/ and helpers/ at root)
+        let system_dir = cupcake_dir.join("system");
+        let helpers_dir = cupcake_dir.join("helpers");
+
+        if !system_dir.exists() {
+            eprintln!("Warning: .cupcake/system/ directory not found. Creating it...");
+            fs::create_dir_all(&system_dir).context("Failed to create system directory")?;
+            fs::write(system_dir.join("evaluate.rego"), SYSTEM_EVALUATE_TEMPLATE)
+                .context("Failed to create system evaluate.rego file")?;
+        }
+
+        if !helpers_dir.exists() {
+            eprintln!("Warning: .cupcake/helpers/ directory not found. Creating it...");
+            fs::create_dir_all(&helpers_dir).context("Failed to create helpers directory")?;
+            fs::write(helpers_dir.join("commands.rego"), HELPERS_COMMANDS)
+                .context("Failed to create helpers/commands.rego file")?;
+        }
+
+        // Create the harness-specific builtins directory
         fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
             .context("Failed to create harness builtins directory")?;
-
-        // Write the system evaluate policy for this harness
-        fs::write(
-            format!(".cupcake/policies/{harness_name}/system/evaluate.rego"),
-            SYSTEM_EVALUATE_TEMPLATE,
-        )
-        .context("Failed to create system evaluate.rego file")?;
 
         // Deploy builtin policies for this harness
         deploy_harness_builtins(&harness, harness_name)?;
@@ -1499,9 +1508,9 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         // Fresh initialization
         info!("Initializing Cupcake project structure...");
 
-        // Create only the specified harness directory (plus shared directories)
-        fs::create_dir_all(format!(".cupcake/policies/{harness_name}/system"))
-            .context("Failed to create harness system directory")?;
+        // Create shared directories at root level
+        fs::create_dir_all(".cupcake/system").context("Failed to create system directory")?;
+        fs::create_dir_all(".cupcake/helpers").context("Failed to create helpers directory")?;
 
         // Set Unix permissions on .cupcake directory (TOB-EQTY-LAB-CUPCAKE-4)
         #[cfg(unix)]
@@ -1519,10 +1528,9 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
             eprintln!("Warning: .cupcake directory permissions should be restricted manually on non-Unix systems");
         }
 
+        // Create harness-specific builtins directory
         fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
             .context("Failed to create harness builtins directory")?;
-        fs::create_dir_all(".cupcake/policies/helpers")
-            .context("Failed to create helpers directory")?;
         fs::create_dir_all(".cupcake/signals").context("Failed to create signals directory")?;
         fs::create_dir_all(".cupcake/actions").context("Failed to create actions directory")?;
 
@@ -1536,27 +1544,29 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         fs::write(".cupcake/rulebook.yml", rulebook_content)
             .context("Failed to create rulebook.yml file")?;
 
-        // Write the system evaluate policy for this harness only
-        fs::write(
-            format!(".cupcake/policies/{harness_name}/system/evaluate.rego"),
-            SYSTEM_EVALUATE_TEMPLATE,
-        )
-        .context("Failed to create system evaluate.rego file")?;
+        // Write the system evaluate policy (shared at root level)
+        fs::write(".cupcake/system/evaluate.rego", SYSTEM_EVALUATE_TEMPLATE)
+            .context("Failed to create system evaluate.rego file")?;
 
-        // Write helper library (shared by all harnesses)
-        fs::write(".cupcake/policies/helpers/commands.rego", HELPERS_COMMANDS)
+        // Write helper library (shared at root level)
+        fs::write(".cupcake/helpers/commands.rego", HELPERS_COMMANDS)
             .context("Failed to create helpers/commands.rego file")?;
 
         // Deploy builtin policies for this harness only
         deploy_harness_builtins(&harness, harness_name)?;
 
-        // Write a simple example policy
-        fs::write(".cupcake/policies/example.rego", EXAMPLE_POLICY_TEMPLATE)
-            .context("Failed to create example policy file")?;
+        // Write a simple example policy in the harness-specific directory
+        fs::write(
+            format!(".cupcake/policies/{harness_name}/example.rego"),
+            EXAMPLE_POLICY_TEMPLATE,
+        )
+        .context("Failed to create example policy file")?;
 
         println!("✅ Initialized Cupcake project in .cupcake/");
         println!("   Harness:       {harness_name}");
         println!("   Configuration: .cupcake/rulebook.yml");
+        println!("   System:        .cupcake/system/");
+        println!("   Helpers:       .cupcake/helpers/");
         println!("   Policies:      .cupcake/policies/{harness_name}/");
         println!("   Signals:       .cupcake/signals/");
         println!("   Actions:       .cupcake/actions/");

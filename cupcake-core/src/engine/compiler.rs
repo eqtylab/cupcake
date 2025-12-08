@@ -113,14 +113,21 @@ pub async fn compile_policies(
     policies: &[PolicyUnit],
     opa_path_override: Option<PathBuf>,
 ) -> Result<Vec<u8>> {
-    compile_policies_with_namespace(policies, "cupcake.system", opa_path_override).await
+    compile_policies_with_namespace(policies, "cupcake.system", opa_path_override, None).await
 }
 
 /// Compile policies with a specific namespace for the entrypoint
+///
+/// # Arguments
+/// * `policies` - List of policy units to compile
+/// * `namespace` - Namespace for the entrypoint (e.g., "cupcake.system")
+/// * `opa_path_override` - Optional path to OPA binary
+/// * `cupcake_dir` - Optional path to .cupcake directory for locating helpers at root level
 pub async fn compile_policies_with_namespace(
     policies: &[PolicyUnit],
     namespace: &str,
     opa_path_override: Option<PathBuf>,
+    cupcake_dir: Option<&Path>,
 ) -> Result<Vec<u8>> {
     if policies.is_empty() {
         bail!("No policies to compile");
@@ -161,7 +168,22 @@ pub async fn compile_policies_with_namespace(
     debug!("Policies root: {:?}", policies_root);
 
     // Copy helpers directory if it exists (required by refactored builtins)
-    let helpers_src = policies_root.join("helpers");
+    // New structure: helpers at .cupcake/helpers/ (cupcake_dir/helpers)
+    // Fallback: helpers at .cupcake/policies/helpers/ (policies_root/helpers) for catalog overlays
+    let helpers_src = if let Some(cupcake) = cupcake_dir {
+        let root_helpers = cupcake.join("helpers");
+        if root_helpers.exists() && root_helpers.is_dir() {
+            debug!("Using helpers from cupcake root: {:?}", root_helpers);
+            Some(root_helpers)
+        } else {
+            debug!("No helpers at cupcake root, checking policies root");
+            None
+        }
+    } else {
+        None
+    }
+    .unwrap_or_else(|| policies_root.join("helpers"));
+
     if helpers_src.exists() && helpers_src.is_dir() {
         debug!("Copying helpers directory: {:?}", helpers_src);
         let helpers_dest = temp_path.join("helpers");

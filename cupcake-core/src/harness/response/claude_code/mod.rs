@@ -6,11 +6,13 @@
 mod context_injection;
 mod feedback_loop;
 mod generic;
+mod permission_request;
 mod pre_tool_use;
 
 pub use context_injection::ContextInjectionResponseBuilder;
 pub use feedback_loop::FeedbackLoopResponseBuilder;
 pub use generic::GenericResponseBuilder;
+pub use permission_request::PermissionRequestResponseBuilder;
 pub use pre_tool_use::PreToolUseResponseBuilder;
 
 use crate::harness::events::claude_code::ClaudeCodeEvent;
@@ -31,6 +33,9 @@ impl ClaudeCodeResponseBuilder {
         match hook_event {
             ClaudeCodeEvent::PreToolUse(_) => {
                 PreToolUseResponseBuilder::build(decision, suppress_output)
+            }
+            ClaudeCodeEvent::PermissionRequest(_) => {
+                PermissionRequestResponseBuilder::build(decision, suppress_output)
             }
             ClaudeCodeEvent::PostToolUse(_)
             | ClaudeCodeEvent::Stop(_)

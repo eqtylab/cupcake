@@ -47,6 +47,11 @@ pub enum HookSpecificOutput {
         #[serde(rename = "updatedInput", skip_serializing_if = "Option::is_none")]
         updated_input: Option<serde_json::Value>,
     },
+    /// PermissionRequest response (newer API with nested decision object)
+    PermissionRequest {
+        /// Nested decision object containing behavior, updatedInput, and reason
+        decision: PermissionRequestDecision,
+    },
     UserPromptSubmit {
         #[serde(rename = "additionalContext", skip_serializing_if = "Option::is_none")]
         additional_context: Option<String>,
@@ -72,6 +77,39 @@ pub enum PermissionDecision {
     Allow,
     Deny,
     Ask,
+}
+
+/// Decision behavior for PermissionRequest (newer API)
+///
+/// Only `allow` and `deny` are supported - there is no `ask` because
+/// PermissionRequest IS the ask dialog hook (opportunity to bypass user prompt).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum PermissionRequestBehavior {
+    Allow,
+    Deny,
+}
+
+/// Decision object for PermissionRequest hook (nested structure)
+///
+/// For `allow`: optionally pass `updatedInput` to modify tool parameters
+/// For `deny`: optionally pass `message` (shown to model) and `interrupt` (stops Claude)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PermissionRequestDecision {
+    /// The permission behavior: allow or deny
+    pub behavior: PermissionRequestBehavior,
+
+    /// Optional updated input for modifying tool parameters (used with allow)
+    #[serde(rename = "updatedInput", skip_serializing_if = "Option::is_none")]
+    pub updated_input: Option<serde_json::Value>,
+
+    /// Message explaining why permission was denied (used with deny)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    /// Whether to interrupt/stop Claude entirely (used with deny)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interrupt: Option<bool>,
 }
 
 /// Engine decision - maps our PolicyDecision to response actions

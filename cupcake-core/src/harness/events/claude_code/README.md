@@ -105,6 +105,44 @@ All event payloads are unified by a common structure and traits defined in `src/
   - **CRITICAL:** Output from an `InjectContext` action is printed to `stdout`. Claude Code collects all `stdout` from `PreCompact` hooks and **joins them with `\n\n` (double newline)** to form `newCustomInstructions` for the summarizer model. This was verified from the Claude Code SDK source.
   - A `BlockWithFeedback` action will prevent the compaction from running.
 
+### `PermissionRequest` ✅ MIGRATED
+
+- **File:** `permission_request.rs`
+- **Struct:** `PermissionRequestPayload`
+- **Purpose:** Runs when user is shown a permission dialog. Allows policies to auto-approve or auto-deny on behalf of the user.
+- **Unique Data Fields:**
+  - `tool_name: String`
+  - `tool_input: serde_json::Value`
+  - `tool_use_id: String` - Unique identifier for this tool invocation
+- **Helper Methods:**
+  - `is_tool(name: &str) -> bool` - Check if this is a specific tool
+  - `get_command() -> Option<String>` - Get command from tool input if present
+  - `get_file_path() -> Option<String>` - Get file path from tool input if present
+  - `parse_tool_input<T>() -> Result<T>` - Parse tool input as specific type
+  - `tool_use_id() -> &str` - Get the unique tool use identifier
+- **Response Format:**
+  - Uses nested `decision` object structure:
+    ```json
+    {
+      "hookSpecificOutput": {
+        "hookEventName": "PermissionRequest",
+        "decision": {
+          "behavior": "allow",     // or "deny"
+          "updatedInput": {...},   // optional, for allow
+          "message": "...",        // optional, for deny (shown to model)
+          "interrupt": true        // optional, for deny (stops Claude)
+        }
+      }
+    }
+    ```
+- **Behavioral Nuances:**
+  - PermissionRequest fires when the user is being shown a permission dialog.
+  - This is an opportunity to **bypass** the user prompt by auto-approving or auto-denying.
+  - **No `ask` behavior** - this hook IS the ask dialog, so asking doesn't make sense.
+  - For `allow`: optionally pass `updatedInput` to modify tool parameters before execution.
+  - For `deny`: optionally pass `message` (shown to model) and `interrupt` (stops Claude entirely).
+  - Supported decision verbs: `halt`, `deny`, `block`, `modify` (no `ask`, no `add_context`).
+
 ### `Stop` & `SubagentStop` ✅ MIGRATED
 
 - **Files:** `stop.rs`, `subagent_stop.rs`

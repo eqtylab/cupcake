@@ -24,42 +24,21 @@ cd /path/to/your/project
 
 # Initialize Cupcake for OpenCode
 cupcake init --harness opencode
+```
 
-# Create OpenCode policy directory and system evaluator
-mkdir -p .cupcake/policies/opencode/system
+This creates the following structure:
 
-cat > .cupcake/policies/opencode/system/evaluate.rego << 'EOF'
-package cupcake.system
-
-import rego.v1
-
-evaluate := decision_set if {
-    decision_set := {
-        "halts": collect_verbs("halt"),
-        "denials": collect_verbs("deny"),
-        "blocks": collect_verbs("block"),
-        "asks": collect_verbs("ask"),
-        "modifications": collect_verbs("modify"),
-        "add_context": collect_verbs("add_context")
-    }
-}
-
-collect_verbs(verb_name) := result if {
-    verb_sets := [value |
-        walk(data.cupcake.policies, [path, value])
-        path[count(path) - 1] == verb_name
-    ]
-
-    all_decisions := [decision |
-        some verb_set in verb_sets
-        some decision in verb_set
-    ]
-
-    result := all_decisions
-}
-
-default collect_verbs(_) := []
-EOF
+```
+.cupcake/
+├── rulebook.yml              # Configuration
+├── system/
+│   └── evaluate.rego         # System entrypoint (auto-generated)
+├── helpers/
+│   └── commands.rego         # Shared helper functions
+└── policies/
+    └── opencode/
+        └── builtins/         # Built-in policies
+            └── *.rego
 ```
 
 ## Step 3: Add a Policy
@@ -214,8 +193,8 @@ Or specify the full path in plugin config (`.cupcake/opencode.json`):
 
 Check that:
 
-1. `.cupcake/policies/opencode/` directory exists
-2. `system/evaluate.rego` file exists
+1. `.cupcake/system/evaluate.rego` file exists (at root level)
+2. `.cupcake/policies/opencode/` directory exists
 3. Your policy has correct routing metadata
 
 Debug with:

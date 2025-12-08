@@ -44,10 +44,13 @@ This runs `cupcake init`, and some scaffolding to create:
 ```
 .cupcake/
   ├── rulebook.yml         # Default configuration
-  ├── policies/             # Rego policies
-  │   └── builtins/         # Built-in policies (developer productivity, security)
-  ├── signals/              # External data providers
-  └── actions/              # Automated response scripts
+  ├── system/              # System aggregation entrypoint
+  │   └── evaluate.rego
+  ├── policies/            # Rego policies
+  │   └── claude/
+  │       └── builtins/    # Built-in policies (developer productivity, security)
+  ├── signals/             # External data providers
+  └── actions/             # Automated response scripts
 
 .claude/settings.json       # Claude Code integration (hooks config)
 ```

@@ -100,51 +100,22 @@ cupcake init --harness opencode
 
 This creates:
 
-- `.cupcake/rulebook.yml` - Configuration file
-- `.cupcake/policies/` - Policy directory
-- `.cupcake/signals/` - Signal definitions
-- `.cupcake/actions/` - Action definitions
-
-## Creating the System Evaluator
-
-The system evaluator is required for policy compilation:
-
-```bash
-mkdir -p .cupcake/policies/opencode/system
-
-cat > .cupcake/policies/opencode/system/evaluate.rego << 'EOF'
-package cupcake.system
-
-import rego.v1
-
-evaluate := decision_set if {
-    decision_set := {
-        "halts": collect_verbs("halt"),
-        "denials": collect_verbs("deny"),
-        "blocks": collect_verbs("block"),
-        "asks": collect_verbs("ask"),
-        "modifications": collect_verbs("modify"),
-        "add_context": collect_verbs("add_context")
-    }
-}
-
-collect_verbs(verb_name) := result if {
-    verb_sets := [value |
-        walk(data.cupcake.policies, [path, value])
-        path[count(path) - 1] == verb_name
-    ]
-
-    all_decisions := [decision |
-        some verb_set in verb_sets
-        some decision in verb_set
-    ]
-
-    result := all_decisions
-}
-
-default collect_verbs(_) := []
-EOF
 ```
+.cupcake/
+├── rulebook.yml              # Configuration file
+├── system/
+│   └── evaluate.rego         # System entrypoint (auto-generated)
+├── helpers/
+│   └── commands.rego         # Shared helper functions
+└── policies/
+    └── opencode/
+        └── builtins/         # Built-in policies
+            └── *.rego
+├── signals/                  # Signal definitions
+└── actions/                  # Action definitions
+```
+
+The system evaluator at `.cupcake/system/evaluate.rego` is automatically created by `cupcake init`.
 
 ## Adding Policies
 
@@ -233,8 +204,8 @@ opencode
 - [ ] Plugin built: `ls cupcake-plugins/opencode/dist/`
 - [ ] Plugin installed: `ls .opencode/plugins/cupcake/` or `~/.config/opencode/plugins/cupcake/`
 - [ ] Cupcake initialized: `ls .cupcake/`
-- [ ] System evaluator exists: `ls .cupcake/policies/opencode/system/evaluate.rego`
-- [ ] Policies exist: `ls .cupcake/policies/opencode/*.rego`
+- [ ] System evaluator exists: `ls .cupcake/system/evaluate.rego`
+- [ ] Policies exist: `ls .cupcake/policies/opencode/builtins/*.rego`
 - [ ] CLI test passes (deny for --no-verify)
 - [ ] OpenCode integration works
 

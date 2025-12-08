@@ -56,30 +56,30 @@ The metadata tells Cupcake when to evaluate your policy:
 
 ### Available Events
 
-| Event              | Description                              |
-| ------------------ | ---------------------------------------- |
-| `PreToolUse`       | Before a tool executes                   |
-| `PostToolUse`      | After a tool executes                    |
-| `UserPromptSubmit` | Before sending prompt to LLM             |
-| `SessionStart`     | When session starts or resumes           |
-| `SessionEnd`       | When session ends                        |
-| `Stop`             | When agent stops                         |
-| `SubagentStop`     | When subagent (Task tool) completes      |
-| `PreCompact`       | Before memory compaction                 |
-| `Notification`     | On agent notifications                   |
+| Event              | Description                         |
+| ------------------ | ----------------------------------- |
+| `PreToolUse`       | Before a tool executes              |
+| `PostToolUse`      | After a tool executes               |
+| `UserPromptSubmit` | Before sending prompt to LLM        |
+| `SessionStart`     | When session starts or resumes      |
+| `SessionEnd`       | When session ends                   |
+| `Stop`             | When agent stops                    |
+| `SubagentStop`     | When subagent (Task tool) completes |
+| `PreCompact`       | Before memory compaction            |
+| `Notification`     | On agent notifications              |
 
 ## Decision Verbs
 
 Policies emit decisions using these verbs (in priority order):
 
-| Verb             | Priority | Effect                                    | Supported Events |
-| ---------------- | -------- | ----------------------------------------- | ---------------- |
-| `halt`           | Highest  | Block and stop the session immediately    | All              |
-| `deny`           | High     | Block the action (policy violation)       | All              |
-| `block`          | High     | Block the action (same priority as deny)  | All              |
-| `ask`            | Medium   | Prompt user for confirmation              | Tool events      |
-| `modify`         | Medium   | Allow with modified input                 | PreToolUse only  |
-| `add_context`    | N/A      | Inject context into the prompt            | Prompt events    |
+| Verb          | Priority | Effect                                   | Supported Events |
+| ------------- | -------- | ---------------------------------------- | ---------------- |
+| `halt`        | Highest  | Block and stop the session immediately   | All              |
+| `deny`        | High     | Block the action (policy violation)      | All              |
+| `block`       | High     | Block the action (same priority as deny) | All              |
+| `ask`         | Medium   | Prompt user for confirmation             | Tool events      |
+| `modify`      | Medium   | Allow with modified input                | PreToolUse only  |
+| `add_context` | N/A      | Inject context into the prompt           | Prompt events    |
 
 ### Deny Example
 
@@ -176,17 +176,22 @@ Place policies in the harness-specific directory:
 
 ```
 .cupcake/
+├── rulebook.yml
+├── system/               # System aggregation entrypoint
+│   └── evaluate.rego
 ├── policies/
 │   ├── claude/           # Claude Code policies
-│   │   ├── my_policy.rego
-│   │   └── another.rego
+│   │   ├── builtins/     # Built-in policies
+│   │   └── my_policy.rego
 │   ├── cursor/           # Cursor policies
+│   │   ├── builtins/
 │   │   └── cursor_rules.rego
 │   ├── factory/          # Factory AI policies
+│   │   ├── builtins/
 │   │   └── factory_rules.rego
 │   └── opencode/         # OpenCode policies
+│       ├── builtins/
 │       └── opencode_rules.rego
-└── rulebook.yml
 ```
 
 ## Testing Policies

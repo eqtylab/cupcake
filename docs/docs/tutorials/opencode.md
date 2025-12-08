@@ -44,7 +44,7 @@ This creates:
 
 .opencode/
   └── plugins/
-      └── cupcake/         # Cupcake plugin
+      └── cupcake.js         # Cupcake plugin
 ```
 
 Reset anytime by removing the `.cupcake/` directory and re-running init.
@@ -170,9 +170,9 @@ What happened? OpenCode was blocked by the `rulebook_security_guardrails` builti
 Part of the benefit of using a centralized policy enforcement layer is the ability to have a well managed model over rules. Let's see all of the rules cupcake loads at runtime:
 
 ```bash
-cupcake inspect --harness opencode # will show policies currently loaded
+cupcake inspect # will show policies currently loaded
 ```
 
 ```bash
-cupcake inspect --harness opencode --table # shows a compact table format
+cupcake inspect --table # shows a compact table format
 ```

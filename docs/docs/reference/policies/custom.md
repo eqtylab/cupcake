@@ -7,10 +7,7 @@ description: "Writing custom policies in OPA Rego"
 
 Create your own policies in `.cupcake/policies/<harness>/` for complete control over agent behavior.
 
-Policies are written in [Rego](https://www.openpolicyagent.org/docs/policy-language)
-and evaluated by [OPA](https://www.openpolicyagent.org/).
-The policy acts on input data provided by Cupcake that details what action the agent
-wants to take.
+Policies are written in [Rego](https://www.openpolicyagent.org/docs/policy-language) and evaluated by [OPA](https://www.openpolicyagent.org/). The policy acts on input data provided by Cupcake that details what action the agent wants to take.
 
 ## Basic Structure
 

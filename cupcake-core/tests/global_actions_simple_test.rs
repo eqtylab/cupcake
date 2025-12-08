@@ -159,7 +159,7 @@ block contains decision if {
         cupcake_core::harness::types::HarnessType::ClaudeCode,
     )?;
 
-    // Create project policy that would allow (should not execute due to early termination)
+    // Create project policy that adds context (should not execute due to early termination)
     fs::write(
         project_dir
             .path()
@@ -173,12 +173,8 @@ package cupcake.policies.allow_all
 
 import rego.v1
 
-allow_override contains decision if {
-    decision := {
-        "rule_id": "PROJECT-ALLOW-001",
-        "reason": "Project would allow",
-        "severity": "LOW"
-    }
+add_context contains "Project context that should not appear" if {
+    true
 }
 "#,
     )?;

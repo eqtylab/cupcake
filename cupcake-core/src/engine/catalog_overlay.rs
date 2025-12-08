@@ -252,8 +252,8 @@ async fn parse_catalog_policy(path: &Path, expected_namespace: &str) -> Result<P
         metadata::extract_package_name(&content).context("Failed to extract package name")?;
 
     // Validate namespace - catalog policies MUST use the correct namespace
-    let expected_prefix = format!("{}.policies.", expected_namespace);
-    let expected_system = format!("{}.system", expected_namespace);
+    let expected_prefix = format!("{expected_namespace}.policies.");
+    let expected_system = format!("{expected_namespace}.system");
 
     if !package_name.starts_with(&expected_prefix) && package_name != expected_system {
         return Err(anyhow::anyhow!(
@@ -308,7 +308,7 @@ async fn parse_catalog_helper(path: &Path, expected_namespace: &str) -> Result<P
         metadata::extract_package_name(&content).context("Failed to extract package name")?;
 
     // Validate namespace - helpers MUST use the helpers namespace
-    let expected_prefix = format!("{}.helpers.", expected_namespace);
+    let expected_prefix = format!("{expected_namespace}.helpers.");
 
     if !package_name.starts_with(&expected_prefix) {
         return Err(anyhow::anyhow!(

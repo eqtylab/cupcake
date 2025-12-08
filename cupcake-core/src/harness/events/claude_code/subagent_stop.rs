@@ -41,6 +41,7 @@ mod tests {
                 session_id: "test-123".to_string(),
                 transcript_path: "/tmp/transcript".to_string(),
                 cwd: "/home/user".to_string(),
+                permission_mode: Default::default(),
             },
             stop_hook_active: false,
         };

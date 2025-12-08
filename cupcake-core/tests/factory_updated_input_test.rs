@@ -243,21 +243,42 @@ fn test_suppress_output_with_updated_input() {
     }
 }
 
-// Future test for when we add update_input verb to DecisionSet
+/// Test for EngineDecision::Modify handling
 #[test]
-#[ignore] // Enable when update_input verb is implemented
-fn test_update_input_decision_verb_integration() {
-    // This test will verify the complete flow:
-    // 1. Policy returns update_input verb with modified parameters
-    // 2. Engine extracts updated_input from DecisionSet
-    // 3. Response builder includes it in the response
-    // 4. Factory AI Droid receives and applies the modifications
+fn test_modify_decision_generates_allow_with_updated_input() {
+    let updated_input = json!({
+        "command": "ls -la /safe/path",
+        "description": "Sanitized command"
+    });
 
-    // Implementation note: This requires adding to DecisionSet:
-    // pub update_input: Option<serde_json::Value>
+    let decision = EngineDecision::Modify {
+        reason: "Command sanitized for safety".to_string(),
+        updated_input: updated_input.clone(),
+    };
 
-    // And adding to system/evaluate.rego aggregation:
-    // update_input := data.cupcake.policies[pkg_name].update_input
+    let response = PreToolUseResponseBuilder::build_with_updated_input(
+        &decision, None, // updated_input comes from decision
+        false,
+    );
 
-    todo!("Implement update_input decision verb in DecisionSet");
+    // Verify response structure
+    assert!(response.hook_specific_output.is_some());
+
+    if let Some(HookSpecificOutput::PreToolUse {
+        permission_decision,
+        permission_decision_reason,
+        updated_input: returned_input,
+    }) = response.hook_specific_output
+    {
+        // Modify implies Allow with updatedInput
+        assert_eq!(permission_decision, PermissionDecision::Allow);
+        assert_eq!(
+            permission_decision_reason,
+            Some("Command sanitized for safety".to_string())
+        );
+        assert!(returned_input.is_some());
+        assert_eq!(returned_input.unwrap(), updated_input);
+    } else {
+        panic!("Expected PreToolUse hook specific output");
+    }
 }

@@ -71,8 +71,13 @@ impl ClaudeHarness {
             FinalDecision::Ask { reason, .. } => EngineDecision::Ask {
                 reason: reason.clone(),
             },
-            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
-                reason: Some(reason.clone()),
+            FinalDecision::Modify {
+                reason,
+                updated_input,
+                ..
+            } => EngineDecision::Modify {
+                reason: reason.clone(),
+                updated_input: updated_input.clone(),
             },
             FinalDecision::Allow { context } => EngineDecision::Allow {
                 reason: if !context.is_empty() {
@@ -129,6 +134,7 @@ impl CursorHarness {
     }
 
     /// Adapt FinalDecision to EngineDecision (same logic as ClaudeHarness)
+    /// NOTE: Cursor does not support Modify/updatedInput, so Modify is treated as Allow
     fn adapt_decision(decision: &FinalDecision) -> EngineDecision {
         match decision {
             FinalDecision::Halt { reason, .. } => EngineDecision::Block {
@@ -143,7 +149,8 @@ impl CursorHarness {
             FinalDecision::Ask { reason, .. } => EngineDecision::Ask {
                 reason: reason.clone(),
             },
-            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
+            // Cursor doesn't support updatedInput - treat Modify as Allow
+            FinalDecision::Modify { reason, .. } => EngineDecision::Allow {
                 reason: Some(reason.clone()),
             },
             FinalDecision::Allow { context } => EngineDecision::Allow {
@@ -164,7 +171,7 @@ impl CursorHarness {
             | FinalDecision::Deny { agent_messages, .. }
             | FinalDecision::Block { agent_messages, .. }
             | FinalDecision::Ask { agent_messages, .. }
-            | FinalDecision::AllowOverride { agent_messages, .. } => {
+            | FinalDecision::Modify { agent_messages, .. } => {
                 if agent_messages.is_empty() {
                     None
                 } else {
@@ -221,8 +228,13 @@ impl FactoryHarness {
             FinalDecision::Ask { reason, .. } => EngineDecision::Ask {
                 reason: reason.clone(),
             },
-            FinalDecision::AllowOverride { reason, .. } => EngineDecision::Allow {
-                reason: Some(reason.clone()),
+            FinalDecision::Modify {
+                reason,
+                updated_input,
+                ..
+            } => EngineDecision::Modify {
+                reason: reason.clone(),
+                updated_input: updated_input.clone(),
             },
             FinalDecision::Allow { context } => EngineDecision::Allow {
                 reason: if !context.is_empty() {
@@ -277,8 +289,8 @@ impl OpenCodeHarness {
                 // OpenCode plugin will convert "ask" to deny with approval message
                 OpenCodeResponse::ask(reason.clone())
             }
-            FinalDecision::AllowOverride { reason, .. } => {
-                // Allow with reason - context injection TBD in Phase 2
+            // OpenCode doesn't support updatedInput - treat Modify as Allow with reason
+            FinalDecision::Modify { reason, .. } => {
                 OpenCodeResponse::allow_with_context(vec![reason.clone()])
             }
             FinalDecision::Allow { context } => {

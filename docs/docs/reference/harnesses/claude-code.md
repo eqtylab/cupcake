@@ -11,17 +11,17 @@ Claude Code integrates with Cupcake through external hooks configured in `.claud
 
 Claude Code supports 9 hook events:
 
-| Event              | Description              | Context Injection | Can Block            |
-| ------------------ | ------------------------ | ----------------- | -------------------- |
-| `PreToolUse`       | Before tool execution    | No                | Yes (allow/deny/ask) |
-| `PostToolUse`      | After tool execution     | Yes               | Yes (feedback)       |
-| `UserPromptSubmit` | User submits prompt      | Yes               | Yes                  |
-| `SessionStart`     | Session starts/resumes   | Yes               | No                   |
-| `SessionEnd`       | Session ends             | No                | No                   |
-| `PreCompact`       | Before memory compaction | Yes               | No                   |
-| `Notification`     | Agent notifications      | No                | No                   |
-| `Stop`             | Main agent stopping      | No                | Yes (force continue) |
-| `SubagentStop`     | Subagent stopping        | No                | Yes (force continue) |
+| Event              | Description              | Context Injection | Can Block                 | Can Modify |
+| ------------------ | ------------------------ | ----------------- | ------------------------- | ---------- |
+| `PreToolUse`       | Before tool execution    | No                | Yes (allow/deny/ask)      | Yes        |
+| `PostToolUse`      | After tool execution     | Yes               | Yes (feedback)            | No         |
+| `UserPromptSubmit` | User submits prompt      | Yes               | Yes                       | No         |
+| `SessionStart`     | Session starts/resumes   | Yes               | No                        | No         |
+| `SessionEnd`       | Session ends             | No                | No                        | No         |
+| `PreCompact`       | Before memory compaction | Yes               | No                        | No         |
+| `Notification`     | Agent notifications      | No                | No                        | No         |
+| `Stop`             | Main agent stopping      | No                | Yes (force continue)      | No         |
+| `SubagentStop`     | Subagent stopping        | No                | Yes (force continue)      | No         |
 
 ## Event Fields
 
@@ -203,6 +203,22 @@ All Claude Code events include:
   }
 }
 ```
+
+**Modify (allow with transformed input):**
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": {
+      "command": "echo 'Sanitized command'"
+    }
+  }
+}
+```
+
+The `updatedInput` field contains a partial object that replaces fields in the original tool input. Only fields present in `updatedInput` are replaced; other fields remain unchanged.
 
 ### UserPromptSubmit Responses
 

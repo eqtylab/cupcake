@@ -173,7 +173,7 @@ async fn execute_repo_command(command: RepoCommand) -> Result<()> {
         RepoCommand::Add { name, url } => {
             manager.add_registry(&name, &url)?;
             manager.save()?;
-            println!("Added repository '{}' -> {}", name, url);
+            println!("Added repository '{name}' -> {url}");
         }
         RepoCommand::List => {
             println!("Configured repositories:\n");
@@ -189,7 +189,7 @@ async fn execute_repo_command(command: RepoCommand) -> Result<()> {
         RepoCommand::Remove { name } => {
             manager.remove_registry(&name)?;
             manager.save()?;
-            println!("Removed repository '{}'", name);
+            println!("Removed repository '{name}'");
         }
     }
 
@@ -305,7 +305,7 @@ async fn execute_show(name: &str, json_output: bool, force_refresh: bool) -> Res
 
     let versions = index
         .get_versions(name)
-        .context(format!("Rulebook '{}' not found in catalog", name))?;
+        .context(format!("Rulebook '{name}' not found in catalog"))?;
 
     let latest = versions.first().context("No versions available")?;
 
@@ -338,7 +338,7 @@ async fn execute_show(name: &str, json_output: bool, force_refresh: bool) -> Res
         println!();
         println!("Description:");
         for line in latest.description.lines() {
-            println!("  {}", line);
+            println!("  {line}");
         }
 
         println!();
@@ -393,9 +393,8 @@ async fn execute_install(name: &str, version: Option<&str>, force_refresh: bool)
     let entry = index
         .resolve_version(rulebook_name, version_spec)
         .context(format!(
-            "No version matching '{}' found for '{}'.\n\
-             Supported formats: 1.2.0 (exact), ^1.2 (compatible), ~1.2 (patch-level), latest",
-            version_spec, rulebook_name
+            "No version matching '{version_spec}' found for '{rulebook_name}'.\n\
+             Supported formats: 1.2.0 (exact), ^1.2 (compatible), ~1.2 (patch-level), latest"
         ))?;
 
     // Show what version was resolved for non-exact specifiers
@@ -486,7 +485,7 @@ async fn execute_uninstall(name: &str) -> Result<()> {
     let mut lock = CatalogLock::load_or_default()?;
 
     if !lock.is_installed(name) {
-        println!("Rulebook '{}' is not installed.", name);
+        println!("Rulebook '{name}' is not installed.");
         return Ok(());
     }
 
@@ -504,7 +503,7 @@ async fn execute_uninstall(name: &str) -> Result<()> {
     lock.remove_installed(name);
     lock.save()?;
 
-    println!("Uninstalled '{}' v{}", name, version);
+    println!("Uninstalled '{name}' v{version}");
 
     Ok(())
 }
@@ -560,7 +559,7 @@ async fn execute_upgrade(name: Option<&str>, dry_run: bool, force_refresh: bool)
 
     if to_check.is_empty() {
         if let Some(n) = name {
-            println!("Rulebook '{}' is not installed.", n);
+            println!("Rulebook '{n}' is not installed.");
         }
         return Ok(());
     }
@@ -621,10 +620,7 @@ async fn execute_upgrade(name: Option<&str>, dry_run: bool, force_refresh: bool)
     }
 
     for name in &not_in_catalog {
-        println!(
-            "\nWarning: '{}' not found in catalog (may have been removed)",
-            name
-        );
+        println!("\nWarning: '{name}' not found in catalog (may have been removed)");
     }
 
     if dry_run {
@@ -663,7 +659,7 @@ async fn execute_upgrade(name: Option<&str>, dry_run: bool, force_refresh: bool)
 async fn execute_lint(path: &std::path::Path) -> Result<()> {
     use cupcake_core::catalog::RulebookManifest;
 
-    println!("Validating rulebook at {:?}...\n", path);
+    println!("Validating rulebook at {path:?}...\n");
 
     let mut errors: Vec<String> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
@@ -681,7 +677,7 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
         Ok(manifest) => {
             // Validate manifest fields
             if let Err(e) = manifest.validate() {
-                errors.push(format!("Manifest validation failed: {}", e));
+                errors.push(format!("Manifest validation failed: {e}"));
             }
 
             // Check for system/evaluate.rego at rulebook root (shared entrypoint)
@@ -698,10 +694,7 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
                 for harness in &manifest.metadata.harnesses {
                     let harness_dir = policies_dir.join(harness);
                     if !harness_dir.exists() {
-                        errors.push(format!(
-                            "Missing policies directory for harness: {}",
-                            harness
-                        ));
+                        errors.push(format!("Missing policies directory for harness: {harness}"));
                         continue;
                     }
 
@@ -735,7 +728,7 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
             println!();
         }
         Err(e) => {
-            errors.push(format!("Failed to parse manifest.yaml: {}", e));
+            errors.push(format!("Failed to parse manifest.yaml: {e}"));
         }
     }
 
@@ -890,11 +883,11 @@ fn print_validation_results(errors: &[String], warnings: &[String]) {
     }
 
     for error in errors {
-        println!("ERROR: {}", error);
+        println!("ERROR: {error}");
     }
 
     for warning in warnings {
-        println!("WARNING: {}", warning);
+        println!("WARNING: {warning}");
     }
 
     println!();
@@ -916,7 +909,7 @@ async fn execute_package(path: &std::path::Path, output: &std::path::Path) -> Re
     use sha2::{Digest, Sha256};
     use tar::Builder;
 
-    println!("Packaging rulebook at {:?}...\n", path);
+    println!("Packaging rulebook at {path:?}...\n");
 
     // Validate first
     let manifest_path = path.join("manifest.yaml");
@@ -931,7 +924,7 @@ async fn execute_package(path: &std::path::Path, output: &std::path::Path) -> Re
     let version = &manifest.metadata.version;
 
     // Create tarball filename
-    let tarball_name = format!("{}-{}.tar.gz", name, version);
+    let tarball_name = format!("{name}-{version}.tar.gz");
     let tarball_path = output.join(&tarball_name);
 
     // Ensure output directory exists
@@ -939,7 +932,7 @@ async fn execute_package(path: &std::path::Path, output: &std::path::Path) -> Re
 
     // Create tarball
     let tarball_file = std::fs::File::create(&tarball_path)
-        .with_context(|| format!("Failed to create {:?}", tarball_path))?;
+        .with_context(|| format!("Failed to create {tarball_path:?}"))?;
 
     let encoder = GzEncoder::new(tarball_file, Compression::default());
     let mut builder = Builder::new(encoder);
@@ -956,11 +949,11 @@ async fn execute_package(path: &std::path::Path, output: &std::path::Path) -> Re
     let tarball_bytes = std::fs::read(&tarball_path)?;
     let digest = format!("sha256:{:x}", Sha256::digest(&tarball_bytes));
 
-    println!("Created: {:?}", tarball_path);
+    println!("Created: {tarball_path:?}");
     println!("Size:    {} bytes", tarball_bytes.len());
-    println!("Digest:  {}", digest);
+    println!("Digest:  {digest}");
     println!();
-    println!("Rulebook: {} v{}", name, version);
+    println!("Rulebook: {name} v{version}");
     println!("Harnesses: {}", manifest.metadata.harnesses.join(", "));
 
     Ok(())

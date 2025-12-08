@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 mod notification;
+mod permission_request;
 mod post_tool_use;
 mod pre_compact;
 mod pre_tool_use;
@@ -10,7 +11,8 @@ mod stop;
 mod subagent_stop;
 mod user_prompt_submit;
 
-pub use notification::NotificationPayload;
+pub use notification::{NotificationPayload, NotificationType};
+pub use permission_request::PermissionRequestPayload;
 pub use post_tool_use::PostToolUsePayload;
 pub use pre_compact::PreCompactPayload;
 pub use pre_tool_use::PreToolUsePayload;
@@ -28,6 +30,35 @@ pub trait EventPayload {
 /// Marker trait for events that can inject context via stdout
 pub trait InjectsContext {}
 
+/// Permission mode for Claude Code sessions
+///
+/// Indicates the current permission level for the session, which affects
+/// how Claude Code handles tool permissions.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PermissionMode {
+    /// Default permission mode - user is prompted for dangerous operations
+    #[default]
+    Default,
+    /// Plan mode - Claude creates plans without executing
+    Plan,
+    /// Accept edits mode - file edits are auto-approved
+    AcceptEdits,
+    /// Bypass permissions - all tool calls auto-approved (dangerous)
+    BypassPermissions,
+}
+
+impl std::fmt::Display for PermissionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PermissionMode::Default => write!(f, "default"),
+            PermissionMode::Plan => write!(f, "plan"),
+            PermissionMode::AcceptEdits => write!(f, "acceptEdits"),
+            PermissionMode::BypassPermissions => write!(f, "bypassPermissions"),
+        }
+    }
+}
+
 /// Common fields present in all Claude Code hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommonEventData {
@@ -39,6 +70,10 @@ pub struct CommonEventData {
 
     /// Current working directory when the hook is invoked
     pub cwd: String,
+
+    /// Current permission mode for the session
+    #[serde(default)]
+    pub permission_mode: PermissionMode,
 }
 
 /// All possible Claude Code hook events
@@ -71,6 +106,14 @@ pub enum ClaudeCodeEvent {
 
     /// Session end event
     SessionEnd(SessionEndPayload),
+
+    /// Permission request for tool execution (newer API)
+    ///
+    /// PermissionRequest is the newer, cleaner hook for tool permission decisions.
+    /// It provides the same functionality as PreToolUse but with:
+    /// - A `tool_use_id` field for tracking specific tool invocations
+    /// - A cleaner response format with nested `decision` object
+    PermissionRequest(PermissionRequestPayload),
 }
 
 /// Type of compaction trigger
@@ -170,6 +213,7 @@ impl ClaudeCodeEvent {
             ClaudeCodeEvent::UserPromptSubmit(payload) => &payload.common,
             ClaudeCodeEvent::SessionStart(payload) => &payload.common,
             ClaudeCodeEvent::SessionEnd(payload) => &payload.common,
+            ClaudeCodeEvent::PermissionRequest(payload) => &payload.common,
         }
     }
 
@@ -178,6 +222,7 @@ impl ClaudeCodeEvent {
         match self {
             ClaudeCodeEvent::PreToolUse(payload) => Some(&payload.tool_name),
             ClaudeCodeEvent::PostToolUse(payload) => Some(&payload.tool_name),
+            ClaudeCodeEvent::PermissionRequest(payload) => Some(&payload.tool_name),
             _ => None,
         }
     }
@@ -187,6 +232,7 @@ impl ClaudeCodeEvent {
         match self {
             ClaudeCodeEvent::PreToolUse(payload) => Some(&payload.tool_input),
             ClaudeCodeEvent::PostToolUse(payload) => Some(&payload.tool_input),
+            ClaudeCodeEvent::PermissionRequest(payload) => Some(&payload.tool_input),
             _ => None,
         }
     }
@@ -203,6 +249,7 @@ impl ClaudeCodeEvent {
             ClaudeCodeEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
             ClaudeCodeEvent::SessionStart { .. } => "SessionStart",
             ClaudeCodeEvent::SessionEnd { .. } => "SessionEnd",
+            ClaudeCodeEvent::PermissionRequest { .. } => "PermissionRequest",
         }
     }
 
@@ -210,7 +257,9 @@ impl ClaudeCodeEvent {
     pub fn is_tool_event(&self) -> bool {
         matches!(
             self,
-            ClaudeCodeEvent::PreToolUse(_) | ClaudeCodeEvent::PostToolUse(_)
+            ClaudeCodeEvent::PreToolUse(_)
+                | ClaudeCodeEvent::PostToolUse(_)
+                | ClaudeCodeEvent::PermissionRequest(_)
         )
     }
 
@@ -220,6 +269,32 @@ impl ClaudeCodeEvent {
             self,
             ClaudeCodeEvent::Stop { .. } | ClaudeCodeEvent::SubagentStop { .. }
         )
+    }
+
+    /// Check if this is a permission event (pre-execution decision)
+    pub fn is_permission_event(&self) -> bool {
+        matches!(
+            self,
+            ClaudeCodeEvent::PreToolUse(_) | ClaudeCodeEvent::PermissionRequest(_)
+        )
+    }
+
+    /// Get the permission mode for the session
+    pub fn permission_mode(&self) -> &PermissionMode {
+        &self.common().permission_mode
+    }
+
+    /// Get the tool use ID for tool-related events
+    ///
+    /// Returns the unique identifier for this tool invocation.
+    /// Available for PreToolUse, PostToolUse, and PermissionRequest events.
+    pub fn tool_use_id(&self) -> Option<&str> {
+        match self {
+            ClaudeCodeEvent::PreToolUse(payload) => payload.tool_use_id.as_deref(),
+            ClaudeCodeEvent::PostToolUse(payload) => payload.tool_use_id.as_deref(),
+            ClaudeCodeEvent::PermissionRequest(payload) => Some(&payload.tool_use_id),
+            _ => None,
+        }
     }
 
     /// Parse tool input as specific tool type
@@ -249,9 +324,11 @@ mod tests {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
                 cwd: "/home/user/project".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
+            tool_use_id: None,
         });
 
         assert_eq!(event.common().session_id, "test-session");
@@ -294,6 +371,7 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home/user/project".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({
@@ -301,6 +379,7 @@ mod tests {
                 "description": "Build the project",
                 "timeout": 60
             }),
+            tool_use_id: None,
         });
 
         let bash_input: BashToolInput = event.parse_tool_input().unwrap();
@@ -330,8 +409,10 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home/user/project".to_string(),
+                permission_mode: Default::default(),
             },
             message: "Test notification".to_string(),
+            notification_type: None,
         });
 
         assert!(!event.is_tool_event());
@@ -404,5 +485,82 @@ mod tests {
                 _ => panic!("Wrong event type"),
             }
         }
+    }
+
+    #[test]
+    fn test_permission_request_event() {
+        let json = r#"
+        {
+            "hook_event_name": "PermissionRequest",
+            "session_id": "test-session",
+            "transcript_path": "/path/to/transcript",
+            "cwd": "/home/user/project",
+            "tool_name": "Bash",
+            "tool_input": {"command": "rm -rf /tmp"},
+            "tool_use_id": "toolu_123"
+        }
+        "#;
+
+        let event: ClaudeCodeEvent = serde_json::from_str(json).unwrap();
+
+        match &event {
+            ClaudeCodeEvent::PermissionRequest(payload) => {
+                assert_eq!(payload.common.session_id, "test-session");
+                assert_eq!(payload.common.cwd, "/home/user/project");
+                assert_eq!(payload.tool_name, "Bash");
+                assert_eq!(payload.tool_use_id, "toolu_123");
+                assert_eq!(payload.tool_input["command"], "rm -rf /tmp");
+                assert_eq!(event.event_name(), "PermissionRequest");
+                assert!(event.is_tool_event());
+                assert!(event.is_permission_event());
+            }
+            _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn test_permission_event_helper() {
+        // PreToolUse is a permission event
+        let pre_tool = ClaudeCodeEvent::PreToolUse(PreToolUsePayload {
+            common: CommonEventData {
+                session_id: "test".to_string(),
+                transcript_path: "/path".to_string(),
+                cwd: "/home".to_string(),
+                permission_mode: Default::default(),
+            },
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({"command": "ls"}),
+            tool_use_id: None,
+        });
+        assert!(pre_tool.is_permission_event());
+
+        // PermissionRequest is a permission event
+        let perm_req = ClaudeCodeEvent::PermissionRequest(PermissionRequestPayload {
+            common: CommonEventData {
+                session_id: "test".to_string(),
+                transcript_path: "/path".to_string(),
+                cwd: "/home".to_string(),
+                permission_mode: Default::default(),
+            },
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({"command": "ls"}),
+            tool_use_id: "toolu_xyz".to_string(),
+        });
+        assert!(perm_req.is_permission_event());
+
+        // PostToolUse is NOT a permission event
+        let post_tool = ClaudeCodeEvent::PostToolUse(PostToolUsePayload {
+            common: CommonEventData {
+                session_id: "test".to_string(),
+                transcript_path: "/path".to_string(),
+                cwd: "/home".to_string(),
+                permission_mode: Default::default(),
+            },
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({"command": "ls"}),
+            tool_response: serde_json::json!({"success": true}),
+            tool_use_id: None,
+        });
+        assert!(!post_tool.is_permission_event());
     }
 }

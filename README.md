@@ -18,31 +18,32 @@ Make AI agents follow the rules.
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
-- **Better performance** by moving rules out of context and into guarantees.
+- **Better performance** by moving rules out of context and into policy-as-code.
 - **LLM-as-a-judge** for more dynamic governance.
 - **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
-Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)**. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)** or **Typescript policy programs** that abstract Rego. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
 ## Updates
 
 **`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
 
-**`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignement requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
+**`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
 ## Supported Agent Harnesses
 
-Cupcake provides **native integrations** for multiple AI coding agents:
+Cupcake provides lightweight **native integrations** for multiple AI coding agents:
 
-| Harness                                                                           | Status             | Integration Guide                                                      |
-| --------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
-| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)              |
-| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                   |
-| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/factory.md)                  |
-| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
-| **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
+| Harness                                                                           | Status             | Integration Guide                                                           |
+| --------------------------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)                   |
+| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                        |
+| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/factory.md)                       |
+| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                         |
+| **[AMP](https://ampcode.com)**                                                    | Coming soon        | [Awaiting release](https://ampcode.com/manual?internal#hooks)               |
+| **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting release](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities.
+Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities. If a particular harness is not supported, it is because it has no means for runtime integration.
 
 #### Language Bindings
 

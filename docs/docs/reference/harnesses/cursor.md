@@ -357,6 +357,7 @@ deny contains decision if {
 | Config file       | `.claude/settings.json`                      | `~/.cursor/hooks.json`                        |
 | Config format     | Complex with `matcher`, `type`               | Simple with just `command`                    |
 | Context injection | Supported on prompts                         | Not supported                                 |
+| Input modification| Supported via `updatedInput`                 | Not supported                                 |
 | Response field    | `permissionDecision` in `hookSpecificOutput` | `permission` at top level                     |
 | Event naming      | `PreToolUse`, `PostToolUse`                  | `beforeShellExecution`, `afterFileEdit`, etc. |
 

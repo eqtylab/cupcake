@@ -16,6 +16,12 @@ All event payloads are unified by a common structure and traits defined in `src/
   - `session_id: String`
   - `transcript_path: String`
   - `cwd: String`
+  - `permission_mode: PermissionMode` - Current permission mode: `Default`, `Plan`, `AcceptEdits`, or `BypassPermissions`
+- **`PermissionMode` enum:** Indicates the current permission level for the session:
+  - `Default` - User is prompted for dangerous operations
+  - `Plan` - Claude creates plans without executing
+  - `AcceptEdits` - File edits are auto-approved
+  - `BypassPermissions` - All tool calls auto-approved (dangerous)
 - **`EventPayload` trait:** A trait implemented by all payload structs, guaranteeing access to the `CommonEventData`.
 - **`InjectsContext` trait:** A marker trait implemented _only_ by payloads for hooks that have special `stdout` handling for context injection (`SessionStart`, `UserPromptSubmit`, `PreCompact`).
 
@@ -31,11 +37,13 @@ All event payloads are unified by a common structure and traits defined in `src/
 - **Unique Data Fields:**
   - `tool_name: String`
   - `tool_input: serde_json::Value`
+  - `tool_use_id: Option<String>` - Unique identifier for this tool invocation (e.g., `"toolu_01ABC123..."`)
 - **Helper Methods:**
   - `is_tool(name: &str) -> bool` - Check if this is a specific tool
   - `get_command() -> Option<String>` - Get command from tool input if present
   - `get_file_path() -> Option<String>` - Get file path from tool input if present
   - `parse_tool_input<T>() -> Result<T>` - Parse tool input as specific type
+  - `tool_use_id() -> Option<&str>` - Get the unique tool use identifier
 - **Behavioral Nuances:**
   - This is the primary security gate. A `BlockWithFeedback` action from a policy on this event will prevent the tool from running and feed the reason back to the agent for self-correction.
 
@@ -48,10 +56,12 @@ All event payloads are unified by a common structure and traits defined in `src/
   - `tool_name: String`
   - `tool_input: serde_json::Value`
   - `tool_response: serde_json::Value`
+  - `tool_use_id: Option<String>` - Unique identifier for this tool invocation (e.g., `"toolu_01ABC123..."`)
 - **Helper Methods:**
   - `was_successful() -> Option<bool>` - Check if tool execution succeeded
   - `get_output() -> Option<&str>` - Get tool output text
   - `get_error() -> Option<&str>` - Get error message if failed
+  - `tool_use_id() -> Option<&str>` - Get the unique tool use identifier
 - **Behavioral Nuances:**
   - The `tool_response` field is critical for policies that need to validate the _outcome_ of a command (e.g., checking for `success: true` or parsing `stdout` for error messages).
   - A `BlockWithFeedback` action here does not prevent the tool from having run, but it injects feedback into the agent's next turn, prompting it to correct its work.
@@ -105,6 +115,44 @@ All event payloads are unified by a common structure and traits defined in `src/
   - **CRITICAL:** Output from an `InjectContext` action is printed to `stdout`. Claude Code collects all `stdout` from `PreCompact` hooks and **joins them with `\n\n` (double newline)** to form `newCustomInstructions` for the summarizer model. This was verified from the Claude Code SDK source.
   - A `BlockWithFeedback` action will prevent the compaction from running.
 
+### `PermissionRequest` ✅ MIGRATED
+
+- **File:** `permission_request.rs`
+- **Struct:** `PermissionRequestPayload`
+- **Purpose:** Runs when user is shown a permission dialog. Allows policies to auto-approve or auto-deny on behalf of the user.
+- **Unique Data Fields:**
+  - `tool_name: String`
+  - `tool_input: serde_json::Value`
+  - `tool_use_id: String` - Unique identifier for this tool invocation
+- **Helper Methods:**
+  - `is_tool(name: &str) -> bool` - Check if this is a specific tool
+  - `get_command() -> Option<String>` - Get command from tool input if present
+  - `get_file_path() -> Option<String>` - Get file path from tool input if present
+  - `parse_tool_input<T>() -> Result<T>` - Parse tool input as specific type
+  - `tool_use_id() -> &str` - Get the unique tool use identifier
+- **Response Format:**
+  - Uses nested `decision` object structure:
+    ```json
+    {
+      "hookSpecificOutput": {
+        "hookEventName": "PermissionRequest",
+        "decision": {
+          "behavior": "allow",     // or "deny"
+          "updatedInput": {...},   // optional, for allow
+          "message": "...",        // optional, for deny (shown to model)
+          "interrupt": true        // optional, for deny (stops Claude)
+        }
+      }
+    }
+    ```
+- **Behavioral Nuances:**
+  - PermissionRequest fires when the user is being shown a permission dialog.
+  - This is an opportunity to **bypass** the user prompt by auto-approving or auto-denying.
+  - **No `ask` behavior** - this hook IS the ask dialog, so asking doesn't make sense.
+  - For `allow`: optionally pass `updatedInput` to modify tool parameters before execution.
+  - For `deny`: optionally pass `message` (shown to model) and `interrupt` (stops Claude entirely).
+  - Supported decision verbs: `halt`, `deny`, `block`, `modify` (no `ask`, no `add_context`).
+
 ### `Stop` & `SubagentStop` ✅ MIGRATED
 
 - **Files:** `stop.rs`, `subagent_stop.rs`
@@ -126,8 +174,19 @@ All event payloads are unified by a common structure and traits defined in `src/
 - **Purpose:** Trigger external, out-of-band notification systems (e.g., desktop notifications, Slack messages).
 - **Unique Data Fields:**
   - `message: String`
+  - `notification_type: Option<NotificationType>` - Type of notification for filtering hooks
+- **`NotificationType` enum:** Used to filter notifications and run different hooks for different types:
+  - `PermissionPrompt` - Permission requests from Claude Code
+  - `IdlePrompt` - When Claude is waiting for user input (after 60+ seconds idle)
+  - `AuthSuccess` - Authentication success notifications
+  - `ElicitationDialog` - When Claude Code needs input for MCP tool elicitation
 - **Helper Methods:**
   - `message() -> &str` - Get the notification message
   - `contains(substring: &str) -> bool` - Check if message contains text
+  - `notification_type() -> Option<&NotificationType>` - Get the notification type
+  - `is_permission_prompt() -> bool` - Check if this is a permission prompt notification
+  - `is_idle_prompt() -> bool` - Check if this is an idle prompt notification
+  - `is_auth_success() -> bool` - Check if this is an auth success notification
+  - `is_elicitation_dialog() -> bool` - Check if this is an elicitation dialog notification
 - **Behavioral Nuances:**
   - This hook is for side-effects only. Its output does not influence the agent's behavior. A `BlockWithFeedback` action will be ignored by Claude Code.

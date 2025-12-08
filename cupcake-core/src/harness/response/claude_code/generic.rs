@@ -32,6 +32,13 @@ impl GenericResponseBuilder {
                 );
                 // Empty response (same as Allow)
             }
+            EngineDecision::Modify { .. } => {
+                // Modify is only meaningful for PreToolUse - treat as Allow for generic events
+                tracing::warn!(
+                    "Modify action not supported for generic events - treating as Allow"
+                );
+                // Empty response (same as Allow)
+            }
         }
 
         // Apply suppress_output if requested

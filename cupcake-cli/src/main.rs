@@ -575,14 +575,21 @@ async fn eval_command(
         }
     }
 
-    // Create debug capture if enabled via CLI flag
-    let mut debug_capture = if debug_files_enabled {
+    // Get telemetry config from the engine
+    let telemetry_config = engine.telemetry_config().cloned();
+    let telemetry_enabled = telemetry_config
+        .as_ref()
+        .map(|t| t.enabled)
+        .unwrap_or(false);
+
+    // Create debug capture if enabled via CLI flag OR telemetry config
+    let mut debug_capture = if debug_files_enabled || telemetry_enabled {
         // Generate a trace ID for this evaluation
         let trace_id = cupcake_core::engine::trace::generate_trace_id();
         Some(DebugCapture::new(
             hook_event_json.clone(),
             trace_id,
-            true, // enabled
+            debug_files_enabled, // only write debug files if CLI flag set
             debug_dir.clone(),
         ))
     } else {
@@ -654,10 +661,23 @@ async fn eval_command(
         // The response is already a JSON Value
         debug.response_to_claude = Some(response.clone());
 
-        // Write the debug file
+        // Write the debug file (if --debug-files flag was set)
         if let Err(e) = debug.write_if_enabled() {
             // Log but don't fail on debug write errors
             debug!("Failed to write debug file: {}", e);
+        }
+
+        // Write telemetry if configured in rulebook
+        if let Some(ref config) = telemetry_config {
+            if config.enabled {
+                let destination = config
+                    .destination
+                    .clone()
+                    .unwrap_or_else(|| std::path::PathBuf::from(".cupcake/telemetry"));
+                if let Err(e) = debug.write_telemetry(&config.format, &destination) {
+                    debug!("Failed to write telemetry: {}", e);
+                }
+            }
         }
     }
 
@@ -1113,7 +1133,7 @@ halts := collect_verbs("halt")
 denials := collect_verbs("deny")
 blocks := collect_verbs("block")
 asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
+modifications := collect_verbs("modify")
 add_context := collect_verbs("add_context")
 
 # Main evaluation entrypoint
@@ -1122,7 +1142,7 @@ evaluate := {
     "denials": denials,
     "blocks": blocks,
     "asks": asks,
-    "allow_overrides": allow_overrides,
+    "modifications": modifications,
     "add_context": add_context
 }
 
@@ -1167,7 +1187,7 @@ halts := collect_verbs("halt")
 denials := collect_verbs("deny")
 blocks := collect_verbs("block")
 asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
+modifications := collect_verbs("modify")
 add_context := collect_verbs("add_context")
 
 # Main evaluation entrypoint
@@ -1176,7 +1196,7 @@ evaluate := {
     "denials": denials,
     "blocks": blocks,
     "asks": asks,
-    "allow_overrides": allow_overrides,
+    "modifications": modifications,
     "add_context": add_context
 }
 
@@ -1221,7 +1241,7 @@ halts := collect_verbs("halt")
 denials := collect_verbs("deny")
 blocks := collect_verbs("block")
 asks := collect_verbs("ask")
-allow_overrides := collect_verbs("allow_override")
+modifications := collect_verbs("modify")
 add_context := collect_verbs("add_context")
 
 # Main evaluation entrypoint
@@ -1230,7 +1250,7 @@ evaluate := {
     "denials": denials,
     "blocks": blocks,
     "asks": asks,
-    "allow_overrides": allow_overrides,
+    "modifications": modifications,
     "add_context": add_context
 }
 
@@ -1446,8 +1466,7 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
 
     if cupcake_exists && harness_exists {
         println!(
-            "Cupcake project already initialized with {} harness (.cupcake/policies/{}/)",
-            harness_name, harness_name
+            "Cupcake project already initialized with {harness_name} harness (.cupcake/policies/{harness_name}/)"
         );
         println!("Reconfiguring harness integration...");
     } else if cupcake_exists && !harness_exists {
@@ -1473,8 +1492,8 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         // Deploy builtin policies for this harness
         deploy_harness_builtins(&harness, harness_name)?;
 
-        println!("✅ Added {} harness to Cupcake project", harness_name);
-        println!("   Policies: .cupcake/policies/{}/", harness_name);
+        println!("✅ Added {harness_name} harness to Cupcake project");
+        println!("   Policies: .cupcake/policies/{harness_name}/");
         println!();
     } else {
         // Fresh initialization
@@ -1536,9 +1555,9 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
             .context("Failed to create example policy file")?;
 
         println!("✅ Initialized Cupcake project in .cupcake/");
-        println!("   Harness:       {}", harness_name);
+        println!("   Harness:       {harness_name}");
         println!("   Configuration: .cupcake/rulebook.yml");
-        println!("   Policies:      .cupcake/policies/{}/", harness_name);
+        println!("   Policies:      .cupcake/policies/{harness_name}/");
         println!("   Signals:       .cupcake/signals/");
         println!("   Actions:       .cupcake/actions/");
         println!();
@@ -2136,7 +2155,7 @@ evaluate := decision_set if {
         "denials": collect_verbs("deny"),
         "blocks": collect_verbs("block"),
         "asks": collect_verbs("ask"),
-        "allow_overrides": collect_verbs("allow_override"),
+        "modifications": collect_verbs("modify"),
         "add_context": collect_verbs("add_context")
     }
 }

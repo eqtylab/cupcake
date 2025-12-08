@@ -1,6 +1,6 @@
 # Determinism
 
-Cupcake supports both **deterministic** and **non-deterministic** guardrails, giving you the flexibility to choose the right level of protection for your use case.
+Cupcake supports both **deterministic** and **non-deterministic** guardrails, giving you the flexibility to choose the right level of governance for your use case.
 
 ## Deterministic Guardrails
 

@@ -86,7 +86,7 @@ impl Installer {
     /// Install from a local tarball file
     pub fn install_local(&self, tarball_path: &Path) -> Result<(String, PathBuf)> {
         let bytes = std::fs::read(tarball_path)
-            .with_context(|| format!("Failed to read tarball: {:?}", tarball_path))?;
+            .with_context(|| format!("Failed to read tarball: {tarball_path:?}"))?;
 
         // Extract to temp to read manifest
         let temp_dir = tempfile::tempdir()?;
@@ -127,7 +127,7 @@ impl Installer {
         }
 
         std::fs::remove_dir_all(&install_dir)
-            .with_context(|| format!("Failed to remove rulebook directory: {:?}", install_dir))?;
+            .with_context(|| format!("Failed to remove rulebook directory: {install_dir:?}"))?;
 
         tracing::info!("Uninstalled rulebook: {}", name);
         Ok(())
@@ -253,13 +253,12 @@ mod tests {
             r#"apiVersion: cupcake.dev/v1
 kind: Rulebook
 metadata:
-  name: {}
-  version: {}
+  name: {name}
+  version: {version}
   description: Test rulebook
   harnesses:
     - claude
-"#,
-            name, version
+"#
         );
         std::fs::write(rulebook_dir.join("manifest.yaml"), manifest).unwrap();
 

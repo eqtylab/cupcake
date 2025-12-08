@@ -80,6 +80,7 @@ Test that Cupcake is working:
 # Create test event
 cat > test-event.json << 'EOF'
 {
+  "hook_event_name": "PreToolUse",
   "session_id": "test",
   "cwd": "/tmp",
   "tool": "bash",

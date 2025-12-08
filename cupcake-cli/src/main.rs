@@ -564,14 +564,21 @@ async fn eval_command(
         }
     }
 
-    // Create debug capture if enabled via CLI flag
-    let mut debug_capture = if debug_files_enabled {
+    // Get telemetry config from the engine
+    let telemetry_config = engine.telemetry_config().cloned();
+    let telemetry_enabled = telemetry_config
+        .as_ref()
+        .map(|t| t.enabled)
+        .unwrap_or(false);
+
+    // Create debug capture if enabled via CLI flag OR telemetry config
+    let mut debug_capture = if debug_files_enabled || telemetry_enabled {
         // Generate a trace ID for this evaluation
         let trace_id = cupcake_core::engine::trace::generate_trace_id();
         Some(DebugCapture::new(
             hook_event_json.clone(),
             trace_id,
-            true, // enabled
+            debug_files_enabled, // only write debug files if CLI flag set
             debug_dir.clone(),
         ))
     } else {
@@ -643,10 +650,23 @@ async fn eval_command(
         // The response is already a JSON Value
         debug.response_to_claude = Some(response.clone());
 
-        // Write the debug file
+        // Write the debug file (if --debug-files flag was set)
         if let Err(e) = debug.write_if_enabled() {
             // Log but don't fail on debug write errors
             debug!("Failed to write debug file: {}", e);
+        }
+
+        // Write telemetry if configured in rulebook
+        if let Some(ref config) = telemetry_config {
+            if config.enabled {
+                let destination = config
+                    .destination
+                    .clone()
+                    .unwrap_or_else(|| std::path::PathBuf::from(".cupcake/telemetry"));
+                if let Err(e) = debug.write_telemetry(&config.format, &destination) {
+                    debug!("Failed to write telemetry: {}", e);
+                }
+            }
         }
     }
 

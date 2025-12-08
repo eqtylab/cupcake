@@ -57,8 +57,12 @@ nav = [
     ]}
   ]},
   { "Reference" = [
-    "reference/determinism.md",
-    { "Cupcake CLI" = "reference/cupcake-cli.md"},
+    { "Policies" = [
+      "reference/policies/index.md",
+      "reference/policies/builtins.md",
+      "reference/policies/custom.md",
+      "reference/builtin-config.md"
+    ]},
     { "Harnesses" = [
       "reference/harnesses/index.md",
       "reference/harnesses/claude-code.md",
@@ -66,24 +70,25 @@ nav = [
       "reference/harnesses/opencode.md",
       "reference/harnesses/factory-ai.md"
     ]},
-    { "Policies" = [
-      "reference/policies/index.md",
-      "reference/policies/builtins.md",
-      "reference/policies/custom.md"
-    ]},
-    "reference/builtin-config.md"
-  ]},
-  { "Watchdog" = [
-    { "Getting Started" = "watchdog/getting-started.md" },
-    "watchdog/configuration.md",
-    "watchdog/policies.md",
-    "watchdog/backends.md"
+    "reference/watchdog.md",
+    { "Cupcake CLI" = "reference/cupcake-cli.md"},
+    { "Design" = [
+      "reference/determinism.md"
+    ]}
   ]},
   { "Tutorials" = [
-    "tutorials/claude-code.md",
-    "tutorials/cursor.md",
-    "tutorials/opencode.md",
-    "tutorials/react-typescript.md"
+    { "Coding Productivity" = [
+      "tutorials/claude-code.md",
+      "tutorials/cursor.md",
+      "tutorials/opencode.md",
+      "tutorials/react-typescript.md"
+    ]}
+  ]},
+  { "Enterprise" = [
+    "enterprise/global-config.md",
+    "enterprise/policy-registry.md",
+    "enterprise/soc-siem.md",
+    "enterprise/enterprise-pro.md"
   ]}
 ]
 

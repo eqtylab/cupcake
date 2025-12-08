@@ -5,11 +5,35 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 use super::builtins::BuiltinsConfig;
 use crate::watchdog::{WatchdogConfig, WatchdogConfigInput};
+
+/// Telemetry output format
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TelemetryFormat {
+    #[default]
+    Json,
+    Text,
+}
+
+/// Telemetry configuration for SOC/SIEM integration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TelemetryConfig {
+    /// Whether telemetry export is enabled
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Output format (json or text)
+    #[serde(default)]
+    pub format: TelemetryFormat,
+
+    /// Output directory (defaults to .cupcake/telemetry)
+    pub destination: Option<PathBuf>,
+}
 
 /// Signal configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +87,10 @@ pub struct Rulebook {
     /// ```
     #[serde(default, deserialize_with = "deserialize_watchdog_config")]
     pub watchdog: WatchdogConfig,
+
+    /// Telemetry configuration for SOC/SIEM integration
+    #[serde(default)]
+    pub telemetry: TelemetryConfig,
 }
 
 /// Custom deserializer for watchdog config that handles both `true` and full object

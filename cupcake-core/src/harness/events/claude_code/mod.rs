@@ -11,7 +11,7 @@ mod stop;
 mod subagent_stop;
 mod user_prompt_submit;
 
-pub use notification::NotificationPayload;
+pub use notification::{NotificationPayload, NotificationType};
 pub use permission_request::PermissionRequestPayload;
 pub use post_tool_use::PostToolUsePayload;
 pub use pre_compact::PreCompactPayload;
@@ -30,6 +30,35 @@ pub trait EventPayload {
 /// Marker trait for events that can inject context via stdout
 pub trait InjectsContext {}
 
+/// Permission mode for Claude Code sessions
+///
+/// Indicates the current permission level for the session, which affects
+/// how Claude Code handles tool permissions.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PermissionMode {
+    /// Default permission mode - user is prompted for dangerous operations
+    #[default]
+    Default,
+    /// Plan mode - Claude creates plans without executing
+    Plan,
+    /// Accept edits mode - file edits are auto-approved
+    AcceptEdits,
+    /// Bypass permissions - all tool calls auto-approved (dangerous)
+    BypassPermissions,
+}
+
+impl std::fmt::Display for PermissionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PermissionMode::Default => write!(f, "default"),
+            PermissionMode::Plan => write!(f, "plan"),
+            PermissionMode::AcceptEdits => write!(f, "acceptEdits"),
+            PermissionMode::BypassPermissions => write!(f, "bypassPermissions"),
+        }
+    }
+}
+
 /// Common fields present in all Claude Code hook events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommonEventData {
@@ -41,6 +70,10 @@ pub struct CommonEventData {
 
     /// Current working directory when the hook is invoked
     pub cwd: String,
+
+    /// Current permission mode for the session
+    #[serde(default)]
+    pub permission_mode: PermissionMode,
 }
 
 /// All possible Claude Code hook events
@@ -246,9 +279,19 @@ impl ClaudeCodeEvent {
         )
     }
 
-    /// Get the tool use ID for PermissionRequest events
+    /// Get the permission mode for the session
+    pub fn permission_mode(&self) -> &PermissionMode {
+        &self.common().permission_mode
+    }
+
+    /// Get the tool use ID for tool-related events
+    ///
+    /// Returns the unique identifier for this tool invocation.
+    /// Available for PreToolUse, PostToolUse, and PermissionRequest events.
     pub fn tool_use_id(&self) -> Option<&str> {
         match self {
+            ClaudeCodeEvent::PreToolUse(payload) => payload.tool_use_id.as_deref(),
+            ClaudeCodeEvent::PostToolUse(payload) => payload.tool_use_id.as_deref(),
             ClaudeCodeEvent::PermissionRequest(payload) => Some(&payload.tool_use_id),
             _ => None,
         }
@@ -281,9 +324,11 @@ mod tests {
                 session_id: "test-session".to_string(),
                 transcript_path: "/path/to/transcript".to_string(),
                 cwd: "/home/user/project".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls -la"}),
+            tool_use_id: None,
         });
 
         assert_eq!(event.common().session_id, "test-session");
@@ -326,6 +371,7 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home/user/project".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({
@@ -333,6 +379,7 @@ mod tests {
                 "description": "Build the project",
                 "timeout": 60
             }),
+            tool_use_id: None,
         });
 
         let bash_input: BashToolInput = event.parse_tool_input().unwrap();
@@ -362,8 +409,10 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home/user/project".to_string(),
+                permission_mode: Default::default(),
             },
             message: "Test notification".to_string(),
+            notification_type: None,
         });
 
         assert!(!event.is_tool_event());
@@ -477,9 +526,11 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls"}),
+            tool_use_id: None,
         });
         assert!(pre_tool.is_permission_event());
 
@@ -489,6 +540,7 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls"}),
@@ -502,10 +554,12 @@ mod tests {
                 session_id: "test".to_string(),
                 transcript_path: "/path".to_string(),
                 cwd: "/home".to_string(),
+                permission_mode: Default::default(),
             },
             tool_name: "Bash".to_string(),
             tool_input: serde_json::json!({"command": "ls"}),
             tool_response: serde_json::json!({"success": true}),
+            tool_use_id: None,
         });
         assert!(!post_tool.is_permission_event());
     }

@@ -76,6 +76,7 @@ mod tests {
             session_id: "test".to_string(),
             transcript_path: "/test".to_string(),
             cwd: "/test".to_string(),
+            permission_mode: Default::default(),
         }
     }
 
@@ -89,6 +90,7 @@ mod tests {
             tool_name: "Bash".to_string(),
             tool_input: json!({"command": "ls"}),
             tool_response: json!({"success": true}),
+            tool_use_id: None,
         });
         let response = FeedbackLoopResponseBuilder::build(&decision, None, &event, false);
 
@@ -126,6 +128,7 @@ mod tests {
             tool_name: "Bash".to_string(),
             tool_input: json!({"command": "cat file.txt"}),
             tool_response: json!({"success": true}),
+            tool_use_id: None,
         });
         let response = FeedbackLoopResponseBuilder::build(&decision, Some(context), &event, false);
 
@@ -179,6 +182,7 @@ mod tests {
                     tool_name: "Bash".to_string(),
                     tool_input: json!({"command": "ls"}),
                     tool_response: json!({"success": true}),
+                    tool_use_id: None,
                 }),
             ),
             (

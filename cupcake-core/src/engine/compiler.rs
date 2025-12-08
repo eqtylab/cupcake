@@ -174,15 +174,15 @@ pub async fn compile_policies_with_namespace(
         let root_helpers = cupcake.join("helpers");
         if root_helpers.exists() && root_helpers.is_dir() {
             debug!("Using helpers from cupcake root: {:?}", root_helpers);
-            Some(root_helpers)
+            root_helpers
         } else {
             debug!("No helpers at cupcake root, checking policies root");
-            None
+            let policies_helpers = policies_root.join("helpers");
+            policies_helpers
         }
     } else {
-        None
-    }
-    .unwrap_or_else(|| policies_root.join("helpers"));
+        policies_root.join("helpers")
+    };
 
     if helpers_src.exists() && helpers_src.is_dir() {
         debug!("Copying helpers directory: {:?}", helpers_src);

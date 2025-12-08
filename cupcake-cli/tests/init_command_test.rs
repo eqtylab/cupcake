@@ -558,7 +558,7 @@ fn test_correct_number_of_files_created() -> Result<()> {
         "Should have exactly 11 files (1 rulebook + 1 example + 1 helper + 1 evaluate + 7 builtins)"
     );
 
-    // We should have exactly 6 directories (new structure):
+    // We should have exactly 7 directories (new structure):
     // system, helpers, policies, policies/claude, policies/claude/builtins, signals, actions
     assert_eq!(dir_count, 7, "Should have exactly 7 directories");
 

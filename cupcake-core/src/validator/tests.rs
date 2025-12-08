@@ -275,7 +275,11 @@ block contains decision if {
     let rule = DecisionEventCompatibilityRule;
     let issues = rule.check(&policy);
 
-    assert_eq!(issues.len(), 1, "Should have exactly one deprecation warning");
+    assert_eq!(
+        issues.len(),
+        1,
+        "Should have exactly one deprecation warning"
+    );
     assert_eq!(issues[0].severity, Severity::Warning);
     assert_eq!(issues[0].rule_id, "decision-event-compatibility");
     assert!(

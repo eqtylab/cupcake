@@ -1466,8 +1466,7 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
 
     if cupcake_exists && harness_exists {
         println!(
-            "Cupcake project already initialized with {} harness (.cupcake/policies/{}/)",
-            harness_name, harness_name
+            "Cupcake project already initialized with {harness_name} harness (.cupcake/policies/{harness_name}/)"
         );
         println!("Reconfiguring harness integration...");
     } else if cupcake_exists && !harness_exists {
@@ -1493,8 +1492,8 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         // Deploy builtin policies for this harness
         deploy_harness_builtins(&harness, harness_name)?;
 
-        println!("✅ Added {} harness to Cupcake project", harness_name);
-        println!("   Policies: .cupcake/policies/{}/", harness_name);
+        println!("✅ Added {harness_name} harness to Cupcake project");
+        println!("   Policies: .cupcake/policies/{harness_name}/");
         println!();
     } else {
         // Fresh initialization
@@ -1556,9 +1555,9 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
             .context("Failed to create example policy file")?;
 
         println!("✅ Initialized Cupcake project in .cupcake/");
-        println!("   Harness:       {}", harness_name);
+        println!("   Harness:       {harness_name}");
         println!("   Configuration: .cupcake/rulebook.yml");
-        println!("   Policies:      .cupcake/policies/{}/", harness_name);
+        println!("   Policies:      .cupcake/policies/{harness_name}/");
         println!("   Signals:       .cupcake/signals/");
         println!("   Actions:       .cupcake/actions/");
         println!();

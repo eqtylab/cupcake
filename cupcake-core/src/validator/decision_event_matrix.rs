@@ -118,19 +118,10 @@ impl DecisionEventMatrix {
 
         // Stop/SubagentStop: Block (prevent stopping)
         // NO Ask - doesn't make sense for stop events
-        compatibility.insert(
-            "Stop",
-            vec![
-                DecisionVerb::Halt,
-                DecisionVerb::Block,
-            ],
-        );
+        compatibility.insert("Stop", vec![DecisionVerb::Halt, DecisionVerb::Block]);
         compatibility.insert(
             "SubagentStop",
-            vec![
-                DecisionVerb::Halt,
-                DecisionVerb::Block,
-            ],
+            vec![DecisionVerb::Halt, DecisionVerb::Block],
         );
 
         // UserPromptSubmit: Block (prevent prompt), context
@@ -158,10 +149,7 @@ impl DecisionEventMatrix {
         // Notification: Block (though rarely used)
         compatibility.insert(
             "Notification",
-            vec![
-                DecisionVerb::Halt,
-                DecisionVerb::Block,
-            ],
+            vec![DecisionVerb::Halt, DecisionVerb::Block],
         );
 
         Self { compatibility }
@@ -236,8 +224,7 @@ impl DecisionEventMatrix {
             }
             (_, DecisionVerb::Modify) => {
                 format!(
-                    "'modify' decisions are only supported for PreToolUse events. {} events do not support tool input modification.",
-                    event
+                    "'modify' decisions are only supported for PreToolUse events. {event} events do not support tool input modification."
                 )
             }
             _ => {

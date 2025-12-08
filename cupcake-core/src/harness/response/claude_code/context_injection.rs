@@ -61,7 +61,9 @@ impl ContextInjectionResponseBuilder {
             }
             EngineDecision::Modify { reason, .. } => {
                 // Modify is only meaningful for PreToolUse - treat as Allow with reason as context
-                tracing::warn!("Modify action not supported for context injection events - treating as Allow");
+                tracing::warn!(
+                    "Modify action not supported for context injection events - treating as Allow"
+                );
                 if is_user_prompt_submit {
                     response.hook_specific_output = Some(HookSpecificOutput::UserPromptSubmit {
                         additional_context: Some(reason.clone()),

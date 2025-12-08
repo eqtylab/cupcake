@@ -23,10 +23,14 @@ impl FeedbackLoopResponseBuilder {
                 response.decision = Some("block".to_string());
                 response.reason = Some(feedback.clone());
             }
-            EngineDecision::Allow { .. } | EngineDecision::Ask { .. } | EngineDecision::Modify { .. } => {
+            EngineDecision::Allow { .. }
+            | EngineDecision::Ask { .. }
+            | EngineDecision::Modify { .. } => {
                 // Modify is only meaningful for PreToolUse - treat as Allow for feedback events
                 if matches!(decision, EngineDecision::Modify { .. }) {
-                    tracing::warn!("Modify action not supported for feedback loop events - treating as Allow");
+                    tracing::warn!(
+                        "Modify action not supported for feedback loop events - treating as Allow"
+                    );
                 }
                 // Only PostToolUse supports context injection
                 match hook_event {

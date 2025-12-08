@@ -139,7 +139,7 @@ impl RegistryManager {
         let hash = hasher.finish();
 
         let cache_dir = Self::cache_dir()?;
-        Ok(cache_dir.join(format!("index_{:016x}.yaml", hash)))
+        Ok(cache_dir.join(format!("index_{hash:016x}.yaml")))
     }
 
     /// Load cached index if valid
@@ -301,7 +301,7 @@ impl RegistryManager {
     ) -> Result<CatalogIndex> {
         let registry = self
             .get_registry(registry_name)
-            .with_context(|| format!("Registry '{}' not found", registry_name))?;
+            .with_context(|| format!("Registry '{registry_name}' not found"))?;
 
         fetch_index_cached(&registry.url, force_refresh).await
     }
@@ -385,7 +385,7 @@ async fn fetch_index_from_url(url: &str) -> Result<CatalogIndex> {
         .get(url)
         .send()
         .await
-        .with_context(|| format!("Failed to fetch catalog index from {}", url))?;
+        .with_context(|| format!("Failed to fetch catalog index from {url}"))?;
 
     if !response.status().is_success() {
         anyhow::bail!(
@@ -401,7 +401,7 @@ async fn fetch_index_from_url(url: &str) -> Result<CatalogIndex> {
         .context("Failed to read response body")?;
 
     CatalogIndex::from_yaml(&content)
-        .with_context(|| format!("Failed to parse catalog index from {}", url))
+        .with_context(|| format!("Failed to parse catalog index from {url}"))
 }
 
 #[cfg(test)]

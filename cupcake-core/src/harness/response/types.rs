@@ -115,8 +115,17 @@ pub struct PermissionRequestDecision {
 /// Engine decision - maps our PolicyDecision to response actions
 #[derive(Debug, Clone)]
 pub enum EngineDecision {
-    Allow { reason: Option<String> },
-    Block { feedback: String },
-    Ask { reason: String },
-    Modify { reason: String, updated_input: serde_json::Value },
+    Allow {
+        reason: Option<String>,
+    },
+    Block {
+        feedback: String,
+    },
+    Ask {
+        reason: String,
+    },
+    Modify {
+        reason: String,
+        updated_input: serde_json::Value,
+    },
 }

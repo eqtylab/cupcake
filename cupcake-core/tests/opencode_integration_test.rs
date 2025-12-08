@@ -259,12 +259,9 @@ add_context contains message if {
     let decision = engine.evaluate(&event, None).await?;
 
     // Should have context added
-    match decision {
-        cupcake_core::engine::decision::FinalDecision::Allow { context } => {
-            assert!(!context.is_empty());
-            assert!(context.iter().any(|msg| msg.contains("Command succeeded")));
-        }
-        _ => {}
+    if let cupcake_core::engine::decision::FinalDecision::Allow { context } = decision {
+        assert!(!context.is_empty());
+        assert!(context.iter().any(|msg| msg.contains("Command succeeded")));
     }
 
     Ok(())

@@ -213,7 +213,10 @@ fn test_modify_priority_below_ask() {
     };
 
     let result = SynthesisEngine::synthesize(&decision_set).unwrap();
-    assert!(result.is_ask(), "Ask should have higher priority than Modify");
+    assert!(
+        result.is_ask(),
+        "Ask should have higher priority than Modify"
+    );
 }
 
 #[test]

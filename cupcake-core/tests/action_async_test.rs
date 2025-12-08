@@ -461,8 +461,7 @@ add_context contains "Quick context for fast-allow" if {
         cupcake_core::engine::decision::FinalDecision::Allow { context } => {
             assert!(
                 context.iter().any(|c| c.contains("Quick context")),
-                "Expected context to contain 'Quick context', got {:?}",
-                context
+                "Expected context to contain 'Quick context', got {context:?}"
             );
         }
         _ => panic!("Expected Allow decision, got {decision2:?}"),

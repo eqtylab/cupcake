@@ -257,8 +257,7 @@ fn test_modify_decision_generates_allow_with_updated_input() {
     };
 
     let response = PreToolUseResponseBuilder::build_with_updated_input(
-        &decision,
-        None, // updated_input comes from decision
+        &decision, None, // updated_input comes from decision
         false,
     );
 

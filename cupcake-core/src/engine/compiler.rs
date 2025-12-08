@@ -177,8 +177,7 @@ pub async fn compile_policies_with_namespace(
             root_helpers
         } else {
             debug!("No helpers at cupcake root, checking policies root");
-            let policies_helpers = policies_root.join("helpers");
-            policies_helpers
+            policies_root.join("helpers")
         }
     } else {
         policies_root.join("helpers")

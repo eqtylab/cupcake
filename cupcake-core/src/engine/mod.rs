@@ -204,6 +204,7 @@ pub mod trace;
 
 // Re-export metadata types for public API
 pub use metadata::{PolicyMetadata, RoutingDirective};
+pub use rulebook::{TelemetryConfig, TelemetryFormat};
 
 /// Configuration for engine initialization
 /// Provides optional overrides for engine behavior via CLI flags
@@ -1016,6 +1017,11 @@ impl Engine {
     /// Get the compiled global WASM module (for verification/testing)
     pub fn global_wasm_module(&self) -> Option<&[u8]> {
         self.global_wasm_module.as_deref()
+    }
+
+    /// Get the telemetry configuration from the rulebook
+    pub fn telemetry_config(&self) -> Option<&TelemetryConfig> {
+        self.rulebook.as_ref().map(|rb| &rb.telemetry)
     }
 
     /// Find policies that match the given event criteria
@@ -2017,8 +2023,8 @@ impl Engine {
             decision::FinalDecision::Allow { .. } => {
                 debug!("ALLOW decision - no actions needed");
             }
-            decision::FinalDecision::AllowOverride { .. } => {
-                debug!("ALLOW_OVERRIDE decision - no actions needed");
+            decision::FinalDecision::Modify { .. } => {
+                debug!("MODIFY decision - no actions needed (tool input modified)");
             }
         }
     }
@@ -2086,7 +2092,7 @@ impl Engine {
                     }
                 }
                 _ => {
-                    // No actions for Ask, Allow, AllowOverride
+                    // No actions for Ask, Allow, Modify
                 }
             }
 
@@ -2167,8 +2173,8 @@ impl Engine {
             decision::FinalDecision::Allow { .. } => {
                 debug!("ALLOW decision - no actions needed");
             }
-            decision::FinalDecision::AllowOverride { .. } => {
-                debug!("ALLOW_OVERRIDE decision - no actions needed");
+            decision::FinalDecision::Modify { .. } => {
+                debug!("MODIFY decision - no actions needed (tool input modified)");
             }
         }
     }

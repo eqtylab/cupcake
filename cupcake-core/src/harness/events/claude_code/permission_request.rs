@@ -1,9 +1,14 @@
 use super::{CommonEventData, EventPayload};
 use serde::{Deserialize, Serialize};
 
-/// Payload for PreToolUse hook events
+/// Payload for PermissionRequest hook events
+///
+/// PermissionRequest is the newer, cleaner hook for tool permission decisions.
+/// It provides the same functionality as PreToolUse but with:
+/// - A `tool_use_id` field for tracking specific tool invocations
+/// - A cleaner response format with nested `decision` object
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PreToolUsePayload {
+pub struct PermissionRequestPayload {
     #[serde(flatten)]
     pub common: CommonEventData,
 
@@ -14,17 +19,16 @@ pub struct PreToolUsePayload {
     pub tool_input: serde_json::Value,
 
     /// Unique identifier for this tool invocation
-    #[serde(default)]
-    pub tool_use_id: Option<String>,
+    pub tool_use_id: String,
 }
 
-impl EventPayload for PreToolUsePayload {
+impl EventPayload for PermissionRequestPayload {
     fn common(&self) -> &CommonEventData {
         &self.common
     }
 }
 
-impl PreToolUsePayload {
+impl PermissionRequestPayload {
     /// Extract tool input as a specific type
     pub fn parse_tool_input<T>(&self) -> Result<T, serde_json::Error>
     where
@@ -54,9 +58,9 @@ impl PreToolUsePayload {
             .map(|s| s.to_string())
     }
 
-    /// Get the unique tool use ID if present
-    pub fn tool_use_id(&self) -> Option<&str> {
-        self.tool_use_id.as_deref()
+    /// Get the tool use ID
+    pub fn tool_use_id(&self) -> &str {
+        &self.tool_use_id
     }
 }
 
@@ -67,8 +71,8 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_pre_tool_use_payload() {
-        let payload = PreToolUsePayload {
+    fn test_permission_request_payload() {
+        let payload = PermissionRequestPayload {
             common: CommonEventData {
                 session_id: "test-123".to_string(),
                 transcript_path: "/tmp/transcript".to_string(),
@@ -80,14 +84,14 @@ mod tests {
                 "command": "echo 'Hello'",
                 "timeout": 30
             }),
-            tool_use_id: Some("toolu_abc123".to_string()),
+            tool_use_id: "toolu_abc123".to_string(),
         };
 
         assert_eq!(payload.common().session_id, "test-123");
         assert!(payload.is_tool("Bash"));
         assert!(!payload.is_tool("Read"));
         assert_eq!(payload.get_command(), Some("echo 'Hello'".to_string()));
-        assert_eq!(payload.tool_use_id(), Some("toolu_abc123"));
+        assert_eq!(payload.tool_use_id(), "toolu_abc123");
 
         // Test parsing as specific tool type
         let bash_input: BashToolInput = payload.parse_tool_input().unwrap();
@@ -96,21 +100,23 @@ mod tests {
     }
 
     #[test]
-    fn test_pre_tool_use_without_tool_use_id() {
-        // Test backwards compatibility - tool_use_id can be None
-        let payload = PreToolUsePayload {
-            common: CommonEventData {
-                session_id: "test-123".to_string(),
-                transcript_path: "/tmp/transcript".to_string(),
-                cwd: "/home/user".to_string(),
-                permission_mode: Default::default(),
-            },
-            tool_name: "Read".to_string(),
-            tool_input: json!({"file_path": "/tmp/file.txt"}),
-            tool_use_id: None,
-        };
+    fn test_permission_request_deserialization() {
+        let json = r#"
+        {
+            "hook_event_name": "PermissionRequest",
+            "session_id": "test-session",
+            "transcript_path": "/path/to/transcript",
+            "cwd": "/home/user/project",
+            "tool_name": "Bash",
+            "tool_input": {"command": "rm -rf /tmp"},
+            "tool_use_id": "toolu_123"
+        }
+        "#;
 
-        assert_eq!(payload.tool_use_id(), None);
-        assert_eq!(payload.get_file_path(), Some("/tmp/file.txt".to_string()));
+        let payload: PermissionRequestPayload = serde_json::from_str(json).unwrap();
+        assert_eq!(payload.common.session_id, "test-session");
+        assert_eq!(payload.tool_name, "Bash");
+        assert_eq!(payload.tool_use_id, "toolu_123");
+        assert_eq!(payload.tool_input["command"], "rm -rf /tmp");
     }
 }

@@ -755,9 +755,7 @@ fn test_init_without_harness_requires_selection() -> Result<()> {
         stdout.contains("Select a harness to initialize")
             || stderr.contains("Invalid selection")
             || stderr.contains("error"),
-        "Should show harness selection menu or error. stdout: {}, stderr: {}",
-        stdout,
-        stderr
+        "Should show harness selection menu or error. stdout: {stdout}, stderr: {stderr}"
     );
 
     Ok(())

@@ -176,7 +176,7 @@ Factory AI uses the same response format as Claude Code, with one key addition: 
 }
 ```
 
-**Allow with Modified Input (Factory-specific):**
+**Allow with Modified Input:**
 
 ```json
 {
@@ -190,7 +190,7 @@ Factory AI uses the same response format as Claude Code, with one key addition: 
 }
 ```
 
-The `updatedInput` field allows policies to modify tool parameters before execution. This is unique to Factory AI.
+The `updatedInput` field allows policies to modify tool parameters before execution. Both Factory AI and Claude Code support this feature.
 
 ### UserPromptSubmit Responses
 
@@ -372,7 +372,7 @@ Factory AI uses the same event structure as Claude Code, making most policies po
 | Field naming       | snake_case              | camelCase                  |
 | Event tag field    | `hook_event_name`       | `hookEventName`            |
 | Permission mode    | Not available           | `permissionMode` field     |
-| Input modification | Not supported           | `updatedInput` in response |
+| Input modification | Supported               | Supported                  |
 | Config file        | `.claude/settings.json` | `.factory/settings.json`   |
 | Project dir var    | `$CLAUDE_PROJECT_DIR`   | `$FACTORY_PROJECT_DIR`     |
 

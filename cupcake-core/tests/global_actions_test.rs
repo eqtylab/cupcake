@@ -408,12 +408,8 @@ package cupcake.policies.allow_session
 
 import rego.v1
 
-allow_override contains decision if {
-    decision := {
-        "rule_id": "PROJECT-ALLOW-001",
-        "reason": "Project allows session",
-        "severity": "LOW"
-    }
+add_context contains "Project context that should not appear" if {
+    true
 }
 "#,
     )?;

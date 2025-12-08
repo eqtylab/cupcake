@@ -72,14 +72,14 @@ The metadata tells Cupcake when to evaluate your policy:
 
 Policies emit decisions using these verbs (in priority order):
 
-| Verb             | Priority | Effect                                    |
-| ---------------- | -------- | ----------------------------------------- |
-| `halt`           | Highest  | Block and stop the session immediately    |
-| `deny`           | High     | Block the action (policy violation)       |
-| `block`          | High     | Block the action (same priority as deny)  |
-| `ask`            | Medium   | Prompt user for confirmation              |
-| `allow_override` | Low      | Explicitly allow (overrides default)      |
-| `add_context`    | N/A      | Inject context into the prompt            |
+| Verb             | Priority | Effect                                    | Supported Events |
+| ---------------- | -------- | ----------------------------------------- | ---------------- |
+| `halt`           | Highest  | Block and stop the session immediately    | All              |
+| `deny`           | High     | Block the action (policy violation)       | All              |
+| `block`          | High     | Block the action (same priority as deny)  | All              |
+| `ask`            | Medium   | Prompt user for confirmation              | Tool events      |
+| `modify`         | Medium   | Allow with modified input                 | PreToolUse only  |
+| `add_context`    | N/A      | Inject context into the prompt            | Prompt events    |
 
 ### Deny Example
 
@@ -111,6 +111,33 @@ ask contains decision if {
     }
 }
 ```
+
+### Modify Example
+
+The `modify` verb allows a tool to proceed with transformed input. Use it to sanitize commands, add safety flags, or enforce conventions:
+
+```rego
+modify contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
+    contains(input.tool_input.command, "rm -rf")
+
+    decision := {
+        "rule_id": "SANITIZE-001",
+        "reason": "Dangerous command sanitized",
+        "severity": "HIGH",
+        "priority": 80,
+        "updated_input": {
+            "command": "echo 'Blocked: rm -rf commands are not allowed'"
+        }
+    }
+}
+```
+
+**Key fields:**
+
+- **priority** (1-100) — Higher values win when multiple policies modify the same field
+- **updated_input** — Partial object merged with original tool input
 
 ### Context Injection Example
 

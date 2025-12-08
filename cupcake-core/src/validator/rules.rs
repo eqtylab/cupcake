@@ -361,10 +361,11 @@ impl ValidationRule for DecisionEventCompatibilityRule {
         // Check each verb against each required event
         for event in &routing.required_events {
             for (verb, line_numbers) in &found_verbs {
+                let line = line_numbers.first().copied();
+
                 if !matrix.is_compatible(event, *verb) {
-                    // Found an incompatible combination
+                    // Found an incompatible combination - this is an error
                     let reason = matrix.incompatibility_reason(event, *verb);
-                    let line = line_numbers.first().copied();
 
                     issues.push(ValidationIssue {
                         severity: Severity::Error,
@@ -374,6 +375,19 @@ impl ValidationRule for DecisionEventCompatibilityRule {
                             event,
                             verb.rego_name(),
                             reason
+                        ),
+                        line: line.map(|l| l + 1),
+                    });
+                } else if let Some(deprecation_msg) = matrix.deprecation_warning(event, *verb) {
+                    // Compatible but deprecated - this is a warning
+                    issues.push(ValidationIssue {
+                        severity: Severity::Warning,
+                        rule_id: self.rule_id(),
+                        message: format!(
+                            "Deprecated: Policy routes to '{}' and uses '{}'. {}",
+                            event,
+                            verb.rego_name(),
+                            deprecation_msg
                         ),
                         line: line.map(|l| l + 1),
                     });

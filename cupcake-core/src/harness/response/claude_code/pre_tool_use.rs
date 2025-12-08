@@ -18,7 +18,7 @@ impl PreToolUseResponseBuilder {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
                     permission_decision: PermissionDecision::Allow,
                     permission_decision_reason: reason.clone(),
-                    updated_input: None, // Claude Code doesn't support updated_input
+                    updated_input: None,
                 });
             }
             EngineDecision::Block { feedback } => {
@@ -33,6 +33,17 @@ impl PreToolUseResponseBuilder {
                     permission_decision: PermissionDecision::Ask,
                     permission_decision_reason: Some(reason.clone()),
                     updated_input: None,
+                });
+            }
+            // Modify implies Allow with updated input
+            EngineDecision::Modify {
+                reason,
+                updated_input,
+            } => {
+                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
+                    permission_decision: PermissionDecision::Allow,
+                    permission_decision_reason: Some(reason.clone()),
+                    updated_input: Some(updated_input.clone()),
                 });
             }
         }

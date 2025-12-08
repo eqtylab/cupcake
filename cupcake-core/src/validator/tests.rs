@@ -248,3 +248,144 @@ decision := {"severity": "HIGH"}
         .iter()
         .any(|i| i.rule_id == "object-key-membership"));
 }
+
+#[test]
+fn test_block_pretooluse_deprecation_warning() {
+    // Using 'block' for PreToolUse should emit a deprecation warning
+    let content = r#"# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.test
+
+import rego.v1
+
+block contains decision if {
+    input.tool_name == "Bash"
+    decision := {
+        "reason": "Test block",
+        "severity": "HIGH",
+        "rule_id": "TEST-001"
+    }
+}"#;
+
+    let policy = create_test_policy(content);
+    let rule = DecisionEventCompatibilityRule;
+    let issues = rule.check(&policy);
+
+    assert_eq!(
+        issues.len(),
+        1,
+        "Should have exactly one deprecation warning"
+    );
+    assert_eq!(issues[0].severity, Severity::Warning);
+    assert_eq!(issues[0].rule_id, "decision-event-compatibility");
+    assert!(
+        issues[0].message.contains("Deprecated"),
+        "Message should mention deprecation"
+    );
+    assert!(
+        issues[0].message.contains("deny"),
+        "Message should suggest using 'deny'"
+    );
+}
+
+#[test]
+fn test_block_posttooluse_no_warning() {
+    // Using 'block' for PostToolUse should NOT emit a warning (correct usage)
+    let content = r#"# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PostToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.test
+
+import rego.v1
+
+block contains decision if {
+    input.tool_name == "Bash"
+    decision := {
+        "reason": "Test block",
+        "severity": "HIGH",
+        "rule_id": "TEST-001"
+    }
+}"#;
+
+    let policy = create_test_policy(content);
+    let rule = DecisionEventCompatibilityRule;
+    let issues = rule.check(&policy);
+
+    assert!(
+        issues.is_empty(),
+        "Using 'block' for PostToolUse should not produce warnings"
+    );
+}
+
+#[test]
+fn test_deny_pretooluse_no_warning() {
+    // Using 'deny' for PreToolUse should NOT emit a warning (correct usage)
+    let content = r#"# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.test
+
+import rego.v1
+
+deny contains decision if {
+    input.tool_name == "Bash"
+    decision := {
+        "reason": "Test deny",
+        "severity": "HIGH",
+        "rule_id": "TEST-001"
+    }
+}"#;
+
+    let policy = create_test_policy(content);
+    let rule = DecisionEventCompatibilityRule;
+    let issues = rule.check(&policy);
+
+    assert!(
+        issues.is_empty(),
+        "Using 'deny' for PreToolUse should not produce warnings"
+    );
+}
+
+#[test]
+fn test_deny_posttooluse_is_error() {
+    // Using 'deny' for PostToolUse should be an ERROR (incompatible)
+    let content = r#"# METADATA
+# scope: package
+# custom:
+#   routing:
+#     required_events: ["PostToolUse"]
+#     required_tools: ["Bash"]
+package cupcake.policies.test
+
+import rego.v1
+
+deny contains decision if {
+    input.tool_name == "Bash"
+    decision := {
+        "reason": "Test deny",
+        "severity": "HIGH",
+        "rule_id": "TEST-001"
+    }
+}"#;
+
+    let policy = create_test_policy(content);
+    let rule = DecisionEventCompatibilityRule;
+    let issues = rule.check(&policy);
+
+    assert_eq!(issues.len(), 1, "Should have exactly one error");
+    assert_eq!(issues[0].severity, Severity::Error);
+    assert!(
+        issues[0].message.contains("incompatible"),
+        "Message should mention incompatibility"
+    );
+}

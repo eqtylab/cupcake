@@ -52,6 +52,7 @@ mod tests {
                 session_id: "test-123".to_string(),
                 transcript_path: "/tmp/transcript".to_string(),
                 cwd: "/home/user".to_string(),
+                permission_mode: Default::default(),
             },
             trigger: CompactTrigger::Manual,
             custom_instructions: Some("Keep technical details".to_string()),

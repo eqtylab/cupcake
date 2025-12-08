@@ -7,7 +7,8 @@
 //! Only enabled via --debug-files CLI flag for zero production impact.
 
 use anyhow::Result;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
+use serde::Serialize;
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
@@ -15,11 +16,13 @@ use std::time::SystemTime;
 use tracing::warn;
 
 use crate::engine::decision::{DecisionSet, FinalDecision};
+use crate::engine::rulebook::TelemetryFormat;
 
 /// Central debug capture structure that accumulates state throughout evaluation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DebugCapture {
     /// Whether debug file writing is enabled (from CLI flag)
+    #[serde(skip)]
     pub enabled: bool,
 
     /// Raw Claude Code event as received
@@ -28,10 +31,12 @@ pub struct DebugCapture {
     /// Unique identifier for this evaluation
     pub trace_id: String,
 
-    /// When the event was received
+    /// When the event was received (serialized as ISO8601)
+    #[serde(serialize_with = "serialize_system_time")]
     pub timestamp: SystemTime,
 
     /// Debug output directory (defaults to .cupcake/debug if not specified)
+    #[serde(skip)]
     pub debug_dir: Option<std::path::PathBuf>,
 
     /// Did we find matching policies?
@@ -65,8 +70,16 @@ pub struct DebugCapture {
     pub errors: Vec<String>,
 }
 
+fn serialize_system_time<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let datetime: DateTime<Utc> = (*time).into();
+    serializer.serialize_str(&datetime.to_rfc3339())
+}
+
 /// Signal execution details
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SignalExecution {
     /// Name of the signal
     pub name: String,
@@ -82,7 +95,7 @@ pub struct SignalExecution {
 }
 
 /// Action execution details
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ActionExecution {
     /// Name of the action
     pub name: String,
@@ -142,6 +155,40 @@ impl DebugCapture {
         if let Err(e) = self.write_debug_file() {
             warn!("Failed to write debug file: {}", e);
         }
+        Ok(())
+    }
+
+    /// Write telemetry to configured destination
+    ///
+    /// Used by SOC/SIEM integration. Writes JSON or text format based on config.
+    pub fn write_telemetry(&self, format: &TelemetryFormat, destination: &Path) -> Result<()> {
+        // Create directory if it doesn't exist
+        if !destination.exists() {
+            fs::create_dir_all(destination)?;
+        }
+
+        // Generate filename with timestamp and trace_id
+        let datetime: DateTime<Local> = self.timestamp.into();
+        let extension = match format {
+            TelemetryFormat::Json => "json",
+            TelemetryFormat::Text => "txt",
+        };
+        let filename = format!(
+            "{}_{}.{}",
+            datetime.format("%Y-%m-%d_%H-%M-%S"),
+            self.trace_id,
+            extension
+        );
+
+        let file_path = destination.join(filename);
+
+        // Format based on type
+        let content = match format {
+            TelemetryFormat::Json => serde_json::to_string_pretty(self)?,
+            TelemetryFormat::Text => self.format_debug_output()?,
+        };
+
+        fs::write(file_path, content)?;
         Ok(())
     }
 
@@ -308,17 +355,6 @@ impl DebugCapture {
                 ));
             }
 
-            output.push_str(&format!(
-                "  Allow Overrides: {}\n",
-                decision_set.allow_overrides.len()
-            ));
-            for allow in &decision_set.allow_overrides {
-                output.push_str(&format!(
-                    "    - [{}] {} ({})\n",
-                    allow.rule_id, allow.reason, allow.severity
-                ));
-            }
-
             output.push_str(&format!("  Context: {}\n", decision_set.add_context.len()));
             for context in &decision_set.add_context {
                 output.push_str(&format!("    - {context}\n"));
@@ -344,11 +380,6 @@ impl DebugCapture {
                 FinalDecision::Ask { reason, .. } => {
                     output.push_str(&format!("Final Decision: Ask\nReason: {reason}\n"));
                 }
-                FinalDecision::AllowOverride { reason, .. } => {
-                    output.push_str(&format!(
-                        "Final Decision: AllowOverride\nReason: {reason}\n"
-                    ));
-                }
                 FinalDecision::Allow { context } => {
                     output.push_str("Final Decision: Allow\n");
                     if !context.is_empty() {
@@ -357,6 +388,18 @@ impl DebugCapture {
                             output.push_str(&format!("  - {ctx}\n"));
                         }
                     }
+                }
+                FinalDecision::Modify {
+                    reason,
+                    updated_input,
+                    ..
+                } => {
+                    output.push_str(&format!("Final Decision: Modify\nReason: {reason}\n"));
+                    output.push_str(&format!(
+                        "Updated Input: {}\n",
+                        serde_json::to_string_pretty(updated_input)
+                            .unwrap_or_else(|_| updated_input.to_string())
+                    ));
                 }
             }
         } else {

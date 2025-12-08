@@ -16,6 +16,10 @@ pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) ->
             // Both Block and Ask are treated as deny for file reads
             json!({ "permission": "deny" })
         }
+        EngineDecision::Modify { .. } => {
+            // Cursor doesn't support updatedInput - treat Modify as Allow
+            json!({ "permission": "allow" })
+        }
     }
 }
 

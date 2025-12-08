@@ -45,6 +45,17 @@ impl PreToolUseResponseBuilder {
                     updated_input: None, // No modifications when asking
                 });
             }
+            // Modify implies Allow with updated input
+            EngineDecision::Modify {
+                reason,
+                updated_input: input,
+            } => {
+                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
+                    permission_decision: PermissionDecision::Allow,
+                    permission_decision_reason: Some(reason.clone()),
+                    updated_input: Some(input.clone()),
+                });
+            }
         }
 
         // Apply suppress_output if requested

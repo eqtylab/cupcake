@@ -12,14 +12,9 @@ package cupcake.policies.test_basic
 
 import rego.v1
 
-# Simple allow rule for test events
-allow_override contains decision if {
+# Simple context injection for test events
+add_context contains "Test event allowed" if {
     input.hookEventName == "test"
-    decision := {
-        "reason": "Test event allowed",
-        "severity": "INFO",
-        "rule_id": "TEST-001-ALLOW"
-    }
 }
 
 # Handle PreToolUse events for testing

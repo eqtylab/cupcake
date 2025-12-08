@@ -22,25 +22,24 @@ my-rulebook/
 ├── manifest.yaml           # Required: rulebook metadata
 ├── README.md               # Recommended: documentation
 ├── CHANGELOG.md            # Recommended: version history
+├── system/
+│   └── evaluate.rego       # Required: shared aggregation entrypoint
 ├── helpers/                # Optional: shared Rego helpers
 │   └── utils.rego
 └── policies/               # Required: policies by harness
     ├── claude/
-    │   ├── system/
-    │   │   └── evaluate.rego    # Required: aggregation policy
-    │   └── builtins/
-    │       └── my_policy.rego
+    │   └── my_policy.rego  # Policy files directly in harness dir
     ├── cursor/
-    │   ├── system/
-    │   │   └── evaluate.rego
-    │   └── builtins/
-    │       └── my_policy.rego
+    │   └── my_policy.rego
     └── opencode/
-        ├── system/
-        │   └── evaluate.rego
-        └── builtins/
-            └── my_policy.rego
+        └── my_policy.rego
 ```
+
+Key points:
+
+- `system/evaluate.rego` is at the **rulebook root**, shared across all harnesses
+- `helpers/` contains shared functions that can be imported by any policy
+- Policy files go **directly** in `policies/<harness>/` (no subdirectories)
 
 ## Quick Start
 
@@ -70,40 +69,71 @@ metadata:
 Create a policy for each harness you support:
 
 ```rego
-# policies/claude/builtins/my_policy.rego
-package cupcake.catalog.my_rulebook.policies.claude.builtins.my_policy
+# policies/claude/my_policy.rego
+package cupcake.catalog.my_rulebook.policies.my_policy
+
+import rego.v1
 
 # METADATA
+# scope: package
 # title: My Policy
 # description: Blocks something dangerous
-# scope: rule
 # custom:
-#   decision: deny
 #   severity: high
 #   routing:
-#     events: [pre_tool_use]
-#     tools: [bash]
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
 
-default deny := false
-
-deny {
+deny contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
     input.tool_input.command == "something_dangerous"
+    
+    decision := {
+        "rule_id": "MY-001",
+        "reason": "This command is blocked",
+        "severity": "HIGH",
+    }
 }
 ```
 
-### 3. Create the Aggregation Policy
+### 3. Create the Aggregation Entrypoint
 
-Each harness needs a `system/evaluate.rego`:
+Create a single `system/evaluate.rego` at the rulebook root:
 
 ```rego
-# policies/claude/system/evaluate.rego
-package cupcake.catalog.my_rulebook.policies.claude.system
+# system/evaluate.rego
+package cupcake.catalog.my_rulebook.system
 
-import data.cupcake.catalog.my_rulebook.policies.claude.builtins
+import rego.v1
 
-decisions[decision] {
-    decision := builtins.my_policy.deny
+# METADATA
+# scope: package
+# custom:
+#   entrypoint: true
+
+evaluate := {
+    "halts": collect_verbs("halt"),
+    "denials": collect_verbs("deny"),
+    "blocks": collect_verbs("block"),
+    "asks": collect_verbs("ask"),
+    "allow_overrides": collect_verbs("allow_override"),
+    "add_context": collect_verbs("add_context"),
 }
+
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.catalog.my_rulebook.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
+}
+
+default collect_verbs(_) := []
 ```
 
 ### 4. Validate

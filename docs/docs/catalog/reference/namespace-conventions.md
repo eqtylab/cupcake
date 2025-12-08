@@ -7,54 +7,34 @@ description: "Rego namespace conventions for catalog rulebooks"
 
 Catalog rulebooks must follow specific namespace conventions to ensure isolation and prevent conflicts with project policies.
 
-## Required Namespace Pattern
+## Required Namespace Patterns
 
-All policies in a catalog rulebook must use this namespace pattern:
+All files in a catalog rulebook must use one of these namespace patterns:
 
-```
-cupcake.catalog.<rulebook_name>.policies.<harness>.<type>.<policy_name>
-```
+| Directory | Pattern | Example |
+|-----------|---------|---------|
+| `policies/<harness>/` | `cupcake.catalog.<name>.policies.<policy>` | `cupcake.catalog.security_hardened.policies.dangerous_commands` |
+| `helpers/` | `cupcake.catalog.<name>.helpers.<helper>` | `cupcake.catalog.security_hardened.helpers.commands` |
+| `system/` | `cupcake.catalog.<name>.system` | `cupcake.catalog.security_hardened.system` |
 
 ### Components
 
-| Component         | Description                                | Example              |
-| ----------------- | ------------------------------------------ | -------------------- |
-| `cupcake.catalog` | Fixed prefix for all catalog policies      | -                    |
-| `<rulebook_name>` | Name from manifest (hyphens → underscores) | `security_hardened`  |
-| `policies`        | Fixed separator                            | -                    |
-| `<harness>`       | Harness name                               | `claude`, `cursor`   |
-| `<type>`          | Policy type                                | `builtins`, `system` |
-| `<policy_name>`   | Policy identifier                          | `dangerous_commands` |
-
-### Examples
-
-For a rulebook named `security-hardened`:
-
-```rego
-# Good - follows convention
-package cupcake.catalog.security_hardened.policies.claude.builtins.dangerous_commands
-package cupcake.catalog.security_hardened.policies.cursor.system.evaluate
-package cupcake.catalog.security_hardened.policies.opencode.builtins.risky_flags
-
-# Bad - missing prefix
-package policies.claude.builtins.dangerous_commands
-
-# Bad - wrong prefix
-package cupcake.security_hardened.policies.claude.builtins.dangerous_commands
-
-# Bad - doesn't match rulebook name
-package cupcake.catalog.other_name.policies.claude.builtins.dangerous_commands
-```
+| Component | Description | Example |
+|-----------|-------------|---------|
+| `cupcake.catalog` | Fixed prefix for all catalog files | - |
+| `<name>` | Rulebook name (hyphens → underscores) | `security_hardened` |
+| `policies` / `helpers` / `system` | Directory type | - |
+| `<policy>` or `<helper>` | File identifier | `dangerous_commands` |
 
 ## Name Conversion
 
 Rulebook names are converted to Rego-safe identifiers:
 
-| manifest.yaml name      | Rego namespace          |
-| ----------------------- | ----------------------- |
-| `security-hardened`     | `security_hardened`     |
+| manifest.yaml name | Rego namespace |
+|--------------------|----------------|
+| `security-hardened` | `security_hardened` |
 | `python-best-practices` | `python_best_practices` |
-| `my-company-rules`      | `my_company_rules`      |
+| `my-company-rules` | `my_company_rules` |
 
 The conversion:
 
@@ -62,9 +42,33 @@ The conversion:
 - Keeps `_` as-is
 - Lowercase only
 
+## Policy Namespace
+
+Policies in `policies/<harness>/` use:
+
+```
+cupcake.catalog.<rulebook_name>.policies.<policy_name>
+```
+
+Example:
+
+```rego
+# policies/claude/dangerous_commands.rego
+package cupcake.catalog.security_hardened.policies.dangerous_commands
+
+import rego.v1
+
+deny contains decision if {
+    # policy logic
+}
+```
+
+!!! note "Same package across harnesses"
+    Each harness has its own file with the **same package name**. The policies are compiled separately per-harness, so there's no conflict.
+
 ## Helper Namespace
 
-Shared helpers should use:
+Shared helpers in `helpers/` use:
 
 ```
 cupcake.catalog.<rulebook_name>.helpers.<helper_name>
@@ -73,34 +77,60 @@ cupcake.catalog.<rulebook_name>.helpers.<helper_name>
 Example:
 
 ```rego
+# helpers/commands.rego
 package cupcake.catalog.security_hardened.helpers.commands
 
-# Helper functions here
-get_command_name(input) = name {
-    # ...
+import rego.v1
+
+has_verb(command, verb) if {
+    pattern := concat("", ["(^|\\s)", verb, "(\\s|$)"])
+    regex.match(pattern, command)
 }
 ```
 
-## System Policies
+## System Namespace
 
-The aggregation policy for each harness must be at:
+The aggregation entrypoint in `system/` uses exactly:
 
 ```
-cupcake.catalog.<rulebook_name>.policies.<harness>.system
+cupcake.catalog.<rulebook_name>.system
 ```
 
 Example:
 
 ```rego
-# policies/claude/system/evaluate.rego
-package cupcake.catalog.security_hardened.policies.claude.system
+# system/evaluate.rego
+package cupcake.catalog.security_hardened.system
 
-import data.cupcake.catalog.security_hardened.policies.claude.builtins
+import rego.v1
 
-# Aggregate decisions from all builtin policies
-decisions[decision] {
-    decision := builtins.dangerous_commands.deny
+# METADATA
+# scope: package
+# custom:
+#   entrypoint: true
+
+evaluate := {
+    "halts": collect_verbs("halt"),
+    "denials": collect_verbs("deny"),
+    "blocks": collect_verbs("block"),
+    "asks": collect_verbs("ask"),
+    "allow_overrides": collect_verbs("allow_override"),
+    "add_context": collect_verbs("add_context"),
 }
+
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.catalog.security_hardened.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
+}
+
+default collect_verbs(_) := []
 ```
 
 ## Why Namespaces Matter
@@ -119,11 +149,11 @@ Without namespaces, two rulebooks with a `dangerous_commands` policy would confl
 
 ```rego
 # Without namespaces - CONFLICT!
-package policies.claude.builtins.dangerous_commands
+package policies.dangerous_commands
 
 # With namespaces - No conflict
-package cupcake.catalog.security_hardened.policies.claude.builtins.dangerous_commands
-package cupcake.catalog.compliance_rules.policies.claude.builtins.dangerous_commands
+package cupcake.catalog.security_hardened.policies.dangerous_commands
+package cupcake.catalog.compliance_rules.policies.dangerous_commands
 ```
 
 ### Discovery
@@ -132,7 +162,7 @@ The namespace pattern allows Cupcake to:
 
 1. Identify catalog policies automatically
 2. Route evaluations to the correct policies
-3. Generate proper imports in aggregation policies
+3. Collect decisions from all policies via `walk()`
 
 ## Validation
 
@@ -145,8 +175,11 @@ cupcake catalog lint ./my-rulebook
 Error examples:
 
 ```
-ERROR: Policy at policies/claude/builtins/example.rego has invalid namespace
-'policies.claude.builtins.example'. Expected prefix 'cupcake.catalog.my_rulebook'
+ERROR: Policy at policies/claude/example.rego has invalid namespace
+'policies.example'. Expected prefix 'cupcake.catalog.my_rulebook.policies'
+
+ERROR: System file at system/evaluate.rego has invalid namespace
+'cupcake.catalog.wrong_name.system'. Expected exactly 'cupcake.catalog.my_rulebook.system'
 ```
 
 ## Importing Between Files
@@ -154,17 +187,22 @@ ERROR: Policy at policies/claude/builtins/example.rego has invalid namespace
 Within a rulebook, use fully-qualified imports:
 
 ```rego
-package cupcake.catalog.security_hardened.policies.claude.system
-
-# Import builtins
-import data.cupcake.catalog.security_hardened.policies.claude.builtins
+package cupcake.catalog.security_hardened.policies.dangerous_flags
 
 # Import helpers
 import data.cupcake.catalog.security_hardened.helpers.commands
 
-# Use imported packages
-decisions[decision] {
-    cmd := commands.get_command_name(input)
-    decision := builtins.dangerous_commands.deny
+import rego.v1
+
+deny contains decision if {
+    cmd := lower(input.tool_input.command)
+    commands.has_verb(cmd, "git")
+    commands.has_any_flag(cmd, {"--no-verify"})
+    
+    decision := {
+        "rule_id": "SEC-002",
+        "reason": "Blocked --no-verify flag",
+        "severity": "HIGH",
+    }
 }
 ```

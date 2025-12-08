@@ -69,12 +69,13 @@ fn test_init_creates_correct_directory_structure() -> Result<()> {
     assert!(cupcake_dir.is_dir(), ".cupcake should be a directory");
 
     // Verify all required subdirectories exist (only claude harness)
+    // New structure: system/ and helpers/ at root level, not per-harness
     let expected_dirs = vec![
+        "system",
+        "helpers",
         "policies",
         "policies/claude",
-        "policies/claude/system",
         "policies/claude/builtins",
-        "policies/helpers",
         "signals",
         "actions",
     ];
@@ -115,12 +116,13 @@ fn test_init_creates_all_required_files() -> Result<()> {
     let cupcake_dir = project_path.join(".cupcake");
 
     // List of all files that should be created (Claude harness only)
+    // New structure: system/ and helpers/ at root level, example.rego in harness dir
     let expected_files = vec![
         "rulebook.yml",
-        "policies/example.rego",
-        "policies/helpers/commands.rego",
-        // Claude harness files
-        "policies/claude/system/evaluate.rego",
+        "system/evaluate.rego",
+        "helpers/commands.rego",
+        // Claude harness files (example + builtins)
+        "policies/claude/example.rego",
         "policies/claude/builtins/claude_code_always_inject_on_prompt.rego",
         "policies/claude/builtins/claude_code_enforce_full_file_read.rego",
         "policies/claude/builtins/git_block_no_verify.rego",
@@ -199,8 +201,8 @@ fn test_rulebook_yml_content() -> Result<()> {
 #[test]
 fn test_system_evaluate_policy_content() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-    // Check Claude harness evaluate.rego
-    let evaluate_path = project_path.join(".cupcake/policies/claude/system/evaluate.rego");
+    // Check evaluate.rego at root level (new structure)
+    let evaluate_path = project_path.join(".cupcake/system/evaluate.rego");
 
     let content = fs::read_to_string(&evaluate_path)?;
 
@@ -450,8 +452,8 @@ fn test_init_file_permissions() -> Result<()> {
         ".cupcake directory should be readable/writable/executable by owner"
     );
 
-    // Check a policy file permissions
-    let policy_path = cupcake_dir.join("policies/claude/system/evaluate.rego");
+    // Check a policy file permissions (system/evaluate.rego at root level)
+    let policy_path = cupcake_dir.join("system/evaluate.rego");
     let file_metadata = fs::metadata(&policy_path)?;
     let file_perms = file_metadata.permissions();
     let file_mode = file_perms.mode() & 0o777;
@@ -544,20 +546,20 @@ fn test_correct_number_of_files_created() -> Result<()> {
 
     count_entries(&cupcake_dir, &mut file_count, &mut dir_count)?;
 
-    // For Claude harness only:
+    // For Claude harness only (new structure):
     // - 1 rulebook.yml
     // - 1 example.rego
-    // - 1 helper (commands.rego)
-    // - Claude: 1 evaluate.rego + 7 builtins = 8 files
-    // Total: 1 + 1 + 1 + 8 = 11 files
+    // - 1 helper (commands.rego) at root helpers/
+    // - 1 evaluate.rego at root system/
+    // - 7 Claude builtins
+    // Total: 1 + 1 + 1 + 1 + 7 = 11 files
     assert_eq!(
         file_count, 11,
         "Should have exactly 11 files (1 rulebook + 1 example + 1 helper + 1 evaluate + 7 builtins)"
     );
 
-    // We should have exactly 7 directories:
-    // actions, signals, policies, policies/helpers,
-    // policies/claude, policies/claude/system, policies/claude/builtins
+    // We should have exactly 7 directories (new structure):
+    // system, helpers, policies, policies/claude, policies/claude/builtins, signals, actions
     assert_eq!(dir_count, 7, "Should have exactly 7 directories");
 
     Ok(())
@@ -569,8 +571,11 @@ fn test_init_cursor_creates_cursor_only() -> Result<()> {
     let (_temp_dir, project_path) = run_init_with_harness("cursor")?;
     let cupcake_dir = project_path.join(".cupcake");
 
-    // Cursor directory should exist
-    assert!(cupcake_dir.join("policies/cursor/system").exists());
+    // Shared directories at root should exist
+    assert!(cupcake_dir.join("system").exists());
+    assert!(cupcake_dir.join("helpers").exists());
+
+    // Cursor harness builtins directory should exist
     assert!(cupcake_dir.join("policies/cursor/builtins").exists());
 
     // Other harness directories should NOT exist
@@ -601,8 +606,11 @@ fn test_init_opencode_creates_opencode_only() -> Result<()> {
     let (_temp_dir, project_path) = run_init_with_harness("opencode")?;
     let cupcake_dir = project_path.join(".cupcake");
 
-    // OpenCode directory should exist
-    assert!(cupcake_dir.join("policies/opencode/system").exists());
+    // Shared directories at root should exist
+    assert!(cupcake_dir.join("system").exists());
+    assert!(cupcake_dir.join("helpers").exists());
+
+    // OpenCode harness builtins directory should exist
     assert!(cupcake_dir.join("policies/opencode/builtins").exists());
 
     // Other harness directories should NOT exist
@@ -633,8 +641,11 @@ fn test_init_factory_creates_factory_only() -> Result<()> {
     let (_temp_dir, project_path) = run_init_with_harness("factory")?;
     let cupcake_dir = project_path.join(".cupcake");
 
-    // Factory directory should exist
-    assert!(cupcake_dir.join("policies/factory/system").exists());
+    // Shared directories at root should exist
+    assert!(cupcake_dir.join("system").exists());
+    assert!(cupcake_dir.join("helpers").exists());
+
+    // Factory harness builtins directory should exist
     assert!(cupcake_dir.join("policies/factory/builtins").exists());
 
     // Other harness directories should NOT exist
@@ -697,18 +708,28 @@ fn test_init_can_add_second_harness() -> Result<()> {
         "Should indicate adding cursor harness to existing project"
     );
 
-    // Both should now exist
+    // Shared directories should exist at root
+    assert!(
+        project_path.join(".cupcake/system").exists(),
+        "System directory should exist at root"
+    );
+    assert!(
+        project_path.join(".cupcake/helpers").exists(),
+        "Helpers directory should exist at root"
+    );
+
+    // Both harness builtins should now exist
     assert!(
         project_path
-            .join(".cupcake/policies/claude/system")
+            .join(".cupcake/policies/claude/builtins")
             .exists(),
-        "Claude should still exist after adding cursor"
+        "Claude builtins should still exist after adding cursor"
     );
     assert!(
         project_path
-            .join(".cupcake/policies/cursor/system")
+            .join(".cupcake/policies/cursor/builtins")
             .exists(),
-        "Cursor should exist after being added"
+        "Cursor builtins should exist after being added"
     );
 
     // Verify cursor has correct builtins

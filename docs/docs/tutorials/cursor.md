@@ -43,11 +43,13 @@ This runs `cupcake init --harness cursor`, and some scaffolding to create:
 ```
 .cupcake/
   ├── rulebook.yml         # Default configuration
-  ├── policies/             # Rego policies
-  │   ├── cursor/           # Cursor-specific policies
-  │   └── builtins/         # Built-in security policies
-  ├── signals/              # External data providers
-  └── actions/              # Automated response scripts
+  ├── system/              # System aggregation entrypoint
+  │   └── evaluate.rego
+  ├── policies/            # Rego policies
+  │   └── cursor/
+  │       └── builtins/    # Built-in security policies
+  ├── signals/             # External data providers
+  └── actions/             # Automated response scripts
 
 ~/.cursor/hooks.json        # Cursor hooks integration (global)
 ```

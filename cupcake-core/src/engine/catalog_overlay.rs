@@ -137,7 +137,7 @@ pub async fn scan_catalog_policies(
             overlay.name
         );
 
-        // Also scan for helper files in the helpers/ directory at rulebook root
+        // Scan for helper files in the helpers/ directory at rulebook root
         let helpers_dir = overlay.rulebook_root.join("helpers");
         let helper_files = if helpers_dir.exists() {
             match scanner::scan_policies(&helpers_dir).await {
@@ -159,6 +159,31 @@ pub async fn scan_catalog_policies(
             }
         } else {
             debug!("No helpers directory for catalog overlay {}", overlay.name);
+            Vec::new()
+        };
+
+        // Scan for system files (evaluate.rego) in the system/ directory at rulebook root
+        let system_dir = overlay.rulebook_root.join("system");
+        let system_files = if system_dir.exists() {
+            match scanner::scan_policies(&system_dir).await {
+                Ok(files) => {
+                    info!(
+                        "Found {} system files in catalog overlay {}",
+                        files.len(),
+                        overlay.name
+                    );
+                    files
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to scan system dir for catalog overlay {}: {}",
+                        overlay.name, e
+                    );
+                    Vec::new()
+                }
+            }
+        } else {
+            debug!("No system directory for catalog overlay {}", overlay.name);
             Vec::new()
         };
 
@@ -190,6 +215,22 @@ pub async fn scan_catalog_policies(
                 }
                 Err(e) => {
                     warn!("Failed to parse catalog helper {:?}: {}", path, e);
+                }
+            }
+        }
+
+        // Parse each system file (evaluate.rego entrypoint)
+        for path in system_files {
+            match parse_catalog_system(&path, &overlay.namespace).await {
+                Ok(unit) => {
+                    debug!(
+                        "Parsed catalog system file: {} from {:?}",
+                        unit.package_name, path
+                    );
+                    overlay.policies.push(unit);
+                }
+                Err(e) => {
+                    warn!("Failed to parse catalog system file {:?}: {}", path, e);
                 }
             }
         }
@@ -281,6 +322,44 @@ async fn parse_catalog_helper(path: &Path, expected_namespace: &str) -> Result<P
     let policy_metadata = metadata::parse_metadata(&content).ok().flatten();
 
     // Helpers don't need routing - they're just utility functions
+    let routing = RoutingDirective::default();
+
+    Ok(PolicyUnit {
+        path: path.to_path_buf(),
+        package_name,
+        routing,
+        metadata: policy_metadata,
+    })
+}
+
+/// Parse a catalog system file (evaluate.rego entrypoint)
+/// System files have namespace pattern: cupcake.catalog.<name>.system
+async fn parse_catalog_system(path: &Path, expected_namespace: &str) -> Result<PolicyUnit> {
+    use super::metadata::{self, RoutingDirective};
+
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .context("Failed to read system file")?;
+
+    // Extract package name
+    let package_name =
+        metadata::extract_package_name(&content).context("Failed to extract package name")?;
+
+    // Validate namespace - system files MUST use the system namespace
+    let expected_system = format!("{}.system", expected_namespace);
+
+    if package_name != expected_system {
+        return Err(anyhow::anyhow!(
+            "Catalog system file {} has invalid namespace. Expected '{}'",
+            package_name,
+            expected_system
+        ));
+    }
+
+    // Parse OPA metadata (optional for system files)
+    let policy_metadata = metadata::parse_metadata(&content).ok().flatten();
+
+    // System files don't need routing - they're entrypoints
     let routing = RoutingDirective::default();
 
     Ok(PolicyUnit {

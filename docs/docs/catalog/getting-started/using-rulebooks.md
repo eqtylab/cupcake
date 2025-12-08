@@ -130,7 +130,7 @@ Catalog rulebooks include policies for multiple harnesses. Only policies matchin
 
 1. Verify the rulebook is installed: `cupcake catalog list`
 2. Check that policies exist for your harness: `ls .cupcake/catalog/<rulebook>/policies/`
-3. Ensure the rulebook has a `system/evaluate.rego` for your harness
+3. Ensure the rulebook has a `system/evaluate.rego` at the rulebook root level
 
 ### Namespace Conflicts
 

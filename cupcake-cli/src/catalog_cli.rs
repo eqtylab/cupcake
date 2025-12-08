@@ -680,6 +680,12 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
                 errors.push(format!("Manifest validation failed: {e}"));
             }
 
+            // Check for system/evaluate.rego at rulebook root (shared entrypoint)
+            let system_eval = path.join("system").join("evaluate.rego");
+            if !system_eval.exists() {
+                errors.push("Missing system/evaluate.rego at rulebook root".to_string());
+            }
+
             // Check policies exist for declared harnesses
             let policies_dir = path.join("policies");
             if !policies_dir.exists() {
@@ -692,27 +698,17 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
                         continue;
                     }
 
-                    // Check for system/evaluate.rego
-                    let system_eval = harness_dir.join("system").join("evaluate.rego");
-                    if !system_eval.exists() {
-                        errors.push(format!(
-                            "Missing system/evaluate.rego for harness: {harness}"
-                        ));
-                    }
-
-                    // Check that at least some .rego files exist
-                    let rego_files = count_rego_files(&harness_dir);
+                    // Check that harness directory has at least one .rego file directly
+                    let rego_files = count_rego_files_direct(&harness_dir);
                     if rego_files == 0 {
-                        errors.push(format!("No .rego files found for harness: {harness}"));
+                        errors.push(format!("No .rego policy files in policies/{}/", harness));
                     }
                 }
             }
 
-            // Validate Rego namespaces
-            if policies_dir.exists() {
-                if let Err(e) = validate_rego_namespaces(path, &manifest.metadata.name) {
-                    errors.push(format!("Namespace validation failed: {e}"));
-                }
+            // Validate Rego namespaces (policies, helpers, and system)
+            if let Err(e) = validate_rego_namespaces(path, &manifest.metadata.name) {
+                errors.push(format!("Namespace validation failed: {}", e));
             }
 
             // Check for README
@@ -745,25 +741,89 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-fn count_rego_files(dir: &std::path::Path) -> usize {
-    walkdir::WalkDir::new(dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path().is_file()
-                && e.path()
-                    .extension()
-                    .map(|ext| ext == "rego")
-                    .unwrap_or(false)
+/// Count .rego files directly in a directory (non-recursive)
+fn count_rego_files_direct(dir: &std::path::Path) -> usize {
+    std::fs::read_dir(dir)
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.path().is_file()
+                        && e.path()
+                            .extension()
+                            .map(|ext| ext == "rego")
+                            .unwrap_or(false)
+                })
+                .count()
         })
-        .count()
+        .unwrap_or(0)
 }
 
 fn validate_rego_namespaces(rulebook_path: &std::path::Path, rulebook_name: &str) -> Result<()> {
-    let policies_dir = rulebook_path.join("policies");
-    let expected_prefix = format!("cupcake.catalog.{}", rulebook_name.replace('-', "_"));
+    let normalized_name = rulebook_name.replace('-', "_");
+    let base_prefix = format!("cupcake.catalog.{}", normalized_name);
 
-    for entry in walkdir::WalkDir::new(&policies_dir) {
+    // Validate policies/ directory (policies namespace)
+    let policies_dir = rulebook_path.join("policies");
+    if policies_dir.exists() {
+        let expected_prefix = format!("{}.policies", base_prefix);
+        validate_rego_files_in_dir(&policies_dir, &expected_prefix, rulebook_path)?;
+    }
+
+    // Validate helpers/ directory (helpers namespace)
+    let helpers_dir = rulebook_path.join("helpers");
+    if helpers_dir.exists() {
+        let expected_prefix = format!("{}.helpers", base_prefix);
+        validate_rego_files_in_dir(&helpers_dir, &expected_prefix, rulebook_path)?;
+    }
+
+    // Validate system/ directory (exact system namespace)
+    let system_dir = rulebook_path.join("system");
+    if system_dir.exists() {
+        let expected_package = format!("{}.system", base_prefix);
+        for entry in walkdir::WalkDir::new(&system_dir) {
+            let entry = entry?;
+            if !entry.path().is_file() {
+                continue;
+            }
+            if entry
+                .path()
+                .extension()
+                .map(|ext| ext != "rego")
+                .unwrap_or(true)
+            {
+                continue;
+            }
+
+            let content = std::fs::read_to_string(entry.path())?;
+            let package_name = extract_package_name(&content);
+
+            if let Some(pkg) = package_name {
+                if pkg != expected_package {
+                    anyhow::bail!(
+                        "System file at {:?} has invalid namespace '{}'. Expected exactly '{}'",
+                        entry
+                            .path()
+                            .strip_prefix(rulebook_path)
+                            .unwrap_or(entry.path()),
+                        pkg,
+                        expected_package
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate .rego files in a directory have the expected namespace prefix
+fn validate_rego_files_in_dir(
+    dir: &std::path::Path,
+    expected_prefix: &str,
+    rulebook_path: &std::path::Path,
+) -> Result<()> {
+    for entry in walkdir::WalkDir::new(dir) {
         let entry = entry?;
         if !entry.path().is_file() {
             continue;
@@ -779,28 +839,41 @@ fn validate_rego_namespaces(rulebook_path: &std::path::Path, rulebook_name: &str
         }
 
         let content = std::fs::read_to_string(entry.path())?;
+        let package_name = extract_package_name(&content);
 
-        // Find package declaration
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("package ") {
-                let package_name = trimmed.strip_prefix("package ").unwrap_or("").trim();
-
-                // Check namespace prefix
-                if !package_name.starts_with(&expected_prefix) {
-                    anyhow::bail!(
-                        "Policy at {:?} has invalid namespace '{}'. Expected prefix '{}'",
-                        entry.path(),
-                        package_name,
-                        expected_prefix
-                    );
-                }
-                break;
+        if let Some(pkg) = package_name {
+            if !pkg.starts_with(expected_prefix) {
+                anyhow::bail!(
+                    "File at {:?} has invalid namespace '{}'. Expected prefix '{}'",
+                    entry
+                        .path()
+                        .strip_prefix(rulebook_path)
+                        .unwrap_or(entry.path()),
+                    pkg,
+                    expected_prefix
+                );
             }
         }
     }
 
     Ok(())
+}
+
+/// Extract package name from Rego content
+fn extract_package_name(content: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("package ") {
+            return Some(
+                trimmed
+                    .strip_prefix("package ")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
+            );
+        }
+    }
+    None
 }
 
 fn print_validation_results(errors: &[String], warnings: &[String]) {

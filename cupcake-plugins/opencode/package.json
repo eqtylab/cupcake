@@ -1,6 +1,6 @@
 {
   "name": "@cupcake/opencode-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cupcake policy engine plugin for OpenCode - enforce security policies on AI coding agent actions",
   "type": "module",
   "main": "dist/cupcake.js",

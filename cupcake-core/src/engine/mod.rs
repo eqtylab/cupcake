@@ -492,7 +492,23 @@ impl Engine {
             harness_subdir
         );
 
-        // Step 2: Parse selectors and build policy units
+        // Step 1b: Scan system directory at cupcake root for shared system entrypoint
+        let system_dir = self.paths.cupcake_dir.join("system");
+        let system_files = if system_dir.exists() && system_dir.is_dir() {
+            info!("Scanning system directory: {:?}", system_dir);
+            scanner::scan_policies(&system_dir)
+                .await
+                .unwrap_or_else(|e| {
+                    warn!("Failed to scan system directory: {}", e);
+                    Vec::new()
+                })
+        } else {
+            debug!("No system directory found at {:?}", system_dir);
+            Vec::new()
+        };
+        info!("Found {} system policy files", system_files.len());
+
+        // Step 2: Parse selectors and build policy units from harness policies
         for path in policy_files {
             match self.parse_policy(&path).await {
                 Ok(unit) => {
@@ -509,6 +525,22 @@ impl Engine {
             }
         }
 
+        // Step 2b: Parse system policies
+        for path in system_files {
+            match self.parse_policy(&path).await {
+                Ok(unit) => {
+                    info!(
+                        "Successfully parsed system policy: {} from {:?}",
+                        unit.package_name, path
+                    );
+                    self.policies.push(unit);
+                }
+                Err(e) => {
+                    error!("Failed to parse system policy at {:?}: {}", path, e);
+                }
+            }
+        }
+
         if self.policies.is_empty() {
             warn!("No valid policies found in directory");
             return Ok(());
@@ -521,8 +553,14 @@ impl Engine {
         // No entrypoint mapping needed - Hybrid Model uses single aggregation entrypoint
 
         // Step 4: Compile unified WASM module with OPA path from CLI
-        let wasm_bytes =
-            compiler::compile_policies(&self.policies, self.config.opa_path.clone()).await?;
+        // Pass cupcake_dir for helpers resolution at root level
+        let wasm_bytes = compiler::compile_policies_with_namespace(
+            &self.policies,
+            "cupcake.system",
+            self.config.opa_path.clone(),
+            Some(&self.paths.cupcake_dir),
+        )
+        .await?;
         info!(
             "Successfully compiled unified WASM module ({} bytes)",
             wasm_bytes.len()
@@ -669,10 +707,12 @@ impl Engine {
                     );
 
                     // Compile global policies to WASM with OPA path from CLI
+                    // Pass global_root for helpers resolution at root level
                     let global_wasm_bytes = compiler::compile_policies_with_namespace(
                         &self.global_policies,
                         "cupcake.global.system",
                         self.config.opa_path.clone(),
+                        self.paths.global_root.as_deref(),
                     )
                     .await?;
                     info!(

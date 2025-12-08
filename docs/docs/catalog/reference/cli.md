@@ -224,9 +224,11 @@ cupcake catalog lint <PATH>
 - `manifest.yaml` exists and is valid
 - Required metadata fields present
 - Name format is valid
-- Harness directories exist in `policies/`
-- Each harness has `system/evaluate.rego`
-- Policy namespaces follow `cupcake.catalog.<name>.*` pattern
+- `system/evaluate.rego` exists at rulebook root
+- Harness directories exist in `policies/` with `.rego` files
+- Policy namespaces follow `cupcake.catalog.<name>.policies.*` pattern
+- Helper namespaces follow `cupcake.catalog.<name>.helpers.*` pattern
+- System namespace is exactly `cupcake.catalog.<name>.system`
 - README.md exists (warning if missing)
 - CHANGELOG.md exists (warning if missing)
 

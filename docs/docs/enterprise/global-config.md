@@ -4,23 +4,23 @@ Global configuration enables organization-wide policy enforcement across all pro
 
 ## Location
 
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/cupcake/` |
-| macOS | `~/Library/Application Support/cupcake/` |
-| Windows | `%APPDATA%\cupcake\` |
+| Platform | Path                                     |
+| -------- | ---------------------------------------- |
+| Linux    | `~/.config/cupcake/`                     |
+| macOS    | `~/Library/Application Support/cupcake/` |
+| Windows  | `%APPDATA%\cupcake\`                     |
 
 ## Directory Structure
 
 ```
 cupcake/
 ├── rulebook.yml
+├── system/                    # Shared system entrypoint
+│   └── evaluate.rego
 ├── policies/
 │   ├── claude/
-│   │   ├── system/
 │   │   └── builtins/
 │   └── cursor/
-│       ├── system/
 │       └── builtins/
 ├── signals/
 └── actions/

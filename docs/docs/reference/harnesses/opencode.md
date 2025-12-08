@@ -192,7 +192,7 @@ The plugin is automatically installed by `cupcake init --harness opencode`:
 ```bash
 # Download from releases
 mkdir -p .opencode/plugin
-curl -fsSL https://github.com/eqtylab/cupcake/releases/latest/download/opencode-plugin.js \
+curl -fsSL https://github.com/eqtylab/cupcake/releases/download/opencode-plugin-latest/opencode-plugin.js \
   -o .opencode/plugin/cupcake.js
 
 # Or build from source

@@ -163,54 +163,8 @@ jobs:
           draft: true
           prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
 
-  # Build OpenCode plugin
-  build-opencode-plugin:
-    name: Build OpenCode Plugin
-    needs: create-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: cupcake-plugins/opencode
-        run: npm install
-
-      - name: Build plugin
-        working-directory: cupcake-plugins/opencode
-        run: npm run build
-
-      - name: Generate checksum
-        working-directory: cupcake-plugins/opencode/dist
-        run: |
-          sha256sum cupcake.js > cupcake.js.sha256
-          echo "Generated checksum:"
-          cat cupcake.js.sha256
-
-      - name: Upload plugin to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: cupcake-plugins/opencode/dist/cupcake.js
-          asset_name: opencode-plugin.js
-          asset_content_type: application/javascript
-
-      - name: Upload plugin checksum
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: cupcake-plugins/opencode/dist/cupcake.js.sha256
-          asset_name: opencode-plugin.js.sha256
-          asset_content_type: text/plain
+  # NOTE: OpenCode plugin is released separately via release-opencode-plugin.yml
+  # It uses a dedicated release tag (opencode-plugin-latest) that is updated on merges to main
 
   # Upload install scripts to release
   upload-install-scripts:

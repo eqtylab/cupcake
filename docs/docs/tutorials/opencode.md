@@ -34,8 +34,10 @@ This creates:
 ```
 .cupcake/
   ├── rulebook.yml         # Default configuration
+  ├── system/              # System aggregation entrypoint
+  │   └── evaluate.rego
   ├── policies/            # Rego policies
-  │   └── opencode/        # OpenCode-specific policies
+  │   └── opencode/
   │       └── builtins/    # Built-in security policies
   ├── signals/             # External data providers
   └── actions/             # Automated response scripts

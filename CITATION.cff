@@ -2,12 +2,30 @@ cff-version: 1.2.0
 message: "If you use this software in your work, please cite it using the information below."
 title: "Cupcake: Policy enforcement layer for AI agents"
 authors:
-  - type: person
-    given-names: "Michael"
-    family-names: "Ramos"
-  - type: entity
-    name: "EQTYLab"
+  - given-names: Michael
+    family-names: Ramos
+    affiliation: EQTY Lab
+  - given-names: Jordan
+    family-names: Taylor
+    affiliation: EQTY Lab
+  - name: EQTY Lab
+    website: 'https://eqtylab.io'
 type: software
-repository-code: "https://github.com/eqtylab/cupcake"
 license: "Apache-2.0"
 date-released: 2025-11-04
+identifiers:
+  - type: url
+    value: "https://cupcake.eqtylab.io"
+    description: Cupcake documentation website
+repository-code: "https://github.com/eqtylab/cupcake"
+url: "https://cupcake.eqtylab.io/"
+abstract: >-
+  Cupcake is a policy enforcement layer for AI coding agents
+  that delivers better performance, reliability, and
+  security without consuming model context.
+keywords:
+  - agent
+  - harness
+  - policy
+  - enforcement
+  - Open Policy Agent

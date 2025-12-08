@@ -64,3 +64,26 @@ To update the Equality tokens, build the design system in the equality repo with
     color: var(--dark-color-text-primary);
   }
 }
+
+/* Image theme switching - hide/show images based on color scheme */
+/* Hide dark images in light mode */
+[data-md-color-scheme="default"] img[src$="#only-dark"],
+[data-md-color-scheme="light"] img[src$="#only-dark"] {
+  display: none;
+}
+
+/* Hide light images in dark mode */
+[data-md-color-scheme="slate"] img[src$="#only-light"] {
+  display: none;
+}
+
+/* Show light images in light mode */
+[data-md-color-scheme="default"] img[src$="#only-light"],
+[data-md-color-scheme="light"] img[src$="#only-light"] {
+  display: inline-block;
+}
+
+/* Show dark images in dark mode */
+[data-md-color-scheme="slate"] img[src$="#only-dark"] {
+  display: inline-block;
+}

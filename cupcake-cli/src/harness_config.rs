@@ -272,12 +272,13 @@ impl OpenCodeHarness {
 
         let plugin_path = plugin_dir.join("cupcake.js");
 
-        // Use latest release to avoid version sync issues between CLI and plugin
+        // Use dedicated plugin release to allow independent plugin updates
         // The plugin is forward-compatible, so latest is always safe
-        let plugin_url =
-            format!("https://github.com/{GITHUB_REPO}/releases/latest/download/opencode-plugin.js");
+        let plugin_url = format!(
+            "https://github.com/{GITHUB_REPO}/releases/download/opencode-plugin-latest/opencode-plugin.js"
+        );
         let checksum_url = format!(
-            "https://github.com/{GITHUB_REPO}/releases/latest/download/opencode-plugin.js.sha256"
+            "https://github.com/{GITHUB_REPO}/releases/download/opencode-plugin-latest/opencode-plugin.js.sha256"
         );
 
         println!("   Downloading OpenCode plugin (latest release)...");
@@ -345,7 +346,7 @@ impl OpenCodeHarness {
         eprintln!();
         eprintln!("   Or download from GitHub releases:");
         eprintln!(
-            "      curl -fsSL https://github.com/{GITHUB_REPO}/releases/latest/download/opencode-plugin.js \\"
+            "      curl -fsSL https://github.com/{GITHUB_REPO}/releases/download/opencode-plugin-latest/opencode-plugin.js \\"
         );
         eprintln!("        -o .opencode/plugin/cupcake.js");
         eprintln!();

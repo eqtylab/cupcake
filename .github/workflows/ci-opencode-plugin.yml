@@ -1,0 +1,46 @@
+name: CI - OpenCode Plugin
+
+on:
+  pull_request:
+    paths:
+      - 'cupcake-plugins/opencode/**'
+      - '.github/workflows/ci-opencode-plugin.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cupcake-plugins/opencode/**'
+      - '.github/workflows/ci-opencode-plugin.yml'
+
+jobs:
+  build:
+    name: Build & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: cupcake-plugins/opencode
+        run: bun install
+
+      - name: Type check
+        working-directory: cupcake-plugins/opencode
+        run: bun run typecheck
+
+      - name: Build
+        working-directory: cupcake-plugins/opencode
+        run: bun run build
+
+      - name: Verify output exists
+        working-directory: cupcake-plugins/opencode
+        run: |
+          if [ ! -f dist/cupcake.js ]; then
+            echo "Error: dist/cupcake.js not found"
+            exit 1
+          fi
+          echo "Build output size: $(wc -c < dist/cupcake.js) bytes"

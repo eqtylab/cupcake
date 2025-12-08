@@ -27,9 +27,18 @@ The install scripts will:
 
 ## Manual Installation
 
-If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest). Cupcake also requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
+If you prefer to install manually or need a specific version, you can download pre-built binaries of the [latest release from GitHub](https://github.com/eqtylab/cupcake/releases/latest).
+
+### Install Cupcake
+
+1. Download the archive for your platform
+2. Verify the checksum (optional but recommended): `sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256`
+3. Extract the archive: `tar -xzf cupcake-v0.2.0-<platform>.tar.gz` or if using Windows (PowerShell) `Expand-Archive cupcake-v0.2.0-<platform>.zip`
+4. Move the binary to your PATH: `sudo mv cupcake /usr/local/bin/` or to a directory in your PATH `mv cupcake ~/.local/bin/`
 
 ### Install OPA
+
+Cupcake requires **Open Policy Agent (OPA)** to compile and evaluate policies. Install OPA before using Cupcake.
 
 ???+ info "Install OPA"
 
@@ -88,12 +97,6 @@ You should see output like `Version: 1.11.0` or similar.
 
 For more installation options including Docker, see the [OPA documentation](https://www.openpolicyagent.org/docs#1-download-opa).
 
-### Install Cupcake
-
-1. Download the archive for your platform
-2. Verify the checksum (optional but recommended): `sha256sum -c cupcake-v0.2.0-<platform>.tar.gz.sha256`
-3. Extract the archive: `tar -xzf cupcake-v0.2.0-<platform>.tar.gz` or if using Windows (PowerShell) `Expand-Archive cupcake-v0.2.0-<platform>.zip`
-4. Move the binary to your PATH: `sudo mv cupcake /usr/local/bin/` or to a directory in your PATH `mv cupcake ~/.local/bin/`
 
 ## Verify Installation
 

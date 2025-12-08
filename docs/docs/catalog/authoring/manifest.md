@@ -161,5 +161,9 @@ This checks:
 - Required fields are present
 - Name format is valid
 - Version is valid semver
-- Listed harnesses have corresponding policy directories
-- Policy namespaces follow the `cupcake.catalog.<name>.*` pattern
+- `system/evaluate.rego` exists at rulebook root
+- Listed harnesses have corresponding policy directories with `.rego` files
+- Namespaces follow the required patterns:
+    - Policies: `cupcake.catalog.<name>.policies.*`
+    - Helpers: `cupcake.catalog.<name>.helpers.*`
+    - System: `cupcake.catalog.<name>.system`

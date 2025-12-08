@@ -77,7 +77,15 @@ This creates:
        ├── manifest.yaml
        ├── README.md
        ├── CHANGELOG.md
+       ├── system/
+       │   └── evaluate.rego
+       ├── helpers/           # Optional
+       │   └── utils.rego
        └── policies/
+           ├── claude/
+           │   └── *.rego
+           ├── cursor/
+           │   └── *.rego
            └── ...
    ```
 

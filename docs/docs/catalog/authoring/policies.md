@@ -9,52 +9,46 @@ This guide covers how to write effective policies for your rulebook.
 
 ## Namespace Convention
 
-All catalog policies **must** use the namespace pattern:
+All catalog files **must** use these namespace patterns:
 
-```
-cupcake.catalog.<rulebook_name>.policies.<harness>.<type>.<policy_name>
-```
-
-For example:
-
-```rego
-package cupcake.catalog.security_hardened.policies.claude.builtins.dangerous_commands
-```
+| Directory | Pattern | Example |
+|-----------|---------|---------|
+| `policies/<harness>/` | `cupcake.catalog.<name>.policies.<policy>` | `cupcake.catalog.security_hardened.policies.dangerous_commands` |
+| `helpers/` | `cupcake.catalog.<name>.helpers.<helper>` | `cupcake.catalog.security_hardened.helpers.commands` |
+| `system/` | `cupcake.catalog.<name>.system` | `cupcake.catalog.security_hardened.system` |
 
 !!! warning "Namespace Validation"
-`cupcake catalog lint` will fail if your policies don't follow this pattern.
+    `cupcake catalog lint` will fail if your policies don't follow these patterns.
 
 ## Policy Structure
 
 ### Basic Policy
 
 ```rego
-# policies/claude/builtins/example.rego
-package cupcake.catalog.my_rulebook.policies.claude.builtins.example
+# policies/claude/example.rego
+package cupcake.catalog.my_rulebook.policies.example
+
+import rego.v1
 
 # METADATA
+# scope: package
 # title: Example Policy
 # description: Demonstrates policy structure
-# scope: rule
 # custom:
-#   decision: deny
 #   severity: medium
 #   routing:
-#     events: [pre_tool_use]
-#     tools: [bash]
+#     required_events: ["PreToolUse"]
+#     required_tools: ["Bash"]
 
-default deny := false
-
-deny {
-    # Your condition here
+deny contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
     input.tool_input.command == "bad_command"
-}
-
-reasons[reason] {
-    deny
-    reason := {
-        "message": "This command is not allowed",
-        "severity": "medium"
+    
+    decision := {
+        "rule_id": "EXAMPLE-001",
+        "reason": "This command is not allowed",
+        "severity": "MEDIUM",
     }
 }
 ```
@@ -62,10 +56,9 @@ reasons[reason] {
 ### Key Components
 
 1. **Package declaration** - Must follow namespace convention
-2. **METADATA block** - Routing and documentation
-3. **Default rule** - Set safe default (usually `false`)
-4. **Decision rule** - The actual policy logic
-5. **Reasons** - Human-readable explanation
+2. **`import rego.v1`** - Use modern Rego syntax
+3. **METADATA block** - Routing and documentation
+4. **Decision rule** - Returns decision objects with rule_id, reason, severity
 
 ## Routing Metadata
 
@@ -118,63 +111,93 @@ Specify which tools trigger evaluation:
 | `low`      | Minor issue               |
 | `info`     | Informational only        |
 
-## Aggregation Policy
+## Aggregation Entrypoint
 
-Each harness needs a `system/evaluate.rego` that aggregates decisions:
+Each rulebook needs a single `system/evaluate.rego` at the **root level** (not per-harness):
 
 ```rego
-# policies/claude/system/evaluate.rego
-package cupcake.catalog.my_rulebook.policies.claude.system
+# system/evaluate.rego
+package cupcake.catalog.my_rulebook.system
 
-import data.cupcake.catalog.my_rulebook.policies.claude.builtins
+import rego.v1
 
-# Aggregate all deny decisions
-decisions[decision] {
-    decision := builtins.dangerous_commands.deny
+# METADATA
+# scope: package
+# custom:
+#   entrypoint: true
+
+evaluate := {
+    "halts": collect_verbs("halt"),
+    "denials": collect_verbs("deny"),
+    "blocks": collect_verbs("block"),
+    "asks": collect_verbs("ask"),
+    "allow_overrides": collect_verbs("allow_override"),
+    "add_context": collect_verbs("add_context"),
 }
 
-decisions[decision] {
-    decision := builtins.dangerous_flags.deny
+collect_verbs(verb_name) := result if {
+    verb_sets := [value |
+        walk(data.cupcake.catalog.my_rulebook.policies, [path, value])
+        path[count(path) - 1] == verb_name
+    ]
+    all_decisions := [decision |
+        some verb_set in verb_sets
+        some decision in verb_set
+    ]
+    result := all_decisions
 }
 
-# Aggregate all reasons
-all_reasons[reason] {
-    reason := builtins.dangerous_commands.reasons[_]
-}
-
-all_reasons[reason] {
-    reason := builtins.dangerous_flags.reasons[_]
-}
+default collect_verbs(_) := []
 ```
+
+This entrypoint uses `walk()` to automatically discover all decision verbs across all policies, so you don't need to manually import each policy.
 
 ## Helper Functions
 
-Place shared helpers in `helpers/`:
+Place shared helpers in `helpers/` at the rulebook root:
 
 ```rego
 # helpers/commands.rego
 package cupcake.catalog.my_rulebook.helpers.commands
 
-# Extract command name from shell input
-get_command(input) = cmd {
-    parts := split(input.tool_input.command, " ")
-    cmd := parts[0]
+import rego.v1
+
+# Check if command contains a verb with word boundaries
+has_verb(command, verb) if {
+    pattern := concat("", ["(^|\\s)", verb, "(\\s|$)"])
+    regex.match(pattern, command)
 }
 
-# Check if command is in a list
-command_in_list(cmd, list) {
-    list[_] == cmd
+# Check if command has any of the specified flags
+has_any_flag(command, flag_set) if {
+    some flag in flag_set
+    pattern := concat("", ["(^|\\s)", flag, "(\\s|$|=)"])
+    regex.match(pattern, command)
 }
 ```
 
-Use in policies:
+Import and use helpers in your policies:
 
 ```rego
-import data.cupcake.catalog.my_rulebook.helpers.commands
+# policies/claude/dangerous_flags.rego
+package cupcake.catalog.my_rulebook.policies.dangerous_flags
 
-deny {
-    cmd := commands.get_command(input)
-    commands.command_in_list(cmd, dangerous_commands)
+import data.cupcake.catalog.my_rulebook.helpers.commands
+import rego.v1
+
+deny contains decision if {
+    input.hook_event_name == "PreToolUse"
+    input.tool_name == "Bash"
+    
+    cmd := lower(input.tool_input.command)
+    commands.has_verb(cmd, "git")
+    commands.has_any_flag(cmd, {"--no-verify", "-n"})
+    
+    decision := {
+        "rule_id": "GIT-001",
+        "reason": "Blocked --no-verify flag on git command",
+        "severity": "HIGH",
+    }
 }
 ```
 

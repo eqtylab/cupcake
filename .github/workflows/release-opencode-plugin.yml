@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'cupcake-plugins/opencode/**'
+      - "cupcake-plugins/opencode/**"
+      - ".github/workflows/release-opencode-plugin.yml"
   workflow_dispatch:
 
 jobs:
@@ -34,12 +35,17 @@ jobs:
         working-directory: cupcake-plugins/opencode
         run: bun run build
 
-      - name: Generate checksum
+      - name: Prepare release assets
         working-directory: cupcake-plugins/opencode/dist
         run: |
-          sha256sum cupcake.js > cupcake.js.sha256
-          echo "Generated checksum:"
-          cat cupcake.js.sha256
+          # Rename files to match expected release asset names
+          cp cupcake.js opencode-plugin.js
+          sha256sum opencode-plugin.js > opencode-plugin.js.sha256
+
+          echo "Release assets:"
+          ls -la opencode-plugin.*
+          echo "Checksum:"
+          cat opencode-plugin.js.sha256
 
       - name: Get commit info
         id: commit
@@ -54,29 +60,29 @@ jobs:
           name: OpenCode Plugin (Latest)
           body: |
             Latest build of the Cupcake OpenCode plugin.
-            
+
             This release is automatically updated when changes are merged to main.
-            
+
             **Build:** ${{ steps.commit.outputs.sha_short }} (${{ steps.commit.outputs.date }})
-            
+
             ## Files
             - `opencode-plugin.js` - The plugin file
             - `opencode-plugin.js.sha256` - SHA256 checksum
-            
+
             ## Installation
-            
+
             The plugin is automatically downloaded when you run:
             ```bash
             cupcake init --harness opencode
             ```
-            
+
             Or manually download:
             ```bash
             curl -fsSL https://github.com/eqtylab/cupcake/releases/download/opencode-plugin-latest/opencode-plugin.js \
               -o .opencode/plugin/cupcake.js
             ```
           files: |
-            cupcake-plugins/opencode/dist/cupcake.js#opencode-plugin.js
-            cupcake-plugins/opencode/dist/cupcake.js.sha256#opencode-plugin.js.sha256
+            cupcake-plugins/opencode/dist/opencode-plugin.js
+            cupcake-plugins/opencode/dist/opencode-plugin.js.sha256
           make_latest: false
           prerelease: false

@@ -42,7 +42,7 @@ Cupcake provides lightweight **native integrations** for multiple AI coding agen
 | **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                    |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting PR](https://github.com/google-gemini/gemini-cli/issues/2779) |
 
-Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities. It a particular harness is not supported, it is because it has no means for runtime integration.
+Each harness uses native event formats. Similar to terraform, policies are separated by harness (`policies/claude/`, `policies/cursor/`, `policies/factory/`, `policies/opencode/`) to ensure clarity and full access to harness-specific capabilities. If a particular harness is not supported, it is because it has no means for runtime integration.
 
 #### Language Bindings
 

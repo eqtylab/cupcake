@@ -181,6 +181,10 @@ pub mod compiler;
 pub mod metadata;
 pub mod scanner;
 
+// Catalog overlay support
+#[cfg(feature = "catalog")]
+pub mod catalog_overlay;
+
 // Routing system
 pub mod routing;
 pub mod routing_debug;
@@ -300,6 +304,19 @@ pub struct Engine {
 
     /// Watchdog LLM-as-judge instance (optional)
     watchdog: Option<crate::watchdog::Watchdog>,
+
+    // Catalog overlay support (optional - may not have any installed)
+    #[cfg(feature = "catalog")]
+    /// Catalog overlays discovered in .cupcake/catalog/
+    catalog_overlays: Vec<catalog_overlay::CatalogOverlay>,
+
+    #[cfg(feature = "catalog")]
+    /// Catalog overlay routing maps (one per overlay)
+    catalog_routing_maps: Vec<HashMap<String, Vec<PolicyUnit>>>,
+
+    #[cfg(feature = "catalog")]
+    /// Catalog WASM runtimes (one per overlay)
+    catalog_wasm_runtimes: Vec<wasm_runtime::WasmRuntime>,
 }
 
 impl Engine {
@@ -360,6 +377,13 @@ impl Engine {
             global_rulebook: None,
             // Watchdog initialized later from rulebook config
             watchdog: None,
+            // Initialize catalog fields (will be populated if overlays are installed)
+            #[cfg(feature = "catalog")]
+            catalog_overlays: Vec::new(),
+            #[cfg(feature = "catalog")]
+            catalog_routing_maps: Vec::new(),
+            #[cfg(feature = "catalog")]
+            catalog_wasm_runtimes: Vec::new(),
         };
 
         // Initialize the engine (scan, parse, compile)
@@ -376,6 +400,15 @@ impl Engine {
         if self.paths.global_root.is_some() {
             info!("Global configuration detected - initializing global policies first");
             self.initialize_global().await?;
+        }
+
+        // Step 0A.5: Initialize catalog overlays (between global and project)
+        #[cfg(feature = "catalog")]
+        {
+            if let Err(e) = self.initialize_catalog_overlays().await {
+                warn!("Failed to initialize catalog overlays: {}", e);
+                // Continue without catalog overlays - non-fatal
+            }
         }
 
         // Step 0B: Load project rulebook to get builtin configuration
@@ -665,6 +698,125 @@ impl Engine {
         Ok(())
     }
 
+    /// Initialize catalog overlays from .cupcake/catalog/
+    #[cfg(feature = "catalog")]
+    async fn initialize_catalog_overlays(&mut self) -> Result<()> {
+        info!("Initializing catalog overlays...");
+
+        // Discover installed catalog overlays
+        let mut overlays = catalog_overlay::discover_catalog_overlays(
+            &self.paths.cupcake_dir,
+            self.config.harness,
+        )
+        .await?;
+
+        if overlays.is_empty() {
+            debug!("No catalog overlays found");
+            return Ok(());
+        }
+
+        info!("Found {} catalog overlays to initialize", overlays.len());
+
+        // Scan and parse policies for each overlay
+        catalog_overlay::scan_catalog_policies(&mut overlays, self.config.opa_path.clone()).await?;
+
+        // Compile each overlay and create runtime
+        for overlay in overlays {
+            if overlay.policies.is_empty() {
+                debug!(
+                    "Catalog overlay {} has no policies for {} harness - skipping",
+                    overlay.name,
+                    match self.config.harness {
+                        crate::harness::types::HarnessType::ClaudeCode => "claude",
+                        crate::harness::types::HarnessType::Cursor => "cursor",
+                        crate::harness::types::HarnessType::Factory => "factory",
+                        crate::harness::types::HarnessType::OpenCode => "opencode",
+                    }
+                );
+                continue;
+            }
+
+            // Check for non-system policies
+            let non_system_count = overlay
+                .policies
+                .iter()
+                .filter(|p| !p.package_name.ends_with(".system"))
+                .count();
+
+            if non_system_count == 0 {
+                debug!(
+                    "Catalog overlay {} has only system policies - skipping WASM compilation",
+                    overlay.name
+                );
+                continue;
+            }
+
+            info!(
+                "Compiling catalog overlay {} ({} policies, {} non-system)",
+                overlay.name,
+                overlay.policies.len(),
+                non_system_count
+            );
+
+            // Build routing map for this overlay
+            let mut routing_map = HashMap::new();
+            Self::build_routing_map_generic(&overlay.policies, &mut routing_map, &overlay.name);
+            info!(
+                "Built routing map for catalog overlay {} with {} entries",
+                overlay.name,
+                routing_map.len()
+            );
+
+            // Compile to WASM
+            match catalog_overlay::compile_catalog_overlay(&overlay, self.config.opa_path.clone())
+                .await
+            {
+                Ok(wasm_bytes) => {
+                    info!(
+                        "Compiled catalog overlay {} to {} bytes",
+                        overlay.name,
+                        wasm_bytes.len()
+                    );
+
+                    // Create WASM runtime
+                    let system_namespace = format!("{}.system", overlay.namespace);
+                    match wasm_runtime::WasmRuntime::new_with_config(
+                        &wasm_bytes,
+                        &system_namespace,
+                        self.config.wasm_max_memory,
+                    ) {
+                        Ok(runtime) => {
+                            info!(
+                                "Created WASM runtime for catalog overlay {} (namespace: {})",
+                                overlay.name, system_namespace
+                            );
+
+                            // Store everything
+                            self.catalog_overlays.push(overlay);
+                            self.catalog_routing_maps.push(routing_map);
+                            self.catalog_wasm_runtimes.push(runtime);
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Failed to create WASM runtime for catalog overlay {}: {}",
+                                overlay.name, e
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to compile catalog overlay {}: {}", overlay.name, e);
+                }
+            }
+        }
+
+        info!(
+            "Catalog overlay initialization complete: {} overlays active",
+            self.catalog_overlays.len()
+        );
+        Ok(())
+    }
+
     /// Build routing map for global policies
     fn build_global_routing_map(&mut self) {
         Self::build_routing_map_generic(
@@ -924,6 +1076,35 @@ impl Engine {
         result
     }
 
+    /// Route event using a specific routing map (used for catalog overlays)
+    fn route_with_map<'a>(
+        routing_map: &'a HashMap<String, Vec<PolicyUnit>>,
+        event_name: &str,
+        tool_name: Option<&str>,
+    ) -> Vec<&'a PolicyUnit> {
+        let key = routing::create_event_key(event_name, tool_name);
+
+        // First try the specific key
+        let mut result: Vec<&PolicyUnit> = routing_map
+            .get(&key)
+            .map(|policies| policies.iter().collect())
+            .unwrap_or_default();
+
+        // ALSO check for event-only policies when there's a tool
+        if tool_name.is_some() {
+            let wildcard_key = event_name.to_string();
+            if let Some(wildcard_policies) = routing_map.get(&wildcard_key) {
+                for policy in wildcard_policies {
+                    if !result.iter().any(|p| p.package_name == policy.package_name) {
+                        result.push(policy);
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
     /// Evaluate policies for a hook event.
     ///
     /// This is the main public API for policy evaluation.
@@ -1060,8 +1241,93 @@ impl Engine {
                     return Ok(global_decision);
                 }
                 _ => {
-                    debug!("Global policies did not halt/deny/block - proceeding to project evaluation");
+                    debug!("Global policies did not halt/deny/block - proceeding to catalog evaluation");
                     // TODO: In the future, preserve Ask/Allow/Context for merging with project decisions
+                }
+            }
+        }
+
+        // PHASE 1.5: Evaluate catalog overlays (between global and project)
+        #[cfg(feature = "catalog")]
+        if !self.catalog_wasm_runtimes.is_empty() {
+            debug!(
+                "Phase 1.5: Evaluating {} catalog overlays",
+                self.catalog_wasm_runtimes.len()
+            );
+
+            for (idx, (overlay, runtime)) in self
+                .catalog_overlays
+                .iter()
+                .zip(self.catalog_wasm_runtimes.iter())
+                .enumerate()
+            {
+                debug!(
+                    "Evaluating catalog overlay {}/{}: {}",
+                    idx + 1,
+                    self.catalog_overlays.len(),
+                    overlay.name
+                );
+
+                // Route through this overlay's routing map
+                let routing_map = &self.catalog_routing_maps[idx];
+                let catalog_matched = Self::route_with_map(routing_map, event_name, tool_name);
+
+                if catalog_matched.is_empty() {
+                    debug!("No policies matched in catalog overlay {}", overlay.name);
+                    continue;
+                }
+
+                info!(
+                    "Found {} matching policies in catalog overlay {}",
+                    catalog_matched.len(),
+                    overlay.name
+                );
+
+                // Evaluate using this overlay's WASM runtime
+                let catalog_decision_set = runtime.query_decision_set(&safe_input)?;
+                let catalog_decision =
+                    synthesis::SynthesisEngine::synthesize(&catalog_decision_set)?;
+
+                info!(
+                    "Catalog overlay {} decision: {:?}",
+                    overlay.name, catalog_decision
+                );
+
+                // Early termination on blocking decisions
+                match &catalog_decision {
+                    decision::FinalDecision::Halt { reason, .. } => {
+                        info!(
+                            "Catalog overlay {} HALT - immediate termination: {}",
+                            overlay.name, reason
+                        );
+                        current_span.record("final_decision", "CatalogHalt");
+                        current_span.record("duration_ms", eval_start.elapsed().as_millis());
+                        return Ok(catalog_decision);
+                    }
+                    decision::FinalDecision::Deny { reason, .. } => {
+                        info!(
+                            "Catalog overlay {} DENY - immediate termination: {}",
+                            overlay.name, reason
+                        );
+                        current_span.record("final_decision", "CatalogDeny");
+                        current_span.record("duration_ms", eval_start.elapsed().as_millis());
+                        return Ok(catalog_decision);
+                    }
+                    decision::FinalDecision::Block { reason, .. } => {
+                        info!(
+                            "Catalog overlay {} BLOCK - immediate termination: {}",
+                            overlay.name, reason
+                        );
+                        current_span.record("final_decision", "CatalogBlock");
+                        current_span.record("duration_ms", eval_start.elapsed().as_millis());
+                        return Ok(catalog_decision);
+                    }
+                    _ => {
+                        debug!(
+                            "Catalog overlay {} did not halt/deny/block - continuing",
+                            overlay.name
+                        );
+                    }
                 }
             }
         }

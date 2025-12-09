@@ -18,7 +18,7 @@ pub struct GlobalPaths {
     pub rulebook: PathBuf,
     /// Global signals directory
     pub signals: PathBuf,
-    /// Global actions directory  
+    /// Global actions directory
     pub actions: PathBuf,
 }
 
@@ -171,7 +171,7 @@ impl GlobalPaths {
         std::fs::create_dir_all(&self.policies)
             .context("Failed to create global policies directory")?;
 
-        // Create harness-specific subdirectories for Claude and Cursor
+        // Create harness-specific subdirectories for all harnesses
         std::fs::create_dir_all(self.policies.join("claude").join("system"))
             .context("Failed to create global policies/claude/system directory")?;
         std::fs::create_dir_all(self.policies.join("claude").join("builtins"))
@@ -180,6 +180,14 @@ impl GlobalPaths {
             .context("Failed to create global policies/cursor/system directory")?;
         std::fs::create_dir_all(self.policies.join("cursor").join("builtins"))
             .context("Failed to create global policies/cursor/builtins directory")?;
+        std::fs::create_dir_all(self.policies.join("factory").join("system"))
+            .context("Failed to create global policies/factory/system directory")?;
+        std::fs::create_dir_all(self.policies.join("factory").join("builtins"))
+            .context("Failed to create global policies/factory/builtins directory")?;
+        std::fs::create_dir_all(self.policies.join("opencode").join("system"))
+            .context("Failed to create global policies/opencode/system directory")?;
+        std::fs::create_dir_all(self.policies.join("opencode").join("builtins"))
+            .context("Failed to create global policies/opencode/builtins directory")?;
 
         std::fs::create_dir_all(&self.signals)
             .context("Failed to create global signals directory")?;
@@ -310,7 +318,7 @@ mod tests {
         // Check all directories exist
         assert!(global_paths.root.exists());
         assert!(global_paths.policies.exists());
-        // Harness-specific subdirectories
+        // Harness-specific subdirectories for all harnesses
         assert!(global_paths.policies.join("claude").join("system").exists());
         assert!(global_paths
             .policies
@@ -321,6 +329,26 @@ mod tests {
         assert!(global_paths
             .policies
             .join("cursor")
+            .join("builtins")
+            .exists());
+        assert!(global_paths
+            .policies
+            .join("factory")
+            .join("system")
+            .exists());
+        assert!(global_paths
+            .policies
+            .join("factory")
+            .join("builtins")
+            .exists());
+        assert!(global_paths
+            .policies
+            .join("opencode")
+            .join("system")
+            .exists());
+        assert!(global_paths
+            .policies
+            .join("opencode")
             .join("builtins")
             .exists());
         assert!(global_paths.signals.exists());

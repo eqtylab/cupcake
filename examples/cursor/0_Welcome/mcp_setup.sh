@@ -128,10 +128,8 @@ EOF
 cp ../../fixtures/cursor/appointment_policy.rego .cupcake/policies/cursor/
 echo "Appointment policy installed"
 
-# Recompile policies (Cursor policies + helpers)
-echo "Recompiling Cursor policies with new appointment rules..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
-echo "Policies compiled"
+# Note: No manual opa build needed - cupcake eval handles compilation automatically
+# including the helpers at .cupcake/helpers/
 
 # Create .cursor/mcp.json for project-level MCP configuration
 echo "Configuring Cursor MCP settings..."

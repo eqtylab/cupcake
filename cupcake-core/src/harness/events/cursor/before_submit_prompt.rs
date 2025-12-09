@@ -8,6 +8,8 @@ pub struct PromptAttachment {
     #[serde(rename = "type")]
     pub attachment_type: String, // "file" or "rule"
 
+    /// The file path (Cursor uses camelCase "filePath" in JSON)
+    #[serde(rename = "filePath")]
     pub file_path: String,
 }
 

@@ -49,7 +49,7 @@ Cupcake Loads Policies:
   - Evaluates event against policies
     ↓
 Cupcake Returns Response:
-  {decision: "deny", userMessage: "...", agentMessage: "..."}
+  {permission: "deny", user_message: "...", agent_message: "..."}
     ↓
 Cursor Blocks Action & Shows Message
 ```
@@ -73,14 +73,106 @@ Unlike Claude Code which uses `$CLAUDE_PROJECT_DIR`, Cursor relies on **process 
 
 ## Comparison: Claude Code vs Cursor
 
-| Aspect                    | Claude Code                                           | Cursor                                   |
-| ------------------------- | ----------------------------------------------------- | ---------------------------------------- |
-| **Hook Location**         | `.claude/settings.json` OR `~/.claude/settings.json`  | `~/.cursor/hooks.json` (always global)   |
-| **Policy Resolution**     | Environment variable (`$CLAUDE_PROJECT_DIR/.cupcake`) | Process cwd + relative path (`.cupcake`) |
-| **Project Policy Path**   | `$CLAUDE_PROJECT_DIR/.cupcake`                        | `.cupcake`                               |
-| **Global Policy Path**    | `/Users/alice/.config/cupcake/`                       | `/Users/alice/.config/cupcake/`          |
-| **Multi-project Support** | Via environment variable                              | Via working directory                    |
-| **Hook Configuration**    | Project-level or global                               | Global only                              |
+| Aspect                    | Claude Code                                           | Cursor                                           |
+| ------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| **Hook Location**         | `.claude/settings.json` OR `~/.claude/settings.json`  | `.cursor/hooks.json` OR `~/.cursor/hooks.json`   |
+| **Policy Resolution**     | Environment variable (`$CLAUDE_PROJECT_DIR/.cupcake`) | Process cwd + relative path (`.cupcake`)         |
+| **Project Policy Path**   | `$CLAUDE_PROJECT_DIR/.cupcake`                        | `.cupcake`                                       |
+| **Global Policy Path**    | `/Users/alice/.config/cupcake/`                       | `/Users/alice/.config/cupcake/`                  |
+| **Multi-project Support** | Via environment variable                              | Via working directory                            |
+| **Hook Configuration**    | Project-level or global                               | Project-level (`.cursor/`) or global (`~/.cursor/`) |
+
+## Supported Cursor Events
+
+Cursor supports the following hook events:
+
+### Before Events (Can Block)
+
+| Event                  | Description                           | Key Input Fields                    | Response Format |
+| ---------------------- | ------------------------------------- | ----------------------------------- | --------------- |
+| `beforeShellExecution` | Before running shell command          | `command`, `cwd`                    | `permission`, `user_message`, `agent_message` |
+| `beforeMCPExecution`   | Before running MCP tool               | `tool_name`, `tool_input`           | `permission`, `user_message`, `agent_message` |
+| `beforeReadFile`       | Before reading a file                 | `file_path`, `content`              | `permission` |
+| `beforeSubmitPrompt`   | Before submitting user prompt         | `prompt`, `attachments`             | `continue`, `user_message` |
+
+### After Events (Fire-and-Forget)
+
+| Event                 | Description                            | Key Input Fields                           | Response Format |
+| --------------------- | -------------------------------------- | ------------------------------------------ | --------------- |
+| `afterShellExecution` | After shell command completes          | `command`, `output`, `duration`            | `{}` (empty) |
+| `afterMCPExecution`   | After MCP tool completes               | `tool_name`, `tool_input`, `result_json`, `duration` | `{}` (empty) |
+| `afterFileEdit`       | After file is edited                   | `file_path`, `edits`                       | `{}` (empty) |
+| `afterAgentResponse`  | After agent sends a message            | `text`                                     | `{}` (empty) |
+| `afterAgentThought`   | After agent thinking block             | `text`, `duration_ms`                      | `{}` (empty) |
+
+### Lifecycle Events
+
+| Event    | Description                  | Key Input Fields          | Response Format |
+| -------- | ---------------------------- | ------------------------- | --------------- |
+| `stop`   | Agent loop has ended         | `status`, `loop_count`    | `{}` (allow) or `{ "followup_message": "..." }` (block) |
+
+#### Stop Hook - Agent Loop Continuation
+
+The `stop` hook enables agent loop workflows. When a policy blocks the stop event,
+Cursor will automatically submit the feedback as a new user message, causing the
+agent to continue working.
+
+**Decision mapping:**
+- `Allow` → `{}` (agent stops normally)
+- `Block` → `{"followup_message": "..."}` (agent continues with this message)
+
+**Loop prevention:** Cursor enforces max 5 auto-followups via `loop_count`. Policies
+should check `input.loop_count < 5` before blocking.
+
+**Example policy:**
+```rego
+deny contains decision if {
+    input.hook_event_name == "stop"
+    input.loop_count < 5  # Respect Cursor's loop limit
+    input.status == "completed"
+    # Your condition to continue
+    needs_more_work(input)
+    decision := {
+        "rule_id": "CONTINUE-WORK",
+        "reason": "Tests are still failing. Please fix them.",
+        "severity": "MEDIUM"
+    }
+}
+```
+
+This mirrors Claude Code's Stop hook where `block` + `reason` continues the agent.
+The difference is mechanical: Claude Code injects feedback as context, while Cursor
+submits it as a new user message.
+
+### Common Input Fields (All Events)
+
+All Cursor events include these common fields:
+
+```json
+{
+  "conversation_id": "unique-conversation-id",
+  "generation_id": "unique-generation-id",
+  "workspace_roots": ["/path/to/workspace"],
+  "model": "gpt-4",              // Optional: model used
+  "cursor_version": "2.0.77",    // Optional: Cursor version
+  "user_email": "user@example.com"  // Optional: authenticated user
+}
+```
+
+### Response Field Naming
+
+**IMPORTANT**: Cursor uses `snake_case` for response fields:
+- `user_message` (not `userMessage`)
+- `agent_message` (not `agentMessage`)
+
+Example deny response:
+```json
+{
+  "permission": "deny",
+  "user_message": "This command is blocked by policy",
+  "agent_message": "Policy BLOCK-001 prevented this action"
+}
+```
 
 ## Implementation in Cupcake
 
@@ -158,7 +250,8 @@ deny contains decision if {
     contains(input.command, "rm -rf")
     decision := {
         "rule_id": "TEST-001",
-        "reason": "rm -rf blocked by test policy"
+        "reason": "rm -rf blocked by test policy",
+        "severity": "CRITICAL"
     }
 }
 EOF
@@ -172,7 +265,7 @@ echo '{"hook_event_name":"beforeShellExecution","command":"rm -rf /tmp/test"}' |
   cupcake eval --harness cursor --policy-dir .cupcake
 
 # Expected: Policy blocks the command
-# Output: {"decision":"deny","userMessage":"rm -rf blocked by test policy",...}
+# Output: {"permission":"deny","user_message":"rm -rf blocked by test policy",...}
 ```
 
 ### What if we run from wrong directory?

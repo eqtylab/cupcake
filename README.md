@@ -15,6 +15,14 @@ Make AI agents follow the rules.
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://github.com/eqtylab/cupcake/actions/runs/19737865145/job/56558251812)
 
+<p align="left">
+  <a href="./examples/">Examples</a> |
+   <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
+  <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
+  <br/> <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
+  <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
+</p>
+
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
@@ -31,15 +39,6 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 **`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
 ## Resources
-
-<p align="center">
-  <a href="./examples/">Examples</a> |
-   <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
-  <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
-  <br/> <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
-  <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
- 
-</p>
 
 ## Supported Agent Harnesses
 

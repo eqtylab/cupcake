@@ -49,6 +49,18 @@ echo "Initializing Cupcake project with Cursor harness..."
 "$CUPCAKE_BIN" init --harness cursor
 echo "✅ Project initialized"
 
+# Update hooks.json to use the full path to the cupcake binary
+# This ensures Cursor can find cupcake even if it's not in PATH
+echo "Updating hooks.json with full binary path..."
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS uses BSD sed
+    sed -i '' "s|cupcake eval|$CUPCAKE_BIN eval|g" .cursor/hooks.json
+else
+    # Linux uses GNU sed
+    sed -i "s|cupcake eval|$CUPCAKE_BIN eval|g" .cursor/hooks.json
+fi
+echo "✅ Hooks configured with: $CUPCAKE_BIN"
+
 # Copy example policies to Cursor policies directory
 echo "Copying example policies..."
 cp ../../fixtures/cursor/security_policy.rego .cupcake/policies/cursor/

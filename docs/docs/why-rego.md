@@ -135,6 +135,8 @@ collect_verbs(verb_name) := result if {
 
 This means you write focused, single-purpose policies—Cupcake handles the orchestration, priority resolution (halt > deny > ask > allow), and response formatting automatically.
 
+Cupcake also enriches policy evaluation with **[Signals](reference/policies/signals.md)**—arbitrary programs that fetch additional context at runtime. Signals enable integration with external systems like git, APIs, linters, or even LLM-as-judge evaluators (as used by [Watchdog](reference/watchdog.md)).
+
 ### WebAssembly Compilation
 
 OPA compiles Rego policies to **WebAssembly (WASM)**, enabling:

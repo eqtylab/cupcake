@@ -63,6 +63,7 @@ nav = [
       "reference/policies/index.md",
       "reference/policies/builtins.md",
       "reference/policies/custom.md",
+      "reference/policies/signals.md",
       "reference/builtin-config.md",
     ] },
     { "Harnesses" = [

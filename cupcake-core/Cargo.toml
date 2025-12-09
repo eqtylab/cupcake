@@ -23,7 +23,7 @@ futures = { workspace = true }
 async-trait = "0.1"
 
 # HTTP Client (for Watchdog and Catalog)
-reqwest = { version = "0.12", features = ["json"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 
 # Archive handling (for Catalog)
 flate2 = { version = "1.0", optional = true }

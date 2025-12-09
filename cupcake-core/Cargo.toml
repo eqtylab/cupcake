@@ -38,6 +38,7 @@ once_cell = { workspace = true }
 directories = "6.0.0"
 uuid = { version = "1.11", features = ["v7", "fast-rng"] }
 tempfile = { workspace = true }
+shell-words = "1.1"
 
 # Trust System
 sha2 = { workspace = true }
@@ -62,11 +63,11 @@ serial_test = "3.1"
 # It forces the trust system's HMAC key derivation to be deterministic.
 deterministic-tests = []
 
-# Enable Watchdog LLM-as-judge feature
-watchdog = ["reqwest"]
+# Watchdog LLM-as-judge feature
+watchdog = ["dep:reqwest"]
 
-# Enable Catalog feature (registry browsing, installation)
-catalog = ["reqwest", "flate2", "tar"]
+# Catalog feature (registry browsing, installation)
+catalog = ["dep:reqwest", "dep:flate2", "dep:tar"]
 
 [lib]
 name = "cupcake_core"

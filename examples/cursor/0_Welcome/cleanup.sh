@@ -25,33 +25,17 @@ if [ -d "test-events" ]; then
     echo "✅ Test events removed"
 fi
 
-# Ask about global hooks cleanup
-echo ""
-echo "⚠️  Global Cursor hooks configuration detected at ~/.cursor/hooks.json"
-read -p "Do you want to remove the global hooks configuration? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    HOOKS_FILE="$HOME/.cursor/hooks.json"
+# Remove project-level Cursor hooks
+if [ -f ".cursor/hooks.json" ]; then
+    echo "Removing project hooks..."
+    rm -f .cursor/hooks.json
+    echo "✅ Project hooks removed"
+fi
 
-    # Check for backup
-    LATEST_BACKUP=$(ls -t "$HOOKS_FILE.backup."* 2>/dev/null | head -n1)
-    if [ -n "$LATEST_BACKUP" ]; then
-        echo "Found backup: $LATEST_BACKUP"
-        read -p "Restore from backup? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            mv "$LATEST_BACKUP" "$HOOKS_FILE"
-            echo "✅ Restored hooks.json from backup"
-        else
-            rm -f "$HOOKS_FILE"
-            echo "✅ Removed hooks.json (backup preserved)"
-        fi
-    else
-        rm -f "$HOOKS_FILE"
-        echo "✅ Removed hooks.json"
-    fi
-else
-    echo "ℹ️  Keeping global hooks configuration"
+# Remove .cursor directory if empty
+if [ -d ".cursor" ] && [ -z "$(ls -A .cursor)" ]; then
+    rmdir .cursor
+    echo "✅ Empty .cursor directory removed"
 fi
 
 echo ""

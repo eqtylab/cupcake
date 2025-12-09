@@ -5,10 +5,11 @@ use tracing::debug;
 /// Build response for Cursor's beforeSubmitPrompt hook
 ///
 /// CRITICAL: Cursor's beforeSubmitPrompt does NOT support context injection.
-/// It only accepts: { "continue": true | false }
+/// It accepts: { "continue": true | false, "user_message"?: string }
 ///
 /// Unlike Claude Code's UserPromptSubmit which supports `additionalContext`,
-/// Cursor's implementation is limited to a boolean continue flag.
+/// Cursor's implementation is limited to a boolean continue flag plus
+/// an optional user_message shown when blocking.
 pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) -> Value {
     // Log if context would have been injected (for debugging)
     if let EngineDecision::Allow {
@@ -28,15 +29,20 @@ pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) ->
             // Allow prompt to continue
             json!({ "continue": true })
         }
-        EngineDecision::Block { .. } | EngineDecision::Ask { .. } => {
-            // Block prompt submission
-            // Note: Ask is treated as block since we can't prompt user at this stage
-            if matches!(decision, EngineDecision::Ask { .. }) {
-                debug!(
-                    "Ask decision on beforeSubmitPrompt not supported by Cursor; blocking instead"
-                );
-            }
-            json!({ "continue": false })
+        EngineDecision::Block { feedback } => {
+            // Block prompt submission with user message
+            json!({
+                "continue": false,
+                "user_message": feedback
+            })
+        }
+        EngineDecision::Ask { reason } => {
+            // Ask is treated as block since we can't prompt user at this stage
+            debug!("Ask decision on beforeSubmitPrompt not supported by Cursor; blocking instead");
+            json!({
+                "continue": false,
+                "user_message": reason
+            })
         }
         EngineDecision::Modify { .. } => {
             // Cursor doesn't support updatedInput - treat Modify as Allow

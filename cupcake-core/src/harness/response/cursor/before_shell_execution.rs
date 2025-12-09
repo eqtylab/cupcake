@@ -6,13 +6,13 @@ use serde_json::{json, Value};
 /// Supports full permission model:
 /// {
 ///   "permission": "allow" | "deny" | "ask",
-///   "userMessage"?: string,
-///   "agentMessage"?: string,
+///   "user_message"?: string,
+///   "agent_message"?: string,
 ///   "question"?: string  // Only for "ask" permission
 /// }
 ///
 /// agent_messages: Optional technical details for the agent (separate from user message)
-///                If provided, these are joined with "; " and used for agentMessage field
+///                If provided, these are joined with "; " and used for agent_message field
 ///                If not provided, defaults to using the same message for both user and agent
 pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> Value {
     match decision {
@@ -20,7 +20,7 @@ pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> 
             json!({ "permission": "allow" })
         }
         EngineDecision::Block { feedback } => {
-            // Use agent_messages if provided, otherwise duplicate userMessage
+            // Use agent_messages if provided, otherwise duplicate user_message
             let agent_message = agent_messages
                 .as_ref()
                 .filter(|msgs| !msgs.is_empty())
@@ -29,12 +29,12 @@ pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> 
 
             json!({
                 "permission": "deny",
-                "userMessage": feedback,
-                "agentMessage": agent_message
+                "user_message": feedback,
+                "agent_message": agent_message
             })
         }
         EngineDecision::Ask { reason } => {
-            // Use agent_messages if provided, otherwise duplicate userMessage
+            // Use agent_messages if provided, otherwise duplicate user_message
             let agent_message = agent_messages
                 .as_ref()
                 .filter(|msgs| !msgs.is_empty())
@@ -44,8 +44,8 @@ pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> 
             json!({
                 "permission": "ask",
                 "question": reason,
-                "userMessage": reason,
-                "agentMessage": agent_message
+                "user_message": reason,
+                "agent_message": agent_message
             })
         }
         EngineDecision::Modify { .. } => {
@@ -73,8 +73,8 @@ mod tests {
         };
         let response = build(&decision, None);
         assert_eq!(response["permission"], "deny");
-        assert_eq!(response["userMessage"], "Dangerous command blocked");
-        assert_eq!(response["agentMessage"], "Dangerous command blocked");
+        assert_eq!(response["user_message"], "Dangerous command blocked");
+        assert_eq!(response["agent_message"], "Dangerous command blocked");
     }
 
     #[test]
@@ -88,9 +88,9 @@ mod tests {
         ]);
         let response = build(&decision, agent_messages);
         assert_eq!(response["permission"], "deny");
-        assert_eq!(response["userMessage"], "Command blocked");
+        assert_eq!(response["user_message"], "Command blocked");
         assert_eq!(
-            response["agentMessage"],
+            response["agent_message"],
             "rm -rf / detected on line 42; Use 'trash' command instead"
         );
     }
@@ -103,8 +103,8 @@ mod tests {
         let response = build(&decision, None);
         assert_eq!(response["permission"], "ask");
         assert_eq!(response["question"], "Delete production database?");
-        assert_eq!(response["userMessage"], "Delete production database?");
-        assert_eq!(response["agentMessage"], "Delete production database?");
+        assert_eq!(response["user_message"], "Delete production database?");
+        assert_eq!(response["agent_message"], "Delete production database?");
     }
 
     #[test]
@@ -119,9 +119,9 @@ mod tests {
         let response = build(&decision, agent_messages);
         assert_eq!(response["permission"], "ask");
         assert_eq!(response["question"], "Allow dangerous operation?");
-        assert_eq!(response["userMessage"], "Allow dangerous operation?");
+        assert_eq!(response["user_message"], "Allow dangerous operation?");
         assert_eq!(
-            response["agentMessage"],
+            response["agent_message"],
             "This will delete all data in /tmp; See policy DANGER-001 for details"
         );
     }

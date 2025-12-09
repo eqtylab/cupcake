@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 /// Uses the same schema as beforeShellExecution:
 /// {
 ///   "permission": "allow" | "deny" | "ask",
-///   "userMessage"?: string,
-///   "agentMessage"?: string,
+///   "user_message"?: string,
+///   "agent_message"?: string,
 ///   "question"?: string
 /// }
 pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> Value {
@@ -24,8 +24,8 @@ pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> 
 
             json!({
                 "permission": "deny",
-                "userMessage": feedback,
-                "agentMessage": agent_message
+                "user_message": feedback,
+                "agent_message": agent_message
             })
         }
         EngineDecision::Ask { reason } => {
@@ -38,8 +38,8 @@ pub fn build(decision: &EngineDecision, agent_messages: Option<Vec<String>>) -> 
             json!({
                 "permission": "ask",
                 "question": reason,
-                "userMessage": reason,
-                "agentMessage": agent_message
+                "user_message": reason,
+                "agent_message": agent_message
             })
         }
         EngineDecision::Modify { .. } => {
@@ -67,7 +67,7 @@ mod tests {
         };
         let response = build(&decision, None);
         assert_eq!(response["permission"], "deny");
-        assert_eq!(response["userMessage"], "MCP tool blocked");
+        assert_eq!(response["user_message"], "MCP tool blocked");
     }
 
     #[test]

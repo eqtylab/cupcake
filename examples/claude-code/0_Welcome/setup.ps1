@@ -56,7 +56,7 @@ Pop-Location
 
 # Initialize Cupcake project
 Write-Host "`nInitializing Cupcake project..."
-cupcake init
+cupcake init --harness claude
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Project initialization failed" -ForegroundColor Red
     exit 1
@@ -99,7 +99,7 @@ $settingsContent = @"
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info",
+            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info --debug-files",
             "timeout": 120,
             "env": {
               "PATH": "$opaDir;%PATH%"
@@ -114,7 +114,7 @@ $settingsContent = @"
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info",
+            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info --debug-files",
             "timeout": 120,
             "env": {
               "PATH": "$opaDir;%PATH%"
@@ -128,7 +128,7 @@ $settingsContent = @"
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info",
+            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info --debug-files",
             "timeout": 120,
             "env": {
               "PATH": "$opaDir;%PATH%"

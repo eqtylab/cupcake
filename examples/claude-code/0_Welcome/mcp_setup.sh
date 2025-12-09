@@ -28,7 +28,7 @@ docker run -d \
     -e POSTGRES_USER=demo \
     -e POSTGRES_PASSWORD=demopass \
     -e POSTGRES_DB=appointments \
-    -p 5432:5432 \
+    -p 15432:5432 \
     postgres:latest
 
 echo "✅ PostgreSQL container started"
@@ -150,11 +150,15 @@ cat > CLAUDE.md << 'EOF'
 
 PostgreSQL database available via MCP tool: `mcp__postgres__execute_sql`
 
-## Connection
+To query db, use tool: `mcp__postgres__execute_sql`
+
+## DB Connection Info
+
 - Database: `appointments`
 - Table: `appointments`
 
 ## Schema
+
 ```sql
 CREATE TABLE appointments (
     id SERIAL PRIMARY KEY,
@@ -166,13 +170,12 @@ CREATE TABLE appointments (
 ```
 
 ## Sample Queries
+
+using `mcp__postgres__execute_sql` tool
+
 - List appointments: `SELECT * FROM appointments ORDER BY appointment_time`
 - Find specific patient: `SELECT * FROM appointments WHERE patient_name = 'Name'`
 - Update status: `UPDATE appointments SET status = 'completed' WHERE id = X`
-
-## Restrictions
-- No DELETE operations allowed
-- Cannot cancel appointments within 24 hours
 EOF
 echo "✅ CLAUDE.md created"
 
@@ -199,7 +202,7 @@ cat > .mcp.json << 'EOF'
         "--access-mode=unrestricted"
       ],
       "env": {
-        "DATABASE_URI": "postgresql://demo:demopass@localhost:5432/appointments"
+        "DATABASE_URI": "postgresql://demo:demopass@localhost:15432/appointments"
       }
     }
   }
@@ -214,7 +217,7 @@ echo "🎉 MCP Database Demo Setup Complete!"
 echo "=========================================="
 echo ""
 echo "Database Details:"
-echo "  Host: localhost:5432"
+echo "  Host: localhost:15432"
 echo "  Database: appointments"
 echo "  User: demo"
 echo "  Password: demopass"

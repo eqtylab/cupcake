@@ -15,11 +15,18 @@ else
     echo "ℹ️  No PostgreSQL container found"
 fi
 
-# Remove MCP configuration
-if [ -d ".mcp" ]; then
+# Remove MCP configuration from .cursor/mcp.json
+if [ -f ".cursor/mcp.json" ]; then
     echo "Removing MCP configuration..."
-    rm -rf .mcp
+    rm -f .cursor/mcp.json
     echo "✅ MCP configuration removed"
+fi
+
+# Remove Cursor rules file
+if [ -f ".cursor/rules/db.mdc" ]; then
+    echo "Removing database rules file..."
+    rm -f .cursor/rules/db.mdc
+    echo "✅ Database rules file removed"
 fi
 
 # Remove appointment policy
@@ -29,10 +36,10 @@ if [ -f ".cupcake/policies/cursor/appointment_policy.rego" ]; then
     echo "✅ Appointment policy removed"
 fi
 
-# Remove signal script
-if [ -f ".cupcake/signals/check_appointment_time.py" ]; then
+# Remove signal script (mcp_setup.sh copies it to .cupcake/)
+if [ -f ".cupcake/check_appointment_time.py" ]; then
     echo "Removing appointment time check signal..."
-    rm -f .cupcake/signals/check_appointment_time.py
+    rm -f .cupcake/check_appointment_time.py
     echo "✅ Signal script removed"
 fi
 

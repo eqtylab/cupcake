@@ -116,15 +116,20 @@ impl HarnessConfig for CursorHarness {
         "Cursor"
     }
 
-    fn settings_path(&self, _global: bool) -> PathBuf {
-        // Cursor hooks MUST always be in ~/.cursor/hooks.json (global)
-        // Cursor does not support project-level hooks like Claude Code does.
-        // The hooks are always read from the user's home directory.
-        // Reference: https://cursor.com/docs/agent/hooks.md
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("~"))
-            .join(".cursor")
-            .join("hooks.json")
+    fn settings_path(&self, global: bool) -> PathBuf {
+        // Cursor now supports both project-level and user-level hooks
+        // Priority order: Enterprise → Project → User
+        // Reference: https://docs.cursor.com/context/hooks
+        if global {
+            // User-level hooks: ~/.cursor/hooks.json
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("~"))
+                .join(".cursor")
+                .join("hooks.json")
+        } else {
+            // Project-level hooks: .cursor/hooks.json
+            Path::new(".cursor").join("hooks.json")
+        }
     }
 
     fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {

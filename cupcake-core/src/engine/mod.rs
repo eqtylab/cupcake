@@ -1367,6 +1367,11 @@ impl Engine {
             .gather_signals(&safe_input, &matched_policies, debug_capture.as_deref_mut())
             .await?;
 
+        // Capture the enriched input for debugging (preprocessing + signals)
+        if let Some(ref mut debug) = debug_capture {
+            debug.enriched_input = Some(enriched_input.clone());
+        }
+
         // Step 3: Evaluate using single aggregation entrypoint with enriched input
         debug!("About to evaluate decision set with enriched input");
         let decision_set = self.evaluate_decision_set(&enriched_input).await?;

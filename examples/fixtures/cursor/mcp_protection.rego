@@ -9,12 +9,18 @@ package cupcake.policies.cursor.mcp_protection
 import rego.v1
 
 # Block dangerous database operations
+# Note: Cursor's tool_input is a JSON object, not a string
+# We serialize it to search for dangerous patterns
 deny contains decision if {
     input.hook_event_name == "beforeMCPExecution"
     startswith(input.tool_name, "postgres")
+
+    # Serialize tool_input to string for pattern matching
+    tool_input_str := upper(json.marshal(input.tool_input))
+
     dangerous_ops := ["DELETE", "DROP", "TRUNCATE"]
     some op in dangerous_ops
-    contains(upper(input.tool_input), op)
+    contains(tool_input_str, op)
 
     decision := {
         "rule_id": "CURSOR-MCP-001",
@@ -33,7 +39,10 @@ deny contains decision if {
 # Ask for confirmation on data modifications
 ask contains decision if {
     input.hook_event_name == "beforeMCPExecution"
-    contains(upper(input.tool_input), "UPDATE")
+
+    # Serialize tool_input to string for pattern matching
+    tool_input_str := upper(json.marshal(input.tool_input))
+    contains(tool_input_str, "UPDATE")
 
     decision := {
         "rule_id": "CURSOR-MCP-002",

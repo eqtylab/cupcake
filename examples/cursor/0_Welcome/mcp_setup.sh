@@ -125,7 +125,7 @@ print("Signal configuration added to rulebook.yml")
 EOF
 
 # Copy the appointment policy from fixtures to Cursor policies directory
-cp ../../fixtures/appointment_policy.rego .cupcake/policies/cursor/
+cp ../../fixtures/cursor/appointment_policy.rego .cupcake/policies/cursor/
 echo "Appointment policy installed"
 
 # Recompile policies (Cursor policies + helpers)
@@ -186,15 +186,13 @@ CREATE TABLE appointments (
     notes TEXT
 );
 ```
-
 ## Sample Queries
+
+using the tool: `postgres_execute_sql`
+
 - List appointments: `SELECT * FROM appointments ORDER BY appointment_time`
 - Find specific patient: `SELECT * FROM appointments WHERE patient_name = 'Name'`
 - Update status: `UPDATE appointments SET status = 'completed' WHERE id = X`
-
-## Restrictions
-- No DELETE operations allowed
-- Cannot cancel appointments within 24 hours
 EOF
 
 echo ".cursor/rules/db.mdc created"

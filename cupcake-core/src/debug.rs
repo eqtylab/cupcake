@@ -28,6 +28,9 @@ pub struct DebugCapture {
     /// Raw Claude Code event as received
     pub event_received: Value,
 
+    /// Enriched input passed to policy evaluation (after preprocessing + signals)
+    pub enriched_input: Option<Value>,
+
     /// Unique identifier for this evaluation
     pub trace_id: String,
 
@@ -122,6 +125,7 @@ impl DebugCapture {
         Self {
             enabled,
             event_received: event,
+            enriched_input: None,
             trace_id,
             timestamp: SystemTime::now(),
             debug_dir,
@@ -265,9 +269,16 @@ impl DebugCapture {
         output.push('\n');
 
         // Raw Event
-        output.push_str("Raw Event:\n");
+        output.push_str("----- Raw Event -----\n");
         output.push_str(&serde_json::to_string_pretty(&self.event_received)?);
         output.push_str("\n\n");
+
+        // Enriched Input (after preprocessing + signals)
+        if let Some(ref enriched) = self.enriched_input {
+            output.push_str("----- Enriched Input (passed to WASM) -----\n");
+            output.push_str(&serde_json::to_string_pretty(enriched)?);
+            output.push_str("\n\n");
+        }
 
         // Routing
         output.push_str("----- Routing -----\n");

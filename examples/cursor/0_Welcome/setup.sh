@@ -52,7 +52,7 @@ echo "✅ Project initialized"
 # Copy example policies to Cursor policies directory
 echo "Copying example policies..."
 cp ../../fixtures/cursor/security_policy.rego .cupcake/policies/cursor/
-cp ../../fixtures/git_workflow.rego .cupcake/policies/cursor/
+cp ../../fixtures/cursor/git_workflow.rego .cupcake/policies/cursor/
 echo "✅ Example policies copied (context_injection skipped - not supported by Cursor)"
 
 # Builtins are now pre-configured in the base template
@@ -73,12 +73,12 @@ cat > .cursor/hooks.json << EOF
   "hooks": {
     "beforeShellExecution": [
       {
-        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info --debug-files"
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info --debug-files"
       }
     ],
     "afterFileEdit": [

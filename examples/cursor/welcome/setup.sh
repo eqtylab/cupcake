@@ -31,6 +31,9 @@ else
     echo "✅ uv found: $(uv --version)"
 fi
 
+# Save current directory to return to later
+ORIGINAL_DIR="$(pwd)"
+
 # Build Cupcake binary
 echo "Building Cupcake binary..."
 cd ../../..
@@ -41,8 +44,8 @@ echo "✅ Build complete"
 CUPCAKE_BIN="$(pwd)/target/release/cupcake"
 echo "✅ Using cupcake binary at: $CUPCAKE_BIN"
 
-# Return to examples directory
-cd examples/cursor/0_Welcome
+# Return to original directory
+cd "$ORIGINAL_DIR"
 
 # Initialize Cupcake project using the explicit path
 echo "Initializing Cupcake project with Cursor harness..."

@@ -20,5 +20,7 @@ test-events/
 .mcp/node_modules/
 .mcp/package-lock.json
 
-# Cursor generated files (created by mcp_setup.sh)
-.cursor/
+# Cursor MCP config (created by mcp_setup.sh) - but NOT hooks.json
+# Note: .cursor/hooks.json must NOT be gitignored or Cursor won't load it
+.cursor/mcp.json
+.cursor/rules/

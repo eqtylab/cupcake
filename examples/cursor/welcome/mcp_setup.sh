@@ -91,9 +91,9 @@ EOF
 
 echo "Database setup complete"
 
-# Copy the appointment time check signal
+# Copy the Cursor-specific appointment time check signal
 echo "Installing appointment time check signal..."
-cp ../../fixtures/check_appointment_time.py .cupcake/
+cp ../../fixtures/cursor/check_appointment_time.py .cupcake/
 chmod +x .cupcake/check_appointment_time.py
 
 # Add signal configuration to rulebook.yml

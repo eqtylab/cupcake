@@ -22,6 +22,13 @@ if [ -f ".cursor/mcp.json" ]; then
     echo "✅ MCP configuration removed"
 fi
 
+# Remove Cursor rules file
+if [ -f ".cursor/rules/db.mdc" ]; then
+    echo "Removing database rules file..."
+    rm -f .cursor/rules/db.mdc
+    echo "✅ Database rules file removed"
+fi
+
 # Remove appointment policy
 if [ -f ".cupcake/policies/cursor/appointment_policy.rego" ]; then
     echo "Removing appointment policy..."

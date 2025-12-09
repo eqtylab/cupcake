@@ -271,10 +271,6 @@ $fileReadEvent | Out-File -FilePath "test-events\file-read-ssh.json" -Encoding U
 
 Write-Host "✅ Test events created in test-events\" -ForegroundColor Green
 
-# Create screenshots directory
-New-Item -ItemType Directory -Force -Path "screenshots" | Out-Null
-Write-Host "📸 Screenshots directory created (placeholder for demo screenshots)" -ForegroundColor Green
-
 Write-Host "`n🎉 Setup complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "1. Restart Cursor to load the new hooks configuration" -ForegroundColor White

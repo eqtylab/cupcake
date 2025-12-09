@@ -136,10 +136,6 @@ EOF
 
 echo "✅ Test events created in test-events/"
 
-# Create screenshots directory
-mkdir -p screenshots
-echo "📸 Screenshots directory created (placeholder for demo screenshots)"
-
 echo ""
 echo "🎉 Setup complete!"
 echo ""

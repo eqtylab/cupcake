@@ -19,3 +19,6 @@ test-events/
 # MCP
 .mcp/node_modules/
 .mcp/package-lock.json
+
+# Cursor generated files (created by mcp_setup.sh)
+.cursor/

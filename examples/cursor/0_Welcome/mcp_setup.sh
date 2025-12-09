@@ -6,10 +6,10 @@ echo "========================================"
 
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker and try again."
+    echo "Docker is not running. Please start Docker and try again."
     exit 1
 else
-    echo "✅ Docker is running"
+    echo "Docker is running"
 fi
 
 # Pull postgres-mcp Docker image if needed
@@ -31,13 +31,13 @@ docker run -d \
     -p 15432:5432 \
     postgres:latest
 
-echo "✅ PostgreSQL container started"
+echo "PostgreSQL container started"
 
 # Wait for database to be ready
 echo "Waiting for database to be ready..."
 for i in {1..30}; do
     if docker exec cupcake-demo-db pg_isready -U demo > /dev/null 2>&1; then
-        echo "✅ Database is ready"
+        echo "Database is ready"
         break
     fi
     echo -n "."
@@ -83,45 +83,31 @@ INSERT INTO appointments (patient_name, appointment_time, status, notes) VALUES
     ('Daniel Hall', NOW() + INTERVAL '4 weeks', 'scheduled', 'General consultation');
 
 -- Show the first few appointments
-SELECT id, patient_name, appointment_time, status 
-FROM appointments 
-ORDER BY appointment_time 
+SELECT id, patient_name, appointment_time, status
+FROM appointments
+ORDER BY appointment_time
 LIMIT 5;
 EOF
 
-echo "✅ Database setup complete"
+echo "Database setup complete"
 
 # Copy the appointment time check signal
 echo "Installing appointment time check signal..."
 cp ../../fixtures/check_appointment_time.py .cupcake/
 chmod +x .cupcake/check_appointment_time.py
 
-# Debug what's in the rulebook
-echo "Current rulebook.yml content:"
-cat .cupcake/rulebook.yml
-
 # Add signal configuration to rulebook.yml
 echo "Configuring appointment time signal..."
-# Use Python to properly merge the signal into existing YAML
 uv run --with pyyaml python3 << 'EOF'
 import yaml
 
-# Read existing rulebook
 rulebook_path = '.cupcake/rulebook.yml'
-print(f"Reading {rulebook_path}")
 with open(rulebook_path, 'r') as f:
-    content = f.read()
-    print(f"File content: {repr(content[:200])}")  # Show first 200 chars
-    rulebook = yaml.safe_load(content)
-    print(f"Parsed YAML type: {type(rulebook)}")
-    print(f"Parsed YAML value: {rulebook}")
+    rulebook = yaml.safe_load(f.read())
 
-# If rulebook is None (empty or comments only), initialize it
 if rulebook is None:
-    print("Rulebook was None, initializing as empty dict")
     rulebook = {}
 
-# Fix null values in the rulebook (signals and actions can't be null)
 if 'signals' not in rulebook or rulebook['signals'] is None:
     rulebook['signals'] = {}
 
@@ -132,23 +118,59 @@ rulebook['signals']['appointment_time_check'] = {
     'command': 'uv run --with psycopg2-binary python3 .cupcake/check_appointment_time.py'
 }
 
-# Write back the updated rulebook
 with open(rulebook_path, 'w') as f:
     yaml.dump(rulebook, f, default_flow_style=False, sort_keys=False)
 
-print("✅ Signal configuration added to rulebook.yml")
+print("Signal configuration added to rulebook.yml")
 EOF
 
 # Copy the appointment policy from fixtures to Cursor policies directory
 cp ../../fixtures/appointment_policy.rego .cupcake/policies/cursor/
-echo "✅ Appointment policy installed"
+echo "Appointment policy installed"
 
-# Create CLAUDE.md with database instructions
-echo "Creating CLAUDE.md with database schema..."
-cat > CLAUDE.md << 'EOF'
+# Recompile policies (Cursor policies + helpers)
+echo "Recompiling Cursor policies with new appointment rules..."
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
+echo "Policies compiled"
+
+# Create .cursor/mcp.json for project-level MCP configuration
+echo "Configuring Cursor MCP settings..."
+mkdir -p .cursor/rules
+
+cat > .cursor/mcp.json << 'EOF'
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network", "host",
+        "-e", "DATABASE_URI",
+        "crystaldba/postgres-mcp",
+        "--access-mode=unrestricted"
+      ],
+      "env": {
+        "DATABASE_URI": "postgresql://demo:demopass@localhost:15432/appointments"
+      }
+    }
+  }
+}
+EOF
+
+echo "MCP postgres server configured in .cursor/mcp.json"
+
+# Create .cursor/rules/db.mdc with database instructions
+echo "Creating .cursor/rules/db.mdc with database schema..."
+cat > .cursor/rules/db.mdc << 'EOF'
+---
+alwaysApply: true
+---
+
 # Database Access
 
-PostgreSQL database available via MCP tool: `mcp__postgres__execute_sql`
+PostgreSQL database available via MCP tool: `postgres_execute_sql`
 
 ## Connection
 - Database: `appointments`
@@ -174,44 +196,12 @@ CREATE TABLE appointments (
 - No DELETE operations allowed
 - Cannot cancel appointments within 24 hours
 EOF
-echo "✅ CLAUDE.md created"
 
-# Recompile policies (Cursor policies + helpers)
-echo "Recompiling Cursor policies with new appointment rules..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
-echo "✅ Policies compiled"
-
-# Create .cursor/mcp.json for project-level MCP configuration
-echo "Configuring Cursor MCP settings..."
-mkdir -p .cursor
-
-cat > .cursor/mcp.json << 'EOF'
-{
-  "mcpServers": {
-    "postgres": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "--network", "host",
-        "-e", "DATABASE_URI",
-        "crystaldba/postgres-mcp",
-        "--access-mode=unrestricted"
-      ],
-      "env": {
-        "DATABASE_URI": "postgresql://demo:demopass@localhost:15432/appointments"
-      }
-    }
-  }
-}
-EOF
-
-echo "✅ MCP postgres server configured in .cursor/mcp.json"
+echo ".cursor/rules/db.mdc created"
 
 echo ""
 echo "=========================================="
-echo "🎉 MCP Database Demo Setup Complete!"
+echo "MCP Database Demo Setup Complete!"
 echo "=========================================="
 echo ""
 echo "Database Details:"
@@ -223,13 +213,13 @@ echo ""
 echo "IMPORTANT:"
 echo "1. Restart Cursor to load the MCP configuration"
 echo "2. Cursor will ask to approve the project MCP server - click 'Allow'"
-echo "3. The MCP tools will appear as mcp__postgres__* in the tool list"
+echo "3. The MCP tool will appear as postgres_execute_sql"
 echo ""
 echo "Test Scenarios:"
-echo "1. Ask to list all appointments - Should work ✅"
-echo "2. Ask to cancel appointment ID 1 - Should be blocked 🚫"
+echo "1. Ask to list all appointments - Should work"
+echo "2. Ask to cancel appointment ID 1 - Should be blocked"
 echo "   (It's scheduled within 24 hours)"
-echo "3. Ask to delete old appointments - Should be blocked 🚫"
+echo "3. Ask to delete old appointments - Should be blocked"
 echo "   (No deletions allowed)"
 echo ""
 echo "Example prompts to try:"
@@ -240,6 +230,6 @@ echo ""
 echo "Troubleshooting:"
 echo "- If MCP shows no servers, restart Cursor"
 echo "- If Docker connection fails, check if postgres container is running: docker ps"
-echo "- Check MCP server logs: docker logs cupcake-demo-db"
+echo "- Check container logs: docker logs cupcake-demo-db"
 echo ""
 echo "To clean up when done: ./mcp_cleanup.sh"

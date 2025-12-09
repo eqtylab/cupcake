@@ -30,6 +30,19 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 
 **`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
+## ToC
+
+- [Supported Agent Harnesses](#supported-agent-harnesses)
+- [Language Bindings](#language-bindings)
+- [Why Cupcake?](#why-cupcake)
+- [How it Works](#how-it-works)
+  - [Deterministic and Non-Deterministic Evaluation](#deterministic-and-non-deterministic-evaluation)
+  - [Decisions & Feedback](#decisions--feedback)
+- [Security Model](#security-model)
+- [FAQ](#faq)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Supported Agent Harnesses
 
 Cupcake provides lightweight **native integrations** for multiple AI coding agents:

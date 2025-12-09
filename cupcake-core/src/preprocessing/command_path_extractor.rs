@@ -1,6 +1,7 @@
 //! Command path extractor
 //!
 //! Extracts target paths from shell commands for policy evaluation.
+//! Uses shell-words for proper shell parsing (handles quotes, escapes, etc.).
 //! Glob patterns are stripped to get the parent directory.
 //!
 //! Available to policies as `input.affected_parent_directories`.
@@ -10,17 +11,32 @@ use tracing::trace;
 
 /// Extract target paths from a shell command
 ///
-/// Parses command arguments and returns path-like values.
+/// Parses command arguments using proper shell parsing rules and returns path-like values.
+/// Handles quoted arguments correctly (e.g., `"My Documents/file.txt"` is parsed as one token).
 /// Glob patterns are stripped to their parent directory.
 ///
 /// # Examples
 ///
 /// - `rm -rf /home/user/*` → `["/home/user/"]`
+/// - `rm -rf "/tmp/protected"` → `["/tmp/protected"]` (quotes stripped by parser)
+/// - `rm -rf "My Documents/file.txt"` → `["My Documents/file.txt"]`
 /// - `ls /tmp/*` → `["/tmp/"]`
 /// - `cat /etc/passwd` → `["/etc/passwd"]`
 /// - `echo "hello"` → `[]`
 pub fn extract_target_paths(command: &str) -> Vec<PathBuf> {
-    let parts: Vec<&str> = command.split_whitespace().collect();
+    // Use shell-words for proper shell parsing (handles quotes, escapes, etc.)
+    let parts = match shell_words::split(command) {
+        Ok(parts) => parts,
+        Err(_) => {
+            // Fall back to simple split on parse error (e.g., unmatched quotes)
+            trace!("shell_words parse failed, falling back to simple split");
+            command
+                .split_whitespace()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        }
+    };
+
     if parts.is_empty() {
         return Vec::new();
     }
@@ -33,33 +49,12 @@ pub fn extract_target_paths(command: &str) -> Vec<PathBuf> {
         }
 
         // Skip common non-path arguments
-        if *part == "--" {
+        if part == "--" {
             continue;
         }
 
         // Skip numeric-only arguments (e.g., permissions like 755)
         if part.chars().all(|c| c.is_ascii_digit()) {
-            continue;
-        }
-
-        // Skip quoted strings that don't look like paths
-        if (part.starts_with('"') && part.ends_with('"'))
-            || (part.starts_with('\'') && part.ends_with('\''))
-        {
-            let inner = &part[1..part.len() - 1];
-            if !inner.contains('/') && !inner.contains('\\') {
-                continue;
-            }
-        }
-
-        // Skip partial quoted strings (from naive whitespace splitting)
-        // e.g., `echo "hello world"` splits to ["echo", "\"hello", "world\""]
-        // Neither "\"hello" nor "world\"" are paths
-        if (part.starts_with('"') && !part.ends_with('"'))
-            || (part.ends_with('"') && !part.starts_with('"'))
-            || (part.starts_with('\'') && !part.ends_with('\''))
-            || (part.ends_with('\'') && !part.starts_with('\''))
-        {
             continue;
         }
 
@@ -175,6 +170,7 @@ mod tests {
 
     #[test]
     fn test_echo_no_paths() {
+        // echo with a simple string - no paths
         let paths = extract_target_paths("echo \"hello\"");
         assert!(paths.is_empty());
     }
@@ -224,6 +220,48 @@ mod tests {
         let paths = extract_target_paths("");
         assert!(paths.is_empty());
     }
+
+    // ========== Quoted path tests (shell-words handles these correctly) ==========
+
+    #[test]
+    fn test_quoted_path_single_word() {
+        // shell-words strips quotes, so we get the actual path
+        let paths = extract_target_paths("rm -rf \"/tmp/protected\"");
+        assert_eq!(paths, vec![PathBuf::from("/tmp/protected")]);
+    }
+
+    #[test]
+    fn test_quoted_path_with_spaces() {
+        // Multi-word quoted paths are now handled correctly
+        let paths = extract_target_paths("rm -rf \"My Documents/file.txt\"");
+        assert_eq!(paths, vec![PathBuf::from("My Documents/file.txt")]);
+    }
+
+    #[test]
+    fn test_single_quoted_path() {
+        // Single quotes work the same way
+        let paths = extract_target_paths("rm -rf '/tmp/protected'");
+        assert_eq!(paths, vec![PathBuf::from("/tmp/protected")]);
+    }
+
+    #[test]
+    fn test_mixed_quoted_paths() {
+        // Mix of quoted and unquoted paths
+        let paths = extract_target_paths("mv \"/source/my file\" /dest/dir");
+        assert_eq!(
+            paths,
+            vec![PathBuf::from("/source/my file"), PathBuf::from("/dest/dir"),]
+        );
+    }
+
+    #[test]
+    fn test_echo_hello_world() {
+        // echo "hello world" - no paths (hello world doesn't contain /)
+        let paths = extract_target_paths("echo \"hello world\"");
+        assert!(paths.is_empty());
+    }
+
+    // ========== Strip glob tests ==========
 
     #[test]
     fn test_strip_glob_no_glob() {

@@ -38,6 +38,7 @@ once_cell = { workspace = true }
 directories = "6.0.0"
 uuid = { version = "1.11", features = ["v7", "fast-rng"] }
 tempfile = { workspace = true }
+shell-words = "1.1"
 
 # Trust System
 sha2 = { workspace = true }

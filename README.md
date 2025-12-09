@@ -19,8 +19,7 @@ Make AI agents follow the rules.
   <a href="./examples/">Examples</a> |
    <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
   <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
-  <br/> <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
-  <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
+
 </p>
 
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.

@@ -91,9 +91,9 @@ EOF
 
 echo "Database setup complete"
 
-# Copy the appointment time check signal
+# Copy the Cursor-specific appointment time check signal
 echo "Installing appointment time check signal..."
-cp ../../fixtures/check_appointment_time.py .cupcake/
+cp ../../fixtures/cursor/check_appointment_time.py .cupcake/
 chmod +x .cupcake/check_appointment_time.py
 
 # Add signal configuration to rulebook.yml
@@ -128,10 +128,8 @@ EOF
 cp ../../fixtures/cursor/appointment_policy.rego .cupcake/policies/cursor/
 echo "Appointment policy installed"
 
-# Recompile policies (Cursor policies + helpers)
-echo "Recompiling Cursor policies with new appointment rules..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
-echo "Policies compiled"
+# Note: No manual opa build needed - cupcake eval handles compilation automatically
+# including the helpers at .cupcake/helpers/
 
 # Create .cursor/mcp.json for project-level MCP configuration
 echo "Configuring Cursor MCP settings..."

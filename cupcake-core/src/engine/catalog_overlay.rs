@@ -346,7 +346,7 @@ async fn parse_catalog_system(path: &Path, expected_namespace: &str) -> Result<P
         metadata::extract_package_name(&content).context("Failed to extract package name")?;
 
     // Validate namespace - system files MUST use the system namespace
-    let expected_system = format!("{}.system", expected_namespace);
+    let expected_system = format!("{expected_namespace}.system");
 
     if package_name != expected_system {
         return Err(anyhow::anyhow!(

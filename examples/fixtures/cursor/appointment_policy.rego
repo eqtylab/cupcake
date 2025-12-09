@@ -14,10 +14,11 @@ import rego.v1
 # Note: Cursor uses beforeMCPExecution for MCP tool events
 deny contains decision if {
     input.hook_event_name == "beforeMCPExecution"
-    startswith(input.tool_name, "postgres")
+    input.tool_name == "execute_sql"
 
-    # Access the sql field within tool_input object
-    sql_command := lower(input.tool_input.sql)
+    # Parse tool_input JSON string and access sql field
+    tool_input := json.unmarshal(input.tool_input)
+    sql_command := lower(tool_input.sql)
     contains(sql_command, "delete")
 
     decision := {
@@ -30,10 +31,11 @@ deny contains decision if {
 # Block appointment cancellations within 24 hours using signal data (cancelled spelling)
 deny contains decision if {
     input.hook_event_name == "beforeMCPExecution"
-    startswith(input.tool_name, "postgres")
+    input.tool_name == "execute_sql"
 
-    # Check if this is an UPDATE to cancel an appointment
-    sql_command := lower(input.tool_input.sql)
+    # Parse tool_input JSON string and access sql field
+    tool_input := json.unmarshal(input.tool_input)
+    sql_command := lower(tool_input.sql)
     contains(sql_command, "update")
     contains(sql_command, "appointments")
     contains(sql_command, "cancelled")
@@ -53,10 +55,11 @@ deny contains decision if {
 # Block appointment cancellations within 24 hours using signal data (canceled spelling)
 deny contains decision if {
     input.hook_event_name == "beforeMCPExecution"
-    startswith(input.tool_name, "postgres")
+    input.tool_name == "execute_sql"
 
-    # Check if this is an UPDATE to cancel an appointment
-    sql_command := lower(input.tool_input.sql)
+    # Parse tool_input JSON string and access sql field
+    tool_input := json.unmarshal(input.tool_input)
+    sql_command := lower(tool_input.sql)
     contains(sql_command, "update")
     contains(sql_command, "appointments")
     contains(sql_command, "canceled")

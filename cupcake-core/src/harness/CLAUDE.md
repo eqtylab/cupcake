@@ -1,10 +1,12 @@
-# Cursor Local Policy Discovery
+# Cursor Policy Resolution
 
-## The Core Question
+## Hook Configuration Options
 
-**How do global Cursor hooks find project-specific policies?**
+Cursor supports two hook configuration locations:
+- **Project-level**: `.cursor/hooks.json` (recommended)
+- **Global**: `~/.cursor/hooks.json`
 
-Cursor hooks are always stored at `~/.cursor/hooks.json` (global), but each project has its own `.cupcake/` directory with project-specific policies. This document explains the resolution mechanism.
+Each project has its own `.cupcake/` directory with project-specific policies. This document explains how Cupcake resolves policy paths.
 
 ## The Answer: Working Directory
 
@@ -27,7 +29,8 @@ User Opens Workspace
     ↓
 Agent Attempts Action (e.g., shell command)
     ↓
-Cursor Reads ~/.cursor/hooks.json
+Cursor Reads .cursor/hooks.json (project-level, preferred)
+   OR ~/.cursor/hooks.json (global fallback)
     ↓
 {
   "beforeShellExecution": [{
@@ -286,14 +289,17 @@ This demonstrates why Cursor MUST spawn hooks with cwd=workspace root.
 
 ### Scenario: Developer works on 3 projects
 
+Each project can have its own `.cursor/hooks.json` (recommended), or a single global `~/.cursor/hooks.json` can apply to all projects.
+
+**Project-level (recommended):**
 ```
-~/.cursor/hooks.json  ← Single global hooks file
-  ↓
-{
-  "beforeShellExecution": [{
-    "command": "cupcake eval --harness cursor --policy-dir .cupcake"
-  }]
-}
+projectA/.cursor/hooks.json  ← Project-specific hooks
+projectB/.cursor/hooks.json  ← Project-specific hooks
+```
+
+**Global fallback:**
+```
+~/.cursor/hooks.json  ← Applies to all projects without local hooks
 ```
 
 **Project A: `/Users/alice/projectA/`**
@@ -379,11 +385,11 @@ If Cursor opens a nested directory:
 
 ## Key Takeaways
 
-1. **Cursor hooks are global, but policy resolution is local** via working directory
+1. **Cursor supports both project-level and global hooks** - `.cursor/hooks.json` (preferred) or `~/.cursor/hooks.json`
 2. **Process cwd is set by Cursor to the workspace root** - this is documented behavior
 3. **Relative paths work because of cwd**, not environment variables
 4. **Multi-project support works automatically** - each workspace has its own cwd
-5. **This is simpler than Claude Code's approach** but requires global hooks
+5. **Project-level hooks are recommended** for better isolation and version control
 6. **Testing must be done from the correct directory** to match Cursor's behavior
 
 ## References

@@ -62,7 +62,7 @@ This runs `cupcake init --harness cursor`, and some scaffolding to create:
   ├── signals/              # External data providers
   └── actions/              # Automated response scripts
 
-~/.cursor/hooks.json        # Cursor hooks integration (global)
+.cursor/hooks.json          # Cursor hooks integration (project-level)
 ```
 
 ♻️ Reset anytime with:

@@ -21,14 +21,14 @@ use crate::harness::types::HarnessType;
 use serde_json::Value;
 use tracing::{debug, trace};
 
+pub mod command_path_extractor;
 pub mod config;
-pub mod destructive_command_parser;
 pub mod normalizers;
 pub mod script_inspector;
 pub mod symlink_resolver;
 
 pub use config::PreprocessConfig;
-use destructive_command_parser::extract_affected_directories;
+use command_path_extractor::extract_target_paths;
 use normalizers::WhitespaceNormalizer;
 use script_inspector::ScriptInspector;
 use symlink_resolver::SymlinkResolver;
@@ -364,7 +364,7 @@ fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig)
 /// The extracted paths are canonicalized via SymlinkResolver to prevent bypass
 /// attacks where the parent directory is a symlink.
 fn extract_and_attach_affected_directories(input: &mut Value, command: &str) {
-    let affected_paths = extract_affected_directories(command);
+    let affected_paths = extract_target_paths(command);
 
     if affected_paths.is_empty() {
         return;
@@ -1019,8 +1019,8 @@ mod tests {
     }
 
     #[test]
-    fn test_no_affected_directories_for_non_destructive() {
-        // Test that non-destructive commands don't extract directories
+    fn test_paths_extracted_for_all_commands() {
+        // All commands with paths get affected_parent_directories
         let mut input = json!({
             "hook_event_name": "PreToolUse",
             "tool_name": "Bash",
@@ -1033,10 +1033,32 @@ mod tests {
         let config = PreprocessConfig::default();
         preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
 
-        // Should NOT have affected_parent_directories for ls
+        // Should have affected_parent_directories for any command with paths
+        let affected = input.get("affected_parent_directories");
+        assert!(
+            affected.is_some(),
+            "ls command should have affected_parent_directories"
+        );
+    }
+
+    #[test]
+    fn test_no_paths_for_echo() {
+        let mut input = json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "echo \"hello world\""
+            },
+            "cwd": "/tmp"
+        });
+
+        let config = PreprocessConfig::default();
+        preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
+
+        // echo with no paths should not have affected_parent_directories
         assert!(
             input.get("affected_parent_directories").is_none(),
-            "ls command should not have affected_parent_directories"
+            "echo with no paths should not have affected_parent_directories"
         );
     }
 }

@@ -43,17 +43,6 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
   <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
 </p>
 
-- [Supported Agent Harnesses](#supported-agent-harnesses)
-- [Language Bindings](#language-bindings)
-- [Why Cupcake?](#why-cupcake)
-- [How it Works](#how-it-works)
-  - [Deterministic and Non-Deterministic Evaluation](#deterministic-and-non-deterministic-evaluation)
-  - [Decisions & Feedback](#decisions--feedback)
-- [Security Model](#security-model)
-- [FAQ](#faq)
-- [Contributing](#contributing)
-- [License](#license)
-
 ## Supported Agent Harnesses
 
 Cupcake provides lightweight **native integrations** for multiple AI coding agents:

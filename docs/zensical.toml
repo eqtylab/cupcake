@@ -87,25 +87,25 @@ nav = [
       "tutorials/react-typescript.md",
     ] },
   ] },
-  { "Catalog" = [
-    "catalog/index.md",
-    { "Getting Started" = [
-      "catalog/getting-started/quickstart.md",
-      "catalog/getting-started/installation.md",
-      "catalog/getting-started/using-rulebooks.md",
-    ] },
-    { "Authoring Rulebooks" = [
-      "catalog/authoring/index.md",
-      "catalog/authoring/manifest.md",
-      "catalog/authoring/policies.md",
-      "catalog/authoring/publishing.md",
-    ] },
-    { "Reference" = [
-      "catalog/reference/cli.md",
-      "catalog/reference/manifest-schema.md",
-      "catalog/reference/namespace-conventions.md",
-    ] },
-  ] },
+  # { "Catalog" = [
+  #   "catalog/index.md",
+  #   { "Getting Started" = [
+  #     "catalog/getting-started/quickstart.md",
+  #     "catalog/getting-started/installation.md",
+  #     "catalog/getting-started/using-rulebooks.md",
+  #   ] },
+  #   { "Authoring Rulebooks" = [
+  #     "catalog/authoring/index.md",
+  #     "catalog/authoring/manifest.md",
+  #     "catalog/authoring/policies.md",
+  #     "catalog/authoring/publishing.md",
+  #   ] },
+  #   { "Reference" = [
+  #     "catalog/reference/cli.md",
+  #     "catalog/reference/manifest-schema.md",
+  #     "catalog/reference/namespace-conventions.md",
+  #   ] },
+  # ] },
   { "Enterprise" = [
     "enterprise/global-config.md",
     "enterprise/policy-registry.md",

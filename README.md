@@ -99,15 +99,6 @@ Based on the evaluation, Cupcake returns one of five decisions to the agent runt
 - **Warn**: The action proceeds, but a warning is logged or displayed.
 - **Require Review**: The action pauses until a human approves it.
 
-## Security Model
-
-- **Sandboxed evaluation** of untrusted inputs.
-- **Allow‑by‑default** or **deny‑by‑default** modes configurable per project.
-- **No secret ingestion** by default; policies can only read what signals expose.
-- **Auditability** through logs and optional review workflows.
-
-See the full [Security Model](./docs/SECURITY.md).
-
 ## FAQ
 
 **Does Cupcake consume prompt/context tokens?**

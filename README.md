@@ -30,10 +30,6 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 
 **`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
-[Follow on X for a regular updates.](https://x.com/CupcakeSecures)
-
-## Resources
-
 ## Supported Agent Harnesses
 
 Cupcake provides lightweight **native integrations** for multiple AI coding agents:
@@ -134,3 +130,5 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ---
 
 Cupcake is developed by [EQTYLab](https://eqtylab.io/), with agentic safety research support by [Trail of Bits](https://www.trailofbits.com/).
+
+[Follow on X](https://x.com/CupcakeSecures) for a regular updates.

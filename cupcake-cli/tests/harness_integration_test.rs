@@ -178,11 +178,16 @@ fn test_init_global_with_claude_harness() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path();
 
-    // Save original HOME to restore later
+    // Save original HOME and USERPROFILE (Windows) to restore later
     let original_home = std::env::var("HOME").ok();
+    #[cfg(windows)]
+    let original_userprofile = std::env::var("USERPROFILE").ok();
 
-    // Set HOME to temp directory for this test
+    // Set HOME (Unix) and USERPROFILE (Windows) to temp directory
+    // The dirs crate uses USERPROFILE on Windows, not HOME
     std::env::set_var("HOME", dir_path);
+    #[cfg(windows)]
+    std::env::set_var("USERPROFILE", dir_path);
 
     // Run global init with --harness claude
     let output = run_init(dir_path, &["init", "--global", "--harness", "claude"]);
@@ -206,11 +211,17 @@ fn test_init_global_with_claude_harness() {
         }
     }
 
-    // Restore original HOME
+    // Restore original HOME and USERPROFILE
     if let Some(home) = original_home {
         std::env::set_var("HOME", home);
     } else {
         std::env::remove_var("HOME");
+    }
+    #[cfg(windows)]
+    if let Some(userprofile) = original_userprofile {
+        std::env::set_var("USERPROFILE", userprofile);
+    } else {
+        std::env::remove_var("USERPROFILE");
     }
 }
 
@@ -414,18 +425,31 @@ fn test_cursor_init_creates_project_level_hooks() {
 fn test_cursor_global_init_creates_user_level_hooks() {
     let temp_dir = TempDir::new().unwrap();
     let original_home = std::env::var("HOME").ok();
+    #[cfg(windows)]
+    let original_userprofile = std::env::var("USERPROFILE").ok();
+
+    // Set HOME (Unix) and USERPROFILE (Windows) to temp directory
+    // The dirs crate uses USERPROFILE on Windows, not HOME
     std::env::set_var("HOME", temp_dir.path());
+    #[cfg(windows)]
+    std::env::set_var("USERPROFILE", temp_dir.path());
 
     let output = run_init(
         temp_dir.path(),
         &["init", "--global", "--harness", "cursor"],
     );
 
-    // Restore HOME before assertions
+    // Restore HOME and USERPROFILE before assertions
     if let Some(home) = original_home {
         std::env::set_var("HOME", home);
     } else {
         std::env::remove_var("HOME");
+    }
+    #[cfg(windows)]
+    if let Some(userprofile) = original_userprofile {
+        std::env::set_var("USERPROFILE", userprofile);
+    } else {
+        std::env::remove_var("USERPROFILE");
     }
 
     assert!(output.status.success());

@@ -786,11 +786,18 @@ fn test_init_without_harness_requires_selection() -> Result<()> {
 #[tokio::test]
 #[serial(home_env)]
 async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
-    // Save original HOME and set to a temp directory to prevent global config discovery
-    // This ensures the test is isolated from any pre-existing global config on CI runners
+    // Save original HOME and USERPROFILE (Windows) and set to a temp directory
+    // to prevent global config discovery. This ensures the test is isolated from
+    // any pre-existing global config on CI runners.
+    // Note: The dirs crate uses USERPROFILE on Windows, not HOME.
     let original_home = std::env::var("HOME").ok();
+    #[cfg(windows)]
+    let original_userprofile = std::env::var("USERPROFILE").ok();
+
     let home_temp_dir = TempDir::new()?;
     std::env::set_var("HOME", home_temp_dir.path());
+    #[cfg(windows)]
+    std::env::set_var("USERPROFILE", home_temp_dir.path());
 
     // Test each harness type
     let harnesses = [
@@ -838,11 +845,17 @@ async fn test_all_harnesses_create_valid_engine_structures() -> Result<()> {
     }
     .await;
 
-    // Restore original HOME (cleanup even if test fails)
+    // Restore original HOME and USERPROFILE (cleanup even if test fails)
     if let Some(home) = original_home {
         std::env::set_var("HOME", home);
     } else {
         std::env::remove_var("HOME");
+    }
+    #[cfg(windows)]
+    if let Some(userprofile) = original_userprofile {
+        std::env::set_var("USERPROFILE", userprofile);
+    } else {
+        std::env::remove_var("USERPROFILE");
     }
 
     result?;

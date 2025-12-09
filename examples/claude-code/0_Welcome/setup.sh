@@ -46,7 +46,7 @@ cd examples/claude-code/0_Welcome
 
 # Initialize Cupcake project using the explicit path
 echo "Initializing Cupcake project..."
-"$CUPCAKE_BIN" init
+"$CUPCAKE_BIN" init --harness claude
 echo "✅ Project initialized"
 
 # Copy example policies to Claude Code policies directory
@@ -81,7 +81,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info",
+            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info --debug-files",
             "timeout": 120,
             "env": {
               "PATH": "$OPA_DIR:\$PATH"
@@ -96,7 +96,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info",
+            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info --debug-files",
             "timeout": 120,
             "env": {
               "PATH": "$OPA_DIR:\$PATH"
@@ -110,7 +110,7 @@ cat > .claude/settings.json << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info",
+            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info --debug-files",
             "timeout": 120,
             "env": {
               "PATH": "$OPA_DIR:\$PATH"

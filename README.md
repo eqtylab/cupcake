@@ -22,6 +22,16 @@ Make AI agents follow the rules.
 - **LLM-as-a-judge** for more dynamic governance.
 - **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
+Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)** or **Typescript policy programs** that abstract Rego. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+
+## Updates
+
+**`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
+
+**`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
+
+## Resources
+
 <p align="center">
   <a href="./examples/">Examples</a> |
    <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
@@ -32,16 +42,6 @@ Make AI agents follow the rules.
   <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
   <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
 </p>
-
-Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)** or **Typescript policy programs** that abstract Rego. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
-
-## Updates
-
-**`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
-
-**`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
-
-## Table of Contents
 
 - [Supported Agent Harnesses](#supported-agent-harnesses)
 - [Language Bindings](#language-bindings)

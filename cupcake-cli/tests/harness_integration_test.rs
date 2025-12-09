@@ -1,7 +1,6 @@
 //! Integration tests for harness configuration
 
 use serde_json::{json, Value};
-use serial_test::serial;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -15,6 +14,17 @@ fn run_init(dir: &Path, args: &[&str]) -> std::process::Output {
         .args(args)
         .output()
         .expect("Failed to run cupcake init")
+}
+
+/// Helper to run cupcake init command with custom environment variables
+/// This is useful for tests that need to override HOME without affecting other tests
+fn run_init_with_env(dir: &Path, args: &[&str], env_vars: &[(&str, &str)]) -> std::process::Output {
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_cupcake"));
+    cmd.current_dir(dir).args(args);
+    for (key, value) in env_vars {
+        cmd.env(key, value);
+    }
+    cmd.output().expect("Failed to run cupcake init")
 }
 
 #[test]
@@ -172,27 +182,29 @@ fn test_init_without_harness_requires_selection() {
     );
 }
 
+/// Test that global init with Claude harness creates proper configuration
+///
+/// Note: This test uses explicit environment variables passed to the child process
+/// rather than modifying the global environment, to avoid race conditions with
+/// other tests that spawn child processes.
 #[test]
-#[serial(home_env)]
 fn test_init_global_with_claude_harness() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path();
 
-    // Save original HOME and USERPROFILE (Windows) to restore later
-    let original_home = std::env::var("HOME").ok();
-    #[cfg(windows)]
-    let original_userprofile = std::env::var("USERPROFILE").ok();
+    // Pass HOME directly to the child process to avoid affecting other tests
+    // Note: On Windows, dirs::home_dir() uses Windows Shell APIs which don't respect
+    // environment variables, so this override only works on Unix. The test has lenient
+    // assertions to handle this gracefully.
+    let home_str = dir_path.to_str().unwrap();
+    let output = run_init_with_env(
+        dir_path,
+        &["init", "--global", "--harness", "claude"],
+        &[("HOME", home_str)],
+    );
 
-    // Set HOME (Unix) and USERPROFILE (Windows) to temp directory
-    // The dirs crate uses USERPROFILE on Windows, not HOME
-    std::env::set_var("HOME", dir_path);
-    #[cfg(windows)]
-    std::env::set_var("USERPROFILE", dir_path);
-
-    // Run global init with --harness claude
-    let output = run_init(dir_path, &["init", "--global", "--harness", "claude"]);
-
-    // Note: This may fail if global config already exists, which is okay for CI
+    // Note: This may fail if global config already exists or on Windows where HOME
+    // override doesn't work, which is okay for CI
     if output.status.success() {
         // Check for global Claude settings
         let global_settings = dir_path.join(".claude/settings.json");
@@ -210,30 +222,28 @@ fn test_init_global_with_claude_harness() {
             );
         }
     }
-
-    // Restore original HOME and USERPROFILE
-    if let Some(home) = original_home {
-        std::env::set_var("HOME", home);
-    } else {
-        std::env::remove_var("HOME");
-    }
-    #[cfg(windows)]
-    if let Some(userprofile) = original_userprofile {
-        std::env::set_var("USERPROFILE", userprofile);
-    } else {
-        std::env::remove_var("USERPROFILE");
-    }
 }
 
 /// Helper to run cupcake eval with stdin input
 fn run_eval_with_stdin(args: &[&str], stdin_data: &str) -> std::process::Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_cupcake"))
-        .args(args)
+    run_eval_with_stdin_and_env(args, stdin_data, &[])
+}
+
+/// Helper to run cupcake eval with stdin input and custom environment variables
+fn run_eval_with_stdin_and_env(
+    args: &[&str],
+    stdin_data: &str,
+    env_vars: &[(&str, &str)],
+) -> std::process::Output {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_cupcake"));
+    cmd.args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn cupcake eval");
+        .stderr(Stdio::piped());
+    for (key, value) in env_vars {
+        cmd.env(key, value);
+    }
+    let mut child = cmd.spawn().expect("Failed to spawn cupcake eval");
 
     if let Some(mut stdin) = child.stdin.take() {
         stdin
@@ -420,37 +430,23 @@ fn test_cursor_init_creates_project_level_hooks() {
 }
 
 /// Test that Cursor global init creates ~/.cursor/hooks.json
+///
+/// Note: This test is skipped on Windows because the `dirs` crate uses Windows Shell APIs
+/// (SHGetKnownFolderPath) to resolve the home directory, which don't respect environment
+/// variables like USERPROFILE. This makes it impossible to redirect the home directory
+/// for testing purposes on Windows.
 #[test]
-#[serial(home_env)]
+#[cfg(not(windows))]
 fn test_cursor_global_init_creates_user_level_hooks() {
     let temp_dir = TempDir::new().unwrap();
-    let original_home = std::env::var("HOME").ok();
-    #[cfg(windows)]
-    let original_userprofile = std::env::var("USERPROFILE").ok();
 
-    // Set HOME (Unix) and USERPROFILE (Windows) to temp directory
-    // The dirs crate uses USERPROFILE on Windows, not HOME
-    std::env::set_var("HOME", temp_dir.path());
-    #[cfg(windows)]
-    std::env::set_var("USERPROFILE", temp_dir.path());
-
-    let output = run_init(
+    // Pass HOME directly to the child process to avoid affecting other tests
+    let home_str = temp_dir.path().to_str().unwrap();
+    let output = run_init_with_env(
         temp_dir.path(),
         &["init", "--global", "--harness", "cursor"],
+        &[("HOME", home_str)],
     );
-
-    // Restore HOME and USERPROFILE before assertions
-    if let Some(home) = original_home {
-        std::env::set_var("HOME", home);
-    } else {
-        std::env::remove_var("HOME");
-    }
-    #[cfg(windows)]
-    if let Some(userprofile) = original_userprofile {
-        std::env::set_var("USERPROFILE", userprofile);
-    } else {
-        std::env::remove_var("USERPROFILE");
-    }
 
     assert!(output.status.success());
 
@@ -463,19 +459,17 @@ fn test_cursor_global_init_creates_user_level_hooks() {
 
 /// Test that Cursor falls back to cwd when workspace_roots is empty
 #[test]
-#[serial(home_env)]
 fn test_cursor_eval_falls_back_to_cwd_when_workspace_roots_empty() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
+    let home_str = project_path.to_str().unwrap();
 
-    // Save original HOME to restore later
-    let original_home = std::env::var("HOME").ok();
-
-    // Set HOME to project_path to ensure no global config interferes
-    std::env::set_var("HOME", project_path);
-
-    // Initialize Cupcake
-    let init_output = run_init(project_path, &["init", "--harness", "cursor"]);
+    // Initialize Cupcake - pass HOME to ensure no global config interferes
+    let init_output = run_init_with_env(
+        project_path,
+        &["init", "--harness", "cursor"],
+        &[("HOME", home_str)],
+    );
     assert!(
         init_output.status.success(),
         "Init failed: {}",
@@ -495,17 +489,12 @@ fn test_cursor_eval_falls_back_to_cwd_when_workspace_roots_empty() {
     });
 
     // Run eval - should use cwd as fallback to resolve .cupcake
-    let output = run_eval_with_stdin(
+    // Pass HOME to ensure no global config interferes
+    let output = run_eval_with_stdin_and_env(
         &["eval", "--harness", "cursor", "--policy-dir", ".cupcake"],
         &cursor_event.to_string(),
+        &[("HOME", home_str)],
     );
-
-    // Restore original HOME before assertions (to ensure cleanup even on failure)
-    if let Some(home) = original_home {
-        std::env::set_var("HOME", home);
-    } else {
-        std::env::remove_var("HOME");
-    }
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(

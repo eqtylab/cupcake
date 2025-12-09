@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "Cupcake Evaluation Setup"
-echo "=========================="
+echo "Cupcake Cursor Evaluation Setup"
+echo "================================"
 
 # Check if Rust/Cargo is installed
 if ! command -v cargo &> /dev/null; then
@@ -63,78 +63,95 @@ echo "Compiling Cursor policies to WASM..."
 opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
 echo "✅ Policies compiled to bundle.tar.gz"
 
-# Create Claude Code settings directory and hooks integration
-echo "Setting up Claude Code hooks integration..."
-mkdir -p .claude
+# Create project-level Cursor hooks configuration
+echo "Setting up Cursor hooks integration..."
+mkdir -p .cursor
 
-# Create Claude Code settings with direct cargo command (like working demo)
-MANIFEST_PATH="$(realpath ../../../Cargo.toml)"
-OPA_DIR="$(dirname "$(which opa)")"
-
-cat > .claude/settings.json << EOF
+cat > .cursor/hooks.json << EOF
 {
+  "version": 1,
   "hooks": {
-    "PreToolUse": [
+    "beforeShellExecution": [
       {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --log-level info",
-            "timeout": 120,
-            "env": {
-              "PATH": "$OPA_DIR:\$PATH"
-            }
-          }
-        ]
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
       }
     ],
-    "PostToolUse": [
+    "beforeMCPExecution": [
       {
-        "matcher": "*", 
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --log-level info",
-            "timeout": 120,
-            "env": {
-              "PATH": "$OPA_DIR:\$PATH"
-            }
-          }
-        ]
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
       }
     ],
-    "UserPromptSubmit": [
+    "afterFileEdit": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --log-level info",
-            "timeout": 120,
-            "env": {
-              "PATH": "$OPA_DIR:\$PATH"
-            }
-          }
-        ]
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
+      }
+    ],
+    "stop": [
+      {
+        "command": "$CUPCAKE_BIN eval --harness cursor --log-level info"
       }
     ]
   }
 }
 EOF
 
-echo "✅ Claude Code hooks configured"
+echo "✅ Cursor hooks configured at .cursor/hooks.json"
+
+# Create test events directory
+mkdir -p test-events
+
+# Create test event files
+cat > test-events/shell-rm.json << 'EOF'
+{
+  "hook_event_name": "beforeShellExecution",
+  "conversation_id": "test-001",
+  "generation_id": "gen-001",
+  "workspace_roots": ["/tmp"],
+  "command": "rm -rf /tmp/test",
+  "cwd": "/tmp"
+}
+EOF
+
+cat > test-events/file-read-ssh.json << 'EOF'
+{
+  "hook_event_name": "beforeReadFile",
+  "conversation_id": "test-002",
+  "generation_id": "gen-002",
+  "workspace_roots": ["/home/user"],
+  "file_path": "/home/user/.ssh/id_rsa",
+  "content": "-----BEGIN OPENSSH PRIVATE KEY-----",
+  "attachments": []
+}
+EOF
+
+echo "✅ Test events created in test-events/"
+
+# Create screenshots directory
+mkdir -p screenshots
+echo "📸 Screenshots directory created (placeholder for demo screenshots)"
 
 echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. To add cupcake to your PATH, run:"
-echo "   export PATH=\"$(realpath ../../../target/release):\$PATH\""
-echo "2. Start Claude Code in this directory"
-echo "3. Try running commands that trigger policies"
+echo "1. Open this directory in Cursor (hooks load automatically)"
+echo "2. Try commands that trigger policies:"
+echo "   - 'delete /tmp/test directory' (blocks rm -rf)"
+echo "   - 'read my SSH key' (blocks sensitive file access)"
+echo "   - 'run sudo command' (blocks admin operations)"
 echo ""
-echo "Example commands to test:"
-echo "- ls -la (safe, should work)"  
-echo "- rm -rf /tmp/test (dangerous, should block)"
-echo "- Edit /etc/hosts (system file, should block)"
-echo "- git push --force (risky, should ask)"
+echo "Test policies manually:"
+echo "cat test-events/shell-rm.json | $CUPCAKE_BIN eval --harness cursor"
+echo ""
+echo "View active policies:"
+echo "$CUPCAKE_BIN inspect --harness cursor"

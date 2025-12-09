@@ -1,16 +1,18 @@
 # Cursor Harness Configuration
 
-## Critical Difference from Claude Code
+## Project-Level and User-Level Hooks
 
-**Cursor hooks MUST be installed globally** at `~/.cursor/hooks.json`. Unlike Claude Code which supports both project-level (`.claude/settings.json`) and global (`~/.claude/settings.json`) configurations, **Cursor does not support project-level hooks**.
+Cursor now supports both project-level and user-level hooks, similar to Claude Code.
 
-Reference: [Cursor Hooks Documentation](https://cursor.com/docs/agent/hooks.md)
+**Hook Priority Order (highest to lowest):** Enterprise → Project → User
 
-## The Configuration Behavior
+Reference: [Cursor Hooks Documentation](https://docs.cursor.com/context/hooks)
+
+## Configuration Behavior
 
 ### `cupcake init --harness cursor` (Project Init)
 
-Creates hooks at `~/.cursor/hooks.json` (global) with **relative policy paths**:
+Creates hooks at `.cursor/hooks.json` (project-level) with **relative policy paths**:
 
 ```json
 {
@@ -36,7 +38,7 @@ Creates hooks at `~/.cursor/hooks.json` (global) with **relative policy paths**:
 
 ### `cupcake init --global --harness cursor` (Global Init)
 
-Creates hooks at `~/.cursor/hooks.json` (global) with **absolute policy paths**:
+Creates hooks at `~/.cursor/hooks.json` (user-level) with **absolute policy paths**:
 
 ```json
 {
@@ -59,19 +61,22 @@ Creates hooks at `~/.cursor/hooks.json` (global) with **absolute policy paths**:
 #### `CursorHarness::settings_path()`
 
 ```rust
-fn settings_path(&self, _global: bool) -> PathBuf {
-    // Cursor hooks MUST always be in ~/.cursor/hooks.json (global)
-    // Cursor does not support project-level hooks like Claude Code does.
-    // The hooks are always read from the user's home directory.
-    // Reference: https://cursor.com/docs/agent/hooks.md
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".cursor")
-        .join("hooks.json")
+fn settings_path(&self, global: bool) -> PathBuf {
+    // Cursor now supports both project-level and user-level hooks
+    // Priority order: Enterprise → Project → User
+    // Reference: https://docs.cursor.com/context/hooks
+    if global {
+        // User-level hooks: ~/.cursor/hooks.json
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("~"))
+            .join(".cursor")
+            .join("hooks.json")
+    } else {
+        // Project-level hooks: .cursor/hooks.json
+        Path::new(".cursor").join("hooks.json")
+    }
 }
 ```
-
-**Key point**: The `global` parameter is ignored (prefixed with `_`). Cursor hooks are **always** written to the global location.
 
 #### `CursorHarness::generate_hooks()`
 
@@ -99,18 +104,6 @@ fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
 }
 ```
 
-**Key point**: The `global` parameter determines whether to use absolute or relative paths in the hook commands, NOT the location of the hooks file.
-
-## Bug History
-
-### Original Bug (Fixed 2025-09-03)
-
-**Problem**: `CursorHarness::settings_path()` returned `.cursor/hooks.json` (project-level) when `global=false`, but Cursor ignores project-level hook files.
-
-**Result**: Running `cupcake init --harness cursor` created `.cursor/hooks.json` in the project directory, which Cursor never read.
-
-**Fix**: Changed `settings_path()` to always return `~/.cursor/hooks.json` regardless of the `global` parameter.
-
 ## Testing
 
 ### Verify Project Init
@@ -119,8 +112,8 @@ fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
 cd /tmp/test-project
 cupcake init --harness cursor
 
-# Verify hooks created at global location
-cat ~/.cursor/hooks.json
+# Verify hooks created at project location
+cat .cursor/hooks.json
 
 # Should show relative path: --policy-dir .cupcake
 ```
@@ -130,7 +123,7 @@ cat ~/.cursor/hooks.json
 ```bash
 cupcake init --global --harness cursor
 
-# Verify hooks created at global location
+# Verify hooks created at user location
 cat ~/.cursor/hooks.json
 
 # Should show absolute path: --policy-dir /Users/alice/.config/cupcake
@@ -138,19 +131,18 @@ cat ~/.cursor/hooks.json
 
 ## Comparison with Claude Code
 
-| Aspect                    | Claude Code                    | Cursor                    |
-| ------------------------- | ------------------------------ | ------------------------- |
-| **Project hooks**         | `.claude/settings.json` ✅     | Not supported ❌          |
-| **Global hooks**          | `~/.claude/settings.json` ✅   | `~/.cursor/hooks.json` ✅ |
-| **Hook location choice**  | Respects `--global` flag       | Always global             |
-| **Policy path (project)** | `$CLAUDE_PROJECT_DIR/.cupcake` | `.cupcake` (relative)     |
-| **Policy path (global)**  | Absolute path                  | Absolute path             |
-| **Process cwd**           | Project root (via env var)     | Workspace root (direct)   |
+| Aspect                    | Claude Code                    | Cursor                       |
+| ------------------------- | ------------------------------ | ---------------------------- |
+| **Project hooks**         | `.claude/settings.json` ✅     | `.cursor/hooks.json` ✅      |
+| **User hooks**            | `~/.claude/settings.json` ✅   | `~/.cursor/hooks.json` ✅    |
+| **Hook location choice**  | Respects `--global` flag       | Respects `--global` flag     |
+| **Policy path (project)** | `$CLAUDE_PROJECT_DIR/.cupcake` | `.cupcake` (relative)        |
+| **Policy path (global)**  | Absolute path                  | Absolute path                |
+| **Process cwd**           | Project root (via env var)     | Workspace root (direct)      |
 
 ## Key Takeaways
 
-1. **Cursor hooks are ALWAYS global** - stored at `~/.cursor/hooks.json`
-2. **Project init uses relative paths** - `.cupcake` resolves via workspace cwd
-3. **Global init uses absolute paths** - points to `~/.config/cupcake/`
-4. **The `global` parameter affects policy paths, not hook file location** (for Cursor)
-5. **Cursor spawns hooks with cwd=workspace root** - enabling relative path resolution
+1. **Cursor supports both project and user-level hooks** - stored at `.cursor/hooks.json` and `~/.cursor/hooks.json`
+2. **Project init creates project-level hooks** - `.cursor/hooks.json` with relative policy paths
+3. **Global init creates user-level hooks** - `~/.cursor/hooks.json` with absolute policy paths
+4. **Cursor spawns hooks with cwd=workspace root** - enabling relative path resolution

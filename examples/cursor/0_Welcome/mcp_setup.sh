@@ -28,7 +28,7 @@ docker run -d \
     -e POSTGRES_USER=demo \
     -e POSTGRES_PASSWORD=demopass \
     -e POSTGRES_DB=appointments \
-    -p 5432:5432 \
+    -p 15432:5432 \
     postgres:latest
 
 echo "✅ PostgreSQL container started"
@@ -176,15 +176,16 @@ CREATE TABLE appointments (
 EOF
 echo "✅ CLAUDE.md created"
 
-# Recompile policies (only Cursor policies)
+# Recompile policies (Cursor policies + helpers)
 echo "Recompiling Cursor policies with new appointment rules..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/
+opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/cursor/ .cupcake/policies/helpers/
 echo "✅ Policies compiled"
 
-# Create .mcp.json for project-level MCP configuration
-echo "Configuring Claude Code MCP settings..."
+# Create .cursor/mcp.json for project-level MCP configuration
+echo "Configuring Cursor MCP settings..."
+mkdir -p .cursor
 
-cat > .mcp.json << 'EOF'
+cat > .cursor/mcp.json << 'EOF'
 {
   "mcpServers": {
     "postgres": {
@@ -199,14 +200,14 @@ cat > .mcp.json << 'EOF'
         "--access-mode=unrestricted"
       ],
       "env": {
-        "DATABASE_URI": "postgresql://demo:demopass@localhost:5432/appointments"
+        "DATABASE_URI": "postgresql://demo:demopass@localhost:15432/appointments"
       }
     }
   }
 }
 EOF
 
-echo "✅ MCP postgres server configured in .mcp.json"
+echo "✅ MCP postgres server configured in .cursor/mcp.json"
 
 echo ""
 echo "=========================================="
@@ -214,21 +215,21 @@ echo "🎉 MCP Database Demo Setup Complete!"
 echo "=========================================="
 echo ""
 echo "Database Details:"
-echo "  Host: localhost:5432"
+echo "  Host: localhost:15432"
 echo "  Database: appointments"
 echo "  User: demo"
 echo "  Password: demopass"
 echo ""
 echo "IMPORTANT:"
-echo "1. Restart Claude Code to load the MCP configuration"
-echo "2. Claude will ask to approve the project MCP server - click 'Allow'"
-echo "3. The MCP tools will appear as mcp__postgres__* in Claude's tool list"
+echo "1. Restart Cursor to load the MCP configuration"
+echo "2. Cursor will ask to approve the project MCP server - click 'Allow'"
+echo "3. The MCP tools will appear as mcp__postgres__* in the tool list"
 echo ""
 echo "Test Scenarios:"
-echo "1. Ask Claude to list all appointments - Should work ✅"
-echo "2. Ask Claude to cancel appointment ID 1 - Should be blocked 🚫"
+echo "1. Ask to list all appointments - Should work ✅"
+echo "2. Ask to cancel appointment ID 1 - Should be blocked 🚫"
 echo "   (It's scheduled within 24 hours)"
-echo "3. Ask Claude to delete old appointments - Should be blocked 🚫"
+echo "3. Ask to delete old appointments - Should be blocked 🚫"
 echo "   (No deletions allowed)"
 echo ""
 echo "Example prompts to try:"
@@ -237,7 +238,7 @@ echo '  "Cancel the appointment for Sarah Johnson"'
 echo '  "Delete appointments older than 30 days"'
 echo ""
 echo "Troubleshooting:"
-echo "- If /mcp shows no servers, restart Claude Code"
+echo "- If MCP shows no servers, restart Cursor"
 echo "- If Docker connection fails, check if postgres container is running: docker ps"
 echo "- Check MCP server logs: docker logs cupcake-demo-db"
 echo ""

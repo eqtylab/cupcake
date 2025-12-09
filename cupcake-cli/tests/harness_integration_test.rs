@@ -394,6 +394,46 @@ deny contains decision if {
     }
 }
 
+/// Test that Cursor project init creates .cursor/hooks.json in project directory
+#[test]
+fn test_cursor_init_creates_project_level_hooks() {
+    let temp_dir = TempDir::new().unwrap();
+    let output = run_init(temp_dir.path(), &["init", "--harness", "cursor"]);
+    assert!(output.status.success());
+
+    // Project-level hooks should exist
+    assert!(
+        temp_dir.path().join(".cursor/hooks.json").exists(),
+        "Project init should create .cursor/hooks.json in project directory"
+    );
+}
+
+/// Test that Cursor global init creates ~/.cursor/hooks.json
+#[test]
+#[serial(home_env)]
+fn test_cursor_global_init_creates_user_level_hooks() {
+    let temp_dir = TempDir::new().unwrap();
+    let original_home = std::env::var("HOME").ok();
+    std::env::set_var("HOME", temp_dir.path());
+
+    let output = run_init(temp_dir.path(), &["init", "--global", "--harness", "cursor"]);
+
+    // Restore HOME before assertions
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+
+    assert!(output.status.success());
+
+    // User-level hooks should exist at ~/.cursor/hooks.json
+    assert!(
+        temp_dir.path().join(".cursor/hooks.json").exists(),
+        "Global init should create ~/.cursor/hooks.json"
+    );
+}
+
 /// Test that Cursor falls back to cwd when workspace_roots is empty
 #[test]
 #[serial(home_env)]

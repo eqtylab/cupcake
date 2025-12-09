@@ -30,6 +30,8 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 
 **`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
+[Follow on X for a regular updates.](https://x.com/CupcakeSecures)
+
 ## Resources
 
 ## Supported Agent Harnesses

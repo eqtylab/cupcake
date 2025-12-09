@@ -701,14 +701,14 @@ async fn execute_lint(path: &std::path::Path) -> Result<()> {
                     // Check that harness directory has at least one .rego file directly
                     let rego_files = count_rego_files_direct(&harness_dir);
                     if rego_files == 0 {
-                        errors.push(format!("No .rego policy files in policies/{}/", harness));
+                        errors.push(format!("No .rego policy files in policies/{harness}/"));
                     }
                 }
             }
 
             // Validate Rego namespaces (policies, helpers, and system)
             if let Err(e) = validate_rego_namespaces(path, &manifest.metadata.name) {
-                errors.push(format!("Namespace validation failed: {}", e));
+                errors.push(format!("Namespace validation failed: {e}"));
             }
 
             // Check for README
@@ -761,26 +761,26 @@ fn count_rego_files_direct(dir: &std::path::Path) -> usize {
 
 fn validate_rego_namespaces(rulebook_path: &std::path::Path, rulebook_name: &str) -> Result<()> {
     let normalized_name = rulebook_name.replace('-', "_");
-    let base_prefix = format!("cupcake.catalog.{}", normalized_name);
+    let base_prefix = format!("cupcake.catalog.{normalized_name}");
 
     // Validate policies/ directory (policies namespace)
     let policies_dir = rulebook_path.join("policies");
     if policies_dir.exists() {
-        let expected_prefix = format!("{}.policies", base_prefix);
+        let expected_prefix = format!("{base_prefix}.policies");
         validate_rego_files_in_dir(&policies_dir, &expected_prefix, rulebook_path)?;
     }
 
     // Validate helpers/ directory (helpers namespace)
     let helpers_dir = rulebook_path.join("helpers");
     if helpers_dir.exists() {
-        let expected_prefix = format!("{}.helpers", base_prefix);
+        let expected_prefix = format!("{base_prefix}.helpers");
         validate_rego_files_in_dir(&helpers_dir, &expected_prefix, rulebook_path)?;
     }
 
     // Validate system/ directory (exact system namespace)
     let system_dir = rulebook_path.join("system");
     if system_dir.exists() {
-        let expected_package = format!("{}.system", base_prefix);
+        let expected_package = format!("{base_prefix}.system");
         for entry in walkdir::WalkDir::new(&system_dir) {
             let entry = entry?;
             if !entry.path().is_file() {

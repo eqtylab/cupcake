@@ -24,13 +24,24 @@ Make AI agents follow the rules.
 
 Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)** or **Typescript policy programs** that abstract Rego. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
+<p align="center">
+  <a href="./examples/">Examples</a> |
+   <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
+  <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
+ 
+</p>
+<p align="center">
+  <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
+  <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
+</p>
+
 ## Updates
 
 **`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
 
 **`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 
-## ToC
+## Table of Contents
 
 - [Supported Agent Harnesses](#supported-agent-harnesses)
 - [Language Bindings](#language-bindings)

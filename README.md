@@ -36,11 +36,9 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
   <a href="./examples/">Examples</a> |
    <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
   <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
- 
-</p>
-<p align="center">
-  <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
+  <br/> <a href="https://cupcake.eqtylab.io/enterprise/verifiable-agents/">Verifiable Agents</a> |
   <a href="https://cupcake.eqtylab.io/enterprise/">For Enterprise</a>
+ 
 </p>
 
 ## Supported Agent Harnesses

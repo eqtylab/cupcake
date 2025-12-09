@@ -43,7 +43,7 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          cache-targets: false
+          cache-targets: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -103,7 +103,9 @@ jobs:
           # Remove any pre-existing global cupcake config to ensure test isolation
           # This prevents interference from previous CI runs on self-hosted runners
           if [[ "$RUNNER_OS" == "Linux" ]]; then
-            CONFIG_DIR="$HOME/.config/cupcake"
+            # Check both XDG_CONFIG_HOME (if set) and default $HOME/.config paths
+            # The 'directories' crate uses XDG spec which prioritizes XDG_CONFIG_HOME
+            CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cupcake"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             CONFIG_DIR="$HOME/Library/Application Support/cupcake"
           elif [[ "$RUNNER_OS" == "Windows" ]]; then

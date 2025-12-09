@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g., v0.1.0)'
+        description: "Release tag (e.g., v0.1.0)"
         required: true
         type: string
 
@@ -21,9 +21,9 @@ jobs:
     name: Test Suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true  # Stop immediately if any platform fails
+      fail-fast: true # Stop immediately if any platform fails
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [cupcake-ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install OPA (Unix)
         if: runner.os != 'Windows'
@@ -99,8 +99,8 @@ jobs:
   # Create the GitHub Release
   create-release:
     name: Create Release
-    needs: test  # Only create release if all tests pass
-    runs-on: ubuntu-latest
+    needs: test # Only create release if all tests pass
+    runs-on: cupcake-ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       release_id: ${{ steps.create_release.outputs.id }}
@@ -170,7 +170,7 @@ jobs:
   upload-install-scripts:
     name: Upload Install Scripts
     needs: create-release
-    runs-on: ubuntu-latest
+    runs-on: cupcake-ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -233,7 +233,7 @@ jobs:
     needs: create-release
     runs-on: ${{ matrix.os }}
     env:
-      OPA_VERSION: v1.7.1  # Centralized OPA version
+      OPA_VERSION: v1.7.1 # Centralized OPA version
     strategy:
       fail-fast: false
       matrix:
@@ -243,25 +243,25 @@ jobs:
             target: x86_64-apple-darwin
             name: macos-intel
             archive: tar.gz
-            
+
           - os: macos-latest
             target: aarch64-apple-darwin
             name: macos-apple-silicon
             archive: tar.gz
 
           # Linux builds
-          - os: ubuntu-latest
+          - os: cupcake-ubuntu-latest
             target: x86_64-unknown-linux-gnu
             name: linux-x64
             archive: tar.gz
-            
-          - os: ubuntu-latest
+
+          - os: cupcake-ubuntu-latest
             target: x86_64-unknown-linux-musl
             name: linux-x64-musl
             archive: tar.gz
             use_cross: true
-            
-          - os: ubuntu-latest
+
+          - os: cupcake-ubuntu-latest
             target: aarch64-unknown-linux-gnu
             name: linux-arm64
             archive: tar.gz
@@ -293,7 +293,7 @@ jobs:
           cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build (native)
-        if: '!matrix.use_cross'
+        if: "!matrix.use_cross"
         run: |
           cargo build --profile dist --target ${{ matrix.target }} --bin cupcake
 
@@ -322,19 +322,19 @@ jobs:
               OPA_BINARY="opa_linux_arm64_static"
               ;;
           esac
-          
+
           echo "Downloading OPA ${{ env.OPA_VERSION }} - ${OPA_BINARY}"
           # Download with original filename for checksum verification
           curl -L -o "${OPA_BINARY}" "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}"
           curl -L -o "${OPA_BINARY}.sha256" "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}.sha256"
-          
+
           # Verify checksum with original filename
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             shasum -a 256 -c "${OPA_BINARY}.sha256"
           else
             sha256sum -c "${OPA_BINARY}.sha256"
           fi
-          
+
           # Rename to opa after successful verification
           mv "${OPA_BINARY}" opa
           chmod +x opa
@@ -346,28 +346,28 @@ jobs:
           VERSION="${{ needs.create-release.outputs.version }}"
           ARCHIVE_NAME="cupcake-${VERSION}-${{ matrix.target }}"
           mkdir -p "${ARCHIVE_NAME}/bin"
-          
+
           # Copy binary
           cp "target/${{ matrix.target }}/dist/cupcake" "${ARCHIVE_NAME}/bin/"
           chmod +x "${ARCHIVE_NAME}/bin/cupcake"
-          
+
           # Copy bundled OPA
           cp "${OPA_BINARY_PATH}" "${ARCHIVE_NAME}/bin/opa"
           chmod +x "${ARCHIVE_NAME}/bin/opa"
-          
+
           # Copy documentation
           cp README.md LICENSE "${ARCHIVE_NAME}/"
-          
+
           # Create archive
           tar czf "${ARCHIVE_NAME}.tar.gz" "${ARCHIVE_NAME}"
-          
+
           # Generate checksum
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             shasum -a 256 "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
           else
             sha256sum "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.tar.gz.sha256"
           fi
-          
+
           echo "ARCHIVE_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.tar.gz.sha256" >> $GITHUB_ENV
 
@@ -395,18 +395,18 @@ jobs:
         shell: pwsh
         run: |
           $OPA_BINARY = "opa_windows_amd64.exe"
-          
+
           Write-Host "Downloading OPA ${{ env.OPA_VERSION }} - ${OPA_BINARY}"
           Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}" -OutFile "opa.exe"
           Invoke-WebRequest -Uri "https://github.com/open-policy-agent/opa/releases/download/${{ env.OPA_VERSION }}/${OPA_BINARY}.sha256" -OutFile "opa.exe.sha256"
-          
+
           # Verify checksum
           $expectedHash = (Get-Content "opa.exe.sha256" -Raw).Split(' ')[0]
           $actualHash = (Get-FileHash -Path "opa.exe" -Algorithm SHA256).Hash.ToLower()
           if ($expectedHash -ne $actualHash) {
               throw "OPA checksum verification failed"
           }
-          
+
           echo "OPA_BINARY_PATH=$(pwd)\opa.exe" >> $env:GITHUB_ENV
 
       - name: Prepare artifact (Windows)
@@ -415,25 +415,25 @@ jobs:
         run: |
           $VERSION = "${{ needs.create-release.outputs.version }}"
           $ARCHIVE_NAME = "cupcake-${VERSION}-${{ matrix.target }}"
-          
+
           New-Item -ItemType Directory -Path "${ARCHIVE_NAME}/bin" -Force
-          
+
           # Copy binary
           Copy-Item "target/${{ matrix.target }}/dist/cupcake.exe" "${ARCHIVE_NAME}/bin/"
-          
+
           # Copy bundled OPA
           Copy-Item "${env:OPA_BINARY_PATH}" "${ARCHIVE_NAME}/bin/opa.exe"
-          
+
           # Copy documentation
           Copy-Item "README.md", "LICENSE" "${ARCHIVE_NAME}/"
-          
+
           # Create archive
           Compress-Archive -Path "${ARCHIVE_NAME}" -DestinationPath "${ARCHIVE_NAME}.zip"
-          
+
           # Generate checksum
           $hash = Get-FileHash -Path "${ARCHIVE_NAME}.zip" -Algorithm SHA256
           "$($hash.Hash.ToLower())  ${ARCHIVE_NAME}.zip" | Out-File -FilePath "${ARCHIVE_NAME}.zip.sha256" -Encoding ASCII
-          
+
           echo "ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $env:GITHUB_ENV
           echo "CHECKSUM_PATH=${ARCHIVE_NAME}.zip.sha256" >> $env:GITHUB_ENV
 
@@ -479,7 +479,7 @@ jobs:
   combine-hashes:
     name: Combine Hashes for SLSA
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: cupcake-ubuntu-latest
     outputs:
       hashes: ${{ steps.combine.outputs.hashes }}
     steps:
@@ -521,9 +521,9 @@ jobs:
     name: Generate SLSA Provenance
     needs: [combine-hashes, create-release]
     permissions:
-      actions: read      # Detect the GitHub Actions environment
-      id-token: write    # Sign the provenance with OIDC token
-      contents: write    # Upload provenance to the release
+      actions: read # Detect the GitHub Actions environment
+      id-token: write # Sign the provenance with OIDC token
+      contents: write # Upload provenance to the release
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.combine-hashes.outputs.hashes }}
@@ -532,7 +532,7 @@ jobs:
   upload-provenance:
     name: Upload Provenance to Release
     needs: [create-release, provenance]
-    runs-on: ubuntu-latest
+    runs-on: cupcake-ubuntu-latest
     steps:
       - name: Download provenance
         uses: actions/download-artifact@v4
@@ -554,7 +554,7 @@ jobs:
   checksums:
     name: Generate Combined Checksums
     needs: [create-release, build, upload-provenance]
-    runs-on: ubuntu-latest
+    runs-on: cupcake-ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -562,7 +562,7 @@ jobs:
       - name: Download all artifacts
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
-          
+
           # Download all checksums from the release
           for target in x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu x86_64-unknown-linux-musl aarch64-unknown-linux-gnu x86_64-pc-windows-msvc; do
             # Determine extension
@@ -571,12 +571,12 @@ jobs:
             else
               ext="tar.gz"
             fi
-            
+
             # Try to download checksum
             curl -sL -o "cupcake-${VERSION}-${target}.${ext}.sha256" \
               "https://github.com/${{ github.repository }}/releases/download/${VERSION}/cupcake-${VERSION}-${target}.${ext}.sha256" || true
           done
-          
+
           # Combine all checksums
           cat *.sha256 > SHA256SUMS 2>/dev/null || echo "No checksums found" > SHA256SUMS
 
@@ -598,7 +598,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [cupcake-ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -670,7 +670,7 @@ jobs:
   finalize:
     name: Finalize Release
     needs: [create-release, build, checksums, upload-provenance, test-install]
-    runs-on: ubuntu-latest
+    runs-on: cupcake-ubuntu-latest
     steps:
       - name: Publish Release
         run: |

@@ -451,51 +451,6 @@ async fn main() -> Result<()> {
     }
 }
 
-/// Resolve a relative policy directory for Cursor harness using workspace info from event JSON.
-///
-/// Cursor hooks are always global (~/.cursor/hooks.json), but projects have local .cupcake/ dirs.
-/// This extracts the workspace root from the event to resolve relative paths like ".cupcake".
-///
-/// Resolution order (workspace_roots is authoritative):
-/// 1. First entry in `workspace_roots` array (Cursor's explicit project declaration)
-/// 2. `cwd` field as fallback if workspace_roots is empty/missing
-/// 3. Falls back to original path if neither found
-///
-/// We prioritize workspace_roots because it's Cursor's explicit declaration of which
-/// directories are project roots, while cwd may be set to various locations.
-fn resolve_cursor_policy_dir(policy_dir: &Path, event: &serde_json::Value) -> PathBuf {
-    // Try workspace_roots first (authoritative source from Cursor)
-    if let Some(roots) = event.get("workspace_roots").and_then(|v| v.as_array()) {
-        if let Some(first_root) = roots.first().and_then(|v| v.as_str()) {
-            let resolved = Path::new(first_root).join(policy_dir);
-            debug!(
-                "Resolved Cursor policy_dir via workspace_roots: {:?} -> {:?}",
-                policy_dir, resolved
-            );
-            return resolved;
-        }
-    }
-
-    // Fall back to cwd if workspace_roots is empty/missing
-    if let Some(cwd) = event.get("cwd").and_then(|v| v.as_str()) {
-        if !cwd.is_empty() {
-            let resolved = Path::new(cwd).join(policy_dir);
-            debug!(
-                "Resolved Cursor policy_dir via cwd fallback: {:?} -> {:?}",
-                policy_dir, resolved
-            );
-            return resolved;
-        }
-    }
-
-    // No workspace info found - return original path
-    debug!(
-        "No Cursor workspace info found, using original policy_dir: {:?}",
-        policy_dir
-    );
-    policy_dir.to_path_buf()
-}
-
 async fn eval_command(
     policy_dir: PathBuf,
     strict: bool,
@@ -518,16 +473,9 @@ async fn eval_command(
     info!("Processing harness: {:?}", harness_type);
     debug!("Parsing hook event from stdin");
 
-    // Resolve policy_dir for Cursor harness when using relative paths
-    // Cursor hooks are global (~/.cursor/hooks.json) but need to find project-local .cupcake/
-    // We extract the workspace root from the event JSON to resolve relative paths
-    let resolved_policy_dir = if policy_dir.is_relative()
-        && harness_type == cupcake_core::harness::types::HarnessType::Cursor
-    {
-        resolve_cursor_policy_dir(&policy_dir, &hook_event_json)
-    } else {
-        policy_dir
-    };
+    // Policy directory is resolved relative to the process cwd
+    // All harnesses (Claude Code, Cursor, etc.) spawn hooks with cwd set to the project root
+    let resolved_policy_dir = policy_dir;
 
     debug!(
         "Initializing Cupcake engine with policies from: {:?}",

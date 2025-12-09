@@ -90,7 +90,6 @@ pub fn extract_target_paths(command: &str) -> Vec<PathBuf> {
     paths
 }
 
-
 /// Strip glob patterns to get the parent directory
 ///
 /// - `/home/user/*` → `/home/user/`
@@ -99,7 +98,7 @@ pub fn extract_target_paths(command: &str) -> Vec<PathBuf> {
 /// - `/home/user/file.txt` → `/home/user/file.txt` (no glob, unchanged)
 fn strip_glob_to_parent(path: &str) -> String {
     // Find first glob character
-    if let Some(glob_pos) = path.find(|c| c == '*' || c == '?' || c == '[') {
+    if let Some(glob_pos) = path.find(['*', '?', '[']) {
         // Find the last path separator before the glob
         let before_glob = &path[..glob_pos];
         if let Some(sep_pos) = before_glob.rfind('/') {
@@ -137,10 +136,10 @@ mod tests {
     #[test]
     fn test_rm_rf_multiple_paths() {
         let paths = extract_target_paths("rm -rf /tmp/foo /tmp/bar");
-        assert_eq!(paths, vec![
-            PathBuf::from("/tmp/foo"),
-            PathBuf::from("/tmp/bar"),
-        ]);
+        assert_eq!(
+            paths,
+            vec![PathBuf::from("/tmp/foo"), PathBuf::from("/tmp/bar"),]
+        );
     }
 
     #[test]
@@ -207,10 +206,10 @@ mod tests {
     #[test]
     fn test_mv_command() {
         let paths = extract_target_paths("mv /source/dir /dest/dir");
-        assert_eq!(paths, vec![
-            PathBuf::from("/source/dir"),
-            PathBuf::from("/dest/dir"),
-        ]);
+        assert_eq!(
+            paths,
+            vec![PathBuf::from("/source/dir"), PathBuf::from("/dest/dir"),]
+        );
     }
 
     #[test]
@@ -228,7 +227,10 @@ mod tests {
 
     #[test]
     fn test_strip_glob_no_glob() {
-        assert_eq!(strip_glob_to_parent("/home/user/file.txt"), "/home/user/file.txt");
+        assert_eq!(
+            strip_glob_to_parent("/home/user/file.txt"),
+            "/home/user/file.txt"
+        );
     }
 
     #[test]
@@ -238,6 +240,9 @@ mod tests {
 
     #[test]
     fn test_strip_glob_nested() {
-        assert_eq!(strip_glob_to_parent("/home/user/src/**/*.rs"), "/home/user/src/");
+        assert_eq!(
+            strip_glob_to_parent("/home/user/src/**/*.rs"),
+            "/home/user/src/"
+        );
     }
 }

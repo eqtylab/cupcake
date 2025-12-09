@@ -27,8 +27,8 @@ pub mod normalizers;
 pub mod script_inspector;
 pub mod symlink_resolver;
 
-pub use config::PreprocessConfig;
 use command_path_extractor::extract_target_paths;
+pub use config::PreprocessConfig;
 use normalizers::WhitespaceNormalizer;
 use script_inspector::ScriptInspector;
 use symlink_resolver::SymlinkResolver;
@@ -382,10 +382,7 @@ fn extract_and_attach_affected_directories(input: &mut Value, command: &str) {
     for path in affected_paths {
         if let Some(resolved) = SymlinkResolver::resolve_path(&path, cwd.as_deref()) {
             let resolved_str = resolved.to_string_lossy().to_string();
-            debug!(
-                "Resolved affected directory: {:?} → {}",
-                path, resolved_str
-            );
+            debug!("Resolved affected directory: {:?} → {}", path, resolved_str);
             canonical_paths.push(resolved_str);
         } else {
             // Fallback: use the path as-is if we can't resolve
@@ -985,8 +982,7 @@ mod tests {
         let first_path = affected_array[0].as_str().unwrap();
         assert!(
             first_path.contains("home/user"),
-            "Affected path should contain 'home/user', got: {}",
-            first_path
+            "Affected path should contain 'home/user', got: {first_path}"
         );
     }
 
@@ -1013,8 +1009,7 @@ mod tests {
         let first_path = affected_array[0].as_str().unwrap();
         assert!(
             first_path.contains("var/data"),
-            "Affected path should contain 'var/data', got: {}",
-            first_path
+            "Affected path should contain 'var/data', got: {first_path}"
         );
     }
 

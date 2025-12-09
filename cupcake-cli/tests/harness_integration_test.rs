@@ -416,7 +416,10 @@ fn test_cursor_global_init_creates_user_level_hooks() {
     let original_home = std::env::var("HOME").ok();
     std::env::set_var("HOME", temp_dir.path());
 
-    let output = run_init(temp_dir.path(), &["init", "--global", "--harness", "cursor"]);
+    let output = run_init(
+        temp_dir.path(),
+        &["init", "--global", "--harness", "cursor"],
+    );
 
     // Restore HOME before assertions
     if let Some(home) = original_home {
@@ -690,7 +693,11 @@ fn test_cursor_stop_allow_returns_empty() {
     let response: Value = serde_json::from_str(&stdout).expect("Valid JSON");
 
     // When allowed, stop returns empty (agent can stop)
-    assert_eq!(response, json!({}), "stop allow should return empty response");
+    assert_eq!(
+        response,
+        json!({}),
+        "stop allow should return empty response"
+    );
 }
 
 /// Test that stop hook block returns followup_message for agent looping
@@ -751,8 +758,7 @@ deny contains decision if {
     // Block on stop returns followup_message to continue the agent loop
     assert!(
         response.get("followup_message").is_some(),
-        "stop block should return followup_message. Got: {}",
-        stdout
+        "stop block should return followup_message. Got: {stdout}"
     );
     assert!(
         response["followup_message"]
@@ -822,7 +828,10 @@ deny contains decision if {
     let response: Value = serde_json::from_str(&stdout).expect("Valid JSON");
 
     // Verify block response format
-    assert_eq!(response["continue"], false, "Should block the prompt. Got response: {}", stdout);
+    assert_eq!(
+        response["continue"], false,
+        "Should block the prompt. Got response: {stdout}"
+    );
     assert!(
         response["user_message"].is_string(),
         "Should include user_message field (snake_case)"

@@ -38,9 +38,7 @@ pub fn build(decision: &EngineDecision, _agent_messages: Option<Vec<String>>) ->
         }
         EngineDecision::Ask { reason } => {
             // Ask is treated as block since we can't prompt user at this stage
-            debug!(
-                "Ask decision on beforeSubmitPrompt not supported by Cursor; blocking instead"
-            );
+            debug!("Ask decision on beforeSubmitPrompt not supported by Cursor; blocking instead");
             json!({
                 "continue": false,
                 "user_message": reason

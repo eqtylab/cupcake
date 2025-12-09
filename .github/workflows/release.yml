@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: true # Stop immediately if any platform fails
       matrix:
-        os: [cupcake-ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -100,7 +100,7 @@ jobs:
   create-release:
     name: Create Release
     needs: test # Only create release if all tests pass
-    runs-on: cupcake-ubuntu-latest
+    runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       release_id: ${{ steps.create_release.outputs.id }}
@@ -170,7 +170,7 @@ jobs:
   upload-install-scripts:
     name: Upload Install Scripts
     needs: create-release
-    runs-on: cupcake-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -250,18 +250,18 @@ jobs:
             archive: tar.gz
 
           # Linux builds
-          - os: cupcake-ubuntu-latest
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             name: linux-x64
             archive: tar.gz
 
-          - os: cupcake-ubuntu-latest
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             name: linux-x64-musl
             archive: tar.gz
             use_cross: true
 
-          - os: cupcake-ubuntu-latest
+          - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             name: linux-arm64
             archive: tar.gz
@@ -479,7 +479,7 @@ jobs:
   combine-hashes:
     name: Combine Hashes for SLSA
     needs: [build]
-    runs-on: cupcake-ubuntu-latest
+    runs-on: ubuntu-latest
     outputs:
       hashes: ${{ steps.combine.outputs.hashes }}
     steps:
@@ -532,7 +532,7 @@ jobs:
   upload-provenance:
     name: Upload Provenance to Release
     needs: [create-release, provenance]
-    runs-on: cupcake-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Download provenance
         uses: actions/download-artifact@v4
@@ -554,7 +554,7 @@ jobs:
   checksums:
     name: Generate Combined Checksums
     needs: [create-release, build, upload-provenance]
-    runs-on: cupcake-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -598,7 +598,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [cupcake-ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -670,7 +670,7 @@ jobs:
   finalize:
     name: Finalize Release
     needs: [create-release, build, checksums, upload-provenance, test-install]
-    runs-on: cupcake-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Publish Release
         run: |

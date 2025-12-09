@@ -22,11 +22,13 @@ use serde_json::Value;
 use tracing::{debug, trace};
 
 pub mod config;
+pub mod destructive_command_parser;
 pub mod normalizers;
 pub mod script_inspector;
 pub mod symlink_resolver;
 
 pub use config::PreprocessConfig;
+use destructive_command_parser::extract_affected_directories;
 use normalizers::WhitespaceNormalizer;
 use script_inspector::ScriptInspector;
 use symlink_resolver::SymlinkResolver;
@@ -311,6 +313,11 @@ fn preprocess_claude_bash_command(input: &mut Value, config: &PreprocessConfig) 
                 if config.enable_script_inspection {
                     inspect_and_attach_script(input, &normalized);
                 }
+
+                // Extract affected parent directories for destructive commands
+                // This enables policies to protect paths that would be affected
+                // by operations like `rm -rf /parent/*` where /parent/.cupcake/ exists
+                extract_and_attach_affected_directories(input, &normalized);
             }
         }
     }
@@ -342,6 +349,78 @@ fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig)
             if config.enable_script_inspection {
                 inspect_and_attach_script(input, &normalized);
             }
+
+            // Extract affected parent directories for destructive commands
+            extract_and_attach_affected_directories(input, &normalized);
+        }
+    }
+}
+
+/// Extract affected parent directories from destructive commands and attach to event
+///
+/// This enables policies to detect when a command like `rm -rf /parent/*` would
+/// affect protected child paths like `/parent/.cupcake/`.
+///
+/// The extracted paths are canonicalized via SymlinkResolver to prevent bypass
+/// attacks where the parent directory is a symlink.
+fn extract_and_attach_affected_directories(input: &mut Value, command: &str) {
+    let affected_paths = extract_affected_directories(command);
+
+    if affected_paths.is_empty() {
+        return;
+    }
+
+    // Get cwd for path resolution
+    let cwd: Option<std::path::PathBuf> = input
+        .get("cwd")
+        .and_then(|v| v.as_str())
+        .map(std::path::PathBuf::from);
+
+    // Canonicalize each path via SymlinkResolver
+    let mut canonical_paths: Vec<String> = Vec::new();
+
+    for path in affected_paths {
+        if let Some(resolved) = SymlinkResolver::resolve_path(&path, cwd.as_deref()) {
+            let resolved_str = resolved.to_string_lossy().to_string();
+            debug!(
+                "Resolved affected directory: {:?} → {}",
+                path, resolved_str
+            );
+            canonical_paths.push(resolved_str);
+        } else {
+            // Fallback: use the path as-is if we can't resolve
+            // (e.g., path doesn't exist yet)
+            let path_str = if path.is_absolute() {
+                path.to_string_lossy().to_string()
+            } else if let Some(ref cwd) = cwd {
+                cwd.join(&path).to_string_lossy().to_string()
+            } else {
+                path.to_string_lossy().to_string()
+            };
+            trace!(
+                "Could not resolve affected directory, using raw: {}",
+                path_str
+            );
+            canonical_paths.push(path_str);
+        }
+    }
+
+    if !canonical_paths.is_empty() {
+        // Attach to event
+        if let Some(obj) = input.as_object_mut() {
+            obj.insert(
+                "affected_parent_directories".to_string(),
+                serde_json::Value::Array(
+                    canonical_paths
+                        .iter()
+                        .map(|s| serde_json::Value::String(s.clone()))
+                        .collect(),
+                ),
+            );
+            debug!(
+                "Attached affected_parent_directories: {:?}",
+                canonical_paths
+            );
         }
     }
 }
@@ -871,6 +950,93 @@ mod tests {
         assert!(
             input.get("resolved_file_path").is_some(),
             "Should ALWAYS have canonical path"
+        );
+    }
+
+    #[test]
+    fn test_affected_parent_directories_extracted_claude() {
+        // Test that rm -rf commands extract affected directories for parent path protection
+        let mut input = json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "rm -rf /home/user/*"
+            },
+            "cwd": "/tmp"
+        });
+
+        let config = PreprocessConfig::default();
+        preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
+
+        // Should have affected_parent_directories attached
+        let affected = input.get("affected_parent_directories");
+        assert!(
+            affected.is_some(),
+            "Should have affected_parent_directories for rm -rf command"
+        );
+
+        let affected_array = affected.unwrap().as_array().unwrap();
+        assert!(
+            !affected_array.is_empty(),
+            "affected_parent_directories should not be empty"
+        );
+
+        // The path should be /home/user/ (parent of glob)
+        let first_path = affected_array[0].as_str().unwrap();
+        assert!(
+            first_path.contains("home/user"),
+            "Affected path should contain 'home/user', got: {}",
+            first_path
+        );
+    }
+
+    #[test]
+    fn test_affected_parent_directories_extracted_cursor() {
+        // Test that Cursor shell commands also extract affected directories
+        let mut input = json!({
+            "hook_event_name": "beforeShellExecution",
+            "command": "rm -rf /var/data/*",
+            "cwd": "/tmp"
+        });
+
+        let config = PreprocessConfig::default();
+        preprocess_input(&mut input, &config, HarnessType::Cursor);
+
+        // Should have affected_parent_directories attached
+        let affected = input.get("affected_parent_directories");
+        assert!(
+            affected.is_some(),
+            "Cursor shell commands should have affected_parent_directories"
+        );
+
+        let affected_array = affected.unwrap().as_array().unwrap();
+        let first_path = affected_array[0].as_str().unwrap();
+        assert!(
+            first_path.contains("var/data"),
+            "Affected path should contain 'var/data', got: {}",
+            first_path
+        );
+    }
+
+    #[test]
+    fn test_no_affected_directories_for_non_destructive() {
+        // Test that non-destructive commands don't extract directories
+        let mut input = json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "ls -la /home/user/*"
+            },
+            "cwd": "/tmp"
+        });
+
+        let config = PreprocessConfig::default();
+        preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
+
+        // Should NOT have affected_parent_directories for ls
+        assert!(
+            input.get("affected_parent_directories").is_none(),
+            "ls command should not have affected_parent_directories"
         );
     }
 }

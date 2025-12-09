@@ -90,6 +90,32 @@ halt contains decision if {
 	}
 }
 
+# Block destructive commands that would affect a parent directory containing protected paths
+# This catches cases like `rm -rf /home/user/*` when `/home/user/.cupcake/` is protected
+# The `affected_parent_directories` field is populated by Rust preprocessing for destructive commands
+halt contains decision if {
+	input.hook_event_name == "PreToolUse"
+	input.tool_name == "Bash"
+
+	# Get affected parent directories from preprocessing
+	# This is populated for commands like rm -rf, chmod -R, etc.
+	affected_dirs := input.affected_parent_directories
+	count(affected_dirs) > 0
+
+	# Check if any protected path is a CHILD of an affected directory
+	some affected_dir in affected_dirs
+	some protected_path in get_protected_paths
+	protected_is_child_of_affected(protected_path, affected_dir)
+
+	message := get_configured_message
+
+	decision := {
+		"rule_id": "BUILTIN-PROTECTED-PATHS-PARENT",
+		"reason": concat("", [message, " (", protected_path, " would be affected by operation on ", affected_dir, ")"]),
+		"severity": "HIGH",
+	}
+}
+
 # Extract file path from tool input
 get_file_path_from_tool_input := path if {
 	path := input.tool_input.file_path
@@ -290,4 +316,38 @@ get_protected_paths := paths if {
 } else := paths if {
 	# No paths configured - policy inactive
 	paths := []
+}
+
+# Check if a protected path is a child of an affected directory
+# This is the "reverse" check for parent directory protection:
+# protected_path: /home/user/.cupcake/config.yml
+# affected_dir:   /home/user/
+# Returns true because the protected path is inside the affected directory
+protected_is_child_of_affected(protected_path, affected_dir) if {
+	# Normalize: ensure affected_dir ends with /
+	affected_normalized := ensure_trailing_slash(affected_dir)
+
+	# Check if protected path starts with the affected directory
+	startswith(lower(protected_path), lower(affected_normalized))
+}
+
+protected_is_child_of_affected(protected_path, affected_dir) if {
+	# Also check exact match (rm -rf /home/user/.cupcake)
+	lower(protected_path) == lower(affected_dir)
+}
+
+protected_is_child_of_affected(protected_path, affected_dir) if {
+	# Handle case where affected_dir is specified without trailing slash
+	# but protected_path has it as a prefix
+	not endswith(affected_dir, "/")
+	prefix := concat("", [lower(affected_dir), "/"])
+	startswith(lower(protected_path), prefix)
+}
+
+# Helper to ensure path ends with /
+ensure_trailing_slash(path) := result if {
+	endswith(path, "/")
+	result := path
+} else := result if {
+	result := concat("", [path, "/"])
 }

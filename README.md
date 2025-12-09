@@ -15,13 +15,6 @@ Make AI agents follow the rules.
 [![Tests](https://img.shields.io/github/actions/workflow/status/eqtylab/cupcake/ci.yml?branch=main&label=tests)](https://github.com/eqtylab/cupcake/actions/workflows/ci.yml)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://github.com/eqtylab/cupcake/actions/runs/19737865145/job/56558251812)
 
-<p align="left">
-  <a href="./examples/">Examples</a> |
-   <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
-  <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
-
-</p>
-
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
 - **Deterministic rule-following** for your agents.
@@ -30,6 +23,12 @@ Make AI agents follow the rules.
 - **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
 Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)** or **Typescript policy programs** that abstract Rego. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
+
+<p align="left">
+  <a href="./examples/">Examples</a> |
+   <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
+  <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
+</p>
 
 ## Updates
 

@@ -24,12 +24,6 @@ Make AI agents follow the rules.
 
 Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language)** or **Typescript policy programs** that abstract Rego. Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).
 
-<p align="left">
-  <a href="./examples/">Examples</a> |
-   <a href="https://cupcake.eqtylab.io/enterprise/security-acknowledgements/">Security Acknowledgements</a> | 
-  <a href="https://cupcake.eqtylab.io/reference/policies/">Why OPA/Rego</a>
-</p>
-
 ## Updates
 
 **`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.

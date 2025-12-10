@@ -17,9 +17,8 @@ Make AI agents follow the rules.
 
 **Policy enforcement** layer for AI agents; yielding better performance and security **without consuming model context**.
 
-- **Deterministic rule-following** for your agents.
+- **Deterministic rule-following** for your agents. [Interactive Examples](https://cupcake-policy-studio.vercel.app/example-policies/security/symlink-detection?harness=claude-code&format=rego)
 - **Better performance** by moving rules out of context and into policy-as-code.
-- **LLM-as-a-judge** for more dynamic governance.
 - **Trigger alerts** and put _bad_ agents in timeout when they repeatedly violate rules.
 
 Cupcake intercepts agent events and evaluates them against **user-defined rules** written in **[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) [Rego](https://www.openpolicyagent.org/docs/policy-language).** Agent actions can be blocked, modified, and auto-corrected by providing the agent helpful feedback. Additional benefits include reactive automation for tasks you dont need to rely on the agent to conduct (like linting after a file edit).

@@ -26,7 +26,7 @@ Cupcake intercepts agent events and evaluates them against **user-defined rules*
 
 ## Updates
 
-**`2025-12-09`**: Official open source release. Roadmap will be produced in Q1 2026.
+**`2025-12-10`**: Official open source release. Roadmap will be produced in Q1 2026.
 
 **`2025-04-04`**: We produce the [feature request](https://github.com/anthropics/claude-code/issues/712) for Claude Code Hooks. Runtime alignment requires integration into the agent harnesses, and we pivot away from filesystem and os-level monitoring of agent behavior (early cupcake PoC).
 

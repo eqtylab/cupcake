@@ -1,8 +1,8 @@
 # PowerShell script for Windows setup
 # Run with: powershell -ExecutionPolicy Bypass -File setup.ps1
 
-Write-Host "Cupcake Evaluation Setup (Windows)" -ForegroundColor Green
-Write-Host "==================================`n"
+Write-Host "Cupcake Claude Code Evaluation Setup (Windows)" -ForegroundColor Green
+Write-Host "===============================================`n"
 
 # Check if Rust/Cargo is installed
 try {
@@ -25,15 +25,8 @@ try {
     exit 1
 }
 
-# Check if OPA is installed
-try {
-    $uvVersion = uv --version 2>$null
-    Write-Host "✅ uv found: $uvVersion" -ForegroundColor Green
-} catch {
-    Write-Host "❌ uv not found in PATH. Please install OPA:" -ForegroundColor Red
-    Write-Host "   https://docs.astral.sh/uv/" -ForegroundColor Yellow
-    exit 1
-}
+# Save current directory
+$originalDir = Get-Location
 
 # Build Cupcake binary
 Write-Host "`nBuilding Cupcake binary..."
@@ -46,22 +39,30 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "✅ Build complete" -ForegroundColor Green
 
-# Add to PATH for this session
-$cupcakePath = Join-Path (Get-Location) "target\release"
-$env:PATH = "$cupcakePath;$env:PATH"
-Write-Host "✅ Added cupcake to PATH for this session" -ForegroundColor Green
+# Store the cupcake binary path
+$cupcakeBin = Join-Path (Get-Location) "target\release\cupcake.exe"
+Write-Host "✅ Using cupcake binary at: $cupcakeBin" -ForegroundColor Green
 
-# Return to eval directory
-Pop-Location
+# Return to original directory
+Set-Location $originalDir
 
-# Initialize Cupcake project
-Write-Host "`nInitializing Cupcake project..."
-cupcake init --harness claude
+# Initialize Cupcake project using the explicit path
+Write-Host "`nInitializing Cupcake project with Claude Code harness..."
+& $cupcakeBin init --harness claude
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Project initialization failed" -ForegroundColor Red
     exit 1
 }
 Write-Host "✅ Project initialized" -ForegroundColor Green
+
+# Update settings.json to use the full path to the cupcake binary
+# This ensures Claude Code can find cupcake even if it's not in PATH
+Write-Host "`nUpdating settings.json with full binary path..."
+$settingsPath = ".claude\settings.json"
+$settingsContent = Get-Content $settingsPath -Raw
+$settingsContent = $settingsContent -replace "cupcake eval", "$cupcakeBin eval"
+$settingsContent | Out-File -FilePath $settingsPath -Encoding UTF8 -NoNewline
+Write-Host "✅ Hooks configured with: $cupcakeBin" -ForegroundColor Green
 
 # Copy example policies to Claude Code policies directory
 Write-Host "`nCopying example policies..."
@@ -72,85 +73,18 @@ Write-Host "✅ Example policies copied" -ForegroundColor Green
 
 Write-Host "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)" -ForegroundColor Green
 
-# Compile policies to WASM (Claude Code policies + shared helpers)
-Write-Host "`nCompiling Claude Code policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/ .cupcake/policies/helpers/
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Policy compilation failed" -ForegroundColor Red
-    exit 1
-}
-Write-Host "✅ Policies compiled to bundle.tar.gz" -ForegroundColor Green
-
-# Create Claude Code settings directory and hooks integration
-Write-Host "`nSetting up Claude Code hooks integration..."
-New-Item -ItemType Directory -Force -Path ".claude" | Out-Null
-
-# Get absolute paths
-$manifestPath = Resolve-Path "..\..\..\Cargo.toml"
-$opaDir = Split-Path (Get-Command opa).Source -Parent
-
-# Create Claude Code settings with Windows paths
-$settingsContent = @"
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info --debug-files",
-            "timeout": 120,
-            "env": {
-              "PATH": "$opaDir;%PATH%"
-            }
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info --debug-files",
-            "timeout": 120,
-            "env": {
-              "PATH": "$opaDir;%PATH%"
-            }
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path `"$manifestPath`" -- eval --harness claude --log-level info --debug-files",
-            "timeout": 120,
-            "env": {
-              "PATH": "$opaDir;%PATH%"
-            }
-          }
-        ]
-      }
-    ]
-  }
-}
-"@
-
-$settingsContent | Out-File -FilePath ".claude\settings.json" -Encoding UTF8
-Write-Host "✅ Claude Code hooks configured" -ForegroundColor Green
+# Note: WASM compilation is handled automatically by 'cupcake eval' at runtime
+# No manual 'opa build' step needed - cupcake compiles policies including helpers
 
 Write-Host "`n🎉 Setup complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "1. Add cupcake to your PATH:" -ForegroundColor White
 Write-Host "   `$env:PATH = `"$(Resolve-Path ..\..\..\target\release);`$env:PATH`"" -ForegroundColor Yellow
-Write-Host "2. Start Claude Code in this directory" -ForegroundColor White
+Write-Host "2. Open this directory in Claude Code" -ForegroundColor White
 Write-Host "3. Try running commands that trigger policies" -ForegroundColor White
-Write-Host "`nExample commands to test:" -ForegroundColor Cyan
+Write-Host "`nManual testing with test events:" -ForegroundColor Cyan
+Write-Host "   cupcake eval --harness claude < test-events/shell-rm.json" -ForegroundColor Yellow
+Write-Host "`nExample commands to test in Claude Code:" -ForegroundColor Cyan
 Write-Host "- ls (safe, should work)" -ForegroundColor White
 Write-Host "- Remove-Item -Recurse -Force C:\temp\test (dangerous, should block)" -ForegroundColor White
 Write-Host "- Edit C:\Windows\System32\drivers\etc\hosts (system file, should block)" -ForegroundColor White

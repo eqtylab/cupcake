@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "Cupcake Evaluation Setup"
-echo "=========================="
+echo "Cupcake Claude Code Evaluation Setup"
+echo "====================================="
 
 # Check if Rust/Cargo is installed
 if ! command -v cargo &> /dev/null; then
@@ -22,14 +22,8 @@ else
     echo "✅ OPA found: $(opa version | head -n1)"
 fi
 
-# Check if uv is installed
-if ! command -v uv &> /dev/null; then
-    echo "❌ uv not found in PATH. Please install uv:"
-    echo "   https://docs.astral.sh/uv/"
-    exit 1
-else
-    echo "✅ uv found: $(uv --version)"
-fi
+# Save current directory to return to later
+ORIGINAL_DIR="$(pwd)"
 
 # Build Cupcake binary
 echo "Building Cupcake binary..."
@@ -41,13 +35,25 @@ echo "✅ Build complete"
 CUPCAKE_BIN="$(pwd)/target/release/cupcake"
 echo "✅ Using cupcake binary at: $CUPCAKE_BIN"
 
-# Return to examples directory
-cd examples/claude-code/0_Welcome
+# Return to original directory
+cd "$ORIGINAL_DIR"
 
 # Initialize Cupcake project using the explicit path
-echo "Initializing Cupcake project..."
+echo "Initializing Cupcake project with Claude Code harness..."
 "$CUPCAKE_BIN" init --harness claude
 echo "✅ Project initialized"
+
+# Update settings.json to use the full path to the cupcake binary
+# This ensures Claude Code can find cupcake even if it's not in PATH
+echo "Updating settings.json with full binary path..."
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS uses BSD sed
+    sed -i '' "s|cupcake eval|$CUPCAKE_BIN eval|g" .claude/settings.json
+else
+    # Linux uses GNU sed
+    sed -i "s|cupcake eval|$CUPCAKE_BIN eval|g" .claude/settings.json
+fi
+echo "✅ Hooks configured with: $CUPCAKE_BIN"
 
 # Copy example policies to Claude Code policies directory
 echo "Copying example policies..."
@@ -59,71 +65,8 @@ echo "✅ Example policies copied"
 # Builtins are now pre-configured in the base template
 echo "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)"
 
-# Compile policies to WASM (Claude Code policies + shared helpers)
-echo "Compiling Claude Code policies to WASM..."
-opa build -t wasm -e cupcake/system/evaluate .cupcake/policies/claude/ .cupcake/policies/helpers/
-echo "✅ Policies compiled to bundle.tar.gz"
-
-# Create Claude Code settings directory and hooks integration
-echo "Setting up Claude Code hooks integration..."
-mkdir -p .claude
-
-# Create Claude Code settings with direct cargo command (like working demo)
-MANIFEST_PATH="$(realpath ../../../Cargo.toml)"
-OPA_DIR="$(dirname "$(which opa)")"
-
-cat > .claude/settings.json << EOF
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info --debug-files",
-            "timeout": 120,
-            "env": {
-              "PATH": "$OPA_DIR:\$PATH"
-            }
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info --debug-files",
-            "timeout": 120,
-            "env": {
-              "PATH": "$OPA_DIR:\$PATH"
-            }
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo run --manifest-path $MANIFEST_PATH -- eval --harness claude --log-level info --debug-files",
-            "timeout": 120,
-            "env": {
-              "PATH": "$OPA_DIR:\$PATH"
-            }
-          }
-        ]
-      }
-    ]
-  }
-}
-EOF
-
-echo "✅ Claude Code hooks configured"
+# Note: WASM compilation is handled automatically by 'cupcake eval' at runtime
+# No manual 'opa build' step needed - cupcake compiles policies including helpers
 
 echo ""
 echo "🎉 Setup complete!"
@@ -131,11 +74,14 @@ echo ""
 echo "Next steps:"
 echo "1. To add cupcake to your PATH, run:"
 echo "   export PATH=\"$(realpath ../../../target/release):\$PATH\""
-echo "2. Start Claude Code in this directory"
+echo "2. Open this directory in Claude Code"
 echo "3. Try running commands that trigger policies"
 echo ""
-echo "Example commands to test:"
-echo "- ls -la (safe, should work)"  
+echo "Manual testing with test events:"
+echo "   cupcake eval --harness claude < test-events/shell-rm.json"
+echo ""
+echo "Example commands to test in Claude Code:"
+echo "- ls -la (safe, should work)"
 echo "- rm -rf /tmp/test (dangerous, should block)"
 echo "- Edit /etc/hosts (system file, should block)"
 echo "- git push --force (risky, should ask)"

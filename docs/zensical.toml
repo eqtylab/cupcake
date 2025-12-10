@@ -48,6 +48,7 @@ nav = [
   { "Home" = "index.md" },
   { "Why Rego" = "why-rego.md" },
   { "Security Disclaimer" = "security-disclaimer.md" },
+  { "Policy Studio (Desktop only)" = "https://cupcake-policy-studio.vercel.app/example-policies/security/protecting-paths?harness=claude-code&format=rego" },
   { "Getting Started" = [
     "getting-started/installation.md",
     { "Usage" = [
@@ -57,6 +58,7 @@ nav = [
       "getting-started/usage/opencode.md",
       "getting-started/usage/factory-ai.md",
     ] },
+    { "See Examples" = "https://cupcake-policy-studio.vercel.app/example-policies/security/protecting-paths?harness=claude-code&format=rego" },
   ] },
   { "Reference" = [
     { "Policies" = [

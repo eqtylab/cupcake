@@ -68,6 +68,33 @@ deny contains decision if {
 	}
 }
 
+# Block interpreter inline scripts (-c/-e flags) that mention protected paths
+# This catches attacks like: python -c 'pathlib.Path("../my-favorite-file.txt").delete()'
+deny contains decision if {
+	input.hook_event_name == "beforeShellExecution"
+
+	command := input.tool_input.command
+	lower_cmd := lower(command)
+
+	# Detect inline script execution with interpreters
+	interpreters := ["python", "python3", "python2", "ruby", "perl", "node", "php"]
+	some interp in interpreters
+	regex.match(concat("", ["(^|\\s)", interp, "\\s+(-c|-e)\\s"]), lower_cmd)
+
+	# Get the list of protected paths from builtin config
+	protected_list := input.builtin_config.protected_paths.paths
+
+	# Check if any protected path is mentioned anywhere in the command
+	some protected_path in protected_list
+	contains(lower_cmd, lower(protected_path))
+
+	decision := {
+		"rule_id": "BUILTIN-PROTECTED-PATHS-SCRIPT",
+		"reason": concat("", ["Inline script blocked: mentions protected path '", protected_path, "'"]),
+		"severity": "HIGH",
+	}
+}
+
 # Check if a file path starts with any protected path
 # Now uses resolved_file_path directly (canonical, absolute path from preprocessing)
 is_protected(file_path, protected_list) if {

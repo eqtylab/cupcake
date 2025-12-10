@@ -116,6 +116,33 @@ halt contains decision if {
 	}
 }
 
+# Block interpreter inline scripts (-c/-e flags) that mention protected paths
+# This catches attacks like: python -c 'pathlib.Path("../my-favorite-file.txt").delete()'
+halt contains decision if {
+	input.hook_event_name == "PreToolUse"
+	input.tool_name == "Bash"
+
+	command := input.tool_input.command
+	lower_cmd := lower(command)
+
+	# Detect inline script execution with interpreters
+	interpreters := ["python", "python3", "python2", "ruby", "perl", "node", "php"]
+	some interp in interpreters
+	regex.match(concat("", ["(^|\\s)", interp, "\\s+(-c|-e)\\s"]), lower_cmd)
+
+	# Check if any protected path is mentioned anywhere in the command
+	some protected_path in get_protected_paths
+	contains(lower_cmd, lower(protected_path))
+
+	message := get_configured_message
+
+	decision := {
+		"rule_id": "BUILTIN-PROTECTED-PATHS-SCRIPT",
+		"reason": concat("", [message, " (inline script mentions '", protected_path, "')"]),
+		"severity": "HIGH",
+	}
+}
+
 # Extract file path from tool input
 get_file_path_from_tool_input := path if {
 	path := input.tool_input.file_path

@@ -225,11 +225,7 @@ fn test_init_global_with_claude_harness() {
 }
 
 /// Helper to run cupcake eval with stdin input and working directory
-fn run_eval_with_stdin_in_dir(
-    dir: &Path,
-    args: &[&str],
-    stdin_data: &str,
-) -> std::process::Output {
+fn run_eval_with_stdin_in_dir(dir: &Path, args: &[&str], stdin_data: &str) -> std::process::Output {
     run_eval_with_stdin_in_dir_and_env(dir, args, stdin_data, &[])
 }
 

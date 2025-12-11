@@ -32,7 +32,7 @@
 //!
 //! ## Implementation Log
 //!
-//! - 2025-01-XX: Initial implementation - span types, context, file writer
+//! - 2025-12-XX: Initial implementation - span types, context, file writer
 
 pub mod context;
 pub mod span;

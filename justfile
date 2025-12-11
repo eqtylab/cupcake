@@ -280,3 +280,9 @@ assets: casts
 # Alias for backwards compatibility  
 asset NAME:
     just cast "{{NAME}}"
+
+# ==================== URL CHECKING ====================
+
+# Check URLs in markdown and HTML files (use --replacements '{"from": "to"}' for staging)
+check-urls *ARGS='':
+    SKIP_DOMAINS="registry.mycompany.com,www.npmjs.com" python3 scripts/check_urls.py . {{ARGS}}

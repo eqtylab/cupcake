@@ -260,7 +260,8 @@ impl TelemetryContext {
                     .as_deref()
                     .unwrap_or_else(|| std::path::Path::new(".cupcake/telemetry"));
 
-                if let Err(e) = TelemetryWriter::write_telemetry(self, &config.format, destination) {
+                if let Err(e) = TelemetryWriter::write_telemetry(self, &config.format, destination)
+                {
                     warn!("Failed to write telemetry: {}", e);
                 } else {
                     debug!("Wrote telemetry to {:?}", destination);
@@ -381,7 +382,7 @@ mod tests {
         // Verify structure (trace_id is inside ingest span)
         assert!(json.contains("\"ingest\""));
         assert!(json.contains("\"enrich\""));
-        assert!(json.contains("trace-123"));  // trace_id is inside ingest
+        assert!(json.contains("trace-123")); // trace_id is inside ingest
         assert!(json.contains("\"preprocessing_operations\""));
         // OTLP fields should be present
         assert!(json.contains("\"span_id\""));

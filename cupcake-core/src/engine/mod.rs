@@ -1234,7 +1234,10 @@ impl Engine {
             // Record global evaluation in telemetry
             if let Some(ref mut ctx) = telemetry {
                 let span = ctx.start_evaluation("global");
-                span.record_routing(true, &self.global_routing_map.keys().cloned().collect::<Vec<_>>());
+                span.record_routing(
+                    true,
+                    &self.global_routing_map.keys().cloned().collect::<Vec<_>>(),
+                );
                 span.record_wasm_result(&global_decision_set);
                 span.record_final_decision(&global_decision);
             }

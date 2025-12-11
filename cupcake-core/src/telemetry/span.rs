@@ -262,8 +262,8 @@ impl EvaluateSpan {
         if let Some(start) = self.start_time.take() {
             self.duration_ms = start.elapsed().as_millis() as u64;
             // Calculate end time from start + duration
-            self.end_time_unix_nano =
-                self.start_time_unix_nano + (self.duration_ms * 1_000_000); // ms to ns
+            self.end_time_unix_nano = self.start_time_unix_nano + (self.duration_ms * 1_000_000);
+            // ms to ns
         }
     }
 }
@@ -357,10 +357,7 @@ mod tests {
         assert_eq!(span.span_id.len(), 16);
         assert_eq!(span.parent_span_id, parent_span_id);
         assert_eq!(span.start_time_unix_nano, start_time);
-        assert_eq!(
-            span.end_time_unix_nano,
-            start_time + (duration_us * 1000)
-        );
+        assert_eq!(span.end_time_unix_nano, start_time + (duration_us * 1000));
     }
 
     #[test]

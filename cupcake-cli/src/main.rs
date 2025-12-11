@@ -512,7 +512,10 @@ async fn eval_command(
         harness_type,
     );
     let preprocess_duration_us = preprocess_start.elapsed().as_micros() as u64;
-    debug!("Input preprocessing completed in {}μs", preprocess_duration_us);
+    debug!(
+        "Input preprocessing completed in {}μs",
+        preprocess_duration_us
+    );
 
     // Add hookEventName field for the engine if not present (for routing compatibility)
     // The engine routing needs this field
@@ -542,7 +545,11 @@ async fn eval_command(
         let mut ctx = TelemetryContext::new(raw_event_for_telemetry, harness_type, trace_id);
 
         // Configure output destinations
-        ctx.configure(debug_files_enabled, debug_dir.clone(), telemetry_config.clone());
+        ctx.configure(
+            debug_files_enabled,
+            debug_dir.clone(),
+            telemetry_config.clone(),
+        );
 
         // Record enrichment (preprocessing results)
         ctx.record_enrichment(

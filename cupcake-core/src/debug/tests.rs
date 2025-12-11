@@ -52,18 +52,24 @@ mod integration_tests {
             trace_id,
         ));
 
-        let decision = engine
-            .evaluate(&event, telemetry.as_mut())
-            .await
-            .unwrap();
+        let decision = engine.evaluate(&event, telemetry.as_mut()).await.unwrap();
 
         // Verify telemetry captured the evaluation
         let ctx = telemetry.unwrap();
-        assert!(!ctx.evaluations().is_empty(), "Should have evaluation spans");
+        assert!(
+            !ctx.evaluations().is_empty(),
+            "Should have evaluation spans"
+        );
         let eval_span = &ctx.evaluations()[0];
         assert!(eval_span.routed, "Should be routed");
-        assert!(!eval_span.matched_policies.is_empty(), "Should have matched policies");
-        assert!(eval_span.final_decision.is_some(), "Should have final decision");
+        assert!(
+            !eval_span.matched_policies.is_empty(),
+            "Should have matched policies"
+        );
+        assert!(
+            eval_span.final_decision.is_some(),
+            "Should have final decision"
+        );
         assert!(matches!(
             decision,
             crate::engine::decision::FinalDecision::Allow { .. }
@@ -94,13 +100,13 @@ mod integration_tests {
             trace_id,
         ));
 
-        let _decision = engine
-            .evaluate(&event, telemetry.as_mut())
-            .await
-            .unwrap();
+        let _decision = engine.evaluate(&event, telemetry.as_mut()).await.unwrap();
 
         let ctx = telemetry.unwrap();
-        assert!(!ctx.evaluations().is_empty(), "Should have evaluation spans");
+        assert!(
+            !ctx.evaluations().is_empty(),
+            "Should have evaluation spans"
+        );
         let eval_span = &ctx.evaluations()[0];
         assert!(eval_span.routed, "Should be routed");
     }

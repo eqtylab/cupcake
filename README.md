@@ -35,10 +35,10 @@ Cupcake provides lightweight **native integrations** for multiple AI coding agen
 
 | Harness                                                                           | Status             | Integration Guide                                                           |
 | --------------------------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/claude-code.md)                   |
-| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/cursor.md)                        |
-| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](./docs/user-guide/harnesses/factory.md)                       |
-| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](./docs/agents/opencode/quickstart.md)                         |
+| **[Claude Code](https://claude.ai/code)**                                         | ✅ Fully Supported | [Setup Guide](https://cupcake.eqtylab.io/getting-started/usage/claude-code/)                   |
+| **[Cursor](https://cursor.com)**                                                  | ✅ Fully Supported | [Setup Guide](https://cupcake.eqtylab.io/getting-started/usage/cursor/)                        |
+| **[Factory AI](https://docs.factory.ai/welcome)**                                 | ✅ Fully Supported | [Setup Guide](https://cupcake.eqtylab.io/getting-started/usage/factory-ai/)                       |
+| **[OpenCode](https://opencode.ai)**                                               | ✅ Fully Supported | [Setup Guide](https://cupcake.eqtylab.io/getting-started/usage/opencode/)                         |
 | **[AMP](https://ampcode.com)**                                                    | Coming soon        | [Awaiting release](https://ampcode.com/manual?internal#hooks)               |
 | **[Gemini CLI](https://docs.cloud.google.com/gemini/docs/codeassist/gemini-cli)** | Coming soon        | [Awaiting release](https://github.com/google-gemini/gemini-cli/issues/2779) |
 

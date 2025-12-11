@@ -31,6 +31,23 @@ class Config:
         self.skip_domains = self._parse_skip_domains(args)
         self.skip_urls = self._parse_skip_urls(args)
         self.skip_files = self._parse_skip_files(args)
+        self.markdown_patterns = self._parse_patterns(args, 'markdown_patterns', 'MARKDOWN_PATTERNS', ['.md', '.markdown'])
+        self.html_patterns = self._parse_patterns(args, 'html_patterns', 'HTML_PATTERNS', ['.html', '.htm'])
+        self.file_patterns = self._parse_patterns(args, 'file_patterns', 'FILE_PATTERNS', [])
+    
+    def _parse_patterns(self, args: argparse.Namespace, arg_name: str, env_name: str, default: List[str]) -> List[str]:
+        """Parse file patterns from env var and CLI args."""
+        patterns = list(default)
+        
+        env_patterns = os.environ.get(env_name, '').strip()
+        if env_patterns:
+            patterns = [p.strip() for p in env_patterns.split(',') if p.strip()]
+        
+        arg_value = getattr(args, arg_name, None)
+        if arg_value:
+            patterns = [p.strip() for p in arg_value.split(',') if p.strip()]
+        
+        return patterns
     
     def _parse_replacements(self, args: argparse.Namespace) -> Dict[str, str]:
         """Parse URL replacements from env var and CLI args."""
@@ -109,6 +126,12 @@ class Config:
         if self.skip_files:
             print(f"Skipping files: {', '.join(sorted(self.skip_files))}")
             print()
+        
+        print(f"Markdown patterns: {', '.join(self.markdown_patterns)}")
+        print(f"HTML patterns: {', '.join(self.html_patterns)}")
+        if self.file_patterns:
+            print(f"Additional file patterns: {', '.join(self.file_patterns)}")
+        print()
 
 
 class URLExtractor:
@@ -154,16 +177,45 @@ class URLExtractor:
         return urls
     
     @classmethod
-    def scan_directory(cls, root_dir: Path, skip_files: Set[str]) -> List[Tuple[Path, str]]:
-        """Recursively scan directory for markdown and HTML files."""
+    def scan_directory(cls, root_dir: Path, skip_files: Set[str], markdown_patterns: List[str], html_patterns: List[str], file_patterns: List[str]) -> List[Tuple[Path, str, str]]:
+        """Recursively scan directory for markdown and HTML files.
+        
+        Returns:
+            List of (file_path, content, file_type) tuples where file_type is 'markdown', 'html', or 'file'
+        """
         files = []
+        all_patterns = markdown_patterns + html_patterns + file_patterns
         
         for root, dirs, filenames in os.walk(root_dir):
             # Filter out excluded directories
             dirs[:] = [d for d in dirs if d not in cls.EXCLUDE_PATTERNS]
             
             for filename in filenames:
-                if filename.endswith(('.md', '.markdown', '.html', '.htm')):
+                # Check if file matches any pattern
+                matches = False
+                file_type = None
+                
+                for pattern in markdown_patterns:
+                    if filename.endswith(pattern):
+                        matches = True
+                        file_type = 'markdown'
+                        break
+                
+                if not matches:
+                    for pattern in html_patterns:
+                        if filename.endswith(pattern):
+                            matches = True
+                            file_type = 'html'
+                            break
+                
+                if not matches:
+                    for pattern in file_patterns:
+                        if filename.endswith(pattern):
+                            matches = True
+                            file_type = 'file'
+                            break
+                
+                if matches:
                     file_path = Path(root) / filename
                     
                     # Check if file should be skipped
@@ -173,7 +225,7 @@ class URLExtractor:
                     try:
                         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
-                        files.append((file_path, content))
+                        files.append((file_path, content, file_type))
                     except Exception as e:
                         print(f"Warning: Could not read {file_path}: {e}", file=sys.stderr)
         
@@ -256,16 +308,20 @@ class URLCheckRunner:
         self.checker = URLChecker(config)
         self.extractor = URLExtractor()
     
-    def extract_all_urls(self, files: List[Tuple[Path, str]]) -> Tuple[Set[str], Dict[str, List[Path]]]:
+    def extract_all_urls(self, files: List[Tuple[Path, str, str]]) -> Tuple[Set[str], Dict[str, List[Path]]]:
         """Extract all URLs from files."""
         all_urls: Set[str] = set()
         url_sources: Dict[str, List[Path]] = {}
         
-        for file_path, content in files:
-            if file_path.suffix.lower() in ('.md', '.markdown'):
+        for file_path, content, file_type in files:
+            if file_type == 'markdown':
                 urls = self.extractor.extract_from_markdown(content)
-            else:
+            elif file_type == 'html':
                 urls = self.extractor.extract_from_html(content)
+            else:
+                # For generic files, try both extractors
+                urls = self.extractor.extract_from_markdown(content)
+                urls.extend(self.extractor.extract_from_html(content))
             
             for url in urls:
                 if self.checker.is_valid_url(url):
@@ -346,8 +402,14 @@ class URLCheckRunner:
         
         self.config.print_config()
         
-        print(f"Scanning {self.config.directory} for markdown and HTML files...")
-        files = self.extractor.scan_directory(self.config.directory, self.config.skip_files)
+        print(f"Scanning {self.config.directory} for files...")
+        files = self.extractor.scan_directory(
+            self.config.directory,
+            self.config.skip_files,
+            self.config.markdown_patterns,
+            self.config.html_patterns,
+            self.config.file_patterns
+        )
         print(f"Found {len(files)} files to scan")
         print()
         
@@ -421,6 +483,27 @@ def main():
         type=str,
         default=None,
         help='Comma-separated list of filenames to skip (e.g. "README.md,CHANGELOG.md")'
+    )
+    
+    parser.add_argument(
+        '--markdown-patterns',
+        type=str,
+        default=None,
+        help='Comma-separated list of markdown file extensions (default: ".md,.markdown")'
+    )
+    
+    parser.add_argument(
+        '--html-patterns',
+        type=str,
+        default=None,
+        help='Comma-separated list of HTML file extensions (default: ".html,.htm")'
+    )
+    
+    parser.add_argument(
+        '--file-patterns',
+        type=str,
+        default=None,
+        help='Comma-separated list of additional file extensions to check'
     )
     
     args = parser.parse_args()

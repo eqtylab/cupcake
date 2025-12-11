@@ -16,7 +16,7 @@ use tabled::{
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
-use cupcake_core::{debug::DebugCapture, engine, harness, validator};
+use cupcake_core::{engine, harness, telemetry::TelemetryContext, validator};
 
 #[cfg(feature = "catalog")]
 mod catalog_cli;
@@ -470,6 +470,9 @@ async fn eval_command(
     let mut hook_event_json: serde_json::Value =
         serde_json::from_str(&stdin_buffer).context("Failed to parse hook event JSON")?;
 
+    // TELEMETRY: Capture raw event BEFORE any preprocessing mutations
+    let raw_event_for_telemetry = hook_event_json.clone();
+
     info!("Processing harness: {:?}", harness_type);
     debug!("Parsing hook event from stdin");
 
@@ -501,13 +504,15 @@ async fn eval_command(
 
     // Apply input preprocessing to normalize adversarial patterns
     // This protects all policies (user and builtin) from spacing bypasses
+    let preprocess_start = std::time::Instant::now();
     let preprocess_config = cupcake_core::preprocessing::PreprocessConfig::default();
     cupcake_core::preprocessing::preprocess_input(
         &mut hook_event_json,
         &preprocess_config,
         harness_type,
     );
-    debug!("Input preprocessing completed");
+    let preprocess_duration_us = preprocess_start.elapsed().as_micros() as u64;
+    debug!("Input preprocessing completed in {}μs", preprocess_duration_us);
 
     // Add hookEventName field for the engine if not present (for routing compatibility)
     // The engine routing needs this field
@@ -530,37 +535,44 @@ async fn eval_command(
         .map(|t| t.enabled)
         .unwrap_or(false);
 
-    // Create debug capture if enabled via CLI flag OR telemetry config
-    let mut debug_capture = if debug_files_enabled || telemetry_enabled {
-        // Generate a trace ID for this evaluation
+    // Create TelemetryContext if enabled via CLI flag OR telemetry config
+    // This captures raw event (before preprocessing) and will track enrichment + evaluation
+    let mut telemetry_ctx = if debug_files_enabled || telemetry_enabled {
         let trace_id = cupcake_core::engine::trace::generate_trace_id();
-        Some(DebugCapture::new(
+        let mut ctx = TelemetryContext::new(raw_event_for_telemetry, harness_type, trace_id);
+
+        // Configure output destinations
+        ctx.configure(debug_files_enabled, debug_dir.clone(), telemetry_config.clone());
+
+        // Record enrichment (preprocessing results)
+        ctx.record_enrichment(
             hook_event_json.clone(),
-            trace_id,
-            debug_files_enabled, // only write debug files if CLI flag set
-            debug_dir.clone(),
-        ))
+            vec![
+                "whitespace_normalization".into(),
+                "symlink_resolution".into(),
+                "content_unification".into(),
+            ],
+            preprocess_duration_us,
+        );
+
+        Some(ctx)
     } else {
         None
     };
 
     // Evaluate policies for this hook event
     let decision = match engine
-        .evaluate(&hook_event_json, debug_capture.as_mut())
+        .evaluate(&hook_event_json, telemetry_ctx.as_mut())
         .await
     {
         Ok(d) => d,
         Err(e) => {
             error!("Policy evaluation failed: {:#}", e);
 
-            // Capture the error in debug if enabled
-            if let Some(ref mut debug) = debug_capture {
-                debug.add_error(format!("Policy evaluation failed: {e:#}"));
-
-                // Write the debug file even on error to help troubleshooting
-                if let Err(write_err) = debug.write_if_enabled() {
-                    debug!("Failed to write debug file: {}", write_err);
-                }
+            // Capture the error in telemetry and finalize (Drop will handle if we forget)
+            if let Some(ref mut ctx) = telemetry_ctx {
+                ctx.add_error(format!("Policy evaluation failed: {e:#}"));
+                // finalize() will write telemetry - no need to call explicitly due to Drop guard
             }
 
             // On error, return a safe "allow" with no modifications
@@ -604,28 +616,11 @@ async fn eval_command(
         }
     };
 
-    // Capture the response in debug if enabled
-    if let Some(ref mut debug) = debug_capture {
-        // The response is already a JSON Value
-        debug.response_to_claude = Some(response.clone());
-
-        // Write the debug file (if --debug-files flag was set)
-        if let Err(e) = debug.write_if_enabled() {
-            // Log but don't fail on debug write errors
-            debug!("Failed to write debug file: {}", e);
-        }
-
-        // Write telemetry if configured in rulebook
-        if let Some(ref config) = telemetry_config {
-            if config.enabled {
-                let destination = config
-                    .destination
-                    .clone()
-                    .unwrap_or_else(|| std::path::PathBuf::from(".cupcake/telemetry"));
-                if let Err(e) = debug.write_telemetry(&config.format, &destination) {
-                    debug!("Failed to write telemetry: {}", e);
-                }
-            }
+    // Finalize telemetry with response (Drop guard ensures write even if we forget)
+    if let Some(ref mut ctx) = telemetry_ctx {
+        // Engine populates evaluation spans directly via TelemetryContext
+        if let Err(e) = ctx.finalize(Some(response.clone())) {
+            debug!("Failed to finalize telemetry: {}", e);
         }
     }
 

@@ -13,6 +13,7 @@ use std::time::Instant;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::debug::DebugCapture;
+use crate::telemetry::TelemetryContext;
 
 /// Detects the appropriate shell command for the current platform
 ///
@@ -1150,7 +1151,7 @@ impl Engine {
     /// This is the main public API for policy evaluation.
     #[instrument(
         name = "evaluate",
-        skip(self, input, debug_capture),
+        skip(self, input, telemetry),
         fields(
             trace_id = %trace::generate_trace_id(),
             event_name = tracing::field::Empty,
@@ -1164,7 +1165,7 @@ impl Engine {
     pub async fn evaluate(
         &self,
         input: &Value,
-        mut debug_capture: Option<&mut DebugCapture>,
+        mut telemetry: Option<&mut TelemetryContext>,
     ) -> Result<decision::FinalDecision> {
         let eval_start = Instant::now();
 
@@ -1230,10 +1231,25 @@ impl Engine {
                 .evaluate_global(&safe_input, event_name, tool_name)
                 .await?;
 
+            // Record global evaluation in telemetry
+            if let Some(ref mut ctx) = telemetry {
+                let span = ctx.start_evaluation("global");
+                span.record_routing(true, &self.global_routing_map.keys().cloned().collect::<Vec<_>>());
+                span.record_wasm_result(&global_decision_set);
+                span.record_final_decision(&global_decision);
+            }
+
             // Early termination on global blocking decisions
             match &global_decision {
                 decision::FinalDecision::Halt { reason, .. } => {
                     info!("Global policy HALT - immediate termination: {}", reason);
+                    // Record exit reason in telemetry
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.record_exit(format!("Global halt: {reason}"));
+                            span.finalize();
+                        }
+                    }
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
                         info!("Global rulebook found - executing global actions");
@@ -1252,6 +1268,13 @@ impl Engine {
                 }
                 decision::FinalDecision::Deny { reason, .. } => {
                     info!("Global policy DENY - immediate termination: {}", reason);
+                    // Record exit reason in telemetry
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.record_exit(format!("Global deny: {reason}"));
+                            span.finalize();
+                        }
+                    }
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
                         self.execute_actions_with_rulebook(
@@ -1267,6 +1290,13 @@ impl Engine {
                 }
                 decision::FinalDecision::Block { reason, .. } => {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
+                    // Record exit reason in telemetry
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.record_exit(format!("Global block: {reason}"));
+                            span.finalize();
+                        }
+                    }
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
                         self.execute_actions_with_rulebook(
@@ -1282,6 +1312,12 @@ impl Engine {
                 }
                 _ => {
                     debug!("Global policies did not halt/deny/block - proceeding to catalog evaluation");
+                    // Finalize global span before continuing
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.finalize();
+                        }
+                    }
                     // TODO: In the future, preserve Ask/Allow/Context for merging with project decisions
                 }
             }
@@ -1375,6 +1411,11 @@ impl Engine {
         // PHASE 2: Evaluate project policies
         debug!("Phase 2: Evaluating project policies");
 
+        // Start project evaluation span
+        if let Some(ref mut ctx) = telemetry {
+            ctx.start_evaluation("project");
+        }
+
         // Step 1: Route - find relevant policies (collect owned PolicyUnits)
         let matched_policies: Vec<PolicyUnit> = self
             .route_event(event_name, tool_name)
@@ -1382,17 +1423,28 @@ impl Engine {
             .cloned()
             .collect();
 
-        // Capture routing results
-        if let Some(ref mut debug) = debug_capture {
-            debug.routed = !matched_policies.is_empty();
-            debug.matched_policies = matched_policies
-                .iter()
-                .map(|p| p.package_name.clone())
-                .collect();
+        let policy_names: Vec<String> = matched_policies
+            .iter()
+            .map(|p| p.package_name.clone())
+            .collect();
+
+        // Record routing in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                span.record_routing(!matched_policies.is_empty(), &policy_names);
+            }
         }
 
         if matched_policies.is_empty() {
             info!("No policies matched for this event - allowing");
+            // Record early exit in telemetry
+            if let Some(ref mut ctx) = telemetry {
+                if let Some(span) = ctx.current_evaluation_mut() {
+                    span.record_exit("No policies matched - implicit allow");
+                    span.record_final_decision(&decision::FinalDecision::Allow { context: vec![] });
+                    span.finalize();
+                }
+            }
             current_span.record("matched_policy_count", 0);
             current_span.record("final_decision", "Allow");
             current_span.record("duration_ms", eval_start.elapsed().as_millis());
@@ -1404,21 +1456,18 @@ impl Engine {
 
         // Step 2: Gather Signals - collect all required signals from matched policies
         let enriched_input = self
-            .gather_signals(&safe_input, &matched_policies, debug_capture.as_deref_mut())
+            .gather_signals(&safe_input, &matched_policies, None)
             .await?;
-
-        // Capture the enriched input for debugging (preprocessing + signals)
-        if let Some(ref mut debug) = debug_capture {
-            debug.enriched_input = Some(enriched_input.clone());
-        }
 
         // Step 3: Evaluate using single aggregation entrypoint with enriched input
         debug!("About to evaluate decision set with enriched input");
         let decision_set = self.evaluate_decision_set(&enriched_input).await?;
 
-        // Capture WASM evaluation results
-        if let Some(ref mut debug) = debug_capture {
-            debug.wasm_decision_set = Some(decision_set.clone());
+        // Record WASM results in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                span.record_wasm_result(&decision_set);
+            }
         }
 
         // Step 4: Apply Intelligence Layer synthesis
@@ -1426,18 +1475,18 @@ impl Engine {
 
         info!("Synthesized final decision: {:?}", final_decision);
 
-        // Capture synthesis results
-        if let Some(ref mut debug) = debug_capture {
-            debug.final_decision = Some(final_decision.clone());
+        // Record final decision in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                span.record_final_decision(&final_decision);
+                span.finalize();
+            }
         }
 
         // Step 5: Execute actions based on decision (async, non-blocking)
-        self.execute_actions_with_debug(
-            &final_decision,
-            &decision_set,
-            debug_capture.as_deref_mut(),
-        )
-        .await;
+        // Note: Action execution telemetry could be added in future
+        self.execute_actions_with_debug(&final_decision, &decision_set, None)
+            .await;
 
         // Record final decision type and duration
         let duration = eval_start.elapsed();

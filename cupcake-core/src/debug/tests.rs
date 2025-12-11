@@ -4,15 +4,15 @@
 
 #[cfg(test)]
 mod integration_tests {
-    use super::super::*;
+    use crate::debug::{DebugCapture, SignalExecution};
     use crate::engine::Engine;
+    use crate::harness::types::HarnessType;
+    use crate::telemetry::TelemetryContext;
     use serde_json::json;
     use std::path::Path;
 
     /// Test helper to check if we can create an engine (skips test if not)
     async fn try_create_test_engine() -> Option<Engine> {
-        use crate::harness::types::HarnessType;
-
         // Try to find a valid policy directory
         let candidates = vec!["./examples", "../examples", "../../examples"];
 
@@ -28,7 +28,7 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    async fn test_debug_capture_with_allow_decision() {
+    async fn test_telemetry_with_allow_decision() {
         // Skip if we can't create an engine
         let Some(engine) = try_create_test_engine().await else {
             eprintln!("Skipping test - no valid policy directory found");
@@ -46,26 +46,32 @@ mod integration_tests {
         });
 
         let trace_id = "test-allow-123".to_string();
-        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true, None));
+        let mut telemetry = Some(TelemetryContext::new(
+            event.clone(),
+            HarnessType::ClaudeCode,
+            trace_id,
+        ));
 
-        let _decision = engine
-            .evaluate(&event, debug_capture.as_mut())
+        let decision = engine
+            .evaluate(&event, telemetry.as_mut())
             .await
             .unwrap();
 
-        // Verify debug capture populated
-        let debug = debug_capture.unwrap();
-        assert!(debug.routed);
-        assert!(!debug.matched_policies.is_empty());
-        assert!(debug.final_decision.is_some());
+        // Verify telemetry captured the evaluation
+        let ctx = telemetry.unwrap();
+        assert!(!ctx.evaluations().is_empty(), "Should have evaluation spans");
+        let eval_span = &ctx.evaluations()[0];
+        assert!(eval_span.routed, "Should be routed");
+        assert!(!eval_span.matched_policies.is_empty(), "Should have matched policies");
+        assert!(eval_span.final_decision.is_some(), "Should have final decision");
         assert!(matches!(
-            debug.final_decision.unwrap(),
+            decision,
             crate::engine::decision::FinalDecision::Allow { .. }
         ));
     }
 
     #[tokio::test]
-    async fn test_debug_capture_with_deny_decision() {
+    async fn test_telemetry_with_deny_decision() {
         let Some(engine) = try_create_test_engine().await else {
             eprintln!("Skipping test - no valid policy directory found");
             return;
@@ -82,17 +88,21 @@ mod integration_tests {
         });
 
         let trace_id = "test-deny-456".to_string();
-        let mut debug_capture = Some(DebugCapture::new(event.clone(), trace_id, true, None));
+        let mut telemetry = Some(TelemetryContext::new(
+            event.clone(),
+            HarnessType::ClaudeCode,
+            trace_id,
+        ));
 
         let _decision = engine
-            .evaluate(&event, debug_capture.as_mut())
+            .evaluate(&event, telemetry.as_mut())
             .await
             .unwrap();
 
-        let debug = debug_capture.unwrap();
-        assert!(debug.routed);
-        // Signals may or may not be executed depending on policy requirements
-        // The important thing is that the decision was made correctly
+        let ctx = telemetry.unwrap();
+        assert!(!ctx.evaluations().is_empty(), "Should have evaluation spans");
+        let eval_span = &ctx.evaluations()[0];
+        assert!(eval_span.routed, "Should be routed");
     }
 
     #[tokio::test]

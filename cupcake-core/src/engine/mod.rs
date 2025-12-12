@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::debug::DebugCapture;
+use crate::debug::SignalTelemetry;
+use crate::telemetry::TelemetryContext;
 
 /// Detects the appropriate shell command for the current platform
 ///
@@ -1150,7 +1151,7 @@ impl Engine {
     /// This is the main public API for policy evaluation.
     #[instrument(
         name = "evaluate",
-        skip(self, input, debug_capture),
+        skip(self, input, telemetry),
         fields(
             trace_id = %trace::generate_trace_id(),
             event_name = tracing::field::Empty,
@@ -1164,7 +1165,7 @@ impl Engine {
     pub async fn evaluate(
         &self,
         input: &Value,
-        mut debug_capture: Option<&mut DebugCapture>,
+        mut telemetry: Option<&mut TelemetryContext>,
     ) -> Result<decision::FinalDecision> {
         let eval_start = Instant::now();
 
@@ -1230,10 +1231,28 @@ impl Engine {
                 .evaluate_global(&safe_input, event_name, tool_name)
                 .await?;
 
+            // Record global evaluation in telemetry
+            if let Some(ref mut ctx) = telemetry {
+                let span = ctx.start_evaluation("global");
+                span.record_routing(
+                    true,
+                    &self.global_routing_map.keys().cloned().collect::<Vec<_>>(),
+                );
+                span.record_wasm_result(&global_decision_set);
+                span.record_final_decision(&global_decision);
+            }
+
             // Early termination on global blocking decisions
             match &global_decision {
                 decision::FinalDecision::Halt { reason, .. } => {
                     info!("Global policy HALT - immediate termination: {}", reason);
+                    // Record exit reason in telemetry
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.record_exit(format!("Global halt: {reason}"));
+                            span.finalize();
+                        }
+                    }
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
                         info!("Global rulebook found - executing global actions");
@@ -1252,6 +1271,13 @@ impl Engine {
                 }
                 decision::FinalDecision::Deny { reason, .. } => {
                     info!("Global policy DENY - immediate termination: {}", reason);
+                    // Record exit reason in telemetry
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.record_exit(format!("Global deny: {reason}"));
+                            span.finalize();
+                        }
+                    }
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
                         self.execute_actions_with_rulebook(
@@ -1267,6 +1293,13 @@ impl Engine {
                 }
                 decision::FinalDecision::Block { reason, .. } => {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
+                    // Record exit reason in telemetry
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.record_exit(format!("Global block: {reason}"));
+                            span.finalize();
+                        }
+                    }
                     // Execute global actions before returning
                     if let Some(ref global_rulebook) = self.global_rulebook {
                         self.execute_actions_with_rulebook(
@@ -1282,6 +1315,12 @@ impl Engine {
                 }
                 _ => {
                     debug!("Global policies did not halt/deny/block - proceeding to catalog evaluation");
+                    // Finalize global span before continuing
+                    if let Some(ref mut ctx) = telemetry {
+                        if let Some(span) = ctx.current_evaluation_mut() {
+                            span.finalize();
+                        }
+                    }
                     // TODO: In the future, preserve Ask/Allow/Context for merging with project decisions
                 }
             }
@@ -1375,6 +1414,11 @@ impl Engine {
         // PHASE 2: Evaluate project policies
         debug!("Phase 2: Evaluating project policies");
 
+        // Start project evaluation span
+        if let Some(ref mut ctx) = telemetry {
+            ctx.start_evaluation("project");
+        }
+
         // Step 1: Route - find relevant policies (collect owned PolicyUnits)
         let matched_policies: Vec<PolicyUnit> = self
             .route_event(event_name, tool_name)
@@ -1382,17 +1426,28 @@ impl Engine {
             .cloned()
             .collect();
 
-        // Capture routing results
-        if let Some(ref mut debug) = debug_capture {
-            debug.routed = !matched_policies.is_empty();
-            debug.matched_policies = matched_policies
-                .iter()
-                .map(|p| p.package_name.clone())
-                .collect();
+        let policy_names: Vec<String> = matched_policies
+            .iter()
+            .map(|p| p.package_name.clone())
+            .collect();
+
+        // Record routing in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                span.record_routing(!matched_policies.is_empty(), &policy_names);
+            }
         }
 
         if matched_policies.is_empty() {
             info!("No policies matched for this event - allowing");
+            // Record early exit in telemetry
+            if let Some(ref mut ctx) = telemetry {
+                if let Some(span) = ctx.current_evaluation_mut() {
+                    span.record_exit("No policies matched - implicit allow");
+                    span.record_final_decision(&decision::FinalDecision::Allow { context: vec![] });
+                    span.finalize();
+                }
+            }
             current_span.record("matched_policy_count", 0);
             current_span.record("final_decision", "Allow");
             current_span.record("duration_ms", eval_start.elapsed().as_millis());
@@ -1403,22 +1458,38 @@ impl Engine {
         info!("Found {} matching policies", matched_policies.len());
 
         // Step 2: Gather Signals - collect all required signals from matched policies
-        let enriched_input = self
-            .gather_signals(&safe_input, &matched_policies, debug_capture.as_deref_mut())
-            .await?;
+        // When telemetry is enabled, use SignalTelemetry to collect signal executions
+        let (enriched_input, signal_executions) = if telemetry.is_some() {
+            let mut signal_telemetry = crate::debug::SignalTelemetry::new();
+            let result = self
+                .gather_signals(&safe_input, &matched_policies, Some(&mut signal_telemetry))
+                .await?;
+            (result, signal_telemetry.signals)
+        } else {
+            let result = self
+                .gather_signals(&safe_input, &matched_policies, None)
+                .await?;
+            (result, Vec::new())
+        };
 
-        // Capture the enriched input for debugging (preprocessing + signals)
-        if let Some(ref mut debug) = debug_capture {
-            debug.enriched_input = Some(enriched_input.clone());
+        // Record signal executions in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                for signal in signal_executions {
+                    span.record_signal(signal);
+                }
+            }
         }
 
         // Step 3: Evaluate using single aggregation entrypoint with enriched input
         debug!("About to evaluate decision set with enriched input");
         let decision_set = self.evaluate_decision_set(&enriched_input).await?;
 
-        // Capture WASM evaluation results
-        if let Some(ref mut debug) = debug_capture {
-            debug.wasm_decision_set = Some(decision_set.clone());
+        // Record WASM results in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                span.record_wasm_result(&decision_set);
+            }
         }
 
         // Step 4: Apply Intelligence Layer synthesis
@@ -1426,18 +1497,18 @@ impl Engine {
 
         info!("Synthesized final decision: {:?}", final_decision);
 
-        // Capture synthesis results
-        if let Some(ref mut debug) = debug_capture {
-            debug.final_decision = Some(final_decision.clone());
+        // Record final decision in telemetry
+        if let Some(ref mut ctx) = telemetry {
+            if let Some(span) = ctx.current_evaluation_mut() {
+                span.record_final_decision(&final_decision);
+                span.finalize();
+            }
         }
 
         // Step 5: Execute actions based on decision (async, non-blocking)
-        self.execute_actions_with_debug(
-            &final_decision,
-            &decision_set,
-            debug_capture.as_deref_mut(),
-        )
-        .await;
+        // Note: Action execution telemetry could be added in future
+        self.execute_actions_with_debug(&final_decision, &decision_set, None)
+            .await;
 
         // Record final decision type and duration
         let duration = eval_start.elapsed();
@@ -1672,7 +1743,7 @@ impl Engine {
     /// Gather signals required by the matched policies and enrich the input
     #[instrument(
         name = "gather_signals",
-        skip(self, input, matched_policies, debug_capture),
+        skip(self, input, matched_policies, signal_telemetry),
         fields(
             signal_count = tracing::field::Empty,
             signals_executed = tracing::field::Empty,
@@ -1683,7 +1754,7 @@ impl Engine {
         &self,
         input: &Value,
         matched_policies: &[PolicyUnit],
-        mut debug_capture: Option<&mut DebugCapture>,
+        mut signal_telemetry: Option<&mut SignalTelemetry>,
     ) -> Result<Value> {
         let start = Instant::now();
         // Collect all unique required signals from matched policies
@@ -1804,11 +1875,6 @@ impl Engine {
             signal_names
         );
 
-        // Capture configured signals
-        if let Some(ref mut debug) = debug_capture {
-            debug.signals_configured = signal_names.clone();
-        }
-
         // Execute signals if we have a rulebook, passing the event data (input)
         let signal_data = if let Some(rulebook) = &self.rulebook {
             let results = self
@@ -1816,7 +1882,7 @@ impl Engine {
                     &signal_names,
                     rulebook,
                     input,
-                    debug_capture.as_deref_mut(),
+                    signal_telemetry.as_deref_mut(),
                 )
                 .await
                 .unwrap_or_else(|e| {
@@ -1851,14 +1917,14 @@ impl Engine {
                         watchdog_output.allow, watchdog_output.confidence
                     );
 
-                    // Capture watchdog in debug output
-                    if let Some(ref mut debug) = debug_capture {
-                        debug.signals_configured.push("watchdog".to_string());
-                        debug.signals_executed.push(crate::debug::SignalExecution {
+                    // Capture watchdog in telemetry
+                    if let Some(ref mut telemetry) = signal_telemetry {
+                        telemetry.signals.push(crate::telemetry::span::SignalExecution {
                             name: "watchdog".to_string(),
                             command: format!("LLM evaluation via {}", watchdog.backend_name()),
                             result: serde_json::to_value(&watchdog_output).unwrap_or_default(),
-                            duration_ms: Some(watchdog_duration.as_millis()),
+                            duration_ms: Some(watchdog_duration.as_millis() as u64),
+                            exit_code: None,
                         });
                     }
 
@@ -1903,9 +1969,9 @@ impl Engine {
         signal_names: &[String],
         rulebook: &rulebook::Rulebook,
         event_data: &Value,
-        mut debug_capture: Option<&mut DebugCapture>,
+        mut signal_telemetry: Option<&mut SignalTelemetry>,
     ) -> Result<HashMap<String, serde_json::Value>> {
-        use crate::debug::SignalExecution;
+        use crate::telemetry::span::SignalExecution;
         use futures::future::join_all;
 
         if signal_names.is_empty() {
@@ -1960,7 +2026,8 @@ impl Engine {
                         name: name.clone(),
                         command: signal.command.clone(),
                         result: result.as_ref().unwrap_or(&serde_json::Value::Null).clone(),
-                        duration_ms: Some(signal_duration.as_millis()),
+                        duration_ms: Some(signal_duration.as_millis() as u64),
+                        exit_code: None,
                     };
 
                     (name, result, Some(signal_execution))
@@ -1977,23 +2044,22 @@ impl Engine {
                     debug!("Signal '{}' executed successfully", name);
                     signal_data.insert(name, value);
 
-                    // Capture signal execution if debug enabled
-                    if let (Some(ref mut debug), Some(execution)) =
-                        (&mut debug_capture, signal_execution)
+                    // Capture signal execution for telemetry
+                    if let (Some(ref mut telemetry), Some(execution)) =
+                        (&mut signal_telemetry, signal_execution)
                     {
-                        debug.signals_executed.push(execution);
+                        telemetry.signals.push(execution);
                     }
                 }
                 Err(e) => {
                     // Log error but don't fail the whole evaluation
                     error!("Signal '{}' failed: {}", name, e);
 
-                    // Still capture failed signal execution for debug
-                    if let (Some(ref mut debug), Some(execution)) =
-                        (&mut debug_capture, signal_execution)
+                    // Still capture failed signal execution for telemetry
+                    if let (Some(ref mut telemetry), Some(execution)) =
+                        (&mut signal_telemetry, signal_execution)
                     {
-                        debug.signals_executed.push(execution);
-                        debug.add_error(format!("Signal '{name}' failed: {e}"));
+                        telemetry.signals.push(execution);
                     }
                 }
             }
@@ -2079,76 +2145,18 @@ impl Engine {
         &self,
         final_decision: &decision::FinalDecision,
         decision_set: &decision::DecisionSet,
-        mut debug_capture: Option<&mut DebugCapture>,
+        _signal_telemetry: Option<&mut SignalTelemetry>,
     ) {
         let Some(rulebook) = &self.rulebook else {
             debug!("No rulebook available - no actions to execute");
             return;
         };
 
-        // Capture configured actions before execution
-        if let Some(ref mut debug) = debug_capture {
-            // Collect actions that would be configured based on the decision
-            let mut configured_actions = Vec::new();
-
-            match final_decision {
-                decision::FinalDecision::Deny { .. } => {
-                    // General denial actions
-                    for action in &rulebook.actions.on_any_denial {
-                        configured_actions.push(format!("on_any_denial: {}", action.command));
-                    }
-
-                    // Rule-specific actions for denials
-                    for decision_obj in &decision_set.denials {
-                        if let Some(actions) =
-                            rulebook.actions.by_rule_id.get(&decision_obj.rule_id)
-                        {
-                            for action in actions {
-                                configured_actions
-                                    .push(format!("{}: {}", decision_obj.rule_id, action.command));
-                            }
-                        }
-                    }
-                }
-                decision::FinalDecision::Halt { .. } => {
-                    // Rule-specific actions for halts
-                    for decision_obj in &decision_set.halts {
-                        if let Some(actions) =
-                            rulebook.actions.by_rule_id.get(&decision_obj.rule_id)
-                        {
-                            for action in actions {
-                                configured_actions
-                                    .push(format!("{}: {}", decision_obj.rule_id, action.command));
-                            }
-                        }
-                    }
-                }
-                decision::FinalDecision::Block { .. } => {
-                    // Rule-specific actions for blocks
-                    for decision_obj in &decision_set.blocks {
-                        if let Some(actions) =
-                            rulebook.actions.by_rule_id.get(&decision_obj.rule_id)
-                        {
-                            for action in actions {
-                                configured_actions
-                                    .push(format!("{}: {}", decision_obj.rule_id, action.command));
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    // No actions for Ask, Allow, Modify
-                }
-            }
-
-            debug.actions_configured = configured_actions;
-        }
-
         self.execute_actions_with_rulebook_and_debug(
             final_decision,
             decision_set,
             rulebook,
-            debug_capture,
+            None, // Actions don't record to telemetry
         )
         .await;
     }
@@ -2159,7 +2167,7 @@ impl Engine {
         final_decision: &decision::FinalDecision,
         decision_set: &decision::DecisionSet,
         rulebook: &rulebook::Rulebook,
-        mut debug_capture: Option<&mut DebugCapture>,
+        mut signal_telemetry: Option<&mut SignalTelemetry>,
     ) {
         info!(
             "execute_actions_with_rulebook_and_debug called with decision: {:?}",
@@ -2176,7 +2184,7 @@ impl Engine {
                     &decision_set.halts,
                     rulebook,
                     working_dir,
-                    debug_capture.as_deref_mut(),
+                    signal_telemetry.as_deref_mut(),
                 )
                 .await;
             }
@@ -2188,7 +2196,7 @@ impl Engine {
                     self.execute_single_action_with_debug(
                         action,
                         working_dir,
-                        debug_capture.as_deref_mut(),
+                        signal_telemetry.as_deref_mut(),
                     )
                     .await;
                 }
@@ -2198,7 +2206,7 @@ impl Engine {
                     &decision_set.denials,
                     rulebook,
                     working_dir,
-                    debug_capture.as_deref_mut(),
+                    signal_telemetry.as_deref_mut(),
                 )
                 .await;
             }
@@ -2208,7 +2216,7 @@ impl Engine {
                     &decision_set.blocks,
                     rulebook,
                     working_dir,
-                    debug_capture,
+                    signal_telemetry,
                 )
                 .await;
             }
@@ -2262,7 +2270,7 @@ impl Engine {
         decisions: &[decision::DecisionObject],
         rulebook: &rulebook::Rulebook,
         working_dir: &std::path::PathBuf,
-        mut debug_capture: Option<&mut DebugCapture>,
+        mut signal_telemetry: Option<&mut SignalTelemetry>,
     ) {
         info!(
             "execute_rule_specific_actions_with_debug: Checking actions for {} decision objects",
@@ -2289,7 +2297,7 @@ impl Engine {
             self.execute_single_action_with_debug(
                 &action,
                 working_dir,
-                debug_capture.as_deref_mut(),
+                signal_telemetry.as_deref_mut(),
             )
             .await;
         }
@@ -2310,23 +2318,12 @@ impl Engine {
         &self,
         action: &rulebook::ActionConfig,
         working_dir: &std::path::PathBuf,
-        mut debug_capture: Option<&mut DebugCapture>,
+        _signal_telemetry: Option<&mut SignalTelemetry>,
     ) {
         debug!(
             "Executing action: {} in directory: {:?}",
             action.command, working_dir
         );
-
-        // Capture action execution
-        if let Some(ref mut debug) = debug_capture {
-            let action_execution = crate::debug::ActionExecution {
-                name: format!("action_{}", debug.actions_executed.len()),
-                command: action.command.clone(),
-                duration_ms: None, // Could be captured if we measure execution time
-                exit_code: None,   // Could be captured from command result
-            };
-            debug.actions_executed.push(action_execution);
-        }
 
         // Verify trust if enabled
         if let Some(verifier) = &self.trust_verifier {

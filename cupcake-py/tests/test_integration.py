@@ -28,14 +28,22 @@ except ImportError:
 
 def setup_test_policies(base_path: Path) -> Path:
     """Helper to set up test policies in a directory"""
-    policies_path = base_path / "policies"
-    policies_path.mkdir(parents=True, exist_ok=True)
-    
+    base_path.mkdir(parents=True, exist_ok=True)
+
     # Copy test fixtures - they MUST exist
-    fixture_dir = Path(__file__).parent.parent / "test-fixtures" / ".cupcake" / "policies"
-    assert fixture_dir.exists(), f"Test fixtures not found at {fixture_dir}"
-    
-    shutil.copytree(fixture_dir, policies_path, dirs_exist_ok=True)
+    fixture_base = Path(__file__).parent.parent / "test-fixtures" / ".cupcake"
+    assert fixture_base.exists(), f"Test fixtures not found at {fixture_base}"
+
+    # Copy policies directory (contains claude/ subdirectory)
+    policies_fixture = fixture_base / "policies"
+    policies_path = base_path / "policies"
+    shutil.copytree(policies_fixture, policies_path, dirs_exist_ok=True)
+
+    # Copy system directory (contains evaluate.rego)
+    system_fixture = fixture_base / "system"
+    system_path = base_path / "system"
+    shutil.copytree(system_fixture, system_path, dirs_exist_ok=True)
+
     return base_path
     
 

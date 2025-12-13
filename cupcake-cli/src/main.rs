@@ -576,10 +576,11 @@ async fn eval_command(
         Err(e) => {
             error!("Policy evaluation failed: {:#}", e);
 
-            // Capture the error in telemetry and finalize (Drop will handle if we forget)
+            // Capture the error in telemetry
             if let Some(ref mut ctx) = telemetry_ctx {
                 ctx.add_error(format!("Policy evaluation failed: {e:#}"));
-                // finalize() will write telemetry - no need to call explicitly due to Drop guard
+                // Note: We exit early here without calling finalize().
+                // Drop impl will write telemetry as a fallback safety net.
             }
 
             // On error, return a safe "allow" with no modifications
@@ -623,9 +624,9 @@ async fn eval_command(
         }
     };
 
-    // Finalize telemetry with response (Drop guard ensures write even if we forget)
+    // Finalize telemetry with response - this is the primary write mechanism.
+    // (Drop impl provides fallback if finalize() isn't called, e.g., on early error exit)
     if let Some(ref mut ctx) = telemetry_ctx {
-        // Engine populates evaluation spans directly via TelemetryContext
         if let Err(e) = ctx.finalize(Some(response.clone())) {
             debug!("Failed to finalize telemetry: {}", e);
         }

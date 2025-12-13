@@ -16,6 +16,7 @@ use crate::telemetry::TelemetryContext;
 // Core engine modules - discovery and compilation
 pub mod compiler;
 pub mod config;
+pub mod executor;
 pub mod metadata;
 pub mod scanner;
 
@@ -902,6 +903,7 @@ impl Engine {
     }
 
     /// Route event using a specific routing map (used for catalog overlays)
+    #[cfg(feature = "catalog")]
     fn route_with_map<'a>(
         routing_map: &'a HashMap<String, Vec<PolicyUnit>>,
         event_name: &str,
@@ -1008,11 +1010,21 @@ impl Engine {
 
         info!("Evaluating event: {} tool: {:?}", event_name, tool_name);
 
+        // Create Executor early - used for both global and project evaluation
+        // The Executor handles all OS/IO interactions (signals, actions)
+        let exec = executor::Executor {
+            rulebook: self.rulebook.as_ref(),
+            global_rulebook: self.global_rulebook.as_ref(),
+            trust_verifier: self.trust_verifier.as_ref(),
+            watchdog: self.watchdog.as_ref(),
+            working_dir: &self.paths.root,
+        };
+
         // PHASE 1: Evaluate global policies first (if they exist)
         if self.global_wasm_runtime.is_some() {
             debug!("Phase 1: Evaluating global policies");
             let (global_decision, global_decision_set) = self
-                .evaluate_global(&safe_input, event_name, tool_name)
+                .evaluate_global(&safe_input, event_name, tool_name, &exec)
                 .await?;
 
             // Record global evaluation in telemetry
@@ -1038,17 +1050,8 @@ impl Engine {
                         }
                     }
                     // Execute global actions before returning
-                    if let Some(ref global_rulebook) = self.global_rulebook {
-                        info!("Global rulebook found - executing global actions");
-                        self.execute_actions_with_rulebook(
-                            &global_decision,
-                            &global_decision_set,
-                            global_rulebook,
-                        )
+                    exec.execute_global_actions(&global_decision, &global_decision_set)
                         .await;
-                    } else {
-                        warn!("No global rulebook - cannot execute global actions!");
-                    }
                     current_span.record("final_decision", "GlobalHalt");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -1063,14 +1066,8 @@ impl Engine {
                         }
                     }
                     // Execute global actions before returning
-                    if let Some(ref global_rulebook) = self.global_rulebook {
-                        self.execute_actions_with_rulebook(
-                            &global_decision,
-                            &global_decision_set,
-                            global_rulebook,
-                        )
+                    exec.execute_global_actions(&global_decision, &global_decision_set)
                         .await;
-                    }
                     current_span.record("final_decision", "GlobalDeny");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -1085,14 +1082,8 @@ impl Engine {
                         }
                     }
                     // Execute global actions before returning
-                    if let Some(ref global_rulebook) = self.global_rulebook {
-                        self.execute_actions_with_rulebook(
-                            &global_decision,
-                            &global_decision_set,
-                            global_rulebook,
-                        )
+                    exec.execute_global_actions(&global_decision, &global_decision_set)
                         .await;
-                    }
                     current_span.record("final_decision", "GlobalBlock");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -1241,16 +1232,16 @@ impl Engine {
         current_span.record("matched_policy_count", matched_policies.len());
         info!("Found {} matching policies", matched_policies.len());
 
-        // Step 2: Gather Signals - collect all required signals from matched policies
-        // When telemetry is enabled, use SignalTelemetry to collect signal executions
+        // Step 2: Gather signals using the Executor (created earlier for global evaluation)
+        // Gather signals - collect telemetry if enabled
         let (enriched_input, signal_executions) = if telemetry.is_some() {
-            let mut signal_telemetry = crate::debug::SignalTelemetry::new();
-            let result = self
+            let mut signal_telemetry = SignalTelemetry::new();
+            let result = exec
                 .gather_signals(&safe_input, &matched_policies, Some(&mut signal_telemetry))
                 .await?;
             (result, signal_telemetry.signals)
         } else {
-            let result = self
+            let result = exec
                 .gather_signals(&safe_input, &matched_policies, None)
                 .await?;
             (result, Vec::new())
@@ -1290,9 +1281,7 @@ impl Engine {
         }
 
         // Step 5: Execute actions based on decision (async, non-blocking)
-        // Note: Action execution telemetry could be added in future
-        self.execute_actions_with_debug(&final_decision, &decision_set, None)
-            .await;
+        exec.execute_actions(&final_decision, &decision_set).await;
 
         // Record final decision type and duration
         let duration = eval_start.elapsed();
@@ -1315,6 +1304,7 @@ impl Engine {
         input: &Value,
         event_name: &str,
         tool_name: Option<&str>,
+        exec: &executor::Executor<'_>,
     ) -> Result<(decision::FinalDecision, decision::DecisionSet)> {
         // Route through global policies
         let global_matched: Vec<PolicyUnit> = self
@@ -1333,13 +1323,8 @@ impl Engine {
 
         info!("Found {} matching global policies", global_matched.len());
 
-        // Gather signals for global policies (using global rulebook if available)
-        let enriched_input = if let Some(ref global_rulebook) = self.global_rulebook {
-            self.gather_signals_with_rulebook(input, &global_matched, global_rulebook)
-                .await?
-        } else {
-            input.clone()
-        };
+        // Gather signals for global policies using Executor
+        let enriched_input = exec.gather_global_signals(input, &global_matched).await?;
 
         // Evaluate using global WASM runtime
         let global_runtime = self
@@ -1383,123 +1368,6 @@ impl Engine {
         result
     }
 
-    /// Gather signals with a specific rulebook
-    async fn gather_signals_with_rulebook(
-        &self,
-        input: &Value,
-        matched_policies: &[PolicyUnit],
-        rulebook: &rulebook::Rulebook,
-    ) -> Result<Value> {
-        // Collect required signals
-        let mut required_signals = std::collections::HashSet::new();
-        for policy in matched_policies {
-            for signal_name in &policy.routing.required_signals {
-                required_signals.insert(signal_name.clone());
-            }
-        }
-
-        // ALSO: For builtin policies, automatically include their generated signals
-        // This mirrors the logic in gather_signals() for project builtins
-        for policy in matched_policies {
-            // Check for both global and project builtin namespaces
-            let is_global_builtin = policy
-                .package_name
-                .starts_with("cupcake.global.policies.builtins.");
-            let is_project_builtin = policy
-                .package_name
-                .starts_with("cupcake.policies.builtins.");
-
-            if is_global_builtin || is_project_builtin {
-                // Extract the builtin name from the package
-                let prefix = if is_global_builtin {
-                    "cupcake.global.policies.builtins."
-                } else {
-                    "cupcake.policies.builtins."
-                };
-
-                let builtin_name = policy.package_name.strip_prefix(prefix).unwrap_or("");
-
-                // Add all signals that match this builtin's pattern
-                let signal_prefix = format!("__builtin_{builtin_name}_");
-                for signal_name in rulebook.signals.keys() {
-                    if signal_name.starts_with(&signal_prefix) {
-                        debug!(
-                            "Auto-adding signal '{}' for global builtin '{}'",
-                            signal_name, builtin_name
-                        );
-                        required_signals.insert(signal_name.clone());
-                    }
-                }
-
-                // Also check for signals without the trailing underscore (like __builtin_system_protection_paths)
-                let signal_prefix_no_underscore = format!("__builtin_{builtin_name}");
-                for signal_name in rulebook.signals.keys() {
-                    if signal_name.starts_with(&signal_prefix_no_underscore)
-                        && !signal_name.starts_with(&signal_prefix)
-                    {
-                        debug!(
-                            "Auto-adding signal '{}' for global builtin '{}'",
-                            signal_name, builtin_name
-                        );
-                        required_signals.insert(signal_name.clone());
-                    }
-                }
-            }
-        }
-
-        // Always inject builtin config from the provided rulebook
-        let mut enriched_input = input.clone();
-        if let Some(input_obj) = enriched_input.as_object_mut() {
-            debug!("Injecting builtin configs from rulebook in gather_signals_with_rulebook");
-            let builtin_config = rulebook.builtins.to_json_configs();
-
-            if !builtin_config.is_empty() {
-                debug!("Injected {} builtin configurations", builtin_config.len());
-                input_obj.insert(
-                    "builtin_config".to_string(),
-                    serde_json::Value::Object(builtin_config),
-                );
-            }
-        }
-
-        if required_signals.is_empty() {
-            debug!("No signals required - returning with builtin config");
-            return Ok(enriched_input);
-        }
-
-        let signal_names: Vec<String> = required_signals.into_iter().collect();
-        info!("Gathering {} signals from rulebook", signal_names.len());
-
-        // Execute signals using the provided rulebook, passing the event data
-        let signal_data = self
-            .execute_signals_from_rulebook(&signal_names, rulebook, input)
-            .await
-            .unwrap_or_else(|e| {
-                warn!("Signal execution failed: {}", e);
-                std::collections::HashMap::new()
-            });
-
-        // Merge signal data into already-enriched input
-        if let Some(obj) = enriched_input.as_object_mut() {
-            obj.insert("signals".to_string(), serde_json::json!(signal_data));
-        }
-
-        Ok(enriched_input)
-    }
-
-    /// Execute signals from a specific rulebook
-    async fn execute_signals_from_rulebook(
-        &self,
-        signal_names: &[String],
-        rulebook: &rulebook::Rulebook,
-        event_data: &Value,
-    ) -> Result<std::collections::HashMap<String, Value>> {
-        // Use the rulebook's execute_signals_with_input method to pass event data
-        rulebook
-            .execute_signals_with_input(signal_names, event_data)
-            .await
-    }
-
     /// Evaluate using the Hybrid Model single aggregation entrypoint
     async fn evaluate_decision_set(&self, input: &Value) -> Result<decision::DecisionSet> {
         let runtime = self
@@ -1522,692 +1390,6 @@ impl Engine {
         );
 
         Ok(decision_set)
-    }
-
-    /// Gather signals required by the matched policies and enrich the input
-    #[instrument(
-        name = "gather_signals",
-        skip(self, input, matched_policies, signal_telemetry),
-        fields(
-            signal_count = tracing::field::Empty,
-            signals_executed = tracing::field::Empty,
-            duration_ms = tracing::field::Empty
-        )
-    )]
-    async fn gather_signals(
-        &self,
-        input: &Value,
-        matched_policies: &[PolicyUnit],
-        mut signal_telemetry: Option<&mut SignalTelemetry>,
-    ) -> Result<Value> {
-        let start = Instant::now();
-        // Collect all unique required signals from matched policies
-        let mut required_signals = std::collections::HashSet::new();
-        for policy in matched_policies {
-            for signal_name in &policy.routing.required_signals {
-                required_signals.insert(signal_name.clone());
-            }
-        }
-
-        // ALSO: For builtin policies, automatically include their generated signals
-        // This is needed because builtin policies can't statically declare dynamic signals
-        if let Some(rulebook) = &self.rulebook {
-            for policy in matched_policies {
-                if policy
-                    .package_name
-                    .starts_with("cupcake.policies.builtins.")
-                {
-                    // This is a builtin policy - add signals that match its pattern
-                    let builtin_name = policy
-                        .package_name
-                        .strip_prefix("cupcake.policies.builtins.")
-                        .unwrap_or("");
-
-                    // Special handling for post_edit_check - only add the signal for the actual file extension
-                    // This optimization prevents running ALL validation commands when only one applies
-                    if builtin_name == "post_edit_check" {
-                        if let Some(signal_name) = rulebook.builtins.get_post_edit_signal(input) {
-                            if rulebook.signals.contains_key(&signal_name) {
-                                debug!(
-                                    "Auto-adding signal '{}' for post_edit_check builtin",
-                                    signal_name
-                                );
-                                required_signals.insert(signal_name);
-                            }
-                        }
-                    } else {
-                        // For other builtins, add all matching signals
-                        let signal_prefix = format!("__builtin_{builtin_name}_");
-                        for signal_name in rulebook.signals.keys() {
-                            if signal_name.starts_with(&signal_prefix) {
-                                debug!(
-                                    "Auto-adding signal '{}' for builtin '{}'",
-                                    signal_name, builtin_name
-                                );
-                                required_signals.insert(signal_name.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Always inject builtin config, even when no signals are required
-        let mut enriched_input = input.clone();
-        if let Some(input_obj) = enriched_input.as_object_mut() {
-            // Inject builtin configuration directly (no shell execution needed for static values)
-            let mut builtin_config = serde_json::Map::new();
-
-            // First inject project configs (baseline from project)
-            if let Some(project_rulebook) = &self.rulebook {
-                debug!("Injecting builtin configs from project rulebook");
-                builtin_config.extend(project_rulebook.builtins.to_json_configs());
-            }
-
-            // Then inject global configs (override project - global enforcement takes precedence)
-            if let Some(global_rulebook) = &self.global_rulebook {
-                debug!("Injecting builtin configs from global rulebook (overrides project)");
-                builtin_config.extend(global_rulebook.builtins.to_json_configs());
-            }
-
-            if !builtin_config.is_empty() {
-                debug!(
-                    "Injected {} builtin configurations total (global + project)",
-                    builtin_config.len()
-                );
-                // Debug: print the actual builtin_config
-                debug!("Builtin config contents: {:?}", builtin_config);
-                input_obj.insert(
-                    "builtin_config".to_string(),
-                    serde_json::Value::Object(builtin_config),
-                );
-            } else {
-                debug!("No builtin configurations to inject");
-            }
-        }
-
-        // Check if watchdog should run (needed to decide whether to skip signal gathering)
-        // Watchdog only runs on pre-action events (MVP scope)
-        // Supported events by harness:
-        // - Claude Code / OpenCode: PreToolUse
-        // - Cursor: beforeShellExecution, beforeMCPExecution
-        let is_pre_action_event = input
-            .get("hook_event_name")
-            .and_then(|v| v.as_str())
-            .map(|s| {
-                matches!(
-                    s,
-                    // Claude Code / OpenCode
-                    "PreToolUse" |
-                    // Cursor pre-action events
-                    "beforeShellExecution" |
-                    "beforeMCPExecution"
-                )
-            })
-            .unwrap_or(false);
-        let watchdog_should_run = self.watchdog.is_some() && is_pre_action_event;
-
-        if required_signals.is_empty() && !watchdog_should_run {
-            debug!("No signals required and watchdog not enabled - returning with builtin config");
-            return Ok(enriched_input);
-        }
-
-        let signal_names: Vec<String> = required_signals.into_iter().collect();
-        info!(
-            "Gathering {} signals: {:?}",
-            signal_names.len(),
-            signal_names
-        );
-
-        // Execute signals if we have a rulebook, passing the event data (input)
-        let signal_data = if let Some(rulebook) = &self.rulebook {
-            let results = self
-                .execute_signals_with_trust_and_debug(
-                    &signal_names,
-                    rulebook,
-                    input,
-                    signal_telemetry.as_deref_mut(),
-                )
-                .await
-                .unwrap_or_else(|e| {
-                    warn!("Signal execution failed: {}", e);
-                    std::collections::HashMap::<String, serde_json::Value>::new()
-                });
-            results
-        } else {
-            debug!("No rulebook available - no signals collected");
-            std::collections::HashMap::<String, serde_json::Value>::new()
-        };
-
-        // Merge signal data into already-enriched input (which has builtin_config)
-        let mut signal_count = signal_data.len();
-        // enriched_input already has builtin_config from above
-        if let Some(input_obj) = enriched_input.as_object_mut() {
-            let mut signals_obj = serde_json::to_value(signal_data)?;
-
-            // Execute Watchdog if enabled (is_pre_action_event already computed above)
-            if let Some(ref watchdog) = self.watchdog {
-                if is_pre_action_event {
-                    debug!(
-                        "Executing Watchdog evaluation for {:?} event",
-                        input.get("hook_event_name")
-                    );
-                    let watchdog_start = std::time::Instant::now();
-                    let watchdog_input = crate::watchdog::Watchdog::input_from_event(input);
-                    let watchdog_output = watchdog.evaluate(watchdog_input).await;
-                    let watchdog_duration = watchdog_start.elapsed();
-                    debug!(
-                        "Watchdog result: allow={}, confidence={}",
-                        watchdog_output.allow, watchdog_output.confidence
-                    );
-
-                    // Capture watchdog in telemetry
-                    if let Some(ref mut telemetry) = signal_telemetry {
-                        telemetry.signals.push(crate::telemetry::span::SignalExecution {
-                            name: "watchdog".to_string(),
-                            command: format!("LLM evaluation via {}", watchdog.backend_name()),
-                            result: serde_json::to_value(&watchdog_output).unwrap_or_default(),
-                            duration_ms: Some(watchdog_duration.as_millis() as u64),
-                            exit_code: None,
-                        });
-                    }
-
-                    if let Some(signals_map) = signals_obj.as_object_mut() {
-                        signals_map.insert(
-                            "watchdog".to_string(),
-                            serde_json::to_value(&watchdog_output)?,
-                        );
-                        signal_count += 1;
-                    }
-                } else {
-                    debug!(
-                        "Skipping Watchdog - only runs on pre-action events (got {:?})",
-                        input.get("hook_event_name")
-                    );
-                }
-            }
-
-            input_obj.insert("signals".to_string(), signals_obj);
-        }
-
-        // Record span fields
-        let duration = start.elapsed();
-        let current_span = tracing::Span::current();
-        current_span.record("signal_count", signal_count);
-        current_span.record("signals_executed", signal_names.join(",").as_str());
-        current_span.record("duration_ms", duration.as_millis());
-
-        debug!("Input enriched with {} signal values", signal_count);
-        trace!(
-            signal_count = signal_count,
-            duration_ms = duration.as_millis(),
-            "Signal gathering complete"
-        );
-
-        Ok(enriched_input)
-    }
-
-    /// Execute signals with trust verification and debug capture
-    async fn execute_signals_with_trust_and_debug(
-        &self,
-        signal_names: &[String],
-        rulebook: &rulebook::Rulebook,
-        event_data: &Value,
-        mut signal_telemetry: Option<&mut SignalTelemetry>,
-    ) -> Result<HashMap<String, serde_json::Value>> {
-        use crate::telemetry::span::SignalExecution;
-        use futures::future::join_all;
-
-        if signal_names.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        debug!(
-            "Executing {} signals with trust verification",
-            signal_names.len()
-        );
-
-        let futures: Vec<_> = signal_names
-            .iter()
-            .map(|name| {
-                let name = name.clone();
-                let trust_verifier = self.trust_verifier.clone();
-                let signal_config = rulebook.get_signal(&name).cloned();
-                let event_data = event_data.clone();
-
-                async move {
-                    // Get the signal config
-                    let signal = match signal_config {
-                        Some(s) => s,
-                        None => {
-                            return (
-                                name.clone(),
-                                Err(anyhow::anyhow!("Signal '{}' not found", name)),
-                                None,
-                            );
-                        }
-                    };
-
-                    // Verify trust if enabled
-                    if let Some(verifier) = &trust_verifier {
-                        if let Err(e) = verifier.verify_script(&signal.command).await {
-                            // Log trust violation specially (TrustError logs itself on creation)
-                            return (
-                                name.clone(),
-                                Err(anyhow::anyhow!("Trust verification failed: {}", e)),
-                                None,
-                            );
-                        }
-                    }
-
-                    // Execute the signal with event data and measure time
-                    let signal_start = std::time::Instant::now();
-                    let result = rulebook.execute_signal_with_input(&name, &event_data).await;
-                    let signal_duration = signal_start.elapsed();
-
-                    // Create signal execution record for debug
-                    let signal_execution = SignalExecution {
-                        name: name.clone(),
-                        command: signal.command.clone(),
-                        result: result.as_ref().unwrap_or(&serde_json::Value::Null).clone(),
-                        duration_ms: Some(signal_duration.as_millis() as u64),
-                        exit_code: None,
-                    };
-
-                    (name, result, Some(signal_execution))
-                }
-            })
-            .collect();
-
-        let results = join_all(futures).await;
-
-        let mut signal_data = HashMap::new();
-        for (name, result, signal_execution) in results {
-            match result {
-                Ok(value) => {
-                    debug!("Signal '{}' executed successfully", name);
-                    signal_data.insert(name, value);
-
-                    // Capture signal execution for telemetry
-                    if let (Some(ref mut telemetry), Some(execution)) =
-                        (&mut signal_telemetry, signal_execution)
-                    {
-                        telemetry.signals.push(execution);
-                    }
-                }
-                Err(e) => {
-                    // Log error but don't fail the whole evaluation
-                    error!("Signal '{}' failed: {}", name, e);
-
-                    // Still capture failed signal execution for telemetry
-                    if let (Some(ref mut telemetry), Some(execution)) =
-                        (&mut signal_telemetry, signal_execution)
-                    {
-                        telemetry.signals.push(execution);
-                    }
-                }
-            }
-        }
-
-        Ok(signal_data)
-    }
-
-    /// Execute actions based on the final decision and decision set
-    /// Execute actions with a specific rulebook
-    async fn execute_actions_with_rulebook(
-        &self,
-        final_decision: &decision::FinalDecision,
-        decision_set: &decision::DecisionSet,
-        rulebook: &rulebook::Rulebook,
-    ) {
-        info!(
-            "execute_actions_with_rulebook called with decision: {:?}",
-            final_decision
-        );
-
-        // Determine working directory based on whether this is a global rulebook
-        // Check if we're using the global rulebook by comparing pointers
-        let is_global = self
-            .global_rulebook
-            .as_ref()
-            .map(|gb| std::ptr::eq(gb as *const _, rulebook as *const _))
-            .unwrap_or(false);
-
-        let working_dir = if is_global {
-            // For global actions, use global config root if available
-            if let Ok(Some(global_paths)) = global_config::GlobalPaths::discover() {
-                global_paths.root
-            } else {
-                self.paths.root.clone()
-            }
-        } else {
-            self.paths.root.clone()
-        };
-
-        // Execute actions based on decision type
-        match final_decision {
-            decision::FinalDecision::Halt { reason, .. } => {
-                info!("Executing actions for HALT decision: {}", reason);
-                info!(
-                    "Number of halt decisions in set: {}",
-                    decision_set.halts.len()
-                );
-                self.execute_rule_specific_actions(&decision_set.halts, rulebook, &working_dir)
-                    .await;
-            }
-            decision::FinalDecision::Deny { reason, .. } => {
-                info!("Executing actions for DENY decision: {}", reason);
-
-                // Execute general denial actions
-                for action in &rulebook.actions.on_any_denial {
-                    self.execute_single_action(action, &working_dir).await;
-                }
-
-                // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions(&decision_set.denials, rulebook, &working_dir)
-                    .await;
-            }
-            decision::FinalDecision::Block { reason, .. } => {
-                info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.blocks, rulebook, &working_dir)
-                    .await;
-            }
-            decision::FinalDecision::Ask { .. } => {
-                debug!("ASK decision - no automatic actions");
-            }
-            decision::FinalDecision::Allow { .. } => {
-                debug!("ALLOW decision - no actions needed");
-            }
-            decision::FinalDecision::Modify { .. } => {
-                debug!("MODIFY decision - no actions needed (tool input modified)");
-            }
-        }
-    }
-
-    /// Execute actions with debug capture
-    async fn execute_actions_with_debug(
-        &self,
-        final_decision: &decision::FinalDecision,
-        decision_set: &decision::DecisionSet,
-        _signal_telemetry: Option<&mut SignalTelemetry>,
-    ) {
-        let Some(rulebook) = &self.rulebook else {
-            debug!("No rulebook available - no actions to execute");
-            return;
-        };
-
-        self.execute_actions_with_rulebook_and_debug(
-            final_decision,
-            decision_set,
-            rulebook,
-            None, // Actions don't record to telemetry
-        )
-        .await;
-    }
-
-    /// Execute actions with rulebook and debug capture
-    async fn execute_actions_with_rulebook_and_debug(
-        &self,
-        final_decision: &decision::FinalDecision,
-        decision_set: &decision::DecisionSet,
-        rulebook: &rulebook::Rulebook,
-        mut signal_telemetry: Option<&mut SignalTelemetry>,
-    ) {
-        info!(
-            "execute_actions_with_rulebook_and_debug called with decision: {:?}",
-            final_decision
-        );
-
-        let working_dir = &self.paths.root.clone();
-
-        // Execute actions based on decision type, capturing execution details
-        match final_decision {
-            decision::FinalDecision::Halt { reason, .. } => {
-                info!("Executing actions for HALT decision: {}", reason);
-                self.execute_rule_specific_actions_with_debug(
-                    &decision_set.halts,
-                    rulebook,
-                    working_dir,
-                    signal_telemetry.as_deref_mut(),
-                )
-                .await;
-            }
-            decision::FinalDecision::Deny { reason, .. } => {
-                info!("Executing actions for DENY decision: {}", reason);
-
-                // Execute general denial actions
-                for action in &rulebook.actions.on_any_denial {
-                    self.execute_single_action_with_debug(
-                        action,
-                        working_dir,
-                        signal_telemetry.as_deref_mut(),
-                    )
-                    .await;
-                }
-
-                // Execute rule-specific actions for denials
-                self.execute_rule_specific_actions_with_debug(
-                    &decision_set.denials,
-                    rulebook,
-                    working_dir,
-                    signal_telemetry.as_deref_mut(),
-                )
-                .await;
-            }
-            decision::FinalDecision::Block { reason, .. } => {
-                info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions_with_debug(
-                    &decision_set.blocks,
-                    rulebook,
-                    working_dir,
-                    signal_telemetry,
-                )
-                .await;
-            }
-            decision::FinalDecision::Ask { .. } => {
-                debug!("ASK decision - no automatic actions");
-            }
-            decision::FinalDecision::Allow { .. } => {
-                debug!("ALLOW decision - no actions needed");
-            }
-            decision::FinalDecision::Modify { .. } => {
-                debug!("MODIFY decision - no actions needed (tool input modified)");
-            }
-        }
-    }
-
-    /// Execute actions for a specific set of decision objects (by rule ID)
-    async fn execute_rule_specific_actions(
-        &self,
-        decisions: &[decision::DecisionObject],
-        rulebook: &rulebook::Rulebook,
-        working_dir: &std::path::PathBuf,
-    ) {
-        info!(
-            "execute_rule_specific_actions: Checking actions for {} decision objects",
-            decisions.len()
-        );
-        info!(
-            "Available action rules: {:?}",
-            rulebook.actions.by_rule_id.keys().collect::<Vec<_>>()
-        );
-
-        for decision_obj in decisions {
-            let rule_id = &decision_obj.rule_id;
-            info!("Looking for actions for rule ID: {}", rule_id);
-
-            if let Some(actions) = rulebook.actions.by_rule_id.get(rule_id) {
-                info!("Found {} actions for rule {}", actions.len(), rule_id);
-                for action in actions {
-                    info!("About to execute action: {}", action.command);
-                    self.execute_single_action(action, working_dir).await;
-                }
-            } else {
-                info!("No actions found for rule ID: {}", rule_id);
-            }
-        }
-    }
-
-    /// Execute actions for a specific set of decision objects with debug capture
-    async fn execute_rule_specific_actions_with_debug(
-        &self,
-        decisions: &[decision::DecisionObject],
-        rulebook: &rulebook::Rulebook,
-        working_dir: &std::path::PathBuf,
-        mut signal_telemetry: Option<&mut SignalTelemetry>,
-    ) {
-        info!(
-            "execute_rule_specific_actions_with_debug: Checking actions for {} decision objects",
-            decisions.len()
-        );
-
-        // Create a list of actions to execute to avoid borrowing issues
-        let mut actions_to_execute = Vec::new();
-
-        for decision_obj in decisions {
-            let rule_id = &decision_obj.rule_id;
-
-            if let Some(actions) = rulebook.actions.by_rule_id.get(rule_id) {
-                info!("Found {} actions for rule {}", actions.len(), rule_id);
-                for action in actions {
-                    actions_to_execute.push(action.clone());
-                }
-            }
-        }
-
-        // Now execute all actions
-        for action in actions_to_execute {
-            info!("About to execute action: {}", action.command);
-            self.execute_single_action_with_debug(
-                &action,
-                working_dir,
-                signal_telemetry.as_deref_mut(),
-            )
-            .await;
-        }
-    }
-
-    /// Execute a single action command
-    async fn execute_single_action(
-        &self,
-        action: &rulebook::ActionConfig,
-        working_dir: &std::path::PathBuf,
-    ) {
-        self.execute_single_action_with_debug(action, working_dir, None)
-            .await;
-    }
-
-    /// Execute a single action command with debug capture
-    async fn execute_single_action_with_debug(
-        &self,
-        action: &rulebook::ActionConfig,
-        working_dir: &std::path::PathBuf,
-        _signal_telemetry: Option<&mut SignalTelemetry>,
-    ) {
-        debug!(
-            "Executing action: {} in directory: {:?}",
-            action.command, working_dir
-        );
-
-        // Verify trust if enabled
-        if let Some(verifier) = &self.trust_verifier {
-            if let Err(e) = verifier.verify_script(&action.command).await {
-                // Log trust violation specially (TrustError logs itself on creation)
-                error!("Action blocked by trust verification: {}", e);
-                return; // Don't execute untrusted action
-            }
-        }
-
-        // Use the provided working directory
-        let working_dir = working_dir.clone();
-
-        // Execute action asynchronously without blocking
-        let command = action.command.clone();
-        tokio::spawn(async move {
-            // Determine if this is a script file or a shell command
-            // A script file starts with / or ./ and doesn't contain shell operators
-            // On Windows, .sh files need to be invoked through bash
-            let is_script_path = (command.starts_with('/') || command.starts_with("./"))
-                && !command.contains("&&")
-                && !command.contains("||")
-                && !command.contains(';')
-                && !command.contains('|')
-                && !command.contains('>');
-
-            let is_shell_script = command.ends_with(".sh");
-
-            let result = if is_script_path && !is_shell_script {
-                // It's a script file (but not .sh), execute directly
-                // Extract the directory from the script path to use as working directory
-                let script_path = std::path::Path::new(&command);
-                let script_working_dir = script_path
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                    .unwrap_or(&working_dir);
-
-                tokio::process::Command::new(&command)
-                    .current_dir(script_working_dir)
-                    .output()
-                    .await
-            } else if is_shell_script && cfg!(windows) {
-                // On Windows, .sh files must be invoked through bash
-                // Extract the directory from the script path to use as working directory
-                let script_path = std::path::Path::new(&command);
-                let script_working_dir = script_path
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                    .unwrap_or(&working_dir);
-
-                // Convert Windows path to Git Bash compatible Unix-style path
-                // C:\Users\foo -> /c/Users/foo
-                let bash_path = if command.len() >= 3 && command.chars().nth(1) == Some(':') {
-                    let drive = command.chars().next().unwrap().to_lowercase();
-                    let path_part = &command[2..].replace('\\', "/");
-                    format!("/{drive}{path_part}")
-                } else {
-                    command.replace('\\', "/")
-                };
-
-                tokio::process::Command::new(*SHELL_COMMAND)
-                    .arg(&bash_path)
-                    .current_dir(script_working_dir)
-                    .output()
-                    .await
-            } else {
-                // It's a shell command or a .sh script on Unix, use shell -c
-                // Use the provided working directory
-                let result = tokio::process::Command::new(*SHELL_COMMAND)
-                    .arg("-c")
-                    .arg(&command)
-                    .current_dir(&working_dir)
-                    .output()
-                    .await;
-                result
-            };
-
-            match result {
-                Ok(output) => {
-                    if output.status.success() {
-                        debug!("Action completed successfully: {}", command);
-                    } else {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        let stdout = String::from_utf8_lossy(&output.stdout);
-                        warn!(
-                            "Action failed: {} - stderr: {} stdout: {}",
-                            command, stderr, stdout
-                        );
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to execute action: {} - {}", command, e);
-                }
-            }
-        });
-
-        // Give the runtime a chance to start the spawned task
-        tokio::task::yield_now().await;
     }
 
     /// Initialize the trust system, respecting the mode setting

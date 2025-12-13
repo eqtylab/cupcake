@@ -13,7 +13,6 @@ use opentelemetry_proto::tonic::trace::v1::{
     span::SpanKind, ResourceSpans, ScopeSpans, Span, Status,
 };
 use prost::Message;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
 
 use super::context::TelemetryContext;
@@ -91,9 +90,10 @@ fn build_spans(ctx: &TelemetryContext) -> Vec<Span> {
     let trace_id = parse_trace_id(&ctx.ingest.trace_id);
 
     // 1. Root span: cupcake.ingest
+    // Use actual timestamps captured during execution
     let ingest_span_id = parse_span_id(&ctx.ingest.span_id);
-    let start_time_ns = system_time_to_nanos(&ctx.ingest.timestamp);
-    let end_time_ns = start_time_ns + (ctx.total_duration_ms * 1_000_000);
+    let start_time_ns = ctx.ingest.start_time_unix_nano;
+    let end_time_ns = ctx.ingest.end_time_unix_nano;
 
     let mut ingest_attrs = vec![
         kv_string("harness", &format!("{:?}", ctx.ingest.harness)),
@@ -122,11 +122,12 @@ fn build_spans(ctx: &TelemetryContext) -> Vec<Span> {
     });
 
     // 2. Child span: cupcake.enrich (if present)
+    // Use actual timestamps captured during execution
     if let Some(ref enrich) = ctx.enrich {
         let enrich_span_id = parse_span_id(&enrich.span_id);
         let enrich_parent_id = parse_span_id(&enrich.parent_span_id);
-        let enrich_start = start_time_ns;
-        let enrich_end = enrich_start + (enrich.duration_us * 1000); // us to ns
+        let enrich_start = enrich.start_time_unix_nano;
+        let enrich_end = enrich.end_time_unix_nano;
 
         let mut enrich_attrs = vec![kv_string(
             "operations",
@@ -155,13 +156,13 @@ fn build_spans(ctx: &TelemetryContext) -> Vec<Span> {
     }
 
     // 3. Child spans: cupcake.evaluate (one per phase)
-    let mut eval_start_offset = ctx.enrich.as_ref().map(|e| e.duration_us * 1000).unwrap_or(0);
-
+    // Use actual timestamps captured during execution, not calculated offsets.
+    // This preserves real gaps between phases (context switches, I/O waits, etc.)
     for eval in &ctx.evaluations {
         let eval_span_id = parse_span_id(&eval.span_id);
         let eval_parent_id = parse_span_id(&eval.parent_span_id);
-        let eval_start = start_time_ns + eval_start_offset;
-        let eval_end = eval_start + (eval.duration_ms * 1_000_000);
+        let eval_start = eval.start_time_unix_nano;
+        let eval_end = eval.end_time_unix_nano;
 
         let mut eval_attrs = vec![
             kv_string("phase", &eval.phase),
@@ -205,8 +206,6 @@ fn build_spans(ctx: &TelemetryContext) -> Vec<Span> {
             }),
             ..Default::default()
         });
-
-        eval_start_offset += eval.duration_ms * 1_000_000;
     }
 
     spans
@@ -267,12 +266,6 @@ fn parse_span_id(span_id: &str) -> [u8; 8] {
     result
 }
 
-/// Convert SystemTime to nanoseconds since Unix epoch.
-fn system_time_to_nanos(time: &SystemTime) -> u64 {
-    time.duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
-}
 
 #[cfg(test)]
 mod tests {

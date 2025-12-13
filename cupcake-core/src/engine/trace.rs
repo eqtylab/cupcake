@@ -32,26 +32,6 @@ pub fn extract_session_id(input: &serde_json::Value) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Extract event name from input
-///
-/// Supports both camelCase (hookEventName) and snake_case (hook_event_name)
-/// for compatibility with different Claude Code versions.
-pub fn extract_event_name(input: &serde_json::Value) -> Option<String> {
-    input
-        .get("hookEventName")
-        .or_else(|| input.get("hook_event_name"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-}
-
-/// Extract tool name from input if available
-pub fn extract_tool_name(input: &serde_json::Value) -> Option<String> {
-    input
-        .get("tool_name")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,52 +70,5 @@ mod tests {
         });
 
         assert_eq!(extract_session_id(&input_no_session), None);
-    }
-
-    #[test]
-    fn test_extract_event_name() {
-        // Test camelCase
-        let input_camel = json!({
-            "hookEventName": "PreToolUse"
-        });
-        assert_eq!(
-            extract_event_name(&input_camel),
-            Some("PreToolUse".to_string())
-        );
-
-        // Test snake_case
-        let input_snake = json!({
-            "hook_event_name": "PostToolUse"
-        });
-        assert_eq!(
-            extract_event_name(&input_snake),
-            Some("PostToolUse".to_string())
-        );
-
-        // Test both present (camelCase takes precedence)
-        let input_both = json!({
-            "hookEventName": "PreToolUse",
-            "hook_event_name": "PostToolUse"
-        });
-        assert_eq!(
-            extract_event_name(&input_both),
-            Some("PreToolUse".to_string())
-        );
-    }
-
-    #[test]
-    fn test_extract_tool_name() {
-        let input = json!({
-            "tool_name": "Bash",
-            "hook_event_name": "PreToolUse"
-        });
-
-        assert_eq!(extract_tool_name(&input), Some("Bash".to_string()));
-
-        let input_no_tool = json!({
-            "hook_event_name": "UserPromptSubmit"
-        });
-
-        assert_eq!(extract_tool_name(&input_no_tool), None);
     }
 }

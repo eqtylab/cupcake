@@ -729,8 +729,8 @@ impl Engine {
         routing_map.clear();
 
         for policy in policies {
-            // Create all routing keys for this policy from metadata
-            let routing_keys = routing::create_all_routing_keys_from_metadata(&policy.routing);
+            // Create routing keys for this policy from metadata
+            let routing_keys = routing::create_routing_key_from_metadata(&policy.routing);
 
             // Add policy to the routing map for each key
             for key in routing_keys {

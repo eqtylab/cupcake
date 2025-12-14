@@ -233,17 +233,15 @@ pub fn preprocess_input(
     //   - This makes `new_string` semantically consistent across both tools
     //
     // ==========================================================================
-    if harness == HarnessType::ClaudeCode {
-        if normalize_write_edit_content_fields(input, &tool_name) {
-            result.record("content_unification");
-        }
+    if harness == HarnessType::ClaudeCode
+        && normalize_write_edit_content_fields(input, &tool_name)
+    {
+        result.record("content_unification");
     }
 
     // Apply symlink resolution for file operations (TOB-4 defense)
-    if config.enable_symlink_resolution {
-        if resolve_and_attach_symlinks(input, harness) {
-            result.record("symlink_resolution");
-        }
+    if config.enable_symlink_resolution && resolve_and_attach_symlinks(input, harness) {
+        result.record("symlink_resolution");
     }
 
     // Future: Apply cross-tool normalizations

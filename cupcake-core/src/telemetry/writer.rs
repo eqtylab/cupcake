@@ -135,7 +135,7 @@ impl TelemetryWriter {
                 }
 
                 if let Some(ref exit_reason) = eval.exit_reason {
-                    output.push_str(&format!("  Exit Reason: {}\n", exit_reason));
+                    output.push_str(&format!("  Exit Reason: {exit_reason}\n"));
                 }
 
                 if let Some(ref decision_set) = eval.wasm_decision_set {
@@ -181,7 +181,7 @@ impl TelemetryWriter {
                 }
 
                 if let Some(ref final_decision) = eval.final_decision {
-                    output.push_str(&format!("  Final Decision: {:?}\n", final_decision));
+                    output.push_str(&format!("  Final Decision: {final_decision:?}\n"));
                 }
 
                 if !eval.signals_executed.is_empty() {

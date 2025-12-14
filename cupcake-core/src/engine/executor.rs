@@ -378,6 +378,7 @@ impl<'a> Executor<'a> {
         &self,
         input: &Value,
         matched_policies: &[PolicyUnit],
+        signal_telemetry: Option<&mut SignalTelemetry>,
     ) -> Result<Value> {
         let Some(rulebook) = self.global_rulebook else {
             debug!("No global rulebook - returning input unchanged");
@@ -463,7 +464,7 @@ impl<'a> Executor<'a> {
 
         // Execute signals using global rulebook
         let signal_data = self
-            .execute_signals_with_trust(&signal_names, rulebook, input, None)
+            .execute_signals_with_trust(&signal_names, rulebook, input, signal_telemetry)
             .await
             .unwrap_or_else(|e| {
                 warn!("Global signal execution failed: {}", e);

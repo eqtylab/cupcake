@@ -1023,8 +1023,9 @@ impl Engine {
         // PHASE 1: Evaluate global policies first (if they exist)
         if self.global_wasm_runtime.is_some() {
             debug!("Phase 1: Evaluating global policies");
-            let (global_decision, global_decision_set) = self
-                .evaluate_global(&safe_input, event_name, tool_name, &exec)
+            let capture_telemetry = telemetry.is_some();
+            let (global_decision, global_decision_set, global_signal_executions) = self
+                .evaluate_global(&safe_input, event_name, tool_name, &exec, capture_telemetry)
                 .await?;
 
             // Record global evaluation in telemetry
@@ -1034,6 +1035,10 @@ impl Engine {
                     true,
                     &self.global_routing_map.keys().cloned().collect::<Vec<_>>(),
                 );
+                // Record signal executions from global evaluation
+                for signal in global_signal_executions {
+                    span.record_signal(signal);
+                }
                 span.record_wasm_result(&global_decision_set);
                 span.record_final_decision(&global_decision);
             }
@@ -1299,13 +1304,21 @@ impl Engine {
     }
 
     /// Evaluate global policies
+    ///
+    /// Returns (decision, decision_set, signal_executions) where signal_executions
+    /// is populated only when capture_telemetry is true.
     async fn evaluate_global(
         &self,
         input: &Value,
         event_name: &str,
         tool_name: Option<&str>,
         exec: &executor::Executor<'_>,
-    ) -> Result<(decision::FinalDecision, decision::DecisionSet)> {
+        capture_telemetry: bool,
+    ) -> Result<(
+        decision::FinalDecision,
+        decision::DecisionSet,
+        Vec<crate::telemetry::span::SignalExecution>,
+    )> {
         // Route through global policies
         let global_matched: Vec<PolicyUnit> = self
             .route_global_event(event_name, tool_name)
@@ -1318,13 +1331,25 @@ impl Engine {
             return Ok((
                 decision::FinalDecision::Allow { context: vec![] },
                 decision::DecisionSet::default(),
+                Vec::new(),
             ));
         }
 
         info!("Found {} matching global policies", global_matched.len());
 
-        // Gather signals for global policies using Executor
-        let enriched_input = exec.gather_global_signals(input, &global_matched).await?;
+        // Gather signals for global policies using Executor - collect telemetry if enabled
+        let (enriched_input, signal_executions) = if capture_telemetry {
+            let mut signal_telemetry = SignalTelemetry::new();
+            let result = exec
+                .gather_global_signals(input, &global_matched, Some(&mut signal_telemetry))
+                .await?;
+            (result, signal_telemetry.signals)
+        } else {
+            let result = exec
+                .gather_global_signals(input, &global_matched, None)
+                .await?;
+            (result, Vec::new())
+        };
 
         // Evaluate using global WASM runtime
         let global_runtime = self
@@ -1342,7 +1367,7 @@ impl Engine {
         let global_decision = synthesis::SynthesisEngine::synthesize(&global_decision_set)?;
         info!("Global policy decision: {:?}", global_decision);
 
-        Ok((global_decision, global_decision_set))
+        Ok((global_decision, global_decision_set, signal_executions))
     }
 
     /// Route event through global policies

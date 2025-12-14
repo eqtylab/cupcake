@@ -67,7 +67,11 @@ use symlink_resolver::SymlinkResolver;
 /// // Command is now normalized: "rm -rf .cupcake"
 /// // result.operations() contains ["whitespace_normalization"]
 /// ```
-pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: HarnessType) -> PreprocessResult {
+pub fn preprocess_input(
+    input: &mut Value,
+    config: &PreprocessConfig,
+    harness: HarnessType,
+) -> PreprocessResult {
     let mut result = PreprocessResult::new();
     // Extract tool/event information based on harness type
     // We copy these strings out of the JSON so we can modify the JSON later.

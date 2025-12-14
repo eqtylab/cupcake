@@ -346,7 +346,11 @@ impl<'a> Executor<'a> {
     }
 
     /// Execute actions based on the final decision (uses project rulebook).
-    pub async fn execute_actions(&self, final_decision: &FinalDecision, decision_set: &DecisionSet) {
+    pub async fn execute_actions(
+        &self,
+        final_decision: &FinalDecision,
+        decision_set: &DecisionSet,
+    ) {
         let Some(rulebook) = self.rulebook else {
             debug!("No rulebook available - no actions to execute");
             return;

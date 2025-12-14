@@ -233,8 +233,7 @@ pub fn preprocess_input(
     //   - This makes `new_string` semantically consistent across both tools
     //
     // ==========================================================================
-    if harness == HarnessType::ClaudeCode
-        && normalize_write_edit_content_fields(input, &tool_name)
+    if harness == HarnessType::ClaudeCode && normalize_write_edit_content_fields(input, &tool_name)
     {
         result.record("content_unification");
     }

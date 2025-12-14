@@ -506,7 +506,7 @@ async fn eval_command(
     // This protects all policies (user and builtin) from spacing bypasses
     let preprocess_start = std::time::Instant::now();
     let preprocess_config = cupcake_core::preprocessing::PreprocessConfig::default();
-    cupcake_core::preprocessing::preprocess_input(
+    let preprocess_result = cupcake_core::preprocessing::preprocess_input(
         &mut hook_event_json,
         &preprocess_config,
         harness_type,
@@ -551,14 +551,10 @@ async fn eval_command(
             telemetry_config.clone(),
         );
 
-        // Record enrichment (preprocessing results)
+        // Record enrichment (preprocessing results) - use actual operations applied
         ctx.record_enrichment(
             hook_event_json.clone(),
-            vec![
-                "whitespace_normalization".into(),
-                "symlink_resolution".into(),
-                "content_unification".into(),
-            ],
+            preprocess_result.applied_operations.clone(),
             preprocess_duration_us,
         );
 

@@ -28,7 +28,7 @@ pub mod script_inspector;
 pub mod symlink_resolver;
 
 use command_path_extractor::extract_target_paths;
-pub use config::PreprocessConfig;
+pub use config::{PreprocessConfig, PreprocessResult};
 use normalizers::WhitespaceNormalizer;
 use script_inspector::ScriptInspector;
 use symlink_resolver::SymlinkResolver;
@@ -39,11 +39,15 @@ use symlink_resolver::SymlinkResolver;
 /// 1. Identifies tool-specific fields that need normalization
 /// 2. Applies appropriate normalizers based on configuration
 /// 3. Logs all transformations for auditability
+/// 4. Returns a record of which operations were actually applied
 ///
 /// # Arguments
 /// * `input` - Mutable reference to the input JSON
 /// * `config` - Configuration controlling what normalizations to apply
 /// * `harness` - The harness type (Claude Code or Cursor)
+///
+/// # Returns
+/// A `PreprocessResult` containing the list of operations that were actually applied.
 ///
 /// # Example
 /// ```
@@ -58,11 +62,13 @@ use symlink_resolver::SymlinkResolver;
 /// });
 ///
 /// let config = PreprocessConfig::default();
-/// preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
+/// let result = preprocess_input(&mut input, &config, HarnessType::ClaudeCode);
 ///
 /// // Command is now normalized: "rm -rf .cupcake"
+/// // result.operations() contains ["whitespace_normalization"]
 /// ```
-pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: HarnessType) {
+pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: HarnessType) -> PreprocessResult {
+    let mut result = PreprocessResult::new();
     // Extract tool/event information based on harness type
     // We copy these strings out of the JSON so we can modify the JSON later.
     // Can't modify data while something points into it.
@@ -85,7 +91,7 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
             // OpenCode uses lowercase tool names that need to be mapped to Cupcake format
             // Clone fields before mutating input
             let args = input.get("args").cloned();
-            let result = input.get("result").cloned();
+            let opencode_result = input.get("result").cloned();
 
             // Get tool and event as owned strings to avoid borrow issues
             let tool_lowercase = input
@@ -125,9 +131,11 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
                 }
 
                 // Add tool_response field by renaming result to tool_response for PostToolUse events
-                if let Some(result_value) = result {
-                    obj.insert("tool_response".to_string(), result_value);
+                if let Some(opencode_result_value) = opencode_result {
+                    obj.insert("tool_response".to_string(), opencode_result_value);
                 }
+
+                result.record("opencode_field_mapping");
             }
 
             // Re-read the values we just inserted to get proper string slices
@@ -171,12 +179,17 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
 
     // Apply tool-specific preprocessing based on the tool type
     match tool_name.as_str() {
-        "Bash" if config.normalize_whitespace => match harness {
-            HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
-            HarnessType::Factory => preprocess_claude_bash_command(input, config),
-            HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
-            HarnessType::OpenCode => preprocess_claude_bash_command(input, config), // Same format as Claude/Factory
-        },
+        "Bash" if config.normalize_whitespace => {
+            let applied = match harness {
+                HarnessType::ClaudeCode => preprocess_claude_bash_command(input, config),
+                HarnessType::Factory => preprocess_claude_bash_command(input, config),
+                HarnessType::Cursor => preprocess_cursor_shell_command(input, config),
+                HarnessType::OpenCode => preprocess_claude_bash_command(input, config), // Same format as Claude/Factory
+            };
+            if applied {
+                result.record("whitespace_normalization");
+            }
+        }
         // Future: Add other tool-specific preprocessing
         // "Task" => preprocess_task_prompt(input, config),
         // "WebFetch" => preprocess_url(input, config),
@@ -217,18 +230,24 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
     //
     // ==========================================================================
     if harness == HarnessType::ClaudeCode {
-        normalize_write_edit_content_fields(input, &tool_name);
+        if normalize_write_edit_content_fields(input, &tool_name) {
+            result.record("content_unification");
+        }
     }
 
     // Apply symlink resolution for file operations (TOB-4 defense)
     if config.enable_symlink_resolution {
-        resolve_and_attach_symlinks(input, harness);
+        if resolve_and_attach_symlinks(input, harness) {
+            result.record("symlink_resolution");
+        }
     }
 
     // Future: Apply cross-tool normalizations
     // if config.detect_substitution {
     //     detect_command_substitution(input);
     // }
+
+    result
 }
 
 /// Normalize content fields between Write and Edit tools for unified policy access
@@ -269,10 +288,10 @@ pub fn preprocess_input(input: &mut Value, config: &PreprocessConfig, harness: H
 /// - `new_string`: The content being written (unified field)
 /// - `content`: Original Write field (preserved for backwards compatibility)
 /// - `old_string`: Edit-only field for the text being replaced
-fn normalize_write_edit_content_fields(input: &mut Value, tool_name: &str) {
+fn normalize_write_edit_content_fields(input: &mut Value, tool_name: &str) -> bool {
     // Only normalize Write tool - Edit already has new_string
     if tool_name != "Write" {
-        return;
+        return false;
     }
 
     if let Some(tool_input) = input.get_mut("tool_input") {
@@ -281,13 +300,18 @@ fn normalize_write_edit_content_fields(input: &mut Value, tool_name: &str) {
             if let Some(content) = tool_input_obj.get("content").cloned() {
                 tool_input_obj.insert("new_string".to_string(), content);
                 trace!("Normalized Write content → new_string for unified policy access");
+                return true;
             }
         }
     }
+    false
 }
 
 /// Preprocess Claude Code Bash commands to normalize whitespace and inspect scripts
-fn preprocess_claude_bash_command(input: &mut Value, config: &PreprocessConfig) {
+/// Returns true if whitespace normalization was actually applied
+fn preprocess_claude_bash_command(input: &mut Value, config: &PreprocessConfig) -> bool {
+    let mut applied = false;
+
     // Navigate to tool_input.command (Claude Code structure)
     if let Some(tool_input) = input.get_mut("tool_input") {
         if let Some(command_value) = tool_input.get_mut("command") {
@@ -298,6 +322,7 @@ fn preprocess_claude_bash_command(input: &mut Value, config: &PreprocessConfig) 
                 // Only update if changed
                 if original != normalized {
                     *command_value = Value::String(normalized.clone());
+                    applied = true;
 
                     if config.audit_transformations {
                         debug!(
@@ -321,10 +346,15 @@ fn preprocess_claude_bash_command(input: &mut Value, config: &PreprocessConfig) 
             }
         }
     }
+
+    applied
 }
 
 /// Preprocess Cursor shell commands to normalize whitespace and inspect scripts
-fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig) {
+/// Returns true if whitespace normalization was actually applied
+fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig) -> bool {
+    let mut applied = false;
+
     // Navigate to command (Cursor structure - command is at root level)
     if let Some(command_value) = input.get_mut("command") {
         if let Some(command) = command_value.as_str() {
@@ -334,6 +364,7 @@ fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig)
             // Only update if changed
             if original != normalized {
                 *command_value = Value::String(normalized.clone());
+                applied = true;
 
                 if config.audit_transformations {
                     debug!(
@@ -354,6 +385,8 @@ fn preprocess_cursor_shell_command(input: &mut Value, config: &PreprocessConfig)
             extract_and_attach_affected_directories(input, &normalized);
         }
     }
+
+    applied
 }
 
 /// Extract affected parent directories from destructive commands and attach to event
@@ -455,7 +488,10 @@ fn inspect_and_attach_script(input: &mut Value, command: &str) {
 /// This implements TOB-4 defense by detecting when file paths are symbolic links
 /// and resolving them to their canonical target paths. This prevents bypass attacks
 /// where attackers create symlinks to protected directories.
-fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
+/// Returns true if any file path was processed for symlink resolution.
+fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) -> bool {
+    let mut applied = false;
+
     // Get the working directory from the event (if available) - shared across all paths
     // Clone the path to avoid borrow checker issues
     let cwd: Option<std::path::PathBuf> = input
@@ -497,6 +533,7 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
         if let Some(path_str) = path_value.as_str() {
             let path_str_owned = path_str.to_string();
             resolve_and_attach_single_path(input, &path_str_owned, cwd.as_deref());
+            applied = true;
         }
     }
 
@@ -527,6 +564,7 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
                             if let Some(path_str) = edit_paths.get(i) {
                                 trace!("Canonicalizing MultiEdit file_path: {}", path_str);
                                 resolve_and_attach_single_path(edit, path_str, cwd.as_deref());
+                                applied = true;
                             }
                         }
                     }
@@ -534,6 +572,8 @@ fn resolve_and_attach_symlinks(input: &mut Value, harness: HarnessType) {
             }
         }
     }
+
+    applied
 }
 
 /// Resolve and attach a single file path's canonical form

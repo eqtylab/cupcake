@@ -54,13 +54,16 @@ fn scan_directory_recursive_filtered<'a>(
 
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            let file_type = entry.file_type().await?;
+            let metadata = match tokio::fs::metadata(&path).await {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
 
-            if file_type.is_dir() {
+            if metadata.is_dir() {
                 // Recurse into subdirectories
                 debug!("Scanning subdirectory: {:?}", path);
                 scan_directory_recursive_filtered(&path, files, enabled_builtins).await?;
-            } else if file_type.is_file() {
+            } else if metadata.is_file() {
                 // Check if it's a .rego file
                 if let Some(extension) = path.extension() {
                     if extension == "rego" {
@@ -150,6 +153,39 @@ mod tests {
     async fn test_scan_nonexistent_directory() {
         let result = scan_policies(Path::new("/nonexistent/path")).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_scan_follows_symlinks() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let file = temp_dir.path().join("policy.rego");
+        fs::write(&file, "package test").await.unwrap();
+
+        let symlink = temp_dir.path().join("symlink.rego");
+        tokio::fs::symlink(&file, &symlink).await.unwrap();
+
+        let files = scan_policies(temp_dir.path()).await.unwrap();
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|p| p.ends_with("policy.rego")));
+        assert!(files.iter().any(|p| p.ends_with("symlink.rego")));
+    }
+
+    #[tokio::test]
+    async fn test_scan_follows_symlinked_directory() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let dir = temp_dir.path().join("dir");
+        fs::create_dir(&dir).await.unwrap();
+        fs::write(dir.join("nested.rego"), "package nested")
+            .await
+            .unwrap();
+
+        let symlink_dir = temp_dir.path().join("symlink_dir");
+        tokio::fs::symlink(&dir, &symlink_dir).await.unwrap();
+
+        let files = scan_policies(temp_dir.path()).await.unwrap();
+        assert_eq!(files.len(), 2);
     }
 }
 

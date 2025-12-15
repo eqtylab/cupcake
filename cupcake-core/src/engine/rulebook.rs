@@ -57,7 +57,7 @@ pub struct ActionConfig {
     pub command: String,
 }
 
-/// The simplified rulebook structure from CRITICAL_GUIDING_STAR.md
+/// The rulebook configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Rulebook {
     /// Signal name -> command mappings
@@ -497,26 +497,3 @@ impl Rulebook {
         Ok(signal_data)
     }
 }
-
-// Example rulebook.yml structure from CRITICAL_GUIDING_STAR.md:
-// ```yaml
-// signals:
-//   git.current_branch:
-//     command: "git rev-parse --abbrev-ref HEAD"
-//     timeout_seconds: 2
-//
-// actions:
-//   on_any_denial:
-//     - command: "logger 'Cupcake policy violation occurred.'"
-//
-//   by_rule_id:
-//     BASH001:
-//       - command: "notify-slack --channel dev-guidance --message 'grep usage detected'"
-// ```
-
-// Aligns with CRITICAL_GUIDING_STAR.md:
-// - Rulebook is just a phonebook - simple lookup tables
-// - No complex orchestration logic
-// - Signals map names to commands
-// - Actions map violation IDs to commands
-// - Concurrent signal execution for performance

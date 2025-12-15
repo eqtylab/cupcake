@@ -1,6 +1,4 @@
 //! Cupcake - A performant policy engine for coding agents
-//!
-//! Main entry point implementing the CRITICAL_GUIDING_STAR architecture
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
@@ -2333,9 +2331,3 @@ const OPENCODE_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
 
 // Helper library (shared by all harnesses)
 const HELPERS_COMMANDS: &str = include_str!("../../fixtures/helpers/commands.rego");
-
-// Aligns with CRITICAL_GUIDING_STAR.md:
-// - Simple CLI interface: cupcake eval
-// - Takes policy directory as argument (decoupled from examples)
-// - Verify command for testing Phase 1 implementation
-// - Foundation for reading hook events from stdin (Phase 2)

@@ -1,7 +1,4 @@
 //! File system scanner for discovering .rego policy files
-//!
-//! Implements policy discovery as defined in CRITICAL_GUIDING_STAR.md Step 1:
-//! "Scan & Compile (On Startup/Change): Cupcake scans all .rego policies"
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -152,9 +149,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-
-// Aligns with CRITICAL_GUIDING_STAR.md:
-// - Scans all .rego files in the policy directory
-// - Supports recursive directory scanning
-// - Foundation for hot-reload capability
-// - Clean separation of concerns: scanner only finds files

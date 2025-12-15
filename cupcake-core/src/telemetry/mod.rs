@@ -28,7 +28,7 @@
 //!
 //! - **No early exit blindness**: Root span created in CLI before preprocessing
 //! - **Drop guard**: Telemetry written even on panic/early return
-//! - **OTLP-ready**: Span tree maps directly to OpenTelemetry format
+//! - **OpenTelemetry-compatible**: Span fields follow the OpenTelemetry specification
 //!
 //! ## Implementation Log
 //!

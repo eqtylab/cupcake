@@ -34,7 +34,7 @@ fn system_time_to_nanos(time: &SystemTime) -> u64 {
 /// we capture every event even if it exits early.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IngestSpan {
-    // --- OTLP-required fields ---
+    // --- OpenTelemetry-compatible fields ---
     /// Unique span identifier (8-byte hex, 16 chars)
     pub span_id: String,
 
@@ -92,7 +92,7 @@ impl IngestSpan {
 /// - File path canonicalization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnrichSpan {
-    // --- OTLP-required fields ---
+    // --- OpenTelemetry-compatible fields ---
     /// Unique span identifier (8-byte hex, 16 chars)
     pub span_id: String,
 
@@ -156,7 +156,7 @@ impl EnrichSpan {
 /// (e.g., routing finds no matching policies).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluateSpan {
-    // --- OTLP-required fields ---
+    // --- OpenTelemetry-compatible fields ---
     /// Unique span identifier (8-byte hex, 16 chars)
     pub span_id: String,
 
@@ -318,7 +318,7 @@ mod tests {
         assert_eq!(span.trace_id, "trace-123");
         assert_eq!(span.raw_event, raw);
         assert_eq!(span.harness, HarnessType::ClaudeCode);
-        // OTLP fields
+        // Span fields
         assert_eq!(span.span_id.len(), 16); // 8 bytes = 16 hex chars
         assert!(span.parent_span_id.is_empty()); // Root span has no parent
         assert!(span.start_time_unix_nano > 0);
@@ -353,7 +353,7 @@ mod tests {
         assert_eq!(span.enriched_event, enriched);
         assert_eq!(span.preprocessing_operations, vec!["symlink_resolution"]);
         assert_eq!(span.duration_us, duration_us);
-        // OTLP fields
+        // Span fields
         assert_eq!(span.span_id.len(), 16);
         assert_eq!(span.parent_span_id, parent_span_id);
         assert_eq!(span.start_time_unix_nano, start_time);
@@ -410,7 +410,7 @@ mod tests {
         let json = serde_json::to_string(&span).expect("serialize");
         assert!(json.contains("\"phase\":\"global\""));
         assert!(json.contains("\"routed\":false"));
-        // OTLP fields should be present
+        // Span fields should be present
         assert!(json.contains("\"span_id\""));
         assert!(json.contains("\"parent_span_id\""));
         assert!(json.contains("\"start_time_unix_nano\""));

@@ -319,7 +319,7 @@ mod tests {
         assert!(ctx.enrich.is_none());
         assert!(ctx.evaluations.is_empty());
         assert!(!ctx.is_finalized);
-        // OTLP fields on ingest
+        // Span fields on ingest
         assert_eq!(ctx.ingest.span_id.len(), 16);
         assert!(ctx.ingest.parent_span_id.is_empty());
         assert!(ctx.ingest.start_time_unix_nano > 0);
@@ -337,7 +337,7 @@ mod tests {
         let enrich = ctx.enrich.as_ref().unwrap();
         assert_eq!(enrich.enriched_event, enriched);
         assert_eq!(enrich.duration_us, 100);
-        // OTLP parent-child relationship
+        // Parent-child relationship
         assert_eq!(enrich.parent_span_id, ctx.ingest.span_id);
         assert!(enrich.end_time_unix_nano > enrich.start_time_unix_nano);
     }
@@ -366,7 +366,7 @@ mod tests {
         assert!(ctx.evaluations[0].routed);
         assert_eq!(ctx.evaluations[1].phase, "project");
         assert!(!ctx.evaluations[1].routed);
-        // OTLP parent-child relationship
+        // Parent-child relationship
         assert_eq!(ctx.evaluations[0].parent_span_id, ingest_span_id);
         assert_eq!(ctx.evaluations[1].parent_span_id, ingest_span_id);
     }
@@ -384,7 +384,7 @@ mod tests {
         assert!(json.contains("\"enrich\""));
         assert!(json.contains("trace-123")); // trace_id is inside ingest
         assert!(json.contains("\"preprocessing_operations\""));
-        // OTLP fields should be present
+        // Span fields should be present
         assert!(json.contains("\"span_id\""));
         assert!(json.contains("\"parent_span_id\""));
         assert!(json.contains("\"start_time_unix_nano\""));
@@ -407,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn test_otlp_parent_child_relationships() {
+    fn test_span_parent_child_relationships() {
         let raw = json!({"hook_event_name": "PreToolUse"});
         let mut ctx = TelemetryContext::new(raw, HarnessType::ClaudeCode, "trace-456".into());
         let ingest_span_id = ctx.ingest.span_id.clone();

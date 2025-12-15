@@ -3,7 +3,6 @@
 //! Handles writing TelemetryContext to various destinations:
 //! - Debug files (.cupcake/debug/)
 //! - Telemetry files (configurable destination)
-//! - Future: OTLP export
 
 use anyhow::Result;
 use chrono::{DateTime, Local};
@@ -15,8 +14,6 @@ use crate::engine::rulebook::TelemetryFormat;
 use super::context::TelemetryContext;
 
 /// Telemetry output writer.
-///
-/// Currently supports file-based output. Future versions will add OTLP export.
 pub struct TelemetryWriter;
 
 impl TelemetryWriter {

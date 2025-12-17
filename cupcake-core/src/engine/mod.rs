@@ -1030,17 +1030,21 @@ impl Engine {
 
             // Record global evaluation in telemetry
             if let Some(ref mut ctx) = telemetry {
-                let span = ctx.start_evaluation("global");
-                span.record_routing(
+                let phase = ctx.start_phase("global");
+                phase.evaluation_mut().record_routing(
                     true,
                     &self.global_routing_map.keys().cloned().collect::<Vec<_>>(),
                 );
                 // Record signal executions from global evaluation
                 for signal in global_signal_executions {
-                    span.record_signal(signal);
+                    phase.record_signal(signal);
                 }
-                span.record_wasm_result(&global_decision_set);
-                span.record_final_decision(&global_decision);
+                phase
+                    .evaluation_mut()
+                    .record_wasm_result(&global_decision_set);
+                phase
+                    .evaluation_mut()
+                    .record_final_decision(&global_decision);
             }
 
             // Early termination on global blocking decisions
@@ -1049,9 +1053,11 @@ impl Engine {
                     info!("Global policy HALT - immediate termination: {}", reason);
                     // Record exit reason in telemetry
                     if let Some(ref mut ctx) = telemetry {
-                        if let Some(span) = ctx.current_evaluation_mut() {
-                            span.record_exit(format!("Global halt: {reason}"));
-                            span.finalize();
+                        if let Some(phase) = ctx.current_phase_mut() {
+                            phase
+                                .evaluation_mut()
+                                .record_exit(format!("Global halt: {reason}"));
+                            phase.finalize();
                         }
                     }
                     // Execute global actions before returning
@@ -1065,9 +1071,11 @@ impl Engine {
                     info!("Global policy DENY - immediate termination: {}", reason);
                     // Record exit reason in telemetry
                     if let Some(ref mut ctx) = telemetry {
-                        if let Some(span) = ctx.current_evaluation_mut() {
-                            span.record_exit(format!("Global deny: {reason}"));
-                            span.finalize();
+                        if let Some(phase) = ctx.current_phase_mut() {
+                            phase
+                                .evaluation_mut()
+                                .record_exit(format!("Global deny: {reason}"));
+                            phase.finalize();
                         }
                     }
                     // Execute global actions before returning
@@ -1081,9 +1089,11 @@ impl Engine {
                     info!("Global policy BLOCK - immediate termination: {}", reason);
                     // Record exit reason in telemetry
                     if let Some(ref mut ctx) = telemetry {
-                        if let Some(span) = ctx.current_evaluation_mut() {
-                            span.record_exit(format!("Global block: {reason}"));
-                            span.finalize();
+                        if let Some(phase) = ctx.current_phase_mut() {
+                            phase
+                                .evaluation_mut()
+                                .record_exit(format!("Global block: {reason}"));
+                            phase.finalize();
                         }
                     }
                     // Execute global actions before returning
@@ -1095,10 +1105,10 @@ impl Engine {
                 }
                 _ => {
                     debug!("Global policies did not halt/deny/block - proceeding to catalog evaluation");
-                    // Finalize global span before continuing
+                    // Finalize global phase before continuing
                     if let Some(ref mut ctx) = telemetry {
-                        if let Some(span) = ctx.current_evaluation_mut() {
-                            span.finalize();
+                        if let Some(phase) = ctx.current_phase_mut() {
+                            phase.finalize();
                         }
                     }
                     // TODO: In the future, preserve Ask/Allow/Context for merging with project decisions
@@ -1194,9 +1204,9 @@ impl Engine {
         // PHASE 2: Evaluate project policies
         debug!("Phase 2: Evaluating project policies");
 
-        // Start project evaluation span
+        // Start project evaluation phase
         if let Some(ref mut ctx) = telemetry {
-            ctx.start_evaluation("project");
+            ctx.start_phase("project");
         }
 
         // Step 1: Route - find relevant policies (collect owned PolicyUnits)
@@ -1213,8 +1223,10 @@ impl Engine {
 
         // Record routing in telemetry
         if let Some(ref mut ctx) = telemetry {
-            if let Some(span) = ctx.current_evaluation_mut() {
-                span.record_routing(!matched_policies.is_empty(), &policy_names);
+            if let Some(phase) = ctx.current_phase_mut() {
+                phase
+                    .evaluation_mut()
+                    .record_routing(!matched_policies.is_empty(), &policy_names);
             }
         }
 
@@ -1222,10 +1234,14 @@ impl Engine {
             info!("No policies matched for this event - allowing");
             // Record early exit in telemetry
             if let Some(ref mut ctx) = telemetry {
-                if let Some(span) = ctx.current_evaluation_mut() {
-                    span.record_exit("No policies matched - implicit allow");
-                    span.record_final_decision(&decision::FinalDecision::Allow { context: vec![] });
-                    span.finalize();
+                if let Some(phase) = ctx.current_phase_mut() {
+                    phase
+                        .evaluation_mut()
+                        .record_exit("No policies matched - implicit allow");
+                    phase
+                        .evaluation_mut()
+                        .record_final_decision(&decision::FinalDecision::Allow { context: vec![] });
+                    phase.finalize();
                 }
             }
             current_span.record("matched_policy_count", 0);
@@ -1254,9 +1270,9 @@ impl Engine {
 
         // Record signal executions in telemetry
         if let Some(ref mut ctx) = telemetry {
-            if let Some(span) = ctx.current_evaluation_mut() {
+            if let Some(phase) = ctx.current_phase_mut() {
                 for signal in signal_executions {
-                    span.record_signal(signal);
+                    phase.record_signal(signal);
                 }
             }
         }
@@ -1267,8 +1283,8 @@ impl Engine {
 
         // Record WASM results in telemetry
         if let Some(ref mut ctx) = telemetry {
-            if let Some(span) = ctx.current_evaluation_mut() {
-                span.record_wasm_result(&decision_set);
+            if let Some(phase) = ctx.current_phase_mut() {
+                phase.evaluation_mut().record_wasm_result(&decision_set);
             }
         }
 
@@ -1279,9 +1295,11 @@ impl Engine {
 
         // Record final decision in telemetry
         if let Some(ref mut ctx) = telemetry {
-            if let Some(span) = ctx.current_evaluation_mut() {
-                span.record_final_decision(&final_decision);
-                span.finalize();
+            if let Some(phase) = ctx.current_phase_mut() {
+                phase
+                    .evaluation_mut()
+                    .record_final_decision(&final_decision);
+                phase.finalize();
             }
         }
 

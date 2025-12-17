@@ -1,6 +1,6 @@
 //! Telemetry output writers.
 //!
-//! Handles writing TelemetryContext to various destinations:
+//! Handles writing CupcakeSpan to various destinations:
 //! - Debug files (.cupcake/debug/)
 //! - Telemetry files (configurable destination)
 
@@ -11,51 +11,43 @@ use std::path::Path;
 
 use crate::engine::rulebook::TelemetryFormat;
 
-use super::context::TelemetryContext;
+use super::span::CupcakeSpan;
 
 /// Telemetry output writer.
 pub struct TelemetryWriter;
 
 impl TelemetryWriter {
     /// Write telemetry to debug file in .cupcake/debug/.
-    ///
-    /// Output format: Human-readable text for quick debugging.
-    pub fn write_debug_file(ctx: &TelemetryContext, debug_dir: &Path) -> Result<()> {
-        // Create directory if needed
+    pub fn write_debug_file(span: &CupcakeSpan, debug_dir: &Path) -> Result<()> {
         if !debug_dir.exists() {
             fs::create_dir_all(debug_dir)?;
         }
 
-        // Generate filename with timestamp and trace_id
-        let datetime: DateTime<Local> = ctx.ingest.timestamp.into();
+        let datetime: DateTime<Local> = span.timestamp.into();
         let filename = format!(
             "{}_{}.txt",
             datetime.format("%Y-%m-%d_%H-%M-%S"),
-            ctx.ingest.trace_id
+            span.trace_id
         );
 
         let file_path = debug_dir.join(filename);
-        let content = Self::format_human_readable(ctx)?;
+        let content = Self::format_human_readable(span)?;
 
         fs::write(file_path, content)?;
         Ok(())
     }
 
     /// Write telemetry to configured destination.
-    ///
-    /// Output format depends on TelemetryConfig.format (json or text).
     pub fn write_telemetry(
-        ctx: &TelemetryContext,
+        span: &CupcakeSpan,
         format: &TelemetryFormat,
         destination: &Path,
     ) -> Result<()> {
-        // Create directory if needed
         if !destination.exists() {
             fs::create_dir_all(destination)?;
         }
 
-        // Generate filename
-        let datetime: DateTime<Local> = ctx.ingest.timestamp.into();
+        let datetime: DateTime<Local> = span.timestamp.into();
         let extension = match format {
             TelemetryFormat::Json => "json",
             TelemetryFormat::Text => "txt",
@@ -63,16 +55,15 @@ impl TelemetryWriter {
         let filename = format!(
             "{}_{}.{}",
             datetime.format("%Y-%m-%d_%H-%M-%S"),
-            ctx.ingest.trace_id,
+            span.trace_id,
             extension
         );
 
         let file_path = destination.join(filename);
 
-        // Format based on type (add newline for log parsers like Promtail)
         let content = match format {
-            TelemetryFormat::Json => format!("{}\n", serde_json::to_string(ctx)?),
-            TelemetryFormat::Text => Self::format_human_readable(ctx)?,
+            TelemetryFormat::Json => format!("{}\n", serde_json::to_string(span)?),
+            TelemetryFormat::Text => Self::format_human_readable(span)?,
         };
 
         fs::write(file_path, content)?;
@@ -80,148 +71,164 @@ impl TelemetryWriter {
     }
 
     /// Format telemetry as human-readable text.
-    fn format_human_readable(ctx: &TelemetryContext) -> Result<String> {
-        let datetime: DateTime<Local> = ctx.ingest.timestamp.into();
+    fn format_human_readable(span: &CupcakeSpan) -> Result<String> {
+        let datetime: DateTime<Local> = span.timestamp.into();
         let start_time = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        let mut output = String::new();
+        let mut out = String::new();
 
         // Header
-        output.push_str(&format!(
-            "===== Cupcake Telemetry [{}] [{}] =====\n",
-            start_time, ctx.ingest.trace_id
+        out.push_str(&format!(
+            "===== Cupcake Trace [{}] [{}] =====\n",
+            start_time, span.trace_id
         ));
-        output.push_str(&format!("Harness: {:?}\n", ctx.ingest.harness));
-        output.push_str(&format!("Total Duration: {}ms\n", ctx.total_duration_ms));
-        output.push('\n');
+        out.push_str(&format!("Harness: {:?}\n", span.harness));
+        out.push_str(&format!("Duration: {}ms\n\n", span.total_duration_ms));
 
-        // Ingest Stage
-        output.push_str("----- STAGE: Ingest (Raw Event) -----\n");
-        output.push_str(&serde_json::to_string_pretty(&ctx.ingest.raw_event)?);
-        output.push_str("\n\n");
+        // Raw Event
+        out.push_str("----- RAW EVENT -----\n");
+        out.push_str(&serde_json::to_string_pretty(&span.raw_event)?);
+        out.push_str("\n\n");
 
-        // Enrich Stage
-        output.push_str("----- STAGE: Enrich (Preprocessed) -----\n");
-        if let Some(ref enrich) = ctx.enrich {
-            output.push_str(&format!(
-                "Operations: {}\n",
-                enrich.preprocessing_operations.join(", ")
-            ));
-            output.push_str(&format!("Duration: {}μs\n", enrich.duration_us));
-            output.push_str("Enriched Event:\n");
-            output.push_str(&serde_json::to_string_pretty(&enrich.enriched_event)?);
-            output.push_str("\n\n");
+        // Enrich Phase
+        out.push_str("----- ENRICH -----\n");
+        if let Some(ref enrich) = span.enrich {
+            out.push_str(&format!("Operations: {}\n", enrich.operations.join(", ")));
+            out.push_str(&format!("Duration: {}μs\n", enrich.duration_us));
+            out.push_str("Enriched:\n");
+            out.push_str(&serde_json::to_string_pretty(&enrich.enriched_event)?);
+            out.push_str("\n\n");
         } else {
-            output.push_str("(No enrichment recorded)\n\n");
+            out.push_str("(not recorded)\n\n");
         }
 
-        // Evaluate Stages
-        output.push_str("----- STAGE: Evaluate (Policy Evaluation) -----\n");
-        if ctx.evaluations.is_empty() {
-            output.push_str("(No evaluation performed - early exit before engine)\n\n");
+        // Policy Phases
+        if span.phases.is_empty() {
+            out.push_str("----- POLICY PHASES -----\n");
+            out.push_str("(no phases - early exit before evaluation)\n\n");
         } else {
-            for (i, eval) in ctx.evaluations.iter().enumerate() {
-                output.push_str(&format!("\n[Phase {}: {}]\n", i + 1, eval.phase));
-                output.push_str(&format!("  Routed: {}\n", eval.routed));
+            for (i, phase) in span.phases.iter().enumerate() {
+                out.push_str(&format!(
+                    "----- PHASE {}: {} ({}) -----\n",
+                    i + 1,
+                    phase.name.to_uppercase(),
+                    phase.span_id
+                ));
+
+                // Signals
+                if let Some(ref signals) = phase.signals {
+                    out.push_str(&format!(
+                        "Signals: {} collected in {}ms\n",
+                        signals.signals.len(),
+                        signals.duration_ms
+                    ));
+                    for sig in &signals.signals {
+                        out.push_str(&format!("  - {}: {}", sig.name, sig.command));
+                        if let Some(ms) = sig.duration_ms {
+                            out.push_str(&format!(" ({ms}ms)"));
+                        }
+                        if let Some(code) = sig.exit_code {
+                            out.push_str(&format!(" [exit {code}]"));
+                        }
+                        out.push('\n');
+                        // Show result if small
+                        let result_str = serde_json::to_string(&sig.result)?;
+                        if result_str.len() < 200 {
+                            out.push_str(&format!("    → {result_str}\n"));
+                        }
+                    }
+                } else {
+                    out.push_str("Signals: none\n");
+                }
+
+                // Evaluation
+                let eval = &phase.evaluation;
+                out.push_str(&format!("Routed: {}\n", eval.routed));
 
                 if !eval.matched_policies.is_empty() {
-                    output.push_str(&format!(
-                        "  Matched Policies: {}\n",
-                        eval.matched_policies.join(", ")
-                    ));
+                    out.push_str(&format!("Matched: {}\n", eval.matched_policies.join(", ")));
                 }
 
-                if let Some(ref exit_reason) = eval.exit_reason {
-                    output.push_str(&format!("  Exit Reason: {exit_reason}\n"));
+                if let Some(ref exit) = eval.exit_reason {
+                    out.push_str(&format!("Exit: {exit}\n"));
                 }
 
-                if let Some(ref decision_set) = eval.wasm_decision_set {
-                    output.push_str("  WASM Decision Set:\n");
-                    output.push_str(&format!("    Halts: {}\n", decision_set.halts.len()));
-                    output.push_str(&format!("    Denials: {}\n", decision_set.denials.len()));
-                    output.push_str(&format!("    Blocks: {}\n", decision_set.blocks.len()));
-                    output.push_str(&format!("    Asks: {}\n", decision_set.asks.len()));
-                    output.push_str(&format!(
-                        "    Modifications: {}\n",
-                        decision_set.modifications.len()
-                    ));
-                    output.push_str(&format!(
-                        "    Context: {}\n",
-                        decision_set.add_context.len()
-                    ));
-
-                    // Show individual decisions if any
-                    for halt in &decision_set.halts {
-                        output.push_str(&format!(
-                            "      - [HALT] {}: {} ({})\n",
-                            halt.rule_id, halt.reason, halt.severity
-                        ));
+                if let Some(ref ds) = eval.wasm_decision_set {
+                    out.push_str("WASM Results:\n");
+                    if !ds.halts.is_empty() {
+                        out.push_str(&format!("  Halts: {}\n", ds.halts.len()));
+                        for h in &ds.halts {
+                            out.push_str(&format!(
+                                "    [{}] {} ({})\n",
+                                h.rule_id, h.reason, h.severity
+                            ));
+                        }
                     }
-                    for denial in &decision_set.denials {
-                        output.push_str(&format!(
-                            "      - [DENY] {}: {} ({})\n",
-                            denial.rule_id, denial.reason, denial.severity
-                        ));
+                    if !ds.denials.is_empty() {
+                        out.push_str(&format!("  Denials: {}\n", ds.denials.len()));
+                        for d in &ds.denials {
+                            out.push_str(&format!(
+                                "    [{}] {} ({})\n",
+                                d.rule_id, d.reason, d.severity
+                            ));
+                        }
                     }
-                    for block in &decision_set.blocks {
-                        output.push_str(&format!(
-                            "      - [BLOCK] {}: {} ({})\n",
-                            block.rule_id, block.reason, block.severity
-                        ));
+                    if !ds.blocks.is_empty() {
+                        out.push_str(&format!("  Blocks: {}\n", ds.blocks.len()));
+                        for b in &ds.blocks {
+                            out.push_str(&format!(
+                                "    [{}] {} ({})\n",
+                                b.rule_id, b.reason, b.severity
+                            ));
+                        }
                     }
-                    for ask in &decision_set.asks {
-                        output.push_str(&format!(
-                            "      - [ASK] {}: {} ({})\n",
-                            ask.rule_id, ask.reason, ask.severity
-                        ));
+                    if !ds.asks.is_empty() {
+                        out.push_str(&format!("  Asks: {}\n", ds.asks.len()));
+                        for a in &ds.asks {
+                            out.push_str(&format!(
+                                "    [{}] {} ({})\n",
+                                a.rule_id, a.reason, a.severity
+                            ));
+                        }
                     }
-                }
-
-                if let Some(ref final_decision) = eval.final_decision {
-                    output.push_str(&format!("  Final Decision: {final_decision:?}\n"));
-                }
-
-                if !eval.signals_executed.is_empty() {
-                    output.push_str(&format!(
-                        "  Signals Executed: {}\n",
-                        eval.signals_executed.len()
-                    ));
-                    for signal in &eval.signals_executed {
-                        output.push_str(&format!("    - {}: {}\n", signal.name, signal.command));
+                    if !ds.modifications.is_empty() {
+                        out.push_str(&format!("  Modifications: {}\n", ds.modifications.len()));
+                    }
+                    if !ds.add_context.is_empty() {
+                        out.push_str(&format!("  Context: {}\n", ds.add_context.len()));
                     }
                 }
 
-                output.push_str(&format!("  Duration: {}ms\n", eval.duration_ms));
+                if let Some(ref decision) = eval.final_decision {
+                    out.push_str(&format!("Decision: {decision:?}\n"));
+                }
+
+                out.push_str(&format!("Phase Duration: {}ms\n\n", phase.duration_ms));
             }
-            output.push('\n');
         }
 
         // Response
-        output.push_str("----- Response to Agent -----\n");
-        if let Some(ref response) = ctx.response_to_agent {
-            output.push_str(&serde_json::to_string_pretty(response)?);
-            output.push('\n');
+        out.push_str("----- RESPONSE -----\n");
+        if let Some(ref response) = span.response {
+            out.push_str(&serde_json::to_string_pretty(response)?);
+            out.push('\n');
         } else {
-            output.push_str("(No response recorded)\n");
+            out.push_str("(none)\n");
         }
-        output.push('\n');
+        out.push('\n');
 
         // Errors
-        if !ctx.errors.is_empty() {
-            output.push_str("----- Errors -----\n");
-            for (i, error) in ctx.errors.iter().enumerate() {
-                output.push_str(&format!("{}. {}\n", i + 1, error));
+        if !span.errors.is_empty() {
+            out.push_str("----- ERRORS -----\n");
+            for (i, err) in span.errors.iter().enumerate() {
+                out.push_str(&format!("{}. {}\n", i + 1, err));
             }
-            output.push('\n');
+            out.push('\n');
         }
 
-        // Footer
-        output.push_str(&format!(
-            "===== End Telemetry [{}ms] =====\n",
-            ctx.total_duration_ms
-        ));
+        out.push_str(&format!("===== End [{}ms] =====\n", span.total_duration_ms));
 
-        Ok(output)
+        Ok(out)
     }
 }
 
@@ -229,43 +236,74 @@ impl TelemetryWriter {
 mod tests {
     use super::*;
     use crate::harness::types::HarnessType;
+    use crate::telemetry::{EnrichPhase, PolicyPhase, SignalExecution, SignalsPhase};
     use serde_json::json;
     use tempfile::tempdir;
 
-    #[test]
-    fn test_write_debug_file() {
-        let raw = json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"});
-        let mut ctx = TelemetryContext::new(raw, HarnessType::ClaudeCode, "test-trace".into());
-        ctx.record_enrichment(
+    fn make_test_span() -> CupcakeSpan {
+        let mut span = CupcakeSpan::new(
+            json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"}),
+            HarnessType::ClaudeCode,
+            "test-trace".into(),
+        );
+
+        span.set_enrich(EnrichPhase::new(
             json!({"enriched": true}),
             vec!["whitespace_normalization".into()],
             100,
-        );
+            span.span_id().to_string(),
+            span.start_time_unix_nano,
+        ));
 
+        let mut phase = PolicyPhase::new("project", span.span_id().to_string());
+
+        let mut signals =
+            SignalsPhase::new(phase.span_id().to_string(), phase.start_time_unix_nano);
+        signals.add_signal(SignalExecution {
+            name: "git_status".into(),
+            command: "git status --porcelain".into(),
+            result: json!(["M src/main.rs"]),
+            duration_ms: Some(25),
+            exit_code: Some(0),
+        });
+        signals.finalize(25);
+        phase.set_signals(signals);
+
+        phase.evaluation_mut().record_routing(false, &[]);
+        phase.evaluation_mut().record_exit("No policies matched");
+        phase.finalize();
+
+        span.add_phase(phase);
+        span.finalize(Some(json!({"decision": "allow"})));
+
+        span
+    }
+
+    #[test]
+    fn test_write_debug_file() {
+        let span = make_test_span();
         let dir = tempdir().unwrap();
-        TelemetryWriter::write_debug_file(&ctx, dir.path()).unwrap();
 
-        // Verify file was created
+        TelemetryWriter::write_debug_file(&span, dir.path()).unwrap();
+
         let files: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
             .collect();
         assert_eq!(files.len(), 1);
 
-        // Verify content
         let content = fs::read_to_string(files[0].path()).unwrap();
-        assert!(content.contains("Cupcake Telemetry"));
+        assert!(content.contains("Cupcake Trace"));
         assert!(content.contains("test-trace"));
-        assert!(content.contains("PreToolUse"));
+        assert!(content.contains("git_status"));
     }
 
     #[test]
     fn test_write_telemetry_json() {
-        let raw = json!({"test": true});
-        let ctx = TelemetryContext::new(raw, HarnessType::ClaudeCode, "json-trace".into());
-
+        let span = make_test_span();
         let dir = tempdir().unwrap();
-        TelemetryWriter::write_telemetry(&ctx, &TelemetryFormat::Json, dir.path()).unwrap();
+
+        TelemetryWriter::write_telemetry(&span, &TelemetryFormat::Json, dir.path()).unwrap();
 
         let files: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
@@ -274,38 +312,20 @@ mod tests {
             .collect();
         assert_eq!(files.len(), 1);
 
-        // Verify it's valid JSON
         let content = fs::read_to_string(files[0].path()).unwrap();
         let _: serde_json::Value = serde_json::from_str(&content).unwrap();
     }
 
     #[test]
     fn test_human_readable_format() {
-        let raw = json!({"hook_event_name": "PreToolUse"});
-        let mut ctx = TelemetryContext::new(raw, HarnessType::ClaudeCode, "readable-trace".into());
+        let span = make_test_span();
+        let output = TelemetryWriter::format_human_readable(&span).unwrap();
 
-        // Add enrichment
-        ctx.record_enrichment(
-            json!({"resolved": true}),
-            vec!["symlink_resolution".into()],
-            50,
-        );
-
-        // Add evaluation
-        let eval = ctx.start_evaluation("project");
-        eval.record_routing(false, &[]);
-        eval.record_exit("No policies matched - implicit allow");
-
-        ctx.add_error("Test error for formatting");
-
-        let output = TelemetryWriter::format_human_readable(&ctx).unwrap();
-
-        // Verify sections present
-        assert!(output.contains("STAGE: Ingest"));
-        assert!(output.contains("STAGE: Enrich"));
-        assert!(output.contains("STAGE: Evaluate"));
-        assert!(output.contains("Response to Agent"));
-        assert!(output.contains("Errors"));
-        assert!(output.contains("No policies matched"));
+        assert!(output.contains("RAW EVENT"));
+        assert!(output.contains("ENRICH"));
+        assert!(output.contains("PHASE 1: PROJECT"));
+        assert!(output.contains("Signals: 1 collected"));
+        assert!(output.contains("git_status"));
+        assert!(output.contains("RESPONSE"));
     }
 }

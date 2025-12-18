@@ -332,6 +332,29 @@ impl Engine {
             return Ok(());
         }
 
+        // Check for non-system policies (actual user rules, not just infrastructure)
+        // System policies (cupcake.system.*, cupcake.global.system.*) are entrypoints/helpers
+        // that aggregate decisions - they don't contain actual rules themselves.
+        let non_system_count = self
+            .policies
+            .iter()
+            .filter(|p| {
+                !p.package_name.starts_with("cupcake.system")
+                    && !p.package_name.starts_with("cupcake.global.system")
+            })
+            .count();
+
+        if non_system_count == 0 {
+            info!(
+                "No user policies found (only system infrastructure) - evaluation will allow all"
+            );
+            // Build routing map anyway (will be empty, but consistent)
+            self.build_routing_map();
+            // Skip WASM compilation - no policies to evaluate
+            // wasm_runtime remains None, evaluate() will return Allow
+            return Ok(());
+        }
+
         // Step 3: Build routing map
         self.build_routing_map();
         info!("Built routing map with {} entries", self.routing_map.len());

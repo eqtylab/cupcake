@@ -675,11 +675,13 @@ impl Engine {
                         format!("Invalid routing directive in policy {package_name}")
                     })?;
                 routing_directive.clone()
-            } else if package_name.ends_with(".system") {
-                // System policies don't need routing - they're aggregation endpoints
-                // This covers both cupcake.system and cupcake.global.system
+            } else if package_name.starts_with("cupcake.system")
+                || package_name.starts_with("cupcake.global.system")
+            {
+                // System packages don't need routing - they're entrypoints or helpers
+                // This covers cupcake.system, cupcake.system.commands, cupcake.global.system, etc.
                 debug!(
-                    "System policy {} has no routing directive (this is expected)",
+                    "System package {} has no routing directive (this is expected)",
                     package_name
                 );
                 RoutingDirective::default()
@@ -691,10 +693,12 @@ impl Engine {
                 return Err(anyhow::anyhow!("Policy missing routing directive"));
             }
         } else {
-            // System policies are allowed to have no metadata
-            if package_name.ends_with(".system") {
+            // System packages are allowed to have no metadata
+            if package_name.starts_with("cupcake.system")
+                || package_name.starts_with("cupcake.global.system")
+            {
                 debug!(
-                    "System policy {} has no metadata block (this is allowed)",
+                    "System package {} has no metadata block (this is allowed)",
                     package_name
                 );
                 RoutingDirective::default()

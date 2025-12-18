@@ -11,7 +11,7 @@ package cupcake.policies.builtins.git_block_no_verify
 
 import rego.v1
 
-import data.cupcake.helpers.commands
+import data.cupcake.system.commands
 
 # Block git commands that bypass verification hooks
 deny contains decision if {

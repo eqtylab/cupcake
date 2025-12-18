@@ -19,6 +19,7 @@ use cupcake_core::{engine, harness, telemetry::TelemetryContext, validator};
 #[cfg(feature = "catalog")]
 mod catalog_cli;
 mod harness_config;
+mod migrations;
 mod trust_cli;
 #[cfg(feature = "watchdog")]
 mod watchdog_cli;
@@ -1475,7 +1476,7 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
             harness_name
         );
 
-        // Verify shared directories exist (system/ and helpers/ at root)
+        // Verify system directory exists and handle migration from legacy helpers/
         let system_dir = cupcake_dir.join("system");
         let helpers_dir = cupcake_dir.join("helpers");
 
@@ -1486,11 +1487,17 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
                 .context("Failed to create system evaluate.rego file")?;
         }
 
-        if !helpers_dir.exists() {
-            eprintln!("Warning: .cupcake/helpers/ directory not found. Creating it...");
-            fs::create_dir_all(&helpers_dir).context("Failed to create helpers directory")?;
-            fs::write(helpers_dir.join("commands.rego"), HELPERS_COMMANDS)
-                .context("Failed to create helpers/commands.rego file")?;
+        // Migrate from legacy helpers/ directory to system/
+        if helpers_dir.exists() {
+            eprintln!("Migrating legacy .cupcake/helpers/ to .cupcake/system/...");
+            migrations::migrate_helpers_to_system(&helpers_dir, &system_dir)?;
+        }
+
+        // Ensure commands.rego exists in system/
+        let commands_path = system_dir.join("commands.rego");
+        if !commands_path.exists() {
+            fs::write(&commands_path, HELPERS_COMMANDS)
+                .context("Failed to create system/commands.rego file")?;
         }
 
         // Create the harness-specific builtins directory
@@ -1507,9 +1514,8 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         // Fresh initialization
         info!("Initializing Cupcake project structure...");
 
-        // Create shared directories at root level
+        // Create system directory at root level (helpers consolidated into system)
         fs::create_dir_all(".cupcake/system").context("Failed to create system directory")?;
-        fs::create_dir_all(".cupcake/helpers").context("Failed to create helpers directory")?;
 
         // Set Unix permissions on .cupcake directory (TOB-EQTY-LAB-CUPCAKE-4)
         #[cfg(unix)]
@@ -1530,8 +1536,6 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         // Create harness-specific builtins directory
         fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
             .context("Failed to create harness builtins directory")?;
-        fs::create_dir_all(".cupcake/signals").context("Failed to create signals directory")?;
-        fs::create_dir_all(".cupcake/actions").context("Failed to create actions directory")?;
 
         // Write rulebook.yml - either with enabled builtins or commented template
         let rulebook_content = if let Some(ref builtin_list) = builtins {
@@ -1547,9 +1551,9 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         fs::write(".cupcake/system/evaluate.rego", SYSTEM_EVALUATE_TEMPLATE)
             .context("Failed to create system evaluate.rego file")?;
 
-        // Write helper library (shared at root level)
-        fs::write(".cupcake/helpers/commands.rego", HELPERS_COMMANDS)
-            .context("Failed to create helpers/commands.rego file")?;
+        // Write helper library (now in system/ directory)
+        fs::write(".cupcake/system/commands.rego", HELPERS_COMMANDS)
+            .context("Failed to create system/commands.rego file")?;
 
         // Deploy builtin policies for this harness only
         deploy_harness_builtins(&harness, harness_name)?;
@@ -1565,10 +1569,7 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         println!("   Harness:       {harness_name}");
         println!("   Configuration: .cupcake/rulebook.yml");
         println!("   System:        .cupcake/system/");
-        println!("   Helpers:       .cupcake/helpers/");
         println!("   Policies:      .cupcake/policies/{harness_name}/");
-        println!("   Signals:       .cupcake/signals/");
-        println!("   Actions:       .cupcake/actions/");
         println!();
 
         // Show which builtins were enabled
@@ -2330,4 +2331,4 @@ const OPENCODE_GLOBAL_CUPCAKE_EXEC_POLICY: &str =
     include_str!("../../fixtures/global_builtins/opencode/cupcake_exec_protection.rego");
 
 // Helper library (shared by all harnesses)
-const HELPERS_COMMANDS: &str = include_str!("../../fixtures/helpers/commands.rego");
+const HELPERS_COMMANDS: &str = include_str!("../../fixtures/system/commands.rego");

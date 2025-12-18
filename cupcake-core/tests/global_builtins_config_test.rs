@@ -99,17 +99,17 @@ builtins:
 
         // Cupcake exec protection with all defaults
         let exec_prot = config.cupcake_exec_protection.as_ref().unwrap();
-        assert!(exec_prot.enabled); // Should default to true
+        assert!(!exec_prot.enabled); // Should default to false (must be explicitly enabled)
         assert_eq!(
             exec_prot.message,
             "Direct execution of Cupcake binary is not permitted"
         );
 
-        // Test enabled_builtins - only system_protection and cupcake_exec_protection
+        // Test enabled_builtins - only system_protection is enabled (explicit in YAML)
         let enabled = config.enabled_builtins();
         assert!(enabled.contains(&"system_protection".to_string()));
         assert!(!enabled.contains(&"sensitive_data_protection".to_string()));
-        assert!(enabled.contains(&"cupcake_exec_protection".to_string()));
+        assert!(!enabled.contains(&"cupcake_exec_protection".to_string())); // Not enabled by default
     }
 
     #[test]

@@ -68,7 +68,7 @@ pub struct AlwaysInjectConfig {
 }
 
 fn default_enabled() -> bool {
-    true // If a builtin is configured, it's enabled by default
+    false // Builtins must be explicitly enabled with `enabled: true`
 }
 
 /// Configuration for git_pre_check builtin
@@ -787,7 +787,8 @@ git_block_no_verify:
 
     #[test]
     fn test_default_enabled() {
-        // Test that builtins default to enabled when field is omitted
+        // Test that builtins default to DISABLED when field is omitted
+        // This ensures builtins must be explicitly enabled with `enabled: true`
         let yaml = r#"
 claude_code_always_inject_on_prompt:
   context:
@@ -801,19 +802,29 @@ git_pre_check:
 
         let config: BuiltinsConfig = serde_yaml_ng::from_str(yaml).unwrap();
 
-        // Both should default to enabled=true
+        // Both should default to enabled=false when not explicitly set
         assert!(
-            config
+            !config
                 .claude_code_always_inject_on_prompt
                 .as_ref()
                 .unwrap()
-                .enabled
+                .enabled,
+            "Builtins should default to disabled"
         );
-        assert!(config.git_pre_check.as_ref().unwrap().enabled);
+        assert!(
+            !config.git_pre_check.as_ref().unwrap().enabled,
+            "Builtins should default to disabled"
+        );
 
         let enabled = config.enabled_builtins();
-        assert!(enabled.contains(&"claude_code_always_inject_on_prompt".to_string()));
-        assert!(enabled.contains(&"git_pre_check".to_string()));
+        assert!(
+            !enabled.contains(&"claude_code_always_inject_on_prompt".to_string()),
+            "Disabled builtins should not appear in enabled list"
+        );
+        assert!(
+            !enabled.contains(&"git_pre_check".to_string()),
+            "Disabled builtins should not appear in enabled list"
+        );
     }
 
     #[test]

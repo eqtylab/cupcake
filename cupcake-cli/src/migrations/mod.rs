@@ -38,12 +38,14 @@ pub fn migrate_helpers_to_system(helpers_dir: &Path, system_dir: &Path) -> Resul
                         content.replace("package cupcake.helpers.", "package cupcake.system.");
 
                     // Write to system/ with updated package
-                    fs::write(&dest, updated_content)
-                        .with_context(|| format!("Failed to migrate {} to system/", path.display()))?;
+                    fs::write(&dest, updated_content).with_context(|| {
+                        format!("Failed to migrate {} to system/", path.display())
+                    })?;
 
                     // Remove the old file
-                    fs::remove_file(&path)
-                        .with_context(|| format!("Failed to remove old helpers file {}", path.display()))?;
+                    fs::remove_file(&path).with_context(|| {
+                        format!("Failed to remove old helpers file {}", path.display())
+                    })?;
 
                     eprintln!("  Migrated: {} -> {}", path.display(), dest.display());
                 }
@@ -75,7 +77,10 @@ fn update_policy_imports(policies_dir: &Path) -> Result<()> {
         let content = fs::read_to_string(&file)?;
         if content.contains("data.cupcake.helpers.") {
             let updated = content
-                .replace("import data.cupcake.helpers.", "import data.cupcake.system.")
+                .replace(
+                    "import data.cupcake.helpers.",
+                    "import data.cupcake.system.",
+                )
                 .replace("data.cupcake.helpers.", "data.cupcake.system.");
             fs::write(&file, updated)
                 .with_context(|| format!("Failed to update imports in {}", file.display()))?;

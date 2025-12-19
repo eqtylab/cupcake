@@ -32,12 +32,6 @@ pub fn create_routing_key_from_metadata(directive: &RoutingDirective) -> Vec<Str
     keys
 }
 
-/// Create all routing keys for a metadata directive (handles multiple events/tools)
-/// This is the primary function used by the engine for building the routing map
-pub fn create_all_routing_keys_from_metadata(directive: &RoutingDirective) -> Vec<String> {
-    create_routing_key_from_metadata(directive)
-}
-
 /// Create an event key for routing lookup
 pub fn create_event_key(event_name: &str, tool_name: Option<&str>) -> String {
     match tool_name {
@@ -87,14 +81,14 @@ mod tests {
     }
 
     #[test]
-    fn test_create_all_routing_keys_multiple_tools() {
+    fn test_create_routing_key_multiple_tools() {
         let directive = RoutingDirective {
             required_events: vec!["PreToolUse".to_string()],
             required_tools: vec!["Bash".to_string(), "Shell".to_string(), "Exec".to_string()],
             required_signals: vec![],
         };
 
-        let keys = create_all_routing_keys_from_metadata(&directive);
+        let keys = create_routing_key_from_metadata(&directive);
         assert_eq!(keys.len(), 3);
         assert!(keys.contains(&"PreToolUse:Bash".to_string()));
         assert!(keys.contains(&"PreToolUse:Shell".to_string()));
@@ -102,14 +96,14 @@ mod tests {
     }
 
     #[test]
-    fn test_create_routing_keys_multiple_events() {
+    fn test_create_routing_key_multiple_events() {
         let directive = RoutingDirective {
             required_events: vec!["PreToolUse".to_string(), "PostToolUse".to_string()],
             required_tools: vec!["Bash".to_string()],
             required_signals: vec![],
         };
 
-        let keys = create_all_routing_keys_from_metadata(&directive);
+        let keys = create_routing_key_from_metadata(&directive);
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"PreToolUse:Bash".to_string()));
         assert!(keys.contains(&"PostToolUse:Bash".to_string()));

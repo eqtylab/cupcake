@@ -201,6 +201,25 @@ pub fn extract_package_name(content: &str) -> Result<String> {
     bail!("No package declaration found in policy")
 }
 
+/// Represents a discovered policy unit with its metadata.
+///
+/// A PolicyUnit combines the parsed policy file path with its extracted
+/// metadata, including routing directives for O(1) event matching.
+#[derive(Debug, Clone)]
+pub struct PolicyUnit {
+    /// Path to the .rego file
+    pub path: std::path::PathBuf,
+
+    /// The package name extracted from the policy
+    pub package_name: String,
+
+    /// The routing directive from OPA metadata
+    pub routing: RoutingDirective,
+
+    /// Complete metadata for this policy (optional)
+    pub metadata: Option<PolicyMetadata>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

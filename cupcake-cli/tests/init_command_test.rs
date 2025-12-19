@@ -69,15 +69,13 @@ fn test_init_creates_correct_directory_structure() -> Result<()> {
     assert!(cupcake_dir.is_dir(), ".cupcake should be a directory");
 
     // Verify all required subdirectories exist (only claude harness)
-    // New structure: system/ and helpers/ at root level, not per-harness
+    // New structure: system/ at root level (helpers consolidated into system)
+    // No empty signals/actions directories created
     let expected_dirs = vec![
         "system",
-        "helpers",
         "policies",
         "policies/claude",
         "policies/claude/builtins",
-        "signals",
-        "actions",
     ];
 
     for dir_name in expected_dirs {
@@ -116,11 +114,11 @@ fn test_init_creates_all_required_files() -> Result<()> {
     let cupcake_dir = project_path.join(".cupcake");
 
     // List of all files that should be created (Claude harness only)
-    // New structure: system/ and helpers/ at root level, example.rego in harness dir
+    // New structure: system/ at root level (helpers consolidated into system)
     let expected_files = vec![
         "rulebook.yml",
         "system/evaluate.rego",
-        "helpers/commands.rego",
+        "system/commands.rego",
         // Claude harness files (example + builtins)
         "policies/claude/example.rego",
         "policies/claude/builtins/claude_code_always_inject_on_prompt.rego",
@@ -467,28 +465,27 @@ fn test_init_file_permissions() -> Result<()> {
     Ok(())
 }
 
-/// Test that empty signal/action directories don't cause issues
+/// Test that empty signal/action directories are NOT created (Issue #1 fix)
 #[test]
-fn test_empty_directories_are_valid() -> Result<()> {
+fn test_empty_directories_not_created() -> Result<()> {
     let (_temp_dir, project_path) = run_init_in_temp_dir()?;
 
     let signals_dir = project_path.join(".cupcake/signals");
     let actions_dir = project_path.join(".cupcake/actions");
+    let helpers_dir = project_path.join(".cupcake/helpers");
 
-    // Verify directories exist but are empty
-    assert!(signals_dir.exists() && signals_dir.is_dir());
-    assert!(actions_dir.exists() && actions_dir.is_dir());
-
-    let signals_contents: Vec<_> = fs::read_dir(&signals_dir)?.collect();
-    let actions_contents: Vec<_> = fs::read_dir(&actions_dir)?.collect();
-
+    // Verify empty directories are NOT created anymore
     assert!(
-        signals_contents.is_empty(),
-        "signals directory should be empty initially"
+        !signals_dir.exists(),
+        "signals directory should NOT be created (empty dirs removed)"
     );
     assert!(
-        actions_contents.is_empty(),
-        "actions directory should be empty initially"
+        !actions_dir.exists(),
+        "actions directory should NOT be created (empty dirs removed)"
+    );
+    assert!(
+        !helpers_dir.exists(),
+        "helpers directory should NOT exist (consolidated into system)"
     );
 
     Ok(())
@@ -549,18 +546,18 @@ fn test_correct_number_of_files_created() -> Result<()> {
     // For Claude harness only (new structure):
     // - 1 rulebook.yml
     // - 1 example.rego
-    // - 1 helper (commands.rego) at root helpers/
-    // - 1 evaluate.rego at root system/
+    // - 2 files in system/ (evaluate.rego + commands.rego)
     // - 7 Claude builtins
-    // Total: 1 + 1 + 1 + 1 + 7 = 11 files
+    // Total: 1 + 1 + 2 + 7 = 11 files
     assert_eq!(
         file_count, 11,
-        "Should have exactly 11 files (1 rulebook + 1 example + 1 helper + 1 evaluate + 7 builtins)"
+        "Should have exactly 11 files (1 rulebook + 1 example + 2 system + 7 builtins)"
     );
 
-    // We should have exactly 7 directories (new structure):
-    // system, helpers, policies, policies/claude, policies/claude/builtins, signals, actions
-    assert_eq!(dir_count, 7, "Should have exactly 7 directories");
+    // We should have exactly 4 directories (new structure):
+    // system, policies, policies/claude, policies/claude/builtins
+    // (no helpers, signals, or actions directories)
+    assert_eq!(dir_count, 4, "Should have exactly 4 directories");
 
     Ok(())
 }
@@ -573,7 +570,7 @@ fn test_init_cursor_creates_cursor_only() -> Result<()> {
 
     // Shared directories at root should exist
     assert!(cupcake_dir.join("system").exists());
-    assert!(cupcake_dir.join("helpers").exists());
+    assert!(!cupcake_dir.join("helpers").exists());
 
     // Cursor harness builtins directory should exist
     assert!(cupcake_dir.join("policies/cursor/builtins").exists());
@@ -608,7 +605,7 @@ fn test_init_opencode_creates_opencode_only() -> Result<()> {
 
     // Shared directories at root should exist
     assert!(cupcake_dir.join("system").exists());
-    assert!(cupcake_dir.join("helpers").exists());
+    assert!(!cupcake_dir.join("helpers").exists());
 
     // OpenCode harness builtins directory should exist
     assert!(cupcake_dir.join("policies/opencode/builtins").exists());
@@ -643,7 +640,7 @@ fn test_init_factory_creates_factory_only() -> Result<()> {
 
     // Shared directories at root should exist
     assert!(cupcake_dir.join("system").exists());
-    assert!(cupcake_dir.join("helpers").exists());
+    assert!(!cupcake_dir.join("helpers").exists());
 
     // Factory harness builtins directory should exist
     assert!(cupcake_dir.join("policies/factory/builtins").exists());
@@ -708,14 +705,14 @@ fn test_init_can_add_second_harness() -> Result<()> {
         "Should indicate adding cursor harness to existing project"
     );
 
-    // Shared directories should exist at root
+    // System directory should exist at root (helpers consolidated into system)
     assert!(
         project_path.join(".cupcake/system").exists(),
         "System directory should exist at root"
     );
     assert!(
-        project_path.join(".cupcake/helpers").exists(),
-        "Helpers directory should exist at root"
+        !project_path.join(".cupcake/helpers").exists(),
+        "Helpers directory should NOT exist (consolidated into system)"
     );
 
     // Both harness builtins should now exist

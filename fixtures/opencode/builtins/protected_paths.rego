@@ -10,8 +10,8 @@
 #     required_tools: ["Edit", "Write", "MultiEdit", "NotebookEdit", "Bash"]
 package cupcake.policies.builtins.protected_paths
 
-import data.cupcake.helpers.commands
-import data.cupcake.helpers.paths
+import data.cupcake.system.commands
+import data.cupcake.system.paths
 import rego.v1
 
 # Block WRITE operations on protected paths (but allow reads)

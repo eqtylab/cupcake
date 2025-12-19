@@ -1,7 +1,4 @@
 //! File system scanner for discovering .rego policy files
-//!
-//! Implements policy discovery as defined in CRITICAL_GUIDING_STAR.md Step 1:
-//! "Scan & Compile (On Startup/Change): Cupcake scans all .rego policies"
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -85,16 +82,10 @@ fn scan_directory_recursive_filtered<'a>(
 
 /// Check if a policy should be included based on builtin filtering
 fn should_include_policy(path: &Path, enabled_builtins: &[String]) -> bool {
-    // If no builtin filter is specified, include all policies
-    // This is the case for catalog overlays which should include all their policies
-    if enabled_builtins.is_empty() {
-        return true;
-    }
-
-    // Check if this is a builtin policy
+    // Check if this is a builtin policy (in a "builtins" directory)
     if let Some(parent) = path.parent() {
         if parent.file_name() == Some(std::ffi::OsStr::new("builtins")) {
-            // This is a builtin policy - only include if enabled
+            // This is a builtin policy - only include if explicitly enabled
             if let Some(stem) = path.file_stem() {
                 let policy_name = stem.to_string_lossy();
                 return enabled_builtins.contains(&policy_name.to_string());
@@ -188,9 +179,3 @@ mod tests {
         assert_eq!(files.len(), 2);
     }
 }
-
-// Aligns with CRITICAL_GUIDING_STAR.md:
-// - Scans all .rego files in the policy directory
-// - Supports recursive directory scanning
-// - Foundation for hot-reload capability
-// - Clean separation of concerns: scanner only finds files

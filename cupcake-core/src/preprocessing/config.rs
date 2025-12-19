@@ -3,6 +3,32 @@
 //! This module defines how preprocessing should behave, allowing
 //! fine-grained control over what normalizations are applied.
 
+/// Result of preprocessing, including which operations were actually applied
+#[derive(Debug, Clone, Default)]
+pub struct PreprocessResult {
+    /// List of operations that were actually performed
+    pub applied_operations: Vec<String>,
+}
+
+impl PreprocessResult {
+    /// Create a new empty result
+    pub fn new() -> Self {
+        Self {
+            applied_operations: Vec::new(),
+        }
+    }
+
+    /// Record that an operation was applied
+    pub fn record(&mut self, operation: &str) {
+        self.applied_operations.push(operation.to_string());
+    }
+
+    /// Get the list of applied operations
+    pub fn operations(&self) -> &[String] {
+        &self.applied_operations
+    }
+}
+
 /// Main configuration for preprocessing behavior
 #[derive(Debug, Clone)]
 pub struct PreprocessConfig {

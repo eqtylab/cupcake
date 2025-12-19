@@ -60,6 +60,14 @@ nav = [
     ] },
     { "See Examples" = "https://cupcake-policy-studio.vercel.app/example-policies/security/protecting-paths?harness=claude-code&format=rego" },
   ] },
+  { "Tutorials" = [
+    { "Coding Productivity" = [
+      "tutorials/claude-code.md",
+      "tutorials/cursor.md",
+      "tutorials/opencode.md",
+      "tutorials/react-typescript.md",
+    ] },
+  ] },
   { "Reference" = [
     { "Policies" = [
       "reference/policies/index.md",
@@ -77,16 +85,11 @@ nav = [
     ] },
     "reference/watchdog.md",
     { "Cupcake CLI" = "reference/cupcake-cli.md" },
+    { "Debugging" = [
+      "reference/debugging/telemetry.md",
+    ] },
     { "Design" = [
       "reference/determinism.md",
-    ] },
-  ] },
-  { "Tutorials" = [
-    { "Coding Productivity" = [
-      "tutorials/claude-code.md",
-      "tutorials/cursor.md",
-      "tutorials/opencode.md",
-      "tutorials/react-typescript.md",
     ] },
   ] },
   # { "Catalog" = [

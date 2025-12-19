@@ -11,7 +11,7 @@ package cupcake.policies.builtins.rulebook_security_guardrails
 
 import rego.v1
 
-import data.cupcake.helpers.commands
+import data.cupcake.system.commands
 
 # Block reading protected path files
 halt contains decision if {

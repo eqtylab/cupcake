@@ -455,27 +455,3 @@ impl Engine {
         }
     }
 }
-
-/// CLI inspection support
-impl Engine {
-    /// Query specific routes for debugging
-    pub fn inspect_route(&self, route_key: &str) -> Option<Vec<SimplifiedPolicyInfo>> {
-        self.routing_map
-            .get(route_key)
-            .or_else(|| self.global_routing_map.get(route_key))
-            .map(|policies| policies.iter().map(SimplifiedPolicyInfo::from).collect())
-    }
-
-    /// List all route keys
-    pub fn list_all_routes(&self) -> Vec<String> {
-        let mut routes: Vec<String> = self
-            .routing_map
-            .keys()
-            .chain(self.global_routing_map.keys())
-            .cloned()
-            .collect();
-        routes.sort();
-        routes.dedup();
-        routes
-    }
-}

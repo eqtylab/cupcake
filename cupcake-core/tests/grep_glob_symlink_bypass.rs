@@ -28,10 +28,10 @@ async fn setup_test_project_with_guardrails(
     let policies_dir = cupcake_dir.join("policies");
     let claude_dir = policies_dir.join("claude");
     let builtins_dir = claude_dir.join("builtins");
-    let helpers_dir = policies_dir.join("helpers");
+    let shared_system_dir = cupcake_dir.join("system");
 
     fs::create_dir_all(&builtins_dir)?;
-    fs::create_dir_all(&helpers_dir)?;
+    fs::create_dir_all(&shared_system_dir)?;
 
     // Add the rulebook_security_guardrails builtin policy
     let rulebook_policy =
@@ -42,8 +42,8 @@ async fn setup_test_project_with_guardrails(
     )?;
 
     // Add helper library that rulebook policy uses
-    let helpers_commands = include_str!("../../fixtures/helpers/commands.rego");
-    fs::write(helpers_dir.join("commands.rego"), helpers_commands)?;
+    let helpers_commands = include_str!("../../fixtures/system/commands.rego");
+    fs::write(shared_system_dir.join("commands.rego"), helpers_commands)?;
 
     // Enable the builtin in rulebook.yml
     let rulebook_content = r#"

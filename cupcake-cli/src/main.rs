@@ -213,10 +213,6 @@ enum Command {
         /// Configure integration with an agent harness (e.g., 'claude')
         #[clap(long, value_enum)]
         harness: Option<HarnessType>,
-
-        /// Enable specific builtins (comma-separated list)
-        #[clap(long, value_delimiter = ',')]
-        builtins: Option<Vec<String>>,
     },
 
     /// Manage script trust and integrity verification
@@ -425,11 +421,7 @@ async fn main() -> Result<()> {
             harness,
             policy_dir,
         } => verify_command(harness.into(), policy_dir).await,
-        Command::Init {
-            global,
-            harness,
-            builtins,
-        } => init_command(global, harness, builtins).await,
+        Command::Init { global, harness } => init_command(global, harness).await,
         Command::Trust { command } => command.execute().await,
         #[cfg(feature = "watchdog")]
         Command::Watchdog {
@@ -740,249 +732,10 @@ async fn verify_command(
     Ok(())
 }
 
-/// List of valid project-level builtin names
-const VALID_PROJECT_BUILTINS: &[&str] = &[
-    "always_inject_on_prompt",
-    "git_pre_check",
-    "post_edit_check",
-    "rulebook_security_guardrails",
-    "protected_paths",
-    "git_block_no_verify",
-    "enforce_full_file_read",
-];
-
-/// List of valid global-level builtin names
-const VALID_GLOBAL_BUILTINS: &[&str] = &[
-    "system_protection",
-    "sensitive_data_protection",
-    "cupcake_exec_protection",
-];
-
-/// Validate that provided builtin names are valid
-fn validate_builtin_names(names: &[String], global: bool) -> Result<()> {
-    let valid_list = if global {
-        VALID_GLOBAL_BUILTINS
-    } else {
-        VALID_PROJECT_BUILTINS
-    };
-
-    for name in names {
-        if !valid_list.contains(&name.as_str()) {
-            let valid_names = valid_list.join(", ");
-            return Err(anyhow!(
-                "Unknown builtin '{}'. Valid {} builtins are: {}",
-                name,
-                if global { "global" } else { "project" },
-                valid_names
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Generate rulebook content with specified builtins enabled
-fn generate_rulebook_with_builtins(enabled_builtins: &[String]) -> Result<String> {
-    // Start with the base template
-    let template = RULEBOOK_TEMPLATE;
-
-    // If no builtins specified, return the template as-is
-    if enabled_builtins.is_empty() {
-        return Ok(template.to_string());
-    }
-
-    let mut lines: Vec<String> = template.lines().map(|s| s.to_string()).collect();
-    let mut in_builtin_section = false;
-    let mut current_builtin: Option<String> = None;
-    let mut indent_level = 0;
-
-    for (i, line) in lines.clone().iter().enumerate() {
-        let line = line.clone();
-        let trimmed = line.trim();
-
-        // Check if we're entering the builtins section
-        if trimmed == "builtins:" {
-            in_builtin_section = true;
-            continue;
-        }
-
-        if !in_builtin_section {
-            continue;
-        }
-
-        // Check for builtin names in comments
-        for builtin_name in enabled_builtins {
-            let inline_pattern = format!("{builtin_name}:");
-
-            // Look for the builtin in a comment
-            if trimmed.starts_with('#') && trimmed.contains(&inline_pattern) {
-                current_builtin = Some(builtin_name.clone());
-                indent_level = line.len() - line.trim_start().len();
-
-                // Uncomment this line
-                if let Some(pos) = line.find("# ") {
-                    lines[i] = format!("{}{}", &line[..pos], &line[pos + 2..]);
-                }
-            }
-
-            // If we're processing lines for the current builtin, uncomment them
-            if let Some(ref current) = current_builtin {
-                if current == builtin_name {
-                    // Check if we've moved to a different builtin or ended the section
-                    if trimmed.starts_with("# -----")
-                        || (trimmed.starts_with('#')
-                            && trimmed.ends_with(':')
-                            && !trimmed.contains(builtin_name))
-                    {
-                        current_builtin = None;
-                        continue;
-                    }
-
-                    // Uncomment lines that belong to this builtin
-                    let line_copy = lines[i].clone();
-                    if line_copy.trim_start().starts_with('#') {
-                        let current_indent = line_copy.len() - line_copy.trim_start().len();
-                        if current_indent >= indent_level && current_indent <= indent_level + 4 {
-                            // Remove the comment marker
-                            if let Some(pos) = line_copy.find("# ") {
-                                lines[i] =
-                                    format!("{}{}", &line_copy[..pos], &line_copy[pos + 2..]);
-                            } else if let Some(pos) = line_copy.find("#") {
-                                lines[i] =
-                                    format!("{}{}", &line_copy[..pos], &line_copy[pos + 1..]);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Now add default configurations for certain builtins that need them
-    let result = add_default_builtin_configs(lines.join("\n"), enabled_builtins)?;
-
-    Ok(result)
-}
-
-/// Add sensible default configurations for builtins that need them
-fn add_default_builtin_configs(mut content: String, enabled_builtins: &[String]) -> Result<String> {
-    // For git_pre_check, ensure there's at least one check
-    if enabled_builtins.contains(&"git_pre_check".to_string())
-        && (!content.contains("checks:") || content.contains("checks: []"))
-    {
-        // Replace empty checks with a default
-        content = content.replace(
-                "git_pre_check:\n    enabled: true",
-                "git_pre_check:\n    enabled: true\n    checks:\n      - command: \"echo 'Validation passed'\"\n        message: \"Basic validation check\""
-            );
-    }
-
-    // For protected_paths, add default paths if none exist
-    if enabled_builtins.contains(&"protected_paths".to_string())
-        && (!content.contains("paths:") || content.contains("paths: []"))
-    {
-        content = content.replace(
-                "protected_paths:\n    enabled: true",
-                "protected_paths:\n    enabled: true\n    message: \"System path modification blocked by policy\"\n    paths:\n      - \"/etc/\"\n      - \"/System/\"\n      - \"~/.ssh/\""
-            );
-    }
-
-    // For post_edit_check, add basic extension checks if none exist
-    if enabled_builtins.contains(&"post_edit_check".to_string())
-        && (!content.contains("by_extension:") || content.contains("by_extension: {}"))
-    {
-        content = content.replace(
-                "post_edit_check:",
-                "post_edit_check:\n    by_extension:\n      \"py\":\n        command: \"python -m py_compile\"\n        message: \"Python syntax validation\"\n      \"rs\":\n        command: \"cargo check --message-format short 2>/dev/null || echo 'Rust check not available'\"\n        message: \"Rust compilation check\""
-            );
-    }
-
-    Ok(content)
-}
-
-/// Generate global rulebook with specified builtins enabled
-fn generate_global_rulebook(enabled_builtins: Option<&[String]>) -> String {
-    // Default builtins for global config if none specified
-    let default_builtins = vec![
-        "system_protection".to_string(),
-        "sensitive_data_protection".to_string(),
-        "cupcake_exec_protection".to_string(),
-    ];
-
-    let builtins_to_enable = enabled_builtins
-        .map(|b| b.to_vec())
-        .unwrap_or(default_builtins);
-
-    let mut rulebook = String::from(
-        r#"# Global Cupcake Configuration
-# This configuration applies to ALL Cupcake projects on this machine
-
-# Global signals - available to all global policies
-signals: {}
-
-# Global actions - triggered by global policy decisions
-actions: {}
-
-# Global builtins - machine-wide security policies
-builtins:"#,
-    );
-
-    // Add each enabled builtin
-    for builtin in &builtins_to_enable {
-        match builtin.as_str() {
-            "system_protection" => {
-                rulebook.push_str(
-                    r#"
-  # Protect critical system paths from modification
-  system_protection:
-    enabled: true
-    additional_paths: []  # Add custom protected system paths
-    # message: "Custom message for system protection blocks""#,
-                );
-            }
-            "sensitive_data_protection" => {
-                rulebook.push_str(
-                    r#"
-
-  # Block reading of credentials and sensitive data
-  sensitive_data_protection:
-    enabled: true
-    additional_patterns: []  # Add custom sensitive file patterns"#,
-                );
-            }
-            "cupcake_exec_protection" => {
-                rulebook.push_str(
-                    r#"
-
-  # Block direct execution of cupcake binary
-  cupcake_exec_protection:
-    enabled: true
-    # message: "Custom message for cupcake execution blocks""#,
-                );
-            }
-            _ => {
-                // This shouldn't happen due to validation, but handle gracefully
-                eprintln!("Warning: Unknown global builtin '{builtin}' - skipping");
-            }
-        }
-    }
-
-    rulebook.push('\n');
-    rulebook
-}
-
-async fn init_command(
-    global: bool,
-    harness: Option<HarnessType>,
-    builtins: Option<Vec<String>>,
-) -> Result<()> {
-    // Validate builtin names if provided
-    if let Some(ref builtin_list) = builtins {
-        validate_builtin_names(builtin_list, global)?;
-    }
-
+async fn init_command(global: bool, harness: Option<HarnessType>) -> Result<()> {
     if global {
         // Initialize global configuration (keeps all harnesses for machine-wide baseline)
-        init_global_config(harness, builtins).await
+        init_global_config(harness).await
     } else {
         // Project init requires a specific harness
         let selected_harness = match harness {
@@ -998,14 +751,11 @@ async fn init_command(
                 prompt_harness_selection()?
             }
         };
-        init_project_config(selected_harness, builtins).await
+        init_project_config(selected_harness).await
     }
 }
 
-async fn init_global_config(
-    harness: Option<HarnessType>,
-    builtins: Option<Vec<String>>,
-) -> Result<()> {
+async fn init_global_config(harness: Option<HarnessType>) -> Result<()> {
     use cupcake_core::engine::global_config::GlobalPaths;
 
     // Discover or create global config location
@@ -1318,10 +1068,6 @@ import rego.v1
 "#,
     )?;
 
-    // Create rulebook with specified or default global builtins
-    let rulebook_content = generate_global_rulebook(builtins.as_deref());
-    fs::write(global_paths.rulebook.clone(), rulebook_content)?;
-
     // Create harness-specific builtin directories for global builtin policies
     let claude_builtins_dir = global_paths.policies.join("claude").join("builtins");
     let cursor_builtins_dir = global_paths.policies.join("cursor").join("builtins");
@@ -1420,29 +1166,11 @@ import rego.v1
     }
 
     println!("✅ Initialized global Cupcake configuration");
-    println!("   Location:      {:?}", global_paths.root);
-    println!("   Configuration: {:?}", global_paths.rulebook);
-    println!("   Add policies:  {:?}", global_paths.policies);
+    println!("   Location: {:?}", global_paths.root);
+    println!("   Policies: {:?}", global_paths.policies);
     println!();
     println!("   Global policies have absolute precedence over project policies.");
-
-    // Show which builtins were enabled
-    if let Some(ref builtin_list) = builtins {
-        println!("   Enabled builtins:");
-        for builtin in builtin_list {
-            println!("     - {builtin}");
-        }
-    } else {
-        // Default global builtins were enabled
-        println!("   Three security builtins are enabled by default:");
-        println!("     - system_protection: Blocks critical system path modifications");
-        println!("     - sensitive_data_protection: Blocks credential file reads");
-        println!("     - cupcake_exec_protection: Prevents direct cupcake binary execution");
-    }
-
-    println!();
-    println!("   Edit rulebook.yml to customize or disable builtins.");
-    println!("   Edit example_global.rego to add custom machine-wide policies.");
+    println!("   Create a rulebook.yml to enable builtins and configure signals/actions.");
 
     // Configure harness if specified
     if let Some(harness_type) = harness {
@@ -1453,7 +1181,7 @@ import rego.v1
     Ok(())
 }
 
-async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>) -> Result<()> {
+async fn init_project_config(harness: HarnessType) -> Result<()> {
     let cupcake_dir = Path::new(".cupcake");
     let harness_name = harness_dir_name(&harness);
 
@@ -1537,16 +1265,6 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
             .context("Failed to create harness builtins directory")?;
 
-        // Write rulebook.yml - either with enabled builtins or commented template
-        let rulebook_content = if let Some(ref builtin_list) = builtins {
-            generate_rulebook_with_builtins(builtin_list)?
-        } else {
-            RULEBOOK_TEMPLATE.to_string()
-        };
-
-        fs::write(".cupcake/rulebook.yml", rulebook_content)
-            .context("Failed to create rulebook.yml file")?;
-
         // Write the system evaluate policy (shared at root level)
         fs::write(".cupcake/system/evaluate.rego", SYSTEM_EVALUATE_TEMPLATE)
             .context("Failed to create system evaluate.rego file")?;
@@ -1566,24 +1284,11 @@ async fn init_project_config(harness: HarnessType, builtins: Option<Vec<String>>
         .context("Failed to create example policy file")?;
 
         println!("✅ Initialized Cupcake project in .cupcake/");
-        println!("   Harness:       {harness_name}");
-        println!("   Configuration: .cupcake/rulebook.yml");
-        println!("   System:        .cupcake/system/");
-        println!("   Policies:      .cupcake/policies/{harness_name}/");
+        println!("   Harness:  {harness_name}");
+        println!("   System:   .cupcake/system/");
+        println!("   Policies: .cupcake/policies/{harness_name}/");
         println!();
-
-        // Show which builtins were enabled
-        if let Some(ref builtin_list) = builtins {
-            if !builtin_list.is_empty() {
-                println!("   Enabled builtins:");
-                for builtin in builtin_list {
-                    println!("     - {builtin}");
-                }
-                println!();
-            }
-        }
-
-        println!("   Edit rulebook.yml to enable builtins and configure your project.");
+        println!("   Create a rulebook.yml to enable builtins and configure signals/actions.");
     }
 
     // Always configure harness integration
@@ -2194,45 +1899,8 @@ collect_verbs(verb_name) := result if {
 default collect_verbs(_) := []
 "#;
 
-const EXAMPLE_POLICY_TEMPLATE: &str = r#"# METADATA
-# scope: package
-# title: Example Policy
-# description: A minimal example policy that never fires
-# custom:
-#   routing:
-#     required_events: ["PreToolUse"]
-#     required_tools: ["Bash"]
-package cupcake.policies.example
-
-import rego.v1
-
-# This rule will never fire - it's just here to prevent OPA compilation issues
-# It checks for a command that nobody would ever type
-deny contains decision if {
-    input.tool_input.command == "CUPCAKE_EXAMPLE_RULE_THAT_NEVER_FIRES_12345"
-    decision := {
-        "reason": "This will never happen",
-        "severity": "LOW",
-        "rule_id": "EXAMPLE-001"
-    }
-}
-
-# Replace the above with your actual policies
-# Example of a real policy:
-# deny contains decision if {
-#     contains(input.tool_input.command, "rm -rf /")
-#     decision := {
-#         "reason": "Dangerous command blocked",
-#         "severity": "HIGH",
-#         "rule_id": "SAFETY-001"
-#     }
-# }
-"#;
-
-// Include rulebook.yml template directly from base-config.yml
-const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
-
-// Include authoritative builtin policies from harness-specific fixtures
+// Include example policy and authoritative builtin policies from fixtures
+const EXAMPLE_POLICY_TEMPLATE: &str = include_str!("../../fixtures/example.rego");
 
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =

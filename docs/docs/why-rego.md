@@ -21,10 +21,11 @@ Rego is a **declarative language** designed specifically for expressing policy l
 # Declarative: "deny if command contains rm -rf and targets root"
 deny contains decision if {
     input.tool_name == "Bash"
-    contains(input.tool_input.command, "rm -rf")
-    startswith(input.tool_input.command, "rm -rf /")
+    contains(input.tool_input.command, "rm -rf /")
 }
 ```
+
+_\*this is a simple policy, in critical scenarios you would write a more robust version_
 
 This declarative approach makes policies **easier to read** and audit and **self-documenting.** Teams deploying agents further benefit from policy being unambiguous; the policy logic is separated from the application code.
 

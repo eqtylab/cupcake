@@ -70,7 +70,7 @@ Cupcake acts as an enforcement layer between your coding agents and their runtim
 Cupcake supports two evaluation models:
 
 1. **Deterministic Policies**: Policies are written in **OPA/Rego** and **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation. [Writing Policies](https://cupcake.eqtylab.io/reference/policies/custom/) guide for implementation details.
-2. **LLM‑as‑Judge**: For simpler, yet more advanced, oversight of your rules, Cucpake can interject via a secondary LLM or agent to evaluate how an action should proceed. [Cupcake Watchdog](https://cupcake.eqtylab.io/watchdog/getting-started/) guide for implementation details.
+2. **LLM‑as‑Judge**: For simpler, yet more advanced, oversight of your rules, Cupake can interject via a secondary LLM or agent to evaluate how an action should proceed. [Cupcake Watchdog](https://cupcake.eqtylab.io/watchdog/getting-started/) guide for implementation details.
 
 ### Decisions & Feedback
 

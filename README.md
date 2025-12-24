@@ -53,22 +53,6 @@ Cupcake can be embedded in Python or JavaScript agent applications through nativ
 | <img src="docs/docs/assets/python.svg" width="24" height="24"> Python         | `./cupcake-py` |
 | <img src="docs/docs/assets/typescript.svg" width="24" height="24"> TypeScript | `./cupcake-ts` |
 
-## Why Cupcake?
-
-Modern agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
-
-- **Multi-harness support** with first‑class integrations for **Claude Code**, **Cursor**, **Factory AI**, and **OpenCode**.
-- **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
-- **Enterprise‑ready** controls: allow/deny/review, **enriched audit** trails for AI SOCs, and proactive warnings.
-
-### Core Capabilities
-
-- **Granular Tool Control**: Prevent specific tools or arguments (e.g., blocking `rm -rf /`).
-- **MCP Support**: Native governance for Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
-- **LLM‑as‑Judge**: Use a secondary LLM or agent to evaluate actions for more dynamic oversight.
-- **Guardrail Libraries**: First‑class integrations with `NeMo` and `Invariant` for content and safety checks.
-- **Observability**: All inputs, signals, and decisions generate structured logs and evaluation traces for debugging.
-
 ## How it Works
 
 Cupcake acts as an enforcement layer between your coding agents and their runtime environment **via hooks** directly in the agent action path.
@@ -97,6 +81,22 @@ Based on the evaluation, Cupcake returns one of five decisions to the agent runt
 - **Block**: The action is stopped. Cupcake sends **Feedback** explaining _why_ it was blocked (e.g., "Tests must pass before pushing"), allowing the agent to self-correct.
 - **Warn**: The action proceeds, but a warning is logged or displayed.
 - **Require Review**: The action pauses until a human approves it.
+
+## Why Cupcake?
+
+Modern agents are powerful but inconsistent at following operational and security rules, especially as context grows. Cupcake turns the rules you already maintain (e.g., `CLAUDE.md`, `AGENT.md`, `.cursor/rules`) into **enforceable guardrails** that run before actions execute.
+
+- **Multi-harness support** with first‑class integrations for **Claude Code**, **Cursor**, **Factory AI**, and **OpenCode**.
+- **Governance‑as‑code** using OPA/Rego compiled to WebAssembly for fast, sandboxed evaluation.
+- **Enterprise‑ready** controls: allow/deny/review, **enriched audit** trails for AI SOCs, and proactive warnings.
+
+### Core Capabilities
+
+- **Granular Tool Control**: Prevent specific tools or arguments (e.g., blocking `rm -rf /`).
+- **MCP Support**: Native governance for Model Context Protocol tools (e.g., `mcp__memory__*`, `mcp__github__*`).
+- **LLM‑as‑Judge**: Use a secondary LLM or agent to evaluate actions for more dynamic oversight.
+- **Guardrail Libraries**: First‑class integrations with `NeMo` and `Invariant` for content and safety checks.
+- **Observability**: All inputs, signals, and decisions generate structured logs and evaluation traces for debugging.
 
 ## FAQ
 

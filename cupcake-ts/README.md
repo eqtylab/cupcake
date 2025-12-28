@@ -98,22 +98,22 @@ console.log('Action allowed');
 ```typescript
 class Cupcake {
   // Initialize (async, recommended)
-  async init(path?: string, harness?: 'claude' | 'cursor'): Promise<void>
+  async init(path?: string, harness?: 'claude' | 'cursor'): Promise<void>;
 
   // Initialize (sync, blocks event loop - use only in CLI scripts)
-  initSync(path?: string, harness?: 'claude' | 'cursor'): void
+  initSync(path?: string, harness?: 'claude' | 'cursor'): void;
 
   // Evaluate (async, non-blocking - recommended)
-  async evaluate(event: HookEvent): Promise<Decision>
+  async evaluate(event: HookEvent): Promise<Decision>;
 
   // Evaluate (sync, blocks event loop - use only in CLI scripts)
-  evaluateSync(event: HookEvent): Decision
+  evaluateSync(event: HookEvent): Decision;
 
   // Get version
-  get version(): string
+  get version(): string;
 
   // Check if ready
-  get isReady(): boolean
+  get isReady(): boolean;
 }
 ```
 
@@ -121,10 +121,10 @@ class Cupcake {
 
 ```typescript
 // Convenience functions using a singleton instance
-async function init(path?: string, harness?: 'claude' | 'cursor'): Promise<void>
-async function evaluate(event: HookEvent): Promise<Decision>
-function version(): string
-function isReady(): boolean
+async function init(path?: string, harness?: 'claude' | 'cursor'): Promise<void>;
+async function evaluate(event: HookEvent): Promise<Decision>;
+function version(): string;
+function isReady(): boolean;
 ```
 
 ### Types
@@ -207,10 +207,10 @@ See [`examples/`](./examples/) for complete examples.
 
 ### Async vs Sync
 
-| Method | Event Loop | Use Case |
-|--------|-----------|----------|
-| `evaluate()` (async) | ✅ Non-blocking | **Recommended** - Web servers, APIs, concurrent apps |
-| `evaluateSync()` (sync) | ❌ Blocks | CLI scripts, startup validation, simple tools |
+| Method                  | Event Loop      | Use Case                                             |
+| ----------------------- | --------------- | ---------------------------------------------------- |
+| `evaluate()` (async)    | ✅ Non-blocking | **Recommended** - Web servers, APIs, concurrent apps |
+| `evaluateSync()` (sync) | ❌ Blocks       | CLI scripts, startup validation, simple tools        |
 
 ### Benchmarks
 
@@ -233,6 +233,7 @@ try {
 ```
 
 Error codes:
+
 - `NOT_INITIALIZED` - Engine not initialized
 - `ALREADY_INITIALIZED` - Already initialized
 - `INIT_FAILED` - Initialization failed
@@ -249,8 +250,8 @@ npm install
 # Build native module
 npm run build
 
-# Run tests
-npm test
+# Run tests for bindings
+npm test:bindings
 
 # Format code
 npm run format

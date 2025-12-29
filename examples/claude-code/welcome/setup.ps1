@@ -1,0 +1,91 @@
+# PowerShell script for Windows setup
+# Run with: powershell -ExecutionPolicy Bypass -File setup.ps1
+
+Write-Host "Cupcake Claude Code Evaluation Setup (Windows)" -ForegroundColor Green
+Write-Host "===============================================`n"
+
+# Check if Rust/Cargo is installed
+try {
+    $cargoVersion = cargo --version 2>$null
+    Write-Host "✅ Cargo found: $cargoVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Cargo not found in PATH. Please install Rust:" -ForegroundColor Red
+    Write-Host "   https://rustup.rs/" -ForegroundColor Yellow
+    exit 1
+}
+
+# Check if OPA is installed
+try {
+    $opaVersion = opa version 2>$null | Select-Object -First 1
+    Write-Host "✅ OPA found: $opaVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ OPA not found in PATH. Please install OPA:" -ForegroundColor Red
+    Write-Host "   https://www.openpolicyagent.org/docs/latest/#running-opa" -ForegroundColor Yellow
+    Write-Host "   For Windows: Download opa_windows_amd64.exe and rename to opa.exe" -ForegroundColor Yellow
+    exit 1
+}
+
+# Save current directory
+$originalDir = Get-Location
+
+# Build Cupcake binary
+Write-Host "`nBuilding Cupcake binary..."
+Push-Location ../../..
+cargo build --release
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Build failed" -ForegroundColor Red
+    Pop-Location
+    exit 1
+}
+Write-Host "✅ Build complete" -ForegroundColor Green
+
+# Store the cupcake binary path
+$cupcakeBin = Join-Path (Get-Location) "target\release\cupcake.exe"
+Write-Host "✅ Using cupcake binary at: $cupcakeBin" -ForegroundColor Green
+
+# Return to original directory
+Set-Location $originalDir
+
+# Initialize Cupcake project using the explicit path
+Write-Host "`nInitializing Cupcake project with Claude Code harness..."
+& $cupcakeBin init --harness claude
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Project initialization failed" -ForegroundColor Red
+    exit 1
+}
+Write-Host "✅ Project initialized" -ForegroundColor Green
+
+# Update settings.json to use the full path to the cupcake binary
+# This ensures Claude Code can find cupcake even if it's not in PATH
+Write-Host "`nUpdating settings.json with full binary path..."
+$settingsPath = ".claude\settings.json"
+$settingsContent = Get-Content $settingsPath -Raw
+$settingsContent = $settingsContent -replace "cupcake eval", "$cupcakeBin eval"
+$settingsContent | Out-File -FilePath $settingsPath -Encoding UTF8 -NoNewline
+Write-Host "✅ Hooks configured with: $cupcakeBin" -ForegroundColor Green
+
+# Copy example policies to Claude Code policies directory
+Write-Host "`nCopying example policies..."
+Copy-Item -Path "..\..\fixtures\security_policy.rego" -Destination ".cupcake\policies\claude\" -Force
+Copy-Item -Path "..\..\fixtures\git_workflow.rego" -Destination ".cupcake\policies\claude\" -Force
+Copy-Item -Path "..\..\fixtures\context_injection.rego" -Destination ".cupcake\policies\claude\" -Force
+Write-Host "✅ Example policies copied" -ForegroundColor Green
+
+Write-Host "✅ Builtins configured (protected_paths, git_pre_check, rulebook_security_guardrails)" -ForegroundColor Green
+
+# Note: WASM compilation is handled automatically by 'cupcake eval' at runtime
+# No manual 'opa build' step needed - cupcake compiles policies including helpers
+
+Write-Host "`n🎉 Setup complete!" -ForegroundColor Green
+Write-Host "`nNext steps:" -ForegroundColor Cyan
+Write-Host "1. Add cupcake to your PATH:" -ForegroundColor White
+Write-Host "   `$env:PATH = `"$(Resolve-Path ..\..\..\target\release);`$env:PATH`"" -ForegroundColor Yellow
+Write-Host "2. Open this directory in Claude Code" -ForegroundColor White
+Write-Host "3. Try running commands that trigger policies" -ForegroundColor White
+Write-Host "`nManual testing with test events:" -ForegroundColor Cyan
+Write-Host "   cupcake eval --harness claude < test-events/shell-rm.json" -ForegroundColor Yellow
+Write-Host "`nExample commands to test in Claude Code:" -ForegroundColor Cyan
+Write-Host "- ls (safe, should work)" -ForegroundColor White
+Write-Host "- Remove-Item -Recurse -Force C:\temp\test (dangerous, should block)" -ForegroundColor White
+Write-Host "- Edit C:\Windows\System32\drivers\etc\hosts (system file, should block)" -ForegroundColor White
+Write-Host "- git push --force (risky, should ask)" -ForegroundColor White

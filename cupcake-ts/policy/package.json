@@ -1,5 +1,5 @@
 {
-  "name": "@cupcake/policy-evolved",
+  "name": "@cupcake/policy",
   "version": "0.1.0",
   "description": "Type-safe policy DSL for Cupcake - natural language rules that compile to Rego",
   "type": "module",

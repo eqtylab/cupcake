@@ -1,0 +1,40 @@
+{
+  "name": "@cupcake/policy-evolved",
+  "version": "0.1.0",
+  "description": "Type-safe policy DSL for Cupcake - natural language rules that compile to Rego",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "policy",
+    "rego",
+    "dsl",
+    "typescript",
+    "cupcake"
+  ],
+  "license": "MIT"
+}

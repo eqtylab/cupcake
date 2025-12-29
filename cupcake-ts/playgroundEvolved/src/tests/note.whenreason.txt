@@ -1,0 +1,5 @@
+cant('write to src', ['Write', 'Edit']).when(...)
+// reason defaults to "write to src"
+
+cant('symlink detected', ['Write']).when(...).reason(({ path }) => reason`Path ${path} is a symlink`)
+// reason is the dynamic concat

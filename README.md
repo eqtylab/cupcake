@@ -97,6 +97,41 @@ Modern agents are powerful but inconsistent at following operational and securit
 - **Guardrail Libraries**: First‑class integrations with `NeMo` and `Invariant` for content and safety checks.
 - **Observability**: All inputs, signals, and decisions generate structured logs and evaluation traces for debugging.
 
+## Installation and development with Nix
+
+If you're using [nix](https://nixos.org/), you can install and run Cupcake using the provided flake:
+
+### Install Cupcake CLI using Nix
+
+```bash
+# Install directly from GitHub
+nix profile install github:eqtylab/cupcake#cupcake-cli
+
+# Or run without installing
+nix run github:eqtylab/cupcake#cupcake-cli -- --help
+```
+
+### Install Cupcake CLI on NixOS
+
+Add the following to your `flake.nix`:
+```nix
+inputs.cupcake.url = "github:eqtylab/cupcake";
+```
+
+And then the following package to your environment.systemPackages or home.packages:
+```nix
+inputs.cupcake.packages.${system}.cupcake-cli
+```
+
+### Development Shell
+
+For development, you can also use the provided dev shell that includes Rust toolchain, just, and other dependencies:
+
+```bash
+# Enter the development shell
+nix develop
+```
+
 ## FAQ
 
 **Does Cupcake consume prompt/context tokens?**

@@ -6,7 +6,6 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    import-cargo.url = github:edolstra/import-cargo;
     crane.url = "github:ipetkov/crane";
   };
 

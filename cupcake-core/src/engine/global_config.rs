@@ -18,8 +18,6 @@ pub struct GlobalPaths {
     pub rulebook: PathBuf,
     /// Global signals directory
     pub signals: PathBuf,
-    /// Global actions directory
-    pub actions: PathBuf,
 }
 
 impl GlobalPaths {
@@ -112,7 +110,6 @@ impl GlobalPaths {
             policies: root.join("policies"),
             rulebook: root.join("rulebook.yml"),
             signals: root.join("signals"),
-            actions: root.join("actions"),
             root,
         })
     }
@@ -156,10 +153,7 @@ impl GlobalPaths {
 
     /// Check if the global configuration is properly initialized
     pub fn is_initialized(&self) -> bool {
-        self.policies.exists()
-            && self.rulebook.exists()
-            && self.signals.exists()
-            && self.actions.exists()
+        self.policies.exists() && self.rulebook.exists() && self.signals.exists()
     }
 
     /// Initialize a new global configuration directory structure
@@ -191,8 +185,6 @@ impl GlobalPaths {
 
         std::fs::create_dir_all(&self.signals)
             .context("Failed to create global signals directory")?;
-        std::fs::create_dir_all(&self.actions)
-            .context("Failed to create global actions directory")?;
 
         // Create minimal rulebook if it doesn't exist
         if !self.rulebook.exists() {
@@ -201,9 +193,8 @@ impl GlobalPaths {
 # This configuration applies to ALL Cupcake projects on this machine.
 # Global policies have absolute precedence and cannot be overridden.
 
-# Signals and actions defined here are only available to global policies
+# Signals defined here are only available to global policies
 signals: {}
-actions: {}
 
 # Builtins can be configured globally
 builtins: {}
@@ -235,7 +226,6 @@ mod tests {
         assert_eq!(global_paths.policies, root.join("policies"));
         assert_eq!(global_paths.rulebook, root.join("rulebook.yml"));
         assert_eq!(global_paths.signals, root.join("signals"));
-        assert_eq!(global_paths.actions, root.join("actions"));
     }
 
     #[test]
@@ -305,7 +295,6 @@ mod tests {
         assert!(global_paths.policies.exists());
         assert!(global_paths.rulebook.exists());
         assert!(global_paths.signals.exists());
-        assert!(global_paths.actions.exists());
     }
 
     #[test]
@@ -352,7 +341,6 @@ mod tests {
             .join("builtins")
             .exists());
         assert!(global_paths.signals.exists());
-        assert!(global_paths.actions.exists());
 
         // Check rulebook exists
         assert!(global_paths.rulebook.exists());

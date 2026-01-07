@@ -2,6 +2,8 @@
 //!
 //! Tests the complete flow from configuration to policy enforcement
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use serde_json::json;

@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;
@@ -17,11 +19,9 @@ async fn test_end_to_end_signal_integration() {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
-    let actions_dir = cupcake_dir.join("actions");
 
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
-    fs::create_dir_all(&actions_dir).unwrap();
 
     // Create system evaluation policy - matching fixtures/system_evaluate.rego
     let system_policy = r#"package cupcake.system

@@ -781,7 +781,6 @@ async fn init_global_config(harness: Option<HarnessType>) -> Result<()> {
                 policies: config_dir.join("policies"),
                 rulebook: config_dir.join("rulebook.yml"),
                 signals: config_dir.join("signals"),
-                actions: config_dir.join("actions"),
             }
         }
     };
@@ -1159,7 +1158,7 @@ import rego.v1
     println!("   Policies: {:?}", global_paths.policies);
     println!();
     println!("   Global policies have absolute precedence over project policies.");
-    println!("   Create a rulebook.yml to enable builtins and configure signals/actions.");
+    println!("   Create a rulebook.yml to enable builtins and configure signals.");
 
     // Configure harness if specified
     if let Some(harness_type) = harness {
@@ -1277,7 +1276,7 @@ async fn init_project_config(harness: HarnessType) -> Result<()> {
         println!("   System:   .cupcake/system/");
         println!("   Policies: .cupcake/policies/{harness_name}/");
         println!();
-        println!("   Create a rulebook.yml to enable builtins and configure signals/actions.");
+        println!("   Create a rulebook.yml to enable builtins and configure signals.");
     }
 
     // Always configure harness integration

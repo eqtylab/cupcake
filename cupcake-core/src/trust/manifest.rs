@@ -281,7 +281,6 @@ impl TrustManifest {
     pub fn new() -> Self {
         let mut scripts = BTreeMap::new();
         scripts.insert("signals".to_string(), BTreeMap::new());
-        scripts.insert("actions".to_string(), BTreeMap::new());
 
         TrustManifest {
             version: crate::trust::TRUST_VERSION,

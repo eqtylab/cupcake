@@ -62,7 +62,7 @@ pub struct Engine {
     /// List of all discovered policies
     policies: Vec<PolicyUnit>,
 
-    /// Optional rulebook for signals and actions
+    /// Optional rulebook for signals
     rulebook: Option<rulebook::Rulebook>,
 
     /// Optional trust verifier for script integrity
@@ -166,12 +166,8 @@ impl Engine {
 
         // Step 0B: Load project rulebook to get builtin configuration
         self.rulebook = Some(
-            rulebook::Rulebook::load_with_conventions(
-                &self.paths.rulebook,
-                &self.paths.signals,
-                &self.paths.actions,
-            )
-            .await?,
+            rulebook::Rulebook::load_with_conventions(&self.paths.rulebook, &self.paths.signals)
+                .await?,
         );
         info!("Project rulebook loaded with convention-based discovery");
 
@@ -389,7 +385,6 @@ impl Engine {
                 rulebook::Rulebook::load_with_conventions(
                     global_rulebook_path,
                     self.paths.global_signals.as_ref().unwrap(),
-                    self.paths.global_actions.as_ref().unwrap(),
                 )
                 .await?,
             );
@@ -856,7 +851,7 @@ impl Engine {
         info!("Evaluating event: {} tool: {:?}", event_name, tool_name);
 
         // Create Executor early - used for both global and project evaluation
-        // The Executor handles all OS/IO interactions (signals, actions)
+        // The Executor handles all OS/IO interactions (signals)
         let exec = executor::Executor {
             rulebook: self.rulebook.as_ref(),
             global_rulebook: self.global_rulebook.as_ref(),
@@ -905,9 +900,6 @@ impl Engine {
                             phase.finalize();
                         }
                     }
-                    // Execute global actions before returning
-                    exec.execute_global_actions(&global_decision, &global_decision_set)
-                        .await;
                     current_span.record("final_decision", "GlobalHalt");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -923,9 +915,6 @@ impl Engine {
                             phase.finalize();
                         }
                     }
-                    // Execute global actions before returning
-                    exec.execute_global_actions(&global_decision, &global_decision_set)
-                        .await;
                     current_span.record("final_decision", "GlobalDeny");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -941,9 +930,6 @@ impl Engine {
                             phase.finalize();
                         }
                     }
-                    // Execute global actions before returning
-                    exec.execute_global_actions(&global_decision, &global_decision_set)
-                        .await;
                     current_span.record("final_decision", "GlobalBlock");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -1062,9 +1048,6 @@ impl Engine {
                 phase.finalize();
             }
         }
-
-        // Step 5: Execute actions based on decision (async, non-blocking)
-        exec.execute_actions(&final_decision, &decision_set).await;
 
         // Record final decision type and duration
         let duration = eval_start.elapsed();

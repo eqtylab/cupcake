@@ -6,6 +6,8 @@
 //! 3. Policies can access signals at input.signals
 //! 4. Validation actually works with real commands
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::builtins::*;
 use cupcake_core::engine::Engine;

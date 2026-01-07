@@ -80,11 +80,9 @@ async fn test_script_reference_file_hashing() -> Result<()> {
 async fn test_trust_manifest_creation() -> Result<()> {
     let manifest = TrustManifest::new();
 
-    assert_eq!(manifest.scripts().len(), 2); // signals and actions
+    assert_eq!(manifest.scripts().len(), 1); // signals only
     assert!(manifest.scripts().contains_key("signals"));
-    assert!(manifest.scripts().contains_key("actions"));
     assert!(manifest.scripts().get("signals").unwrap().is_empty());
-    assert!(manifest.scripts().get("actions").unwrap().is_empty());
 
     Ok(())
 }
@@ -147,8 +145,7 @@ async fn test_trust_manifest_no_hmac_file() -> Result<()> {
   "version": 1,
   "timestamp": "2025-08-25T18:52:12.640302Z",
   "scripts": {
-    "signals": {},
-    "actions": {}
+    "signals": {}
   }
 }"#;
     fs::write(&trust_file, manifest_json)?;

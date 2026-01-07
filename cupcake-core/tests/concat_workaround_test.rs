@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use cupcake_core::engine::Engine;
 use serde_json::json;
 use std::fs;

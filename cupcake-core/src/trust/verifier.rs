@@ -37,9 +37,8 @@ impl TrustVerifier {
         let manifest = TrustManifest::load(&manifest_path)?;
 
         debug!(
-            "Trust manifest loaded: {} signals, {} actions",
-            manifest.scripts.get("signals").map_or(0, |s| s.len()),
-            manifest.scripts.get("actions").map_or(0, |a| a.len())
+            "Trust manifest loaded: {} signals",
+            manifest.scripts.get("signals").map_or(0, |s| s.len())
         );
 
         Ok(TrustVerifier {

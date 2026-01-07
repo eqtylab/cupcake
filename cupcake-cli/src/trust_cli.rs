@@ -152,9 +152,8 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
         // Use ENGINE's parser with auto-discovery!
         let rulebook_path = cupcake_dir.join("rulebook.yml");
         let signals_dir = cupcake_dir.join("signals");
-        let actions_dir = cupcake_dir.join("actions");
 
-        let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir)
+        let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir)
             .await
             .context("Failed to load rulebook with auto-discovery")?;
 
@@ -164,27 +163,6 @@ async fn trust_init(project_dir: &Path, empty: bool) -> Result<()> {
         // Add all signals
         for (name, signal) in &rulebook.signals {
             scripts.push(("signals".to_string(), name.clone(), signal.command.clone()));
-        }
-
-        // Add all actions (including on_any_denial)
-        for action in &rulebook.actions.on_any_denial {
-            scripts.push((
-                "actions".to_string(),
-                "on_any_denial".to_string(),
-                action.command.clone(),
-            ));
-        }
-
-        // Add rule-specific actions
-        for (rule_id, actions) in &rulebook.actions.by_rule_id {
-            for (idx, action) in actions.iter().enumerate() {
-                let name = if actions.len() > 1 {
-                    format!("{rule_id}_{idx}")
-                } else {
-                    rule_id.clone()
-                };
-                scripts.push(("actions".to_string(), name, action.command.clone()));
-            }
         }
 
         let working_dir = project_dir.to_path_buf();
@@ -244,9 +222,8 @@ async fn trust_update(project_dir: &Path, dry_run: bool, auto_yes: bool) -> Resu
     // Use ENGINE's parser with auto-discovery!
     let rulebook_path = cupcake_dir.join("rulebook.yml");
     let signals_dir = cupcake_dir.join("signals");
-    let actions_dir = cupcake_dir.join("actions");
 
-    let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir, &actions_dir)
+    let rulebook = Rulebook::load_with_conventions(&rulebook_path, &signals_dir)
         .await
         .context("Failed to load rulebook with auto-discovery")?;
 
@@ -256,27 +233,6 @@ async fn trust_update(project_dir: &Path, dry_run: bool, auto_yes: bool) -> Resu
     // Add all signals
     for (name, signal) in &rulebook.signals {
         scripts.push(("signals".to_string(), name.clone(), signal.command.clone()));
-    }
-
-    // Add all actions (including on_any_denial)
-    for action in &rulebook.actions.on_any_denial {
-        scripts.push((
-            "actions".to_string(),
-            "on_any_denial".to_string(),
-            action.command.clone(),
-        ));
-    }
-
-    // Add rule-specific actions
-    for (rule_id, actions) in &rulebook.actions.by_rule_id {
-        for (idx, action) in actions.iter().enumerate() {
-            let name = if actions.len() > 1 {
-                format!("{rule_id}_{idx}")
-            } else {
-                rule_id.clone()
-            };
-            scripts.push(("actions".to_string(), name, action.command.clone()));
-        }
     }
 
     let working_dir = project_dir.to_path_buf();

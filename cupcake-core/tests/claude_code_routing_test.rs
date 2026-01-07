@@ -13,18 +13,15 @@ fn setup_test_dir(_event_name: &str) -> TempDir {
     let claude_dir = policies_dir.join("claude");
     let system_dir = claude_dir.join("system");
     let signals_dir = cupcake_dir.join("signals");
-    let actions_dir = cupcake_dir.join("actions");
 
     fs::create_dir_all(&system_dir).unwrap();
     fs::create_dir_all(&signals_dir).unwrap();
-    fs::create_dir_all(&actions_dir).unwrap();
 
     // Create minimal rulebook with no builtins
     let rulebook = r#"
 version: "1.0"
 builtins: {}
 signals: {}
-actions: {}
 "#;
     fs::write(cupcake_dir.join("rulebook.yml"), rulebook).unwrap();
 

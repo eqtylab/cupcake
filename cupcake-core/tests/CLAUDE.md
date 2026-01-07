@@ -57,6 +57,5 @@ Match the authoritative structure:
 │   ├── system/
 │   │   └── evaluate.rego  # Authoritative version only
 │   └── *.rego             # Test policies
-├── signals/
-└── actions/
+└── signals/
 ```

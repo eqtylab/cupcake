@@ -1,3 +1,6 @@
+#![allow(unused_imports)]
+#![allow(dead_code)]
+
 // Import only the specific helpers we need
 mod common;
 use common::{create_test_project_for_harness, init_test_logging};
@@ -103,7 +106,6 @@ halt contains decision if {
         fs::write(
             global_dir.join("rulebook.yml"),
             r#"signals: {}
-actions: {}
 builtins: {}
 "#,
         )?;
@@ -345,7 +347,6 @@ halt contains decision if {
         fs::write(
             global_temp.path().join("rulebook.yml"),
             r#"signals: {}
-actions: {}
 builtins:
   system_protection:
     enabled: false
@@ -495,7 +496,6 @@ halt contains decision if {
   __builtin_system_protection_message:
     command: "echo 'Custom block message from signal'"
     timeout_seconds: 1
-actions: {}
 builtins:
   system_protection:
     enabled: true

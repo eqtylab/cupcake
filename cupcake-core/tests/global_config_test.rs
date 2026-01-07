@@ -78,7 +78,6 @@ fn test_global_config_initialization() -> Result<()> {
         .join("builtins")
         .exists());
     assert!(global_paths.signals.exists());
-    assert!(global_paths.actions.exists());
     assert!(global_paths.rulebook.exists());
 
     // Verify rulebook content

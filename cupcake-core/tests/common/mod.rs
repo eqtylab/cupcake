@@ -4,6 +4,8 @@
 //! pattern. All functions are now actively used since we eliminated the
 //! duplicate create_test_project() function.
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use cupcake_core::harness::types::HarnessType;
 use std::fs;
@@ -56,12 +58,11 @@ pub fn create_test_project_for_harness(project_path: &Path, harness: HarnessType
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
-    fs::create_dir_all(cupcake_dir.join("actions"))?;
 
     // Create minimal rulebook
     fs::write(
         cupcake_dir.join("rulebook.yml"),
-        "signals: {}\nactions: {}\nbuiltins: {}",
+        "signals: {}\nbuiltins: {}",
     )?;
 
     // Use fixture for system policy
@@ -85,12 +86,11 @@ pub fn create_test_global_config(global_path: &Path) -> Result<()> {
 
     fs::create_dir_all(&system_dir)?;
     fs::create_dir_all(global_path.join("signals"))?;
-    fs::create_dir_all(global_path.join("actions"))?;
 
     // Create minimal rulebook
     fs::write(
         global_path.join("rulebook.yml"),
-        "signals: {}\nactions: {}\nbuiltins: {}",
+        "signals: {}\nbuiltins: {}",
     )?;
 
     // Use fixture for global system policy

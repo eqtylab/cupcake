@@ -3,6 +3,8 @@
 //! These tests demonstrate that preprocessing protects ALL policies
 //! (including naive user policies) from spacing/whitespace bypasses.
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use cupcake_core::harness::types::HarnessType;

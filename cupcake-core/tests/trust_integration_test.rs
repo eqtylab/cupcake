@@ -14,7 +14,6 @@ async fn setup_test_project() -> Result<TempDir> {
     // Create directories with harness-specific structure
     fs::create_dir_all(cupcake_dir.join("policies/claude/system"))?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
-    fs::create_dir_all(cupcake_dir.join("actions"))?;
 
     // Create system evaluate policy that matches the authoritative example
     fs::write(

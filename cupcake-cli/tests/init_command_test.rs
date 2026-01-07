@@ -69,8 +69,6 @@ fn test_init_creates_correct_directory_structure() -> Result<()> {
     assert!(cupcake_dir.is_dir(), ".cupcake should be a directory");
 
     // Verify all required subdirectories exist (only claude harness)
-    // New structure: system/ at root level (helpers consolidated into system)
-    // No empty signals/actions directories created
     let expected_dirs = vec![
         "system",
         "policies",
@@ -162,10 +160,6 @@ fn test_rulebook_yml_content() -> Result<()> {
     assert!(
         content.contains("# SIGNALS - External data providers"),
         "rulebook.yml should contain signals section"
-    );
-    assert!(
-        content.contains("# ACTIONS - Response to policy violations"),
-        "rulebook.yml should contain actions section"
     );
     assert!(
         content.contains("# BUILTINS - Higher-level policy abstractions"),
@@ -465,32 +459,6 @@ fn test_init_file_permissions() -> Result<()> {
     Ok(())
 }
 
-/// Test that empty signal/action directories are NOT created (Issue #1 fix)
-#[test]
-fn test_empty_directories_not_created() -> Result<()> {
-    let (_temp_dir, project_path) = run_init_in_temp_dir()?;
-
-    let signals_dir = project_path.join(".cupcake/signals");
-    let actions_dir = project_path.join(".cupcake/actions");
-    let helpers_dir = project_path.join(".cupcake/helpers");
-
-    // Verify empty directories are NOT created anymore
-    assert!(
-        !signals_dir.exists(),
-        "signals directory should NOT be created (empty dirs removed)"
-    );
-    assert!(
-        !actions_dir.exists(),
-        "actions directory should NOT be created (empty dirs removed)"
-    );
-    assert!(
-        !helpers_dir.exists(),
-        "helpers directory should NOT exist (consolidated into system)"
-    );
-
-    Ok(())
-}
-
 /// Verify the rulebook.yml is valid YAML
 #[test]
 fn test_rulebook_yml_is_valid_yaml() -> Result<()> {
@@ -504,10 +472,6 @@ fn test_rulebook_yml_is_valid_yaml() -> Result<()> {
     assert!(
         content.contains("signals:"),
         "rulebook.yml should contain signals section"
-    );
-    assert!(
-        content.contains("actions:"),
-        "rulebook.yml should contain actions section"
     );
     assert!(
         content.contains("builtins:"),
@@ -554,9 +518,7 @@ fn test_correct_number_of_files_created() -> Result<()> {
         "Should have exactly 11 files (1 rulebook + 1 example + 2 system + 7 builtins)"
     );
 
-    // We should have exactly 4 directories (new structure):
-    // system, policies, policies/claude, policies/claude/builtins
-    // (no helpers, signals, or actions directories)
+    // We should have exactly 4 directories: system, policies, policies/claude, policies/claude/builtins
     assert_eq!(dir_count, 4, "Should have exactly 4 directories");
 
     Ok(())

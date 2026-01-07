@@ -54,8 +54,6 @@ pub struct ProjectPaths {
     pub policies: PathBuf,
     /// Signals directory (.cupcake/signals/)
     pub signals: PathBuf,
-    /// Actions directory (.cupcake/actions/)
-    pub actions: PathBuf,
     /// Rulebook file (.cupcake/rulebook.yml)
     pub rulebook: PathBuf,
 
@@ -66,8 +64,6 @@ pub struct ProjectPaths {
     pub global_policies: Option<PathBuf>,
     /// Global signals directory
     pub global_signals: Option<PathBuf>,
-    /// Global actions directory
-    pub global_actions: Option<PathBuf>,
     /// Global rulebook file
     pub global_rulebook: Option<PathBuf>,
 }
@@ -115,19 +111,18 @@ impl ProjectPaths {
                 });
 
         // Extract global paths if config exists
-        let (global_root, global_policies, global_signals, global_actions, global_rulebook) =
+        let (global_root, global_policies, global_signals, global_rulebook) =
             if let Some(global) = global_config {
                 info!("Global configuration discovered at {:?}", global.root);
                 (
                     Some(global.root),
                     Some(global.policies),
                     Some(global.signals),
-                    Some(global.actions),
                     Some(global.rulebook),
                 )
             } else {
                 debug!("No global configuration found - using project config only");
-                (None, None, None, None, None)
+                (None, None, None, None)
             };
 
         Ok(ProjectPaths {
@@ -135,12 +130,10 @@ impl ProjectPaths {
             cupcake_dir: cupcake_dir.clone(),
             policies: cupcake_dir.join("policies"),
             signals: cupcake_dir.join("signals"),
-            actions: cupcake_dir.join("actions"),
             rulebook: cupcake_dir.join("rulebook.yml"),
             global_root,
             global_policies,
             global_signals,
-            global_actions,
             global_rulebook,
         })
     }

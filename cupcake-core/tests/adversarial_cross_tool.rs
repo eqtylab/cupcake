@@ -1,6 +1,8 @@
 //! Adversarial test suite for TOB-EQTY-LAB-CUPCAKE-2
 //! Tests defenses against cross-tool bypass via tool-specific routing
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use serde_json::json;

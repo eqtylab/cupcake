@@ -1,6 +1,6 @@
 # Trust System Implementation
 
-This module implements cryptographic trust verification for Cupcake scripts and actions.
+This module implements cryptographic trust verification for Cupcake scripts.
 
 ## Critical: Test Execution Requirements
 

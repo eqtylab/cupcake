@@ -29,8 +29,7 @@ docs/
 │   │   │   ├── help.yaml
 │   │   │   ├── init.yaml
 │   │   │   ├── inspect.yaml
-│   │   │   ├── verify.yaml
-│   │   │   └── trust.yaml
+│   │   │   └── verify.yaml
 │   │   └── schema.yaml        # Castfile format documentation
 │   ├── generate-cast.py       # Cast generator script
 │   └── README.md
@@ -177,7 +176,6 @@ After running `just casts`, you'll have `.cast` files in `docs/docs/assets/`:
 | `cupcake-init.cast`   | Project initialization                    |
 | `cupcake-inspect.cast`| Policy inspection (detailed + table view) |
 | `cupcake-verify.cast` | Configuration verification                |
-| `cupcake-trust.cast`  | Trust management workflow                 |
 
 ## Troubleshooting
 

@@ -43,7 +43,7 @@ impl<'a> Executor<'a> {
     /// 1. Collects required signals from matched policies
     /// 2. Auto-adds signals for builtin policies
     /// 3. Injects builtin configuration
-    /// 4. Executes signals with trust verification
+    /// 4. Executes signals
     /// 5. Runs watchdog evaluation if enabled
     #[tracing::instrument(
         skip(self, input, matched_policies, signal_telemetry),

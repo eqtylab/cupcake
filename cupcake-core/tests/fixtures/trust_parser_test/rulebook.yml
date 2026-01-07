@@ -1,3 +1,0 @@
-signals:
-  explicit_signal:
-    command: "echo 'I am explicit'"

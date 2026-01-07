@@ -22,12 +22,8 @@ tokio = { workspace = true }
 futures = { workspace = true }
 async-trait = "0.1"
 
-# HTTP Client (for Watchdog and Catalog)
+# HTTP Client (for Watchdog)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-
-# Archive handling (for Catalog)
-flate2 = { version = "1.0", optional = true }
-tar = { version = "0.4", optional = true }
 
 # Utilities
 chrono = { workspace = true }
@@ -65,9 +61,6 @@ deterministic-tests = []
 
 # Watchdog LLM-as-judge feature
 watchdog = ["dep:reqwest"]
-
-# Catalog feature (registry browsing, installation)
-catalog = ["dep:reqwest", "dep:flate2", "dep:tar"]
 
 [lib]
 name = "cupcake_core"

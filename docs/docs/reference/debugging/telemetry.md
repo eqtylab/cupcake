@@ -15,7 +15,6 @@ Cupcake uses a **hierarchical span model** inspired by OpenTelemetry. Each event
 cupcake.ingest (root)
 ├── cupcake.enrich (preprocessing)
 ├── cupcake.evaluate.global (global policies)
-├── cupcake.evaluate.catalog:overlay_name (catalog overlays)
 └── cupcake.evaluate.project (project policies)
 ```
 
@@ -131,7 +130,7 @@ Child span for each evaluation phase. Multiple evaluate spans may exist per trac
 | `parent_span_id` | string | IngestSpan's span_id |
 | `start_time_unix_nano` | u64 | When evaluation started |
 | `end_time_unix_nano` | u64 | When evaluation completed |
-| `phase` | string | `"global"`, `"catalog:name"`, or `"project"` |
+| `phase` | string | `"global"` or `"project"` |
 | `routed` | bool | Whether routing found matching policies |
 | `matched_policies` | string[] | Policy package names that matched |
 | `wasm_decision_set` | object | Raw decisions from WASM evaluation |

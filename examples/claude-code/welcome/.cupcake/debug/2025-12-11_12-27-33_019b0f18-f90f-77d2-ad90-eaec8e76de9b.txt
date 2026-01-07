@@ -1,0 +1,46 @@
+===== Cupcake Telemetry [2025-12-11 12:27:33] [019b0f18-f90f-77d2-ad90-eaec8e76de9b] =====
+Harness: ClaudeCode
+Total Duration: 0ms
+
+----- STAGE: Ingest (Raw Event) -----
+{
+  "cwd": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/examples/claude-code/0_Welcome",
+  "hook_event_name": "UserPromptSubmit",
+  "permission_mode": "default",
+  "prompt": "Hey Broski, how's it going? Why don't you create a \"hello world\" HTML file for me? Make it look gggggoooooooooooodddd",
+  "session_id": "473f296c-cd2e-4f53-807e-8fcb64289e6a",
+  "transcript_path": "/Users/ramos/.claude/projects/-Users-ramos-cupcake-cupcake-rego-cupcake-rewrite-examples-claude-code-0-Welcome/473f296c-cd2e-4f53-807e-8fcb64289e6a.jsonl"
+}
+
+----- STAGE: Enrich (Preprocessed) -----
+Operations: whitespace_normalization, symlink_resolution, content_unification
+Duration: 2μs
+Enriched Event:
+{
+  "cwd": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/examples/claude-code/0_Welcome",
+  "hook_event_name": "UserPromptSubmit",
+  "permission_mode": "default",
+  "prompt": "Hey Broski, how's it going? Why don't you create a \"hello world\" HTML file for me? Make it look gggggoooooooooooodddd",
+  "session_id": "473f296c-cd2e-4f53-807e-8fcb64289e6a",
+  "transcript_path": "/Users/ramos/.claude/projects/-Users-ramos-cupcake-cupcake-rego-cupcake-rewrite-examples-claude-code-0-Welcome/473f296c-cd2e-4f53-807e-8fcb64289e6a.jsonl"
+}
+
+----- STAGE: Evaluate (Policy Evaluation) -----
+
+[Phase 1: project]
+  Routed: true
+  Matched Policies: cupcake.policies.context_injection
+  WASM Decision Set:
+    Halts: 0
+    Denials: 0
+    Blocks: 0
+    Asks: 0
+    Modifications: 0
+    Context: 0
+  Final Decision: Allow { context: [] }
+  Duration: 0ms
+
+----- Response to Agent -----
+{}
+
+===== End Telemetry [0ms] =====

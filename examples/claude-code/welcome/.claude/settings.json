@@ -1,0 +1,80 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release//Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake --debug-files",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|MultiEdit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|MultiEdit|Write"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release//Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake --debug-files",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release//Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake --debug-files",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release//Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake --debug-files",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/Users/ramos/cupcake/cupcake-rego/cupcake-rewrite/target/release/cupcake eval --harness claude --policy-dir $CLAUDE_PROJECT_DIR/.cupcake",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

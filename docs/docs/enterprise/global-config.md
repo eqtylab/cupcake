@@ -22,8 +22,7 @@ cupcake/
 │   │   └── builtins/
 │   └── cursor/
 │       └── builtins/
-├── signals/
-└── actions/
+└── signals/
 ```
 
 ## Evaluation Order

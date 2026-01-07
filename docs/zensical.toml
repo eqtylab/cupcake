@@ -108,8 +108,6 @@ nav = [
 #
 # Read more: https://zensical.org/docs/customization/#additional-css
 extra_css = [
-  "stylesheets/asciinema-player.css",
-  "stylesheets/asciinema-custom.css",
   "stylesheets/color-vars.css",
   "stylesheets/zensical-custom.css",
 ]
@@ -120,10 +118,7 @@ extra_css = [
 # The path provided should be relative to the "docs_dir".
 #
 # Read more: https://zensical.org/docs/customization/#additional-javascript
-extra_javascript = [
-  "javascripts/asciinema-player.min.js",
-  "javascripts/asciinema-init.js",
-]
+extra_javascript = []
 
 # ----------------------------------------------------------------------------
 # Section for configuring theme options

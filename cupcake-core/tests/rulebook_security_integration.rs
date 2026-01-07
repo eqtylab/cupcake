@@ -12,7 +12,6 @@ use tempfile::TempDir;
 
 /// Integration test: rulebook security prevents file operations on .cupcake/ files
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_rulebook_security_blocks_cupcake_file_edits() -> Result<()> {
     // Create a temporary directory for test policies with harness-specific structure
     let temp_dir = TempDir::new()?;
@@ -166,7 +165,6 @@ builtins:
 
 /// Test that bash commands containing .cupcake are blocked
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_rulebook_security_blocks_bash_cupcake_commands() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -251,7 +249,6 @@ builtins:
 
 /// Test Read operations are also blocked (total lockdown)
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_rulebook_security_blocks_read_operations() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

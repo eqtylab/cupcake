@@ -18,7 +18,6 @@ use super::metadata::PolicyUnit;
 use super::rulebook::Rulebook;
 use crate::debug::SignalTelemetry;
 use crate::telemetry::span::SignalExecution;
-use crate::trust::TrustVerifier;
 use crate::watchdog::Watchdog;
 
 /// Executor handles all OS/IO interactions for policy evaluation.
@@ -31,8 +30,6 @@ pub struct Executor<'a> {
     pub rulebook: Option<&'a Rulebook>,
     /// Global rulebook for global signals
     pub global_rulebook: Option<&'a Rulebook>,
-    /// Trust verifier for script integrity checks
-    pub trust_verifier: Option<&'a TrustVerifier>,
     /// Watchdog for LLM-as-Judge evaluation
     pub watchdog: Option<&'a Watchdog>,
     /// Working directory for command execution
@@ -168,7 +165,7 @@ impl<'a> Executor<'a> {
 
         // Execute signals if we have a rulebook
         let signal_data = if let Some(rulebook) = self.rulebook {
-            self.execute_signals_with_trust(
+            self.execute_signals(
                 &signal_names,
                 rulebook,
                 input,
@@ -246,8 +243,8 @@ impl<'a> Executor<'a> {
         Ok(enriched_input)
     }
 
-    /// Execute signals with trust verification.
-    async fn execute_signals_with_trust(
+    /// Execute signals.
+    async fn execute_signals(
         &self,
         signal_names: &[String],
         rulebook: &Rulebook,
@@ -258,16 +255,12 @@ impl<'a> Executor<'a> {
             return Ok(HashMap::new());
         }
 
-        debug!(
-            "Executing {} signals with trust verification",
-            signal_names.len()
-        );
+        debug!("Executing {} signals", signal_names.len());
 
         let futures: Vec<_> = signal_names
             .iter()
             .map(|name| {
                 let name = name.clone();
-                let trust_verifier = self.trust_verifier.cloned();
                 let signal_config = rulebook.get_signal(&name).cloned();
                 let event_data = event_data.clone();
 
@@ -282,17 +275,6 @@ impl<'a> Executor<'a> {
                             );
                         }
                     };
-
-                    // Verify trust if enabled
-                    if let Some(verifier) = &trust_verifier {
-                        if let Err(e) = verifier.verify_script(&signal.command).await {
-                            return (
-                                name.clone(),
-                                Err(anyhow::anyhow!("Trust verification failed: {}", e)),
-                                None,
-                            );
-                        }
-                    }
 
                     // Execute the signal and measure time
                     let signal_start = Instant::now();
@@ -435,7 +417,7 @@ impl<'a> Executor<'a> {
 
         // Execute signals using global rulebook
         let signal_data = self
-            .execute_signals_with_trust(&signal_names, rulebook, input, signal_telemetry)
+            .execute_signals(&signal_names, rulebook, input, signal_telemetry)
             .await
             .unwrap_or_else(|e| {
                 warn!("Global signal execution failed: {}", e);

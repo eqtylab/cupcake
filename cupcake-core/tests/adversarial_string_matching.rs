@@ -11,7 +11,6 @@ use tempfile::TempDir;
 
 /// Test that extra spaces in dangerous commands are properly detected
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_blocks_rm_with_extra_spaces() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -104,7 +103,6 @@ builtins:
 
 /// Test that command obfuscation attempts are blocked
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_blocks_obfuscated_commands() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -194,7 +192,6 @@ builtins:
 
 /// Test git command obfuscation attempts
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_blocks_git_no_verify_with_spacing() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -314,7 +311,6 @@ builtins:
 
 /// Test protected paths with obfuscated file operations
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_protected_paths_blocks_obfuscated_writes() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -434,7 +430,6 @@ builtins:
 /// Validate that preprocessing now protects even naive user policies without helpers
 /// This demonstrates the effectiveness of our Rust-level preprocessing defense
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_preprocessing_protects_naive_policies() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

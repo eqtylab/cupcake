@@ -6,7 +6,6 @@ use std::fs;
 use tempfile::TempDir;
 
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_minimal_ask_rule() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();

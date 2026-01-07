@@ -11,7 +11,6 @@ use tempfile::TempDir;
 
 /// Test that protected paths block ALL file modification tools
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_cross_tool_protection_coverage() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -156,7 +155,6 @@ builtins:
 
 /// Test rulebook security blocks all tools for .cupcake modifications
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_cupcake_protection_cross_tool() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -281,7 +279,6 @@ builtins:
 
 /// Test that tool-specific policies without wildcard metadata miss other tools
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_narrow_policy_misses_other_tools() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -401,7 +398,6 @@ deny contains decision if {
 
 /// Test that expanded metadata prevents cross-tool bypass
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_expanded_metadata_prevents_bypass() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -552,7 +548,6 @@ sensitive_access if {
 
 /// Test wildcard policies (no required_tools) match all tools
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_wildcard_policy_matches_all_tools() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

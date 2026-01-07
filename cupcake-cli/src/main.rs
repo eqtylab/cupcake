@@ -18,7 +18,6 @@ use cupcake_core::{engine, harness, telemetry::TelemetryContext, validator};
 
 mod harness_config;
 mod migrations;
-mod trust_cli;
 #[cfg(feature = "watchdog")]
 mod watchdog_cli;
 
@@ -211,12 +210,6 @@ enum Command {
         /// Configure integration with an agent harness (e.g., 'claude')
         #[clap(long, value_enum)]
         harness: Option<HarnessType>,
-    },
-
-    /// Manage script trust and integrity verification
-    Trust {
-        #[clap(subcommand)]
-        command: trust_cli::TrustCommand,
     },
 
     /// Validate policies for Cupcake requirements and best practices
@@ -413,7 +406,6 @@ async fn main() -> Result<()> {
             policy_dir,
         } => verify_command(harness.into(), policy_dir).await,
         Command::Init { global, harness } => init_command(global, harness).await,
-        Command::Trust { command } => command.execute().await,
         #[cfg(feature = "watchdog")]
         Command::Watchdog {
             config,

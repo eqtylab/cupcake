@@ -6,7 +6,6 @@ use std::fs;
 use tempfile::TempDir;
 
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_ask_with_signals() {
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();

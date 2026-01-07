@@ -137,7 +137,6 @@ fn test_enabled_builtins_list() {
 
 /// Integration test: verify policies can access builtin signals
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_builtin_policy_signal_access() -> Result<()> {
     // Create a temporary directory for test policies with harness-specific structure
     let temp_dir = TempDir::new()?;
@@ -280,7 +279,6 @@ add_context contains context_msg if {
 
 /// Test the complete builtin flow with real validation
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_post_edit_validation_flow() -> Result<()> {
     // Create a temporary directory for test with harness-specific structure
     let temp_dir = TempDir::new()?;

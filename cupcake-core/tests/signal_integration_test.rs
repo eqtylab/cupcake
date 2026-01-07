@@ -6,7 +6,6 @@ use std::fs;
 use tempfile::TempDir;
 
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_end_to_end_signal_integration() {
     // Create a temporary test project structure
     let temp_dir = TempDir::new().unwrap();
@@ -310,7 +309,6 @@ echo '{
 }
 
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_signal_json_parsing_fallback() {
     // Create a temporary test project
     let temp_dir = TempDir::new().unwrap();

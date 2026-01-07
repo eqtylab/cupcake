@@ -12,7 +12,6 @@ use tempfile::TempDir;
 
 /// Test that protected_paths blocks writes but allows reads
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_protected_paths_read_write_distinction() -> Result<()> {
     // Create a temporary directory for test with harness-specific structure
     let temp_dir = TempDir::new()?;
@@ -185,7 +184,6 @@ builtins:
 
 /// Test Bash command whitelisting for protected paths
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_protected_paths_bash_whitelist() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

@@ -76,7 +76,6 @@ builtins:
 /// BEFORE FIX: Policy uses raw path "/tmp/backup" - NOT BLOCKED
 /// AFTER FIX: Policy uses resolved path "/project/.cupcake" - BLOCKED
 #[cfg(unix)]
-#[cfg(feature = "deterministic-tests")]
 #[tokio::test]
 async fn test_grep_symlink_bypass_should_block() -> Result<()> {
     init_test_logging();

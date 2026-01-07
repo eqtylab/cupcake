@@ -13,7 +13,6 @@ use tempfile::TempDir;
 /// Test that rulebook_security_guardrails protects user-configured custom paths in Cursor format
 /// with total lockdown (blocks both reads AND writes, unlike protected_paths builtin)
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_rulebook_security_protects_custom_paths_cursor() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

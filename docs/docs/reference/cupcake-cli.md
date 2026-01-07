@@ -28,7 +28,6 @@ This creates the `.cupcake/` directory with:
 - `rulebook.yml` - Configuration file
 - `policies/` - Rego policy files
 - `signals/` - External data providers
-- `actions/` - Automated response scripts
 
 ## Core Commands
 
@@ -80,26 +79,6 @@ Use this to:
 - Validate policy syntax
 - Check rulebook configuration
 - Ensure OPA compilation succeeds
-
-### `cupcake trust`
-
-Manage script trust and integrity verification:
-
-```bash
-cupcake trust init      # Initialize trust manifest
-cupcake trust list      # List trusted scripts
-cupcake trust verify    # Verify against manifest
-```
-
-<div aria-label="Command line screencast: Running the cupcake trust commands to verify script integrity">
-    <div class="cast-player" data-cast="/assets/cupcake-trust.cast" data-autoplay="true" data-loop="true" aria-hidden="true"></div>
-</div>
-
-The trust system ensures:
-
-- Signal scripts haven't been tampered with
-- Action scripts are verified before execution
-- Policy files maintain integrity
 
 ## Supported Harnesses
 

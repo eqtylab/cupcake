@@ -2,16 +2,6 @@
 
 When writing integration tests that create Rego policies, follow these requirements:
 
-## Critical: Test Execution Requirements
-
-**IMPORTANT**: All tests MUST be run with the `--features deterministic-tests` flag. This is NOT optional - the trust system tests will fail intermittently without it due to non-deterministic HMAC key derivation in production mode. 
-
-The feature flag ensures deterministic key generation for reliable test execution in both unit tests (src/) and integration tests (tests/). Without this flag, tests will experience race conditions and HMAC verification failures.
-
-Run tests using:
-- `cargo test --features deterministic-tests`
-- `cargo t` (configured alias)
-
 ## System Evaluate Policy
 
 **MUST** use the authoritative `system/evaluate.rego` from `fixtures/system_evaluate.rego`:

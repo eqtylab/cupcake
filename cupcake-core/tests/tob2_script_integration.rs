@@ -15,7 +15,6 @@ use tempfile::TempDir;
 
 /// Full integration test: Policy + Real Script + Engine Evaluation
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_tob2_script_bypass_is_fixed() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -177,7 +176,6 @@ echo "Deployment complete!"
 
 /// Test the vulnerability WITHOUT script inspection (demonstrating TOB-2)
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_tob2_vulnerability_without_script_inspection() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -280,7 +278,6 @@ deny contains decision if {
 
 /// Test complex script execution patterns
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_various_script_execution_patterns() -> Result<()> {
     let temp_dir = TempDir::new()?;
 

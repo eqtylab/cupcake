@@ -66,14 +66,6 @@ MANIFEST
 .mypy_cache/
 .ruff_cache/
 
-# Maturin/PyO3
-cupcake-py/target/
-cupcake-py/build/
-cupcake-py/dist/
-cupcake-py/*.so
-cupcake-py/*.pyd
-cupcake-py/*.dll
-
 # Virtual environments
 venv/
 ENV/

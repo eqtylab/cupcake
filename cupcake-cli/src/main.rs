@@ -1241,6 +1241,10 @@ async fn init_project_config(harness: HarnessType) -> Result<()> {
             eprintln!("Warning: .cupcake directory permissions should be restricted manually on non-Unix systems");
         }
 
+        // Write the base rulebook configuration
+        fs::write(".cupcake/rulebook.yml", RULEBOOK_TEMPLATE)
+            .context("Failed to create rulebook.yml file")?;
+
         // Create harness-specific builtins directory
         fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
             .context("Failed to create harness builtins directory")?;
@@ -1268,7 +1272,7 @@ async fn init_project_config(harness: HarnessType) -> Result<()> {
         println!("   System:   .cupcake/system/");
         println!("   Policies: .cupcake/policies/{harness_name}/");
         println!();
-        println!("   Create a rulebook.yml to enable builtins and configure signals.");
+        println!("   Edit rulebook.yml to customize builtins and configure signals.");
     }
 
     // Always configure harness integration
@@ -1881,6 +1885,7 @@ default collect_verbs(_) := []
 
 // Include example policy and authoritative builtin policies from fixtures
 const EXAMPLE_POLICY_TEMPLATE: &str = include_str!("../../fixtures/example.rego");
+const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
 
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =

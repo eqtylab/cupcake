@@ -90,7 +90,7 @@ jobs:
 
       - name: Run full test suite
         # Skip doc-tests to save disk space (wasmtime debug builds are very large)
-        run: cargo test --features deterministic-tests --lib --bins --tests
+        run: cargo test --lib --bins --tests
         env:
           CI: true
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

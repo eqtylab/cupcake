@@ -1,7 +1,7 @@
 //! FFI Binding Engine - Thread-safe abstraction for foreign language bindings
 //!
 //! This module provides a simplified, FFI-friendly interface to the Cupcake engine
-//! designed for safe use from Python, Node.js, and other language bindings.
+//! designed for safe use from Node.js and other language bindings.
 //!
 //! Key Design Principles:
 //! - Thread-safe by default (Arc<Engine>)
@@ -68,7 +68,6 @@ impl BindingEngine {
     /// Synchronous evaluation method for blocking language bindings
     ///
     /// This method is ideal for:
-    /// - Python with GIL released (py.allow_threads)
     /// - Synchronous Node.js calls
     /// - Any FFI that expects blocking behavior
     ///
@@ -97,7 +96,6 @@ impl BindingEngine {
     /// Asynchronous evaluation method for async language bindings
     ///
     /// This method is ideal for:
-    /// - Python with asyncio
     /// - Node.js with async/await
     /// - Any FFI that supports async operations
     ///

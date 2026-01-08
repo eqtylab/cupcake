@@ -45,11 +45,10 @@ Each harness uses native event formats. Similar to terraform, policies are separ
 
 #### Language Bindings
 
-Cupcake can be embedded in Python or JavaScript agent applications through native bindings. This enables integration with web-based agent frameworks like LangChain, Google ADK, NVIDIA NIM, Vercel AI SDK, and more.
+Cupcake can be embedded in JavaScript agent applications through native bindings. This enables integration with web-based agent frameworks like LangChain, Google ADK, NVIDIA NIM, Vercel AI SDK, and more.
 
 | Language                                                                      | Binding        |
 | ----------------------------------------------------------------------------- | -------------- |
-| <img src="docs/docs/assets/python.svg" width="24" height="24"> Python         | `./cupcake-py` |
 | <img src="docs/docs/assets/typescript.svg" width="24" height="24"> TypeScript | `./cupcake-ts` |
 
 ## How it Works

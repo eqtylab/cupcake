@@ -107,12 +107,11 @@ This creates:
 │   └── evaluate.rego         # System entrypoint (auto-generated)
 ├── helpers/
 │   └── commands.rego         # Shared helper functions
-└── policies/
-    └── opencode/
-        └── builtins/         # Built-in policies
-            └── *.rego
-├── signals/                  # Signal definitions
-└── actions/                  # Action definitions
+├── policies/
+│   └── opencode/
+│       └── builtins/         # Built-in policies
+│           └── *.rego
+└── signals/                  # Signal definitions
 ```
 
 The system evaluator at `.cupcake/system/evaluate.rego` is automatically created by `cupcake init`.

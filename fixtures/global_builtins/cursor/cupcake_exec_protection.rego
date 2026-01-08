@@ -34,7 +34,7 @@ executes_cupcake(cmd) if {
 	# Direct invocation
 	cupcake_patterns := {
 		"cupcake eval", "cupcake init", "cupcake verify",
-		"cupcake validate", "cupcake inspect", "cupcake trust",
+		"cupcake validate", "cupcake inspect",
 		"./cupcake", "/cupcake",
 	}
 

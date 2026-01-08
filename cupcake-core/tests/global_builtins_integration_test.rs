@@ -1,3 +1,6 @@
+#![allow(unused_imports)]
+#![allow(dead_code)]
+
 // Import only the specific helpers we need
 mod common;
 use common::{create_test_project_for_harness, init_test_logging};
@@ -103,7 +106,6 @@ halt contains decision if {
         fs::write(
             global_dir.join("rulebook.yml"),
             r#"signals: {}
-actions: {}
 builtins: {}
 "#,
         )?;
@@ -113,7 +115,6 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
-    #[cfg(feature = "deterministic-tests")]
     async fn test_global_system_protection_builtin() -> Result<()> {
         crate::init_test_logging();
 
@@ -169,7 +170,6 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
-    #[cfg(feature = "deterministic-tests")]
     async fn test_global_sensitive_data_builtin() -> Result<()> {
         crate::init_test_logging();
 
@@ -219,7 +219,6 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
-    #[cfg(feature = "deterministic-tests")]
     async fn test_global_cupcake_exec_builtin() -> Result<()> {
         crate::init_test_logging();
 
@@ -269,7 +268,6 @@ builtins: {}
 
     #[tokio::test]
     #[serial]
-    #[cfg(feature = "deterministic-tests")]
     async fn test_global_builtins_disabled() -> Result<()> {
         crate::init_test_logging();
 
@@ -345,7 +343,6 @@ halt contains decision if {
         fs::write(
             global_temp.path().join("rulebook.yml"),
             r#"signals: {}
-actions: {}
 builtins:
   system_protection:
     enabled: false
@@ -398,7 +395,6 @@ builtins:
 
     #[tokio::test]
     #[serial]
-    #[cfg(feature = "deterministic-tests")]
     async fn test_global_builtin_signals() -> Result<()> {
         crate::init_test_logging();
 
@@ -495,7 +491,6 @@ halt contains decision if {
   __builtin_system_protection_message:
     command: "echo 'Custom block message from signal'"
     timeout_seconds: 1
-actions: {}
 builtins:
   system_protection:
     enabled: true

@@ -50,14 +50,14 @@ venv:
 # Run ALL tests (Rust + Python + TypeScript if available)
 test-all: test test-python test-typescript
 
-# Run Rust tests with deterministic-tests feature (REQUIRED)
+# Run Rust tests
 # NOTE: Tests use EngineConfig to disable global config discovery, ensuring isolation
 test *ARGS='':
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "Running Rust tests with deterministic-tests feature..."
-    if cargo test --workspace --features cupcake-core/deterministic-tests {{ARGS}}; then
+    echo "Running Rust tests..."
+    if cargo test --workspace {{ARGS}}; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') | PASS | cargo test --workspace {{ARGS}}" >> test-results.log
         echo "✅ All Rust tests passed"
     else
@@ -68,19 +68,19 @@ test *ARGS='':
 
 # Run only unit tests (fast)
 test-unit:
-    cargo test --workspace --lib --features cupcake-core/deterministic-tests
+    cargo test --workspace --lib
 
 # Run only integration tests
 test-integration:
-    cargo test --workspace --test '*' --features cupcake-core/deterministic-tests
+    cargo test --workspace --test '*'
 
 # Run specific test by name
 test-one TEST_NAME:
-    cargo test --workspace --features cupcake-core/deterministic-tests {{TEST_NAME}}
+    cargo test --workspace {{TEST_NAME}}
 
 # Run tests for core only
 test-core:
-    cargo test -p cupcake-core --features deterministic-tests
+    cargo test -p cupcake-core
 
 # Run tests for CLI only  
 test-cli:
@@ -228,58 +228,7 @@ watch:
 
 # Watch and run tests on change
 watch-test:
-    cargo watch -x "test --workspace --features cupcake-core/deterministic-tests"
-
-# ==================== ASSET GENERATION (asciicast) ====================
-
-# Check Python dependencies for cast generation
-check-cast-deps:
-    #!/usr/bin/env bash
-    if ! python3 -c "import yaml" 2>/dev/null; then
-        echo "❌ PyYAML not installed"
-        echo ""
-        echo "Install with:"
-        echo "  pip install pyyaml"
-        exit 1
-    fi
-    echo "✅ Python dependencies available"
-
-# Generate all documentation assets from castfiles
-casts: check-cast-deps build-cli
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "Generating documentation assets..."
-    echo ""
-    
-    # Ensure cupcake is in PATH
-    export PATH="$PWD/target/release:$PATH"
-    
-    # Run the cast generator
-    python3 docs/assets/generate-cast.py --all
-    
-    echo ""
-    echo "✅ Assets generated in docs/docs/assets/"
-
-# Generate a specific cast file
-cast NAME: check-cast-deps build-cli
-    #!/usr/bin/env bash
-    set -euo pipefail
-    export PATH="$PWD/target/release:$PATH"
-    
-    python3 docs/assets/generate-cast.py "{{NAME}}"
-
-# List available castfiles
-list-casts:
-    @echo "Available castfiles:"
-    @echo ""
-    @python3 docs/assets/generate-cast.py --list 2>/dev/null || find docs/assets/casts -name "*.yaml" -not -name "schema.yaml" | sort | while read f; do echo "  $(basename $f .yaml)"; done
-
-# Alias for backwards compatibility
-assets: casts
-
-# Alias for backwards compatibility  
-asset NAME:
-    just cast "{{NAME}}"
+    cargo watch -x "test --workspace"
 
 # ==================== URL CHECKING ====================
 

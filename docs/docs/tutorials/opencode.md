@@ -39,8 +39,7 @@ This creates:
   ├── policies/            # Rego policies
   │   └── opencode/
   │       └── builtins/    # Built-in security policies
-  ├── signals/             # External data providers
-  └── actions/             # Automated response scripts
+  └── signals/             # External data providers
 
 .opencode/
   └── plugins/

@@ -48,8 +48,7 @@ This runs `cupcake init --harness cursor`, and some scaffolding to create:
   ├── policies/            # Rego policies
   │   └── cursor/
   │       └── builtins/    # Built-in security policies
-  ├── signals/             # External data providers
-  └── actions/             # Automated response scripts
+  └── signals/             # External data providers
 
 ~/.cursor/hooks.json        # Cursor hooks integration (global)
 ```

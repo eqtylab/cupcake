@@ -1,4 +1,4 @@
-//! Rulebook parser - Simple key-value lookup for signals and actions
+//! Rulebook parser - Simple key-value lookup for signals
 //!
 //! The rulebook.yml is just a phonebook - no logic, just mappings
 
@@ -50,23 +50,12 @@ fn default_timeout() -> u64 {
     5
 }
 
-/// Action configuration  
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActionConfig {
-    /// Command to execute for this action
-    pub command: String,
-}
-
 /// The rulebook configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Rulebook {
     /// Signal name -> command mappings
     #[serde(default)]
     pub signals: HashMap<String, SignalConfig>,
-
-    /// Action configurations
-    #[serde(default)]
-    pub actions: ActionSection,
 
     /// Builtin abstractions configuration
     #[serde(default)]
@@ -102,18 +91,6 @@ where
     Ok(input.into())
 }
 
-/// Action section with both general and ID-specific actions
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ActionSection {
-    /// Actions that run on any denial
-    #[serde(default)]
-    pub on_any_denial: Vec<ActionConfig>,
-
-    /// Violation ID -> action mappings
-    #[serde(default)]
-    pub by_rule_id: HashMap<String, Vec<ActionConfig>>,
-}
-
 impl Rulebook {
     /// Load rulebook from a YAML file, enhanced with convention-based discovery
     pub async fn load(path: impl AsRef<Path>) -> Result<Self> {
@@ -127,21 +104,16 @@ impl Rulebook {
         let rulebook: Rulebook =
             serde_yaml_ng::from_str(&content).context("Failed to parse rulebook YAML")?;
 
-        debug!(
-            "Loaded {} explicit signals and {} rule-specific actions",
-            rulebook.signals.len(),
-            rulebook.actions.by_rule_id.len()
-        );
+        debug!("Loaded {} explicit signals", rulebook.signals.len());
 
         Ok(rulebook)
     }
 
-    /// Create a rulebook with convention-based signal and action discovery
-    /// Discovers scripts in signals/ and actions/ directories automatically
+    /// Create a rulebook with convention-based signal discovery
+    /// Discovers scripts in signals/ directory automatically
     pub async fn load_with_conventions(
         rulebook_path: impl AsRef<Path>,
         signals_dir: impl AsRef<Path>,
-        actions_dir: impl AsRef<Path>,
     ) -> Result<Self> {
         let mut rulebook = if rulebook_path.as_ref().exists() {
             Self::load(rulebook_path).await?
@@ -153,11 +125,6 @@ impl Rulebook {
         // Discover signals from directory (if exists)
         if signals_dir.as_ref().exists() {
             Self::discover_signals(&mut rulebook, signals_dir).await?;
-        }
-
-        // Discover actions from directory (if exists)
-        if actions_dir.as_ref().exists() {
-            Self::discover_actions(&mut rulebook, actions_dir).await?;
         }
 
         // Generate signals for enabled builtins
@@ -188,9 +155,8 @@ impl Rulebook {
         }
 
         info!(
-            "Final rulebook: {} signals, {} action rules, {} enabled builtins, watchdog={}",
+            "Final rulebook: {} signals, {} enabled builtins, watchdog={}",
             rulebook.signals.len(),
-            rulebook.actions.by_rule_id.len(),
             rulebook.builtins.enabled_builtins().len(),
             if rulebook.watchdog.enabled {
                 "enabled"
@@ -198,11 +164,6 @@ impl Rulebook {
                 "disabled"
             }
         );
-
-        // Debug: show loaded actions
-        for (rule_id, actions) in &rulebook.actions.by_rule_id {
-            debug!("Rule {}: {} actions", rule_id, actions.len());
-        }
 
         // Validate builtin configuration
         if let Err(errors) = rulebook.builtins.validate() {
@@ -257,73 +218,9 @@ impl Rulebook {
         Ok(())
     }
 
-    /// Discover action scripts from a directory  
-    async fn discover_actions(
-        rulebook: &mut Rulebook,
-        actions_dir: impl AsRef<Path>,
-    ) -> Result<()> {
-        let actions_dir = actions_dir.as_ref();
-        debug!("Discovering actions in: {:?}", actions_dir);
-
-        let mut entries = tokio::fs::read_dir(actions_dir)
-            .await
-            .context("Failed to read actions directory")?;
-
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                // Skip hidden files
-                if file_name.starts_with('.') {
-                    continue;
-                }
-
-                // Extract action name (filename without extension)
-                let action_name = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(file_name);
-
-                // Add as rule-specific action (convention: action name = rule ID)
-                let action_config = ActionConfig {
-                    command: path.to_string_lossy().to_string(),
-                };
-
-                rulebook
-                    .actions
-                    .by_rule_id
-                    .entry(action_name.to_string())
-                    .or_default()
-                    .push(action_config);
-
-                info!("Discovered action: {} -> {}", action_name, path.display());
-            }
-        }
-
-        Ok(())
-    }
-
     /// Get signal command by name
     pub fn get_signal(&self, name: &str) -> Option<&SignalConfig> {
         self.signals.get(name)
-    }
-
-    /// Get actions for a specific violation ID
-    pub fn get_actions_for_violation(&self, violation_id: &str) -> Vec<&ActionConfig> {
-        let mut actions = Vec::new();
-
-        // Add any "on_any_denial" actions
-        for action in &self.actions.on_any_denial {
-            actions.push(action);
-        }
-
-        // Add specific actions for this violation ID
-        if let Some(specific_actions) = self.actions.by_rule_id.get(violation_id) {
-            for action in specific_actions {
-                actions.push(action);
-            }
-        }
-
-        actions
     }
 
     /// Execute a signal and return its output as JSON Value (no event data)

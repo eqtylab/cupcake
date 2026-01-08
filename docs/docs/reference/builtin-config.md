@@ -39,27 +39,6 @@ signals:
   # File signals/foo.sh becomes signal "foo" automatically
 
 # ============================================================================
-# ACTIONS - Response to policy violations
-# ============================================================================
-# Actions are commands executed when policies trigger. Convention: place scripts
-# in .cupcake/actions/ directory named by rule_id for auto-discovery.
-
-actions:
-  # Actions that run on ANY policy denial
-  # on_any_denial:
-  #   - command: "echo 'Policy violation detected' >> audit.log"
-
-  # Rule-specific actions (by rule_id)
-  # by_rule_id:
-  #   SECURITY-001:
-  #     - command: "notify-team --severity high"
-  #   LINT-001:
-  #     - command: "echo 'Code style violation'"
-
-  # Note: Scripts in .cupcake/actions/ are auto-mapped by filename
-  # File actions/SECURITY-001.sh triggers for rule_id: SECURITY-001
-
-# ============================================================================
 # BUILTINS - Higher-level policy abstractions
 # ============================================================================
 # Builtins provide common security patterns without writing Rego policies.
@@ -276,4 +255,4 @@ Global builtins take precedence and cannot be overridden by project configuratio
 
 - View [example policies](#) to see builtins in action
 - Read [writing policies](#) to create custom rules
-- Check out [signals and actions](#) for advanced automation
+- Check out [signals](#) for advanced automation

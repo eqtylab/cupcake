@@ -1,6 +1,8 @@
 //! Adversarial test suite for TOB-EQTY-LAB-CUPCAKE-4
 //! Tests defenses against symlink-based path bypass attacks
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use serde_json::json;
@@ -9,7 +11,6 @@ use tempfile::TempDir;
 
 /// Test that symlink creation to .cupcake is blocked
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_blocks_symlink_creation_to_cupcake() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -97,7 +98,6 @@ builtins:
 
 /// Test that protected paths block symlink operations
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_protected_paths_block_symlinks() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -182,7 +182,6 @@ builtins:
 
 /// Test Unix file permissions defense (0o700 on .cupcake)
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 #[cfg(unix)] // Only run on Unix systems
 async fn test_unix_permissions_defense() -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -233,7 +232,6 @@ async fn test_unix_permissions_defense() -> Result<()> {
 
 /// Test that hardlinks are also detected and blocked
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_blocks_hardlink_creation() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -319,7 +317,6 @@ builtins:
 
 /// Test path traversal via symlinks
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_path_traversal_symlink_attacks() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -449,7 +446,6 @@ deny contains decision if {
 
 /// Test that normal symlink operations (non-.cupcake) are allowed
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_allows_normal_symlinks() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

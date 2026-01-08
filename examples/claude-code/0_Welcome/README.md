@@ -60,8 +60,7 @@ This runs `cupcake init`, and some scaffolding to create:
   ├── rulebook.yml         # Default configuration
   ├── policies/             # Rego policies
   │   └── builtins/         # Built-in rego policies (security, dev efficiency, etc)
-  ├── signals/              # External data providers
-  └── actions/              # Automated response scripts
+  └── signals/              # External data providers
 
 .claude/settings.json       # Claude Code integration (hooks config)
 ```

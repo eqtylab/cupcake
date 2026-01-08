@@ -49,8 +49,7 @@ This runs `cupcake init`, and some scaffolding to create:
   ├── policies/            # Rego policies
   │   └── claude/
   │       └── builtins/    # Built-in policies (developer productivity, security)
-  ├── signals/             # External data providers
-  └── actions/             # Automated response scripts
+  └── signals/             # External data providers
 
 .claude/settings.json       # Claude Code integration (hooks config)
 ```

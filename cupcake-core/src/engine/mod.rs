@@ -20,10 +20,6 @@ pub mod executor;
 pub mod metadata;
 pub mod scanner;
 
-// Catalog overlay support
-#[cfg(feature = "catalog")]
-pub mod catalog_overlay;
-
 // Routing system
 pub mod routing;
 pub mod routing_debug;
@@ -66,11 +62,8 @@ pub struct Engine {
     /// List of all discovered policies
     policies: Vec<PolicyUnit>,
 
-    /// Optional rulebook for signals and actions
+    /// Optional rulebook for signals
     rulebook: Option<rulebook::Rulebook>,
-
-    /// Optional trust verifier for script integrity
-    trust_verifier: Option<crate::trust::TrustVerifier>,
 
     // Global configuration support (optional - may not exist)
     /// Global policies routing map
@@ -90,19 +83,6 @@ pub struct Engine {
 
     /// Watchdog LLM-as-judge instance (optional)
     watchdog: Option<crate::watchdog::Watchdog>,
-
-    // Catalog overlay support (optional - may not have any installed)
-    #[cfg(feature = "catalog")]
-    /// Catalog overlays discovered in .cupcake/catalog/
-    catalog_overlays: Vec<catalog_overlay::CatalogOverlay>,
-
-    #[cfg(feature = "catalog")]
-    /// Catalog overlay routing maps (one per overlay)
-    catalog_routing_maps: Vec<HashMap<String, Vec<PolicyUnit>>>,
-
-    #[cfg(feature = "catalog")]
-    /// Catalog WASM runtimes (one per overlay)
-    catalog_wasm_runtimes: Vec<wasm_runtime::WasmRuntime>,
 }
 
 impl Engine {
@@ -154,7 +134,6 @@ impl Engine {
             wasm_runtime: None,
             policies: Vec::new(),
             rulebook: None,
-            trust_verifier: None,
             // Initialize global fields (will be populated if global config exists)
             global_routing_map: HashMap::new(),
             global_wasm_module: None,
@@ -163,13 +142,6 @@ impl Engine {
             global_rulebook: None,
             // Watchdog initialized later from rulebook config
             watchdog: None,
-            // Initialize catalog fields (will be populated if overlays are installed)
-            #[cfg(feature = "catalog")]
-            catalog_overlays: Vec::new(),
-            #[cfg(feature = "catalog")]
-            catalog_routing_maps: Vec::new(),
-            #[cfg(feature = "catalog")]
-            catalog_wasm_runtimes: Vec::new(),
         };
 
         // Initialize the engine (scan, parse, compile)
@@ -188,23 +160,10 @@ impl Engine {
             self.initialize_global().await?;
         }
 
-        // Step 0A.5: Initialize catalog overlays (between global and project)
-        #[cfg(feature = "catalog")]
-        {
-            if let Err(e) = self.initialize_catalog_overlays().await {
-                warn!("Failed to initialize catalog overlays: {}", e);
-                // Continue without catalog overlays - non-fatal
-            }
-        }
-
         // Step 0B: Load project rulebook to get builtin configuration
         self.rulebook = Some(
-            rulebook::Rulebook::load_with_conventions(
-                &self.paths.rulebook,
-                &self.paths.signals,
-                &self.paths.actions,
-            )
-            .await?,
+            rulebook::Rulebook::load_with_conventions(&self.paths.rulebook, &self.paths.signals)
+                .await?,
         );
         info!("Project rulebook loaded with convention-based discovery");
 
@@ -384,10 +343,7 @@ impl Engine {
         )?);
         info!("WASM runtime initialized");
 
-        // Step 6: Try to initialize trust verifier (optional - don't fail if not enabled)
-        self.initialize_trust_system().await;
-
-        // Step 7: Dump routing diagnostics if debug mode enabled via CLI flag
+        // Step 6: Dump routing diagnostics if debug mode enabled via CLI flag
         // This happens after ALL initialization (including global) is complete
         if self.config.debug_routing {
             if let Err(e) = self.dump_routing_diagnostics() {
@@ -422,7 +378,6 @@ impl Engine {
                 rulebook::Rulebook::load_with_conventions(
                     global_rulebook_path,
                     self.paths.global_signals.as_ref().unwrap(),
-                    self.paths.global_actions.as_ref().unwrap(),
                 )
                 .await?,
             );
@@ -544,125 +499,6 @@ impl Engine {
         }
 
         info!("Global configuration initialization complete");
-        Ok(())
-    }
-
-    /// Initialize catalog overlays from .cupcake/catalog/
-    #[cfg(feature = "catalog")]
-    async fn initialize_catalog_overlays(&mut self) -> Result<()> {
-        info!("Initializing catalog overlays...");
-
-        // Discover installed catalog overlays
-        let mut overlays = catalog_overlay::discover_catalog_overlays(
-            &self.paths.cupcake_dir,
-            self.config.harness,
-        )
-        .await?;
-
-        if overlays.is_empty() {
-            debug!("No catalog overlays found");
-            return Ok(());
-        }
-
-        info!("Found {} catalog overlays to initialize", overlays.len());
-
-        // Scan and parse policies for each overlay
-        catalog_overlay::scan_catalog_policies(&mut overlays, self.config.opa_path.clone()).await?;
-
-        // Compile each overlay and create runtime
-        for overlay in overlays {
-            if overlay.policies.is_empty() {
-                debug!(
-                    "Catalog overlay {} has no policies for {} harness - skipping",
-                    overlay.name,
-                    match self.config.harness {
-                        crate::harness::types::HarnessType::ClaudeCode => "claude",
-                        crate::harness::types::HarnessType::Cursor => "cursor",
-                        crate::harness::types::HarnessType::Factory => "factory",
-                        crate::harness::types::HarnessType::OpenCode => "opencode",
-                    }
-                );
-                continue;
-            }
-
-            // Check for non-system policies
-            let non_system_count = overlay
-                .policies
-                .iter()
-                .filter(|p| !p.package_name.ends_with(".system"))
-                .count();
-
-            if non_system_count == 0 {
-                debug!(
-                    "Catalog overlay {} has only system policies - skipping WASM compilation",
-                    overlay.name
-                );
-                continue;
-            }
-
-            info!(
-                "Compiling catalog overlay {} ({} policies, {} non-system)",
-                overlay.name,
-                overlay.policies.len(),
-                non_system_count
-            );
-
-            // Build routing map for this overlay
-            let mut routing_map = HashMap::new();
-            Self::build_routing_map_generic(&overlay.policies, &mut routing_map, &overlay.name);
-            info!(
-                "Built routing map for catalog overlay {} with {} entries",
-                overlay.name,
-                routing_map.len()
-            );
-
-            // Compile to WASM
-            match catalog_overlay::compile_catalog_overlay(&overlay, self.config.opa_path.clone())
-                .await
-            {
-                Ok(wasm_bytes) => {
-                    info!(
-                        "Compiled catalog overlay {} to {} bytes",
-                        overlay.name,
-                        wasm_bytes.len()
-                    );
-
-                    // Create WASM runtime
-                    let system_namespace = format!("{}.system", overlay.namespace);
-                    match wasm_runtime::WasmRuntime::new_with_config(
-                        &wasm_bytes,
-                        &system_namespace,
-                        self.config.wasm_max_memory,
-                    ) {
-                        Ok(runtime) => {
-                            info!(
-                                "Created WASM runtime for catalog overlay {} (namespace: {})",
-                                overlay.name, system_namespace
-                            );
-
-                            // Store everything
-                            self.catalog_overlays.push(overlay);
-                            self.catalog_routing_maps.push(routing_map);
-                            self.catalog_wasm_runtimes.push(runtime);
-                        }
-                        Err(e) => {
-                            warn!(
-                                "Failed to create WASM runtime for catalog overlay {}: {}",
-                                overlay.name, e
-                            );
-                        }
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to compile catalog overlay {}: {}", overlay.name, e);
-                }
-            }
-        }
-
-        info!(
-            "Catalog overlay initialization complete: {} overlays active",
-            self.catalog_overlays.len()
-        );
         Ok(())
     }
 
@@ -929,36 +765,6 @@ impl Engine {
         result
     }
 
-    /// Route event using a specific routing map (used for catalog overlays)
-    #[cfg(feature = "catalog")]
-    fn route_with_map<'a>(
-        routing_map: &'a HashMap<String, Vec<PolicyUnit>>,
-        event_name: &str,
-        tool_name: Option<&str>,
-    ) -> Vec<&'a PolicyUnit> {
-        let key = routing::create_event_key(event_name, tool_name);
-
-        // First try the specific key
-        let mut result: Vec<&PolicyUnit> = routing_map
-            .get(&key)
-            .map(|policies| policies.iter().collect())
-            .unwrap_or_default();
-
-        // ALSO check for event-only policies when there's a tool
-        if tool_name.is_some() {
-            let wildcard_key = event_name.to_string();
-            if let Some(wildcard_policies) = routing_map.get(&wildcard_key) {
-                for policy in wildcard_policies {
-                    if !result.iter().any(|p| p.package_name == policy.package_name) {
-                        result.push(policy);
-                    }
-                }
-            }
-        }
-
-        result
-    }
-
     /// Evaluate policies for a hook event.
     ///
     /// This is the main public API for policy evaluation.
@@ -1038,11 +844,10 @@ impl Engine {
         info!("Evaluating event: {} tool: {:?}", event_name, tool_name);
 
         // Create Executor early - used for both global and project evaluation
-        // The Executor handles all OS/IO interactions (signals, actions)
+        // The Executor handles all OS/IO interactions (signals)
         let exec = executor::Executor {
             rulebook: self.rulebook.as_ref(),
             global_rulebook: self.global_rulebook.as_ref(),
-            trust_verifier: self.trust_verifier.as_ref(),
             watchdog: self.watchdog.as_ref(),
             working_dir: &self.paths.root,
         };
@@ -1087,9 +892,6 @@ impl Engine {
                             phase.finalize();
                         }
                     }
-                    // Execute global actions before returning
-                    exec.execute_global_actions(&global_decision, &global_decision_set)
-                        .await;
                     current_span.record("final_decision", "GlobalHalt");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -1105,9 +907,6 @@ impl Engine {
                             phase.finalize();
                         }
                     }
-                    // Execute global actions before returning
-                    exec.execute_global_actions(&global_decision, &global_decision_set)
-                        .await;
                     current_span.record("final_decision", "GlobalDeny");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
@@ -1123,15 +922,12 @@ impl Engine {
                             phase.finalize();
                         }
                     }
-                    // Execute global actions before returning
-                    exec.execute_global_actions(&global_decision, &global_decision_set)
-                        .await;
                     current_span.record("final_decision", "GlobalBlock");
                     current_span.record("duration_ms", eval_start.elapsed().as_millis());
                     return Ok(global_decision);
                 }
                 _ => {
-                    debug!("Global policies did not halt/deny/block - proceeding to catalog evaluation");
+                    debug!("Global policies did not halt/deny/block - proceeding to project evaluation");
                     // Finalize global phase before continuing
                     if let Some(ref mut ctx) = telemetry {
                         if let Some(phase) = ctx.current_phase_mut() {
@@ -1139,91 +935,6 @@ impl Engine {
                         }
                     }
                     // TODO: In the future, preserve Ask/Allow/Context for merging with project decisions
-                }
-            }
-        }
-
-        // PHASE 1.5: Evaluate catalog overlays (between global and project)
-        #[cfg(feature = "catalog")]
-        if !self.catalog_wasm_runtimes.is_empty() {
-            debug!(
-                "Phase 1.5: Evaluating {} catalog overlays",
-                self.catalog_wasm_runtimes.len()
-            );
-
-            for (idx, (overlay, runtime)) in self
-                .catalog_overlays
-                .iter()
-                .zip(self.catalog_wasm_runtimes.iter())
-                .enumerate()
-            {
-                debug!(
-                    "Evaluating catalog overlay {}/{}: {}",
-                    idx + 1,
-                    self.catalog_overlays.len(),
-                    overlay.name
-                );
-
-                // Route through this overlay's routing map
-                let routing_map = &self.catalog_routing_maps[idx];
-                let catalog_matched = Self::route_with_map(routing_map, event_name, tool_name);
-
-                if catalog_matched.is_empty() {
-                    debug!("No policies matched in catalog overlay {}", overlay.name);
-                    continue;
-                }
-
-                info!(
-                    "Found {} matching policies in catalog overlay {}",
-                    catalog_matched.len(),
-                    overlay.name
-                );
-
-                // Evaluate using this overlay's WASM runtime
-                let catalog_decision_set = runtime.query_decision_set(&safe_input)?;
-                let catalog_decision =
-                    synthesis::SynthesisEngine::synthesize(&catalog_decision_set)?;
-
-                info!(
-                    "Catalog overlay {} decision: {:?}",
-                    overlay.name, catalog_decision
-                );
-
-                // Early termination on blocking decisions
-                match &catalog_decision {
-                    decision::FinalDecision::Halt { reason, .. } => {
-                        info!(
-                            "Catalog overlay {} HALT - immediate termination: {}",
-                            overlay.name, reason
-                        );
-                        current_span.record("final_decision", "CatalogHalt");
-                        current_span.record("duration_ms", eval_start.elapsed().as_millis());
-                        return Ok(catalog_decision);
-                    }
-                    decision::FinalDecision::Deny { reason, .. } => {
-                        info!(
-                            "Catalog overlay {} DENY - immediate termination: {}",
-                            overlay.name, reason
-                        );
-                        current_span.record("final_decision", "CatalogDeny");
-                        current_span.record("duration_ms", eval_start.elapsed().as_millis());
-                        return Ok(catalog_decision);
-                    }
-                    decision::FinalDecision::Block { reason, .. } => {
-                        info!(
-                            "Catalog overlay {} BLOCK - immediate termination: {}",
-                            overlay.name, reason
-                        );
-                        current_span.record("final_decision", "CatalogBlock");
-                        current_span.record("duration_ms", eval_start.elapsed().as_millis());
-                        return Ok(catalog_decision);
-                    }
-                    _ => {
-                        debug!(
-                            "Catalog overlay {} did not halt/deny/block - continuing",
-                            overlay.name
-                        );
-                    }
                 }
             }
         }
@@ -1329,9 +1040,6 @@ impl Engine {
                 phase.finalize();
             }
         }
-
-        // Step 5: Execute actions based on decision (async, non-blocking)
-        exec.execute_actions(&final_decision, &decision_set).await;
 
         // Record final decision type and duration
         let duration = eval_start.elapsed();
@@ -1460,83 +1168,5 @@ impl Engine {
         );
 
         Ok(decision_set)
-    }
-
-    /// Initialize the trust system, respecting the mode setting
-    async fn initialize_trust_system(&mut self) {
-        let trust_path = self.paths.root.join(".cupcake").join(".trust");
-
-        // First check if trust manifest exists
-        if !trust_path.exists() {
-            info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
-            self.show_trust_startup_notification();
-            return;
-        }
-
-        // Load manifest to check mode
-        match crate::trust::TrustManifest::load(&trust_path) {
-            Ok(manifest) => {
-                // Check if trust is enabled or disabled
-                if manifest.is_enabled() {
-                    // Trust is enabled, create verifier
-                    match crate::trust::TrustVerifier::new(&self.paths.root).await {
-                        Ok(verifier) => {
-                            info!("Trust mode ENABLED - script integrity verification active");
-                            self.trust_verifier = Some(verifier);
-                        }
-                        Err(e) => {
-                            warn!("Failed to initialize trust verifier: {}", e);
-                            warn!("Continuing without trust verification");
-                            self.show_trust_startup_notification();
-                        }
-                    }
-                } else {
-                    // Trust exists but is disabled
-                    info!(
-                        "Trust mode DISABLED by user - scripts will execute without verification"
-                    );
-                    self.show_trust_disabled_notification();
-                    // Explicitly set verifier to None
-                    self.trust_verifier = None;
-                }
-            }
-            Err(crate::trust::TrustError::NotInitialized) => {
-                // This shouldn't happen since we checked file exists, but handle it
-                info!("Trust mode not initialized (optional) - run 'cupcake trust init' to enable");
-                self.show_trust_startup_notification();
-            }
-            Err(e) => {
-                // Manifest exists but can't be loaded (corruption, tampering, etc.)
-                warn!("Failed to load trust manifest: {}", e);
-                warn!("Continuing without trust verification for safety");
-                self.show_trust_startup_notification();
-            }
-        }
-    }
-
-    /// Show notification when trust is disabled by user
-    fn show_trust_disabled_notification(&self) {
-        eprintln!("┌─────────────────────────────────────────────────────────┐");
-        eprintln!("│ Trust Mode: DISABLED                                    │");
-        eprintln!("│                                                         │");
-        eprintln!("│ ⚠️  Script integrity verification is OFF                │");
-        eprintln!("│ Scripts will execute without safety checks.            │");
-        eprintln!("│                                                         │");
-        eprintln!("│ To re-enable: cupcake trust enable                     │");
-        eprintln!("└─────────────────────────────────────────────────────────┘");
-        eprintln!();
-    }
-
-    /// Show startup notification about trust mode when it's not enabled
-    fn show_trust_startup_notification(&self) {
-        eprintln!("┌─────────────────────────────────────────────────────────┐");
-        eprintln!("│ Cupcake is running in STANDARD mode                    │");
-        eprintln!("│                                                         │");
-        eprintln!("│ Script integrity verification is DISABLED.             │");
-        eprintln!("│ Enable trust mode for enhanced security:               │");
-        eprintln!("│   $ cupcake trust init                                  │");
-        eprintln!("│                                                         │");
-        eprintln!("│ Learn more: cupcake trust --help                       │");
-        eprintln!("└─────────────────────────────────────────────────────────┘");
     }
 }

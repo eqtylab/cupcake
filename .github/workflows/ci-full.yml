@@ -123,7 +123,7 @@ jobs:
 
       - name: Run unit and integration tests
         run: |
-          cargo test --features deterministic-tests --lib --bins --tests
+          cargo test --lib --bins --tests
         env:
           CI: true
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -132,14 +132,14 @@ jobs:
       - name: Run doc-tests (serial to avoid linker memory issues)
         if: runner.os == 'Linux'
         run: |
-          cargo test --features deterministic-tests --doc -j 1 -- --test-threads=1
+          cargo test --doc -j 1 -- --test-threads=1
         env:
           CI: true
 
       - name: Run doc-tests (macOS/Windows)
         if: runner.os != 'Linux'
         run: |
-          cargo test --features deterministic-tests --doc
+          cargo test --doc
         env:
           CI: true
 

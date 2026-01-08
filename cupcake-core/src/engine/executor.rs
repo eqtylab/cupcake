@@ -4,7 +4,7 @@
 //! from "Thinking" (routing, WASM evaluation, synthesis) in the engine.
 //!
 //! The Executor is an ephemeral struct created for each evaluation, holding references
-//! to the resources needed for signal gathering and action execution.
+//! to the resources needed for signal gathering.
 
 use anyhow::Result;
 use futures::future::join_all;
@@ -14,28 +14,22 @@ use std::path::Path;
 use std::time::Instant;
 use tracing::{debug, error, info, trace, warn};
 
-use super::config::SHELL_COMMAND;
-use super::decision::{DecisionObject, DecisionSet, FinalDecision};
-use super::global_config;
 use super::metadata::PolicyUnit;
-use super::rulebook::{self, Rulebook};
+use super::rulebook::Rulebook;
 use crate::debug::SignalTelemetry;
 use crate::telemetry::span::SignalExecution;
-use crate::trust::TrustVerifier;
 use crate::watchdog::Watchdog;
 
 /// Executor handles all OS/IO interactions for policy evaluation.
 ///
 /// This is an ephemeral struct created for each evaluation. It holds references
-/// to the resources needed for executing signals and actions, avoiding repeated
+/// to the resources needed for executing signals, avoiding repeated
 /// parameter passing through function signatures.
 pub struct Executor<'a> {
-    /// Rulebook containing signal and action definitions
+    /// Rulebook containing signal definitions
     pub rulebook: Option<&'a Rulebook>,
-    /// Global rulebook for global actions
+    /// Global rulebook for global signals
     pub global_rulebook: Option<&'a Rulebook>,
-    /// Trust verifier for script integrity checks
-    pub trust_verifier: Option<&'a TrustVerifier>,
     /// Watchdog for LLM-as-Judge evaluation
     pub watchdog: Option<&'a Watchdog>,
     /// Working directory for command execution
@@ -49,7 +43,7 @@ impl<'a> Executor<'a> {
     /// 1. Collects required signals from matched policies
     /// 2. Auto-adds signals for builtin policies
     /// 3. Injects builtin configuration
-    /// 4. Executes signals with trust verification
+    /// 4. Executes signals
     /// 5. Runs watchdog evaluation if enabled
     #[tracing::instrument(
         skip(self, input, matched_policies, signal_telemetry),
@@ -171,7 +165,7 @@ impl<'a> Executor<'a> {
 
         // Execute signals if we have a rulebook
         let signal_data = if let Some(rulebook) = self.rulebook {
-            self.execute_signals_with_trust(
+            self.execute_signals(
                 &signal_names,
                 rulebook,
                 input,
@@ -249,8 +243,8 @@ impl<'a> Executor<'a> {
         Ok(enriched_input)
     }
 
-    /// Execute signals with trust verification.
-    async fn execute_signals_with_trust(
+    /// Execute signals.
+    async fn execute_signals(
         &self,
         signal_names: &[String],
         rulebook: &Rulebook,
@@ -261,16 +255,12 @@ impl<'a> Executor<'a> {
             return Ok(HashMap::new());
         }
 
-        debug!(
-            "Executing {} signals with trust verification",
-            signal_names.len()
-        );
+        debug!("Executing {} signals", signal_names.len());
 
         let futures: Vec<_> = signal_names
             .iter()
             .map(|name| {
                 let name = name.clone();
-                let trust_verifier = self.trust_verifier.cloned();
                 let signal_config = rulebook.get_signal(&name).cloned();
                 let event_data = event_data.clone();
 
@@ -285,17 +275,6 @@ impl<'a> Executor<'a> {
                             );
                         }
                     };
-
-                    // Verify trust if enabled
-                    if let Some(verifier) = &trust_verifier {
-                        if let Err(e) = verifier.verify_script(&signal.command).await {
-                            return (
-                                name.clone(),
-                                Err(anyhow::anyhow!("Trust verification failed: {}", e)),
-                                None,
-                            );
-                        }
-                    }
 
                     // Execute the signal and measure time
                     let signal_start = Instant::now();
@@ -343,36 +322,6 @@ impl<'a> Executor<'a> {
         }
 
         Ok(signal_data)
-    }
-
-    /// Execute actions based on the final decision (uses project rulebook).
-    pub async fn execute_actions(
-        &self,
-        final_decision: &FinalDecision,
-        decision_set: &DecisionSet,
-    ) {
-        let Some(rulebook) = self.rulebook else {
-            debug!("No rulebook available - no actions to execute");
-            return;
-        };
-
-        self.execute_actions_with_rulebook(final_decision, decision_set, rulebook)
-            .await;
-    }
-
-    /// Execute global actions based on the final decision (uses global rulebook).
-    pub async fn execute_global_actions(
-        &self,
-        final_decision: &FinalDecision,
-        decision_set: &DecisionSet,
-    ) {
-        let Some(rulebook) = self.global_rulebook else {
-            debug!("No global rulebook available - no global actions to execute");
-            return;
-        };
-
-        self.execute_actions_with_rulebook(final_decision, decision_set, rulebook)
-            .await;
     }
 
     /// Gather signals for global policy evaluation.
@@ -468,7 +417,7 @@ impl<'a> Executor<'a> {
 
         // Execute signals using global rulebook
         let signal_data = self
-            .execute_signals_with_trust(&signal_names, rulebook, input, signal_telemetry)
+            .execute_signals(&signal_names, rulebook, input, signal_telemetry)
             .await
             .unwrap_or_else(|e| {
                 warn!("Global signal execution failed: {}", e);
@@ -481,186 +430,5 @@ impl<'a> Executor<'a> {
         }
 
         Ok(enriched_input)
-    }
-
-    /// Execute actions with a specific rulebook.
-    async fn execute_actions_with_rulebook(
-        &self,
-        final_decision: &FinalDecision,
-        decision_set: &DecisionSet,
-        rulebook: &Rulebook,
-    ) {
-        info!(
-            "execute_actions_with_rulebook called with decision: {:?}",
-            final_decision
-        );
-
-        // Determine working directory
-        let is_global = self
-            .global_rulebook
-            .map(|gb| std::ptr::eq(gb as *const _, rulebook as *const _))
-            .unwrap_or(false);
-
-        let working_dir = if is_global {
-            if let Ok(Some(global_paths)) = global_config::GlobalPaths::discover() {
-                global_paths.root
-            } else {
-                self.working_dir.to_path_buf()
-            }
-        } else {
-            self.working_dir.to_path_buf()
-        };
-
-        match final_decision {
-            FinalDecision::Halt { reason, .. } => {
-                info!("Executing actions for HALT decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.halts, rulebook, &working_dir)
-                    .await;
-            }
-            FinalDecision::Deny { reason, .. } => {
-                info!("Executing actions for DENY decision: {}", reason);
-
-                for action in &rulebook.actions.on_any_denial {
-                    self.execute_single_action(action, &working_dir).await;
-                }
-
-                self.execute_rule_specific_actions(&decision_set.denials, rulebook, &working_dir)
-                    .await;
-            }
-            FinalDecision::Block { reason, .. } => {
-                info!("Executing actions for BLOCK decision: {}", reason);
-                self.execute_rule_specific_actions(&decision_set.blocks, rulebook, &working_dir)
-                    .await;
-            }
-            FinalDecision::Ask { .. } => {
-                debug!("ASK decision - no automatic actions");
-            }
-            FinalDecision::Allow { .. } => {
-                debug!("ALLOW decision - no actions needed");
-            }
-            FinalDecision::Modify { .. } => {
-                debug!("MODIFY decision - no actions needed");
-            }
-        }
-    }
-
-    /// Execute actions for a specific set of decision objects.
-    async fn execute_rule_specific_actions(
-        &self,
-        decisions: &[DecisionObject],
-        rulebook: &Rulebook,
-        working_dir: &std::path::PathBuf,
-    ) {
-        info!(
-            "execute_rule_specific_actions: Checking actions for {} decision objects",
-            decisions.len()
-        );
-
-        for decision_obj in decisions {
-            let rule_id = &decision_obj.rule_id;
-
-            if let Some(actions) = rulebook.actions.by_rule_id.get(rule_id) {
-                info!("Found {} actions for rule {}", actions.len(), rule_id);
-                for action in actions {
-                    self.execute_single_action(action, working_dir).await;
-                }
-            }
-        }
-    }
-
-    /// Execute a single action command.
-    async fn execute_single_action(
-        &self,
-        action: &rulebook::ActionConfig,
-        working_dir: &std::path::PathBuf,
-    ) {
-        debug!(
-            "Executing action: {} in directory: {:?}",
-            action.command, working_dir
-        );
-
-        // Verify trust if enabled
-        if let Some(verifier) = self.trust_verifier {
-            if let Err(e) = verifier.verify_script(&action.command).await {
-                error!("Action blocked by trust verification: {}", e);
-                return;
-            }
-        }
-
-        let working_dir = working_dir.clone();
-        let command = action.command.clone();
-
-        tokio::spawn(async move {
-            let is_script_path = (command.starts_with('/') || command.starts_with("./"))
-                && !command.contains("&&")
-                && !command.contains("||")
-                && !command.contains(';')
-                && !command.contains('|')
-                && !command.contains('>');
-
-            let is_shell_script = command.ends_with(".sh");
-
-            let result = if is_script_path && !is_shell_script {
-                let script_path = std::path::Path::new(&command);
-                let script_working_dir = script_path
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                    .unwrap_or(&working_dir);
-
-                tokio::process::Command::new(&command)
-                    .current_dir(script_working_dir)
-                    .output()
-                    .await
-            } else if is_shell_script && cfg!(windows) {
-                let script_path = std::path::Path::new(&command);
-                let script_working_dir = script_path
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                    .unwrap_or(&working_dir);
-
-                let bash_path = if command.len() >= 3 && command.chars().nth(1) == Some(':') {
-                    let drive = command.chars().next().unwrap().to_lowercase();
-                    let path_part = &command[2..].replace('\\', "/");
-                    format!("/{drive}{path_part}")
-                } else {
-                    command.replace('\\', "/")
-                };
-
-                tokio::process::Command::new(*SHELL_COMMAND)
-                    .arg(&bash_path)
-                    .current_dir(script_working_dir)
-                    .output()
-                    .await
-            } else {
-                tokio::process::Command::new(*SHELL_COMMAND)
-                    .arg("-c")
-                    .arg(&command)
-                    .current_dir(&working_dir)
-                    .output()
-                    .await
-            };
-
-            match result {
-                Ok(output) => {
-                    if output.status.success() {
-                        debug!("Action completed successfully: {}", command);
-                    } else {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        let stdout = String::from_utf8_lossy(&output.stdout);
-                        warn!(
-                            "Action failed: {} - stderr: {} stdout: {}",
-                            command, stderr, stdout
-                        );
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to execute action: {} - {}", command, e);
-                }
-            }
-        });
-
-        tokio::task::yield_now().await;
     }
 }

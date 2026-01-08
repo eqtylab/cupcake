@@ -3,6 +3,8 @@
 //! These tests demonstrate that preprocessing protects ALL policies
 //! (including naive user policies) from spacing/whitespace bypasses.
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use cupcake_core::harness::types::HarnessType;
@@ -13,7 +15,6 @@ use tempfile::TempDir;
 
 /// Test that preprocessing protects naive user policies from spacing bypasses
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_preprocessing_protects_naive_user_policy() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -145,7 +146,6 @@ deny contains decision if {
 
 /// Test that preprocessing preserves quotes correctly
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_preprocessing_preserves_quotes() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -233,7 +233,6 @@ deny contains decision if {
 
 /// Test that preprocessing handles edge cases gracefully
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_preprocessing_edge_cases() -> Result<()> {
     let config = PreprocessConfig::default();
 
@@ -304,7 +303,6 @@ async fn test_preprocessing_edge_cases() -> Result<()> {
 
 /// Test that preprocessing can be disabled via configuration
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_preprocessing_can_be_disabled() -> Result<()> {
     let mut event = json!({
         "tool_name": "Bash",

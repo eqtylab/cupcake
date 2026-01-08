@@ -108,7 +108,7 @@ jobs:
           }
 
       - name: Build Cupcake
-        run: cargo build --release --features deterministic-tests
+        run: cargo build --release
 
       - name: Verify built binary (Unix)
         if: runner.os != 'Windows'
@@ -151,14 +151,13 @@ jobs:
           cd "$TESTDIR"
 
           # Create minimal cupcake structure
-          mkdir -p .cupcake/policies/system .cupcake/signals .cupcake/actions .claude
+          mkdir -p .cupcake/policies/system .cupcake/signals .claude
 
           # Create minimal rulebook
           cat > .cupcake/rulebook.yml << 'RULEBOOK'
           version: "1.0"
           builtins: {}
           signals: {}
-          actions: {}
           RULEBOOK
 
           # Create system evaluate policy
@@ -229,7 +228,7 @@ jobs:
 
       - name: Run specific Claude routing test with debug
         run: |
-          cargo test --features deterministic-tests claude_code_routing_test -- --nocapture --test-threads=1
+          cargo test claude_code_routing_test -- --nocapture --test-threads=1
         env:
           CI: true
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

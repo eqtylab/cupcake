@@ -21,7 +21,6 @@ async fn setup_opencode_test_project() -> Result<TestSetup> {
     // Create OpenCode-specific directory structure
     fs::create_dir_all(cupcake_dir.join("policies/opencode/system"))?;
     fs::create_dir_all(cupcake_dir.join("signals"))?;
-    fs::create_dir_all(cupcake_dir.join("actions"))?;
 
     // Create system evaluate policy
     fs::write(
@@ -65,7 +64,6 @@ default collect_verbs(_) := []
         r#"version: "1.0"
 builtins: {}
 signals: {}
-actions: {}
 "#,
     )?;
 

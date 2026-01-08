@@ -2,6 +2,8 @@
 //!
 //! Verifies that custom paths (not just .cupcake) get total lockdown protection
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use cupcake_core::engine::Engine;
 use serde_json::json;
@@ -11,7 +13,6 @@ use tempfile::TempDir;
 /// Test that rulebook_security_guardrails protects user-configured custom paths
 /// with total lockdown (blocks both reads AND writes, unlike protected_paths builtin)
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_rulebook_security_protects_custom_paths() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");
@@ -278,7 +279,6 @@ builtins:
 
 /// Test that symlinks cannot be created to/from user-configured protected paths
 #[tokio::test]
-#[cfg(feature = "deterministic-tests")]
 async fn test_rulebook_security_blocks_symlinks_to_custom_paths() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let cupcake_dir = temp_dir.path().join(".cupcake");

@@ -79,12 +79,12 @@ jobs:
 
       - name: Run unit tests
         run: |
-          cargo test --features deterministic-tests --lib --bins
+          cargo test --lib --bins
         env:
           CI: true
 
       - name: Run doc-tests
         run: |
-          cargo test --features deterministic-tests --doc -j 1 -- --test-threads=1
+          cargo test --doc -j 1 -- --test-threads=1
         env:
           CI: true

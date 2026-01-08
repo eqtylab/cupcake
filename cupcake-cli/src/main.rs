@@ -16,11 +16,8 @@ use tracing_subscriber::EnvFilter;
 
 use cupcake_core::{engine, harness, telemetry::TelemetryContext, validator};
 
-#[cfg(feature = "catalog")]
-mod catalog_cli;
 mod harness_config;
 mod migrations;
-mod trust_cli;
 #[cfg(feature = "watchdog")]
 mod watchdog_cli;
 
@@ -215,12 +212,6 @@ enum Command {
         harness: Option<HarnessType>,
     },
 
-    /// Manage script trust and integrity verification
-    Trust {
-        #[clap(subcommand)]
-        command: trust_cli::TrustCommand,
-    },
-
     /// Validate policies for Cupcake requirements and best practices
     Validate {
         /// Directory containing policy files
@@ -249,13 +240,6 @@ enum Command {
 
     /// Launch the interactive onboarding wizard to convert rule files into Cupcake policies
     Onboard,
-
-    /// Browse and manage rulebooks from the Cupcake Catalog
-    #[cfg(feature = "catalog")]
-    Catalog {
-        #[clap(subcommand)]
-        command: catalog_cli::CatalogSubcommand,
-    },
 }
 
 /// Supported agent harness types for integration
@@ -422,7 +406,6 @@ async fn main() -> Result<()> {
             policy_dir,
         } => verify_command(harness.into(), policy_dir).await,
         Command::Init { global, harness } => init_command(global, harness).await,
-        Command::Trust { command } => command.execute().await,
         #[cfg(feature = "watchdog")]
         Command::Watchdog {
             config,
@@ -437,8 +420,6 @@ async fn main() -> Result<()> {
             table,
         } => inspect_command(policy_dir, json, table).await,
         Command::Onboard => onboard_command().await,
-        #[cfg(feature = "catalog")]
-        Command::Catalog { command } => catalog_cli::CatalogCommand { command }.execute().await,
     }
 }
 
@@ -792,7 +773,6 @@ async fn init_global_config(harness: Option<HarnessType>) -> Result<()> {
                 policies: config_dir.join("policies"),
                 rulebook: config_dir.join("rulebook.yml"),
                 signals: config_dir.join("signals"),
-                actions: config_dir.join("actions"),
             }
         }
     };
@@ -1170,7 +1150,7 @@ import rego.v1
     println!("   Policies: {:?}", global_paths.policies);
     println!();
     println!("   Global policies have absolute precedence over project policies.");
-    println!("   Create a rulebook.yml to enable builtins and configure signals/actions.");
+    println!("   Create a rulebook.yml to enable builtins and configure signals.");
 
     // Configure harness if specified
     if let Some(harness_type) = harness {
@@ -1261,6 +1241,10 @@ async fn init_project_config(harness: HarnessType) -> Result<()> {
             eprintln!("Warning: .cupcake directory permissions should be restricted manually on non-Unix systems");
         }
 
+        // Write the base rulebook configuration
+        fs::write(".cupcake/rulebook.yml", RULEBOOK_TEMPLATE)
+            .context("Failed to create rulebook.yml file")?;
+
         // Create harness-specific builtins directory
         fs::create_dir_all(format!(".cupcake/policies/{harness_name}/builtins"))
             .context("Failed to create harness builtins directory")?;
@@ -1288,7 +1272,7 @@ async fn init_project_config(harness: HarnessType) -> Result<()> {
         println!("   System:   .cupcake/system/");
         println!("   Policies: .cupcake/policies/{harness_name}/");
         println!();
-        println!("   Create a rulebook.yml to enable builtins and configure signals/actions.");
+        println!("   Edit rulebook.yml to customize builtins and configure signals.");
     }
 
     // Always configure harness integration
@@ -1901,6 +1885,7 @@ default collect_verbs(_) := []
 
 // Include example policy and authoritative builtin policies from fixtures
 const EXAMPLE_POLICY_TEMPLATE: &str = include_str!("../../fixtures/example.rego");
+const RULEBOOK_TEMPLATE: &str = include_str!("../../fixtures/init/base-config.yml");
 
 // Claude Code builtin policies
 const CLAUDE_ALWAYS_INJECT_POLICY: &str =

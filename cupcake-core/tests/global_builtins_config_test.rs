@@ -6,7 +6,6 @@ mod tests {
     fn test_global_builtins_configuration_parsing() {
         let yaml_content = r#"
 signals: {}
-actions: {}
 
 builtins:
   # Test system protection configuration
@@ -71,7 +70,6 @@ builtins:
     fn test_global_builtins_default_values() {
         let yaml_content = r#"
 signals: {}
-actions: {}
 
 builtins:
   system_protection:
@@ -119,7 +117,6 @@ builtins:
         // to avoid unnecessary shell process spawning for static configuration values.
         let yaml_content = r#"
 signals: {}
-actions: {}
 
 builtins:
   system_protection:

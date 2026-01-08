@@ -10,7 +10,7 @@
 //!   │     └── operations, enriched_event, duration
 //!   │
 //!   ├── phases: Vec<PolicyPhase> (one per policy layer)
-//!   │     ├── name: "global" | "catalog:X" | "project"
+//!   │     ├── name: "global" | "project"
 //!   │     ├── signals: SignalsPhase (external program collection)
 //!   │     │     └── signals: Vec<SignalExecution>
 //!   │     └── evaluation: EvaluationResult (WASM → decision)
@@ -92,7 +92,7 @@ pub struct CupcakeSpan {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enrich: Option<EnrichPhase>,
 
-    /// Policy evaluation phases (global → catalog → project)
+    /// Policy evaluation phases (global → project)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub phases: Vec<PolicyPhase>,
 
@@ -228,7 +228,7 @@ impl EnrichPhase {
 // Policy Phase
 // ============================================================================
 
-/// A single policy evaluation phase (global, catalog overlay, or project).
+/// A single policy evaluation phase (global or project).
 ///
 /// Each phase follows the flow: route → collect signals → evaluate WASM → synthesize
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,7 +245,7 @@ pub struct PolicyPhase {
     /// End time in nanoseconds since Unix epoch
     pub end_time_unix_nano: u64,
 
-    /// Phase name: "global", "catalog:overlay_name", or "project"
+    /// Phase name: "global" or "project"
     pub name: String,
 
     /// Signal collection sub-phase

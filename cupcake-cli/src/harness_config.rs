@@ -534,7 +534,7 @@ pub async fn configure_harness(
                 println!("   - Added stop hook for cleanup");
                 println!();
                 println!(
-                    "   {} will now evaluate all actions against your Cupcake policies.",
+                    "   {} will now evaluate all tool usage against your Cupcake policies.",
                     harness.name()
                 );
             }

@@ -38,17 +38,12 @@ impl PermissionRequestResponseBuilder {
     pub fn build(decision: &EngineDecision, suppress_output: bool) -> CupcakeResponse {
         let mut response = CupcakeResponse::empty();
 
-        // PermissionRequest uses hookSpecificOutput with nested decision object
+        // PermissionRequest uses hookSpecificOutput with nested decision object for non-Allow decisions
+        // For Allow, we return empty response to let Claude use its own permission settings
         match decision {
             EngineDecision::Allow { .. } => {
-                response.hook_specific_output = Some(HookSpecificOutput::PermissionRequest {
-                    decision: PermissionRequestDecision {
-                        behavior: PermissionRequestBehavior::Allow,
-                        updated_input: None,
-                        message: None,
-                        interrupt: None,
-                    },
-                });
+                // Return empty response for passthrough - let Claude use its own permission settings
+                // No hook_specific_output means "I have no objections"
             }
             EngineDecision::Block { feedback } => {
                 // Block/Deny → deny with message (tells model why denied)
@@ -63,15 +58,7 @@ impl PermissionRequestResponseBuilder {
             }
             EngineDecision::Ask { .. } => {
                 // Ask doesn't make sense for PermissionRequest - it IS the ask dialog
-                // Treat as Allow (let the normal permission dialog show to user)
-                response.hook_specific_output = Some(HookSpecificOutput::PermissionRequest {
-                    decision: PermissionRequestDecision {
-                        behavior: PermissionRequestBehavior::Allow,
-                        updated_input: None,
-                        message: None,
-                        interrupt: None,
-                    },
-                });
+                // Return empty response to let the normal permission dialog show to user
             }
             // Modify implies Allow with updated input
             EngineDecision::Modify { updated_input, .. } => {
@@ -124,21 +111,17 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_permission_request_allow() {
+    fn test_permission_request_allow_returns_empty_for_passthrough() {
         let decision = EngineDecision::Allow {
             reason: Some("Test reason".to_string()),
         };
         let response = PermissionRequestResponseBuilder::build(&decision, false);
 
-        match response.hook_specific_output {
-            Some(HookSpecificOutput::PermissionRequest { decision }) => {
-                assert_eq!(decision.behavior, PermissionRequestBehavior::Allow);
-                assert!(decision.message.is_none()); // message is for deny
-                assert!(decision.updated_input.is_none());
-                assert!(decision.interrupt.is_none());
-            }
-            _ => panic!("Expected PermissionRequest hook output"),
-        }
+        // Allow returns empty response for passthrough - let Claude use its own permission settings
+        assert!(
+            response.hook_specific_output.is_none(),
+            "Expected no hook_specific_output for passthrough"
+        );
         assert_eq!(response.suppress_output, None);
     }
 
@@ -162,22 +145,19 @@ mod tests {
     }
 
     #[test]
-    fn test_permission_request_ask_becomes_allow() {
+    fn test_permission_request_ask_returns_empty_for_passthrough() {
         // Ask doesn't make sense for PermissionRequest (it IS the ask dialog)
-        // So Ask is treated as Allow (let the dialog show normally)
+        // So Ask returns empty response to let the dialog show normally
         let decision = EngineDecision::Ask {
             reason: "Please confirm action".to_string(),
         };
         let response = PermissionRequestResponseBuilder::build(&decision, false);
 
-        match response.hook_specific_output {
-            Some(HookSpecificOutput::PermissionRequest { decision }) => {
-                assert_eq!(decision.behavior, PermissionRequestBehavior::Allow);
-                assert!(decision.message.is_none());
-                assert!(decision.updated_input.is_none());
-            }
-            _ => panic!("Expected PermissionRequest hook output"),
-        }
+        // Ask returns empty response for passthrough - let the dialog show normally
+        assert!(
+            response.hook_specific_output.is_none(),
+            "Expected no hook_specific_output for passthrough"
+        );
     }
 
     #[test]
@@ -217,23 +197,20 @@ mod tests {
     }
 
     #[test]
-    fn test_permission_request_json_format() {
+    fn test_permission_request_allow_json_format_is_empty() {
         let decision = EngineDecision::Allow {
             reason: Some("Allowed".to_string()),
         };
         let response = PermissionRequestResponseBuilder::build(&decision, false);
 
-        // Serialize to JSON to verify format
+        // Serialize to JSON to verify format - should be empty object for passthrough
         let json = serde_json::to_value(&response).unwrap();
 
-        // Check nested structure
-        assert!(json["hookSpecificOutput"]["hookEventName"]
-            .as_str()
-            .unwrap()
-            .eq("PermissionRequest"));
-        assert_eq!(json["hookSpecificOutput"]["decision"]["behavior"], "allow");
-        // message should not be present for allow
-        assert!(json["hookSpecificOutput"]["decision"]["message"].is_null());
+        // Allow returns empty response - no hookSpecificOutput
+        assert!(
+            json["hookSpecificOutput"].is_null(),
+            "Expected no hookSpecificOutput for passthrough"
+        );
     }
 
     #[test]

@@ -12,14 +12,12 @@ impl PreToolUseResponseBuilder {
     pub fn build(decision: &EngineDecision, suppress_output: bool) -> CupcakeResponse {
         let mut response = CupcakeResponse::empty();
 
-        // PreToolUse always uses hookSpecificOutput with permissionDecision
+        // PreToolUse uses hookSpecificOutput with permissionDecision for non-Allow decisions
+        // For Allow, we return empty response to let Claude use its own permission settings
         match decision {
-            EngineDecision::Allow { reason } => {
-                response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
-                    permission_decision: PermissionDecision::Allow,
-                    permission_decision_reason: reason.clone(),
-                    updated_input: None,
-                });
+            EngineDecision::Allow { .. } => {
+                // Return empty response for passthrough - let Claude use its own permission settings
+                // No hook_specific_output means "I have no objections"
             }
             EngineDecision::Block { feedback } => {
                 response.hook_specific_output = Some(HookSpecificOutput::PreToolUse {
@@ -62,23 +60,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_pre_tool_use_allow() {
+    fn test_pre_tool_use_allow_returns_empty_for_passthrough() {
         let decision = EngineDecision::Allow {
             reason: Some("Test reason".to_string()),
         };
         let response = PreToolUseResponseBuilder::build(&decision, false);
 
-        match response.hook_specific_output {
-            Some(HookSpecificOutput::PreToolUse {
-                permission_decision,
-                permission_decision_reason,
-                ..
-            }) => {
-                assert_eq!(permission_decision, PermissionDecision::Allow);
-                assert_eq!(permission_decision_reason, Some("Test reason".to_string()));
-            }
-            _ => panic!("Expected PreToolUse hook output"),
-        }
+        // Allow returns empty response for passthrough - let Claude use its own permission settings
+        assert!(
+            response.hook_specific_output.is_none(),
+            "Expected no hook_specific_output for passthrough"
+        );
         assert_eq!(response.suppress_output, None);
     }
 

@@ -27,11 +27,17 @@
 
         craneLib = (inputs.crane.mkLib pkgs).overrideToolchain rust;
 
+        python = pkgs.python312;
+
         shellDeps = [
           rust
         ] ++ (with pkgs; [
           just
           nixpkgs-fmt
+          # Python bindings development
+          python
+          maturin
+          (python.withPackages (ps: with ps; [ pytest pytest-asyncio ]))
         ]);
 
         cupcake-cli =
@@ -73,6 +79,52 @@
 
         packages = {
           inherit cupcake-cli;
+
+          cupcake-py = pkgs.callPackage ({ lib, maturin, python312, cargo, rustc, rustPlatform }:
+            python312.pkgs.buildPythonPackage {
+              pname = "cupcake";
+              version = cupcake-cli.version;
+              pyproject = true;
+
+              src = pkgs.lib.cleanSourceWith {
+                src = ./.;
+                filter =
+                  let
+                    regoFilter = path: _type: builtins.match ".*rego$" path != null;
+                    ymlFilter = path: _type: builtins.match ".*yml$" path != null;
+                    pyFilter = path: _type: builtins.match ".*py$" path != null;
+                    pyiFilter = path: _type: builtins.match ".*pyi$" path != null;
+                    pytypedFilter = path: _type: builtins.match ".*/py\\.typed$" path != null;
+                    mdFilter = path: _type: builtins.match ".*md$" path != null;
+                  in
+                  path: _type:
+                    (regoFilter path _type)
+                    || (ymlFilter path _type)
+                    || (pyFilter path _type)
+                    || (pyiFilter path _type)
+                    || (pytypedFilter path _type)
+                    || (mdFilter path _type)
+                    || (craneLib.filterCargoSources path _type);
+              };
+
+              cargoDeps = rustPlatform.importCargoLock {
+                lockFile = ./Cargo.lock;
+              };
+
+              nativeBuildInputs = [
+                cargo rustc
+                rustPlatform.cargoSetupHook
+                rustPlatform.maturinBuildHook
+              ];
+
+              # The source is the whole workspace; cd into the Python crate
+              # so maturin finds pyproject.toml + Cargo.toml.
+              # Cargo resolves the workspace root (../) and vendor dir automatically.
+              preBuild = "cd cupcake-py";
+
+              pythonImportsCheck = [ "cupcake" ];
+            }
+          ) {};
         };
 
       }));

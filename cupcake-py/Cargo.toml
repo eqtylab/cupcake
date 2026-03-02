@@ -1,0 +1,22 @@
+[package]
+name = "cupcake-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Python bindings for Cupcake policy engine"
+
+[lib]
+name = "cupcake_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Core library
+cupcake-core = { workspace = true }
+
+# PyO3
+pyo3 = { version = "0.23", features = ["extension-module"] }
+
+# Core dependencies
+serde_json = { workspace = true }
+anyhow = { workspace = true }

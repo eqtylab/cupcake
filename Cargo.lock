@@ -432,7 +432,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.13.2",
  "wasmtime-internal-math",
 ]
 
@@ -483,7 +483,7 @@ dependencies = [
  "cranelift-codegen",
  "log",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.13.2",
 ]
 
 [[package]]
@@ -500,7 +500,7 @@ checksum = "2eee7a496dd66380082c9c5b6f2d5fa149cec0ec383feec5caf079ca2b3671c2"
 dependencies = [
  "cranelift-codegen",
  "libc",
- "target-lexicon",
+ "target-lexicon 0.13.2",
 ]
 
 [[package]]
@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "cupcake-cli"
-version = "0.3.0"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "cupcake-core"
-version = "0.3.0"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -665,8 +665,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cupcake-py"
+version = "0.5.2"
+dependencies = [
+ "anyhow",
+ "cupcake-core",
+ "pyo3",
+ "serde_json",
+]
+
+[[package]]
 name = "cupcake-ts"
-version = "0.3.0"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "cupcake-core",
@@ -1346,6 +1356,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "2.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "insta"
 version = "1.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1603,6 +1622,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2cffa4ad52c6f791f4f8b15f0c05f9824b2ced1160e88cc393d64fff9a8ac64"
 dependencies = [
  "rustix 0.38.44",
+]
+
+[[package]]
+name = "memoffset"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]
@@ -1957,6 +1985,69 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "938543690519c20c3a480d20a8efcc8e69abeb44093ab1df4e7c1f81f26c677a"
 dependencies = [
  "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
+name = "pyo3"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7778bffd85cf38175ac1f545509665d0b9b92a198ca7941f131f85f7a4f9a872"
+dependencies = [
+ "cfg-if",
+ "indoc",
+ "libc",
+ "memoffset",
+ "once_cell",
+ "portable-atomic",
+ "pyo3-build-config",
+ "pyo3-ffi",
+ "pyo3-macros",
+ "unindent",
+]
+
+[[package]]
+name = "pyo3-build-config"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94f6cbe86ef3bf18998d9df6e0f3fc1050a8c5efa409bf712e661a4366e010fb"
+dependencies = [
+ "once_cell",
+ "target-lexicon 0.12.16",
+]
+
+[[package]]
+name = "pyo3-ffi"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9f1b4c431c0bb1c8fb0a338709859eed0d030ff6daa34368d3b152a63dfdd8d"
+dependencies = [
+ "libc",
+ "pyo3-build-config",
+]
+
+[[package]]
+name = "pyo3-macros"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbc2201328f63c4710f68abdf653c89d8dbc2858b88c5d88b0ff38a75288a9da"
+dependencies = [
+ "proc-macro2",
+ "pyo3-macros-backend",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
+name = "pyo3-macros-backend"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fca6726ad0f3da9c9de093d6f116a93c1a38e417ed73bf138472cf4064f72028"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "pyo3-build-config",
  "quote",
  "syn 2.0.104",
 ]
@@ -2597,6 +2688,12 @@ dependencies = [
 
 [[package]]
 name = "target-lexicon"
+version = "0.12.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
+
+[[package]]
+name = "target-lexicon"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e502f78cdbb8ba4718f566c418c52bc729126ffd16baee5baa718cf25dd5a69a"
@@ -3008,6 +3105,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
+name = "unindent"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
+
+[[package]]
 name = "unsafe-libyaml"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3274,7 +3377,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.13.2",
  "trait-variant",
  "wasm-encoder 0.235.0",
  "wasmparser 0.235.0",
@@ -3316,7 +3419,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.13.2",
  "wasm-encoder 0.235.0",
  "wasmparser 0.235.0",
  "wasmprinter",
@@ -3392,7 +3495,7 @@ dependencies = [
  "object",
  "pulley-interpreter",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.13.2",
  "thiserror 2.0.14",
  "wasmparser 0.235.0",
  "wasmtime-environ",
@@ -3489,7 +3592,7 @@ dependencies = [
  "cranelift-codegen",
  "gimli",
  "object",
- "target-lexicon",
+ "target-lexicon 0.13.2",
  "wasmparser 0.235.0",
  "wasmtime-environ",
  "wasmtime-internal-cranelift",
@@ -3602,7 +3705,7 @@ dependencies = [
  "gimli",
  "regalloc2",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.13.2",
  "thiserror 2.0.14",
  "wasmparser 0.235.0",
  "wasmtime-environ",

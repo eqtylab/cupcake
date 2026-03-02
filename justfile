@@ -29,8 +29,8 @@ install: build-cli
 
 # ==================== TEST COMMANDS ====================
 
-# Run ALL tests (Rust + TypeScript)
-test-all: test test-typescript
+# Run ALL tests (Rust + TypeScript + Python)
+test-all: test test-typescript test-python
 
 # Run Rust tests
 # NOTE: Tests use EngineConfig to disable global config discovery, ensuring isolation
@@ -90,6 +90,65 @@ test-typescript:
 
     # Run tests
     npm test
+
+# Run Python tests (auto-builds if needed)
+test-python:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Running Python tests..."
+    cd cupcake-py
+
+    # Create virtualenv if it doesn't exist
+    if [ ! -d ".venv" ]; then
+        echo "Creating virtualenv..."
+        python3 -m venv .venv
+    fi
+
+    source .venv/bin/activate
+
+    # Install maturin and test deps if needed
+    if ! command -v maturin &> /dev/null; then
+        echo "Installing maturin and test dependencies..."
+        pip install maturin pytest pytest-asyncio
+    fi
+
+    # Build native module
+    echo "Building native module..."
+    maturin develop --release
+
+    # Run tests
+    pytest tests/ -v
+
+# Build Python bindings (development mode)
+build-python:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd cupcake-py
+    if [ ! -d ".venv" ]; then
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install maturin
+    else
+        source .venv/bin/activate
+    fi
+    maturin develop --release
+    echo "✅ Python bindings built"
+
+# Build Python wheel for distribution
+build-python-wheel:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd cupcake-py
+    if [ ! -d ".venv" ]; then
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install maturin
+    else
+        source .venv/bin/activate
+    fi
+    maturin build --release
+    echo "✅ Wheel built in target/wheels/"
 
 # Run benchmarks
 bench:
@@ -158,7 +217,8 @@ stats:
     @echo "📊 Cupcake Project Statistics"
     @echo "=============================="
     @echo "Rust files: $(find . -name '*.rs' -not -path './target/*' | wc -l)"
-    @echo "Test files: $(find . -name '*test*.rs' -not -path './target/*' | wc -l)"  
+    @echo "Python files: $(find . -name '*.py' -not -path './.venv/*' -not -path './target/*' -not -path './*/__pycache__/*' | wc -l)"
+    @echo "Test files: $(find . -name '*test*' \( -name '*.rs' -o -name '*.py' \) -not -path './target/*' | wc -l)"
     @echo "Policy files: $(find . -name '*.rego' | wc -l)"
     @echo "Lines of Rust: $(find . -name '*.rs' -not -path './target/*' | xargs wc -l | tail -1)"
 
@@ -175,6 +235,16 @@ install-dev:
     # Rust tools
     rustup component add rustfmt clippy
     cargo install cargo-watch cargo-edit
+
+    # Python tools
+    if command -v python3 &> /dev/null; then
+        echo "Setting up Python bindings dev environment..."
+        cd cupcake-py
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install maturin pytest pytest-asyncio
+        cd ..
+    fi
 
     echo "✅ Development dependencies installed"
 

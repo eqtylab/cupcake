@@ -15,6 +15,8 @@ on:
       # Policy/fixture changes that affect tests
       - "fixtures/**"
       - "**.rego"
+      # Python binding changes
+      - "cupcake-py/**"
   workflow_dispatch:
 
 env:
@@ -86,5 +88,52 @@ jobs:
       - name: Run doc-tests
         run: |
           cargo test --doc -j 1 -- --test-threads=1
+        env:
+          CI: true
+
+  test-python:
+    name: Python Bindings (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.7.1/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Create virtualenv and install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install maturin pytest pytest-asyncio
+
+      - name: Build Python bindings
+        run: |
+          source .venv/bin/activate
+          cd cupcake-py
+          maturin develop --release
+
+      - name: Run Python tests
+        run: |
+          source .venv/bin/activate
+          cd cupcake-py
+          pytest tests/ -v
         env:
           CI: true

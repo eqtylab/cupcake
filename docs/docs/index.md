@@ -30,7 +30,7 @@ Cupcake sits in the agent hook path. When an agent proposes an action (e.g., run
 
 **Allow** · **Deny** · **Halt** · **Modify** · etc
 
-A core pillar of Cupcake is **deterministic guarantees**—policies that always behave the same way given the same input. However, the nature of AI and where it's headed requires more dynamic policy gating. Agents can be prompted, confused, or manipulated in ways that static rules can't anticipate. That's why we developed [**Cupcake Watchdog**](/watchdog/getting-started.md), a built-in feature that uses LLM-as-a-judge to evaluate your rules and context and make intelligent determinations on the fly.
+A core pillar of Cupcake is **deterministic guarantees**—policies that always behave the same way given the same input. However, the nature of AI and where it's headed requires more dynamic policy gating. Agents can be prompted, confused, or manipulated in ways that static rules can't anticipate. That's why we developed [**Cupcake Watchdog**](/reference/watchdog.md), a built-in feature that uses LLM-as-a-judge to evaluate your rules and context and make intelligent determinations on the fly.
 
 ## Getting Started
 
@@ -80,7 +80,7 @@ Modern AI agents are powerful but inconsistent at following operational and secu
 Cupcake supports two evaluation models:
 
 1. **Deterministic Policies**: Policies are written in **OPA/Rego** and **compiled to WebAssembly (Wasm)** for fast, sandboxed evaluation. [Writing Policies](https://cupcake.eqtylab.io/reference/policies/custom/) guide for implementation details.
-2. **LLM‑as‑Judge**: For simpler, yet more advanced, oversight of your rules, Cucpake can interject via a secondary LLM or agent to evaluate how an action should proceed. [Cupcake Watchdog](https://cupcake.eqtylab.io/watchdog/getting-started/) guide for implementation details.
+2. **LLM‑as‑Judge**: For simpler, yet more advanced, oversight of your rules, Cucpake can interject via a secondary LLM or agent to evaluate how an action should proceed. See the [Cupcake Watchdog](reference/watchdog.md) guide for implementation details.
 
 ### Decisions & Feedback
 

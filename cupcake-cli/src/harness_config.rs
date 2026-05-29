@@ -61,17 +61,10 @@ impl HarnessConfig for ClaudeHarness {
         }
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
-        // Determine the policy path to use in commands
-        let policy_path = if global {
-            // Global config - use absolute path
-            let abs_path =
-                fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
-            abs_path.display().to_string()
-        } else {
-            // Project config - use environment variable for portability
-            "$CLAUDE_PROJECT_DIR/.cupcake".to_string()
-        };
+    fn generate_hooks(&self, _policy_dir: &Path, _global: bool) -> Result<Value> {
+        // Global config auto-discovers, so global and project hooks use the same
+        // project-relative path (issue #104).
+        let policy_path = "$CLAUDE_PROJECT_DIR/.cupcake".to_string();
 
         Ok(json!({
             "hooks": {
@@ -132,17 +125,9 @@ impl HarnessConfig for CursorHarness {
         }
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
-        // Determine the policy path to use in commands
-        let policy_path = if global {
-            // Global config - use absolute path
-            let abs_path =
-                fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
-            abs_path.display().to_string()
-        } else {
-            // Project config - use relative path from workspace root
-            ".cupcake".to_string()
-        };
+    fn generate_hooks(&self, _policy_dir: &Path, _global: bool) -> Result<Value> {
+        // See ClaudeHarness: global config auto-discovers, use the project path.
+        let policy_path = ".cupcake".to_string();
 
         // Cursor's hook configuration format - official hooks.json structure
         // Reference: https://cursor.com/docs/agent/hooks.md
@@ -194,17 +179,9 @@ impl HarnessConfig for FactoryHarness {
         }
     }
 
-    fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
-        // Determine the policy path to use in commands
-        let policy_path = if global {
-            // Global config - use absolute path
-            let abs_path =
-                fs::canonicalize(policy_dir).unwrap_or_else(|_| policy_dir.to_path_buf());
-            abs_path.display().to_string()
-        } else {
-            // Project config - use environment variable for portability
-            "\"$FACTORY_PROJECT_DIR\"/.cupcake".to_string()
-        };
+    fn generate_hooks(&self, _policy_dir: &Path, _global: bool) -> Result<Value> {
+        // See ClaudeHarness: global config auto-discovers, use the project path.
+        let policy_path = "\"$FACTORY_PROJECT_DIR\"/.cupcake".to_string();
 
         Ok(json!({
             "hooks": {

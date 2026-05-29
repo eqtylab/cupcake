@@ -211,13 +211,14 @@ fn test_init_global_with_claude_harness() {
             let settings_content = fs::read_to_string(&global_settings).unwrap();
             let settings: Value = serde_json::from_str(&settings_content).unwrap();
 
-            // Global should use absolute paths, not $CLAUDE_PROJECT_DIR
+            // Global hooks use the same project-relative path as project hooks;
+            // the global config auto-discovers (issue #104). Not the config root.
             let command = settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
                 .as_str()
                 .unwrap();
             assert!(
-                !command.contains("$CLAUDE_PROJECT_DIR"),
-                "Global config should use absolute paths"
+                command.contains("$CLAUDE_PROJECT_DIR/.cupcake"),
+                "Global config should use the project-relative policy dir, got: {command}"
             );
         }
     }

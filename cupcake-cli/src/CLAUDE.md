@@ -38,19 +38,21 @@ Creates hooks at `.cursor/hooks.json` (project-level) with **relative policy pat
 
 ### `cupcake init --global --harness cursor` (Global Init)
 
-Creates hooks at `~/.cursor/hooks.json` (user-level) with **absolute policy paths**:
+Creates hooks at `~/.cursor/hooks.json` (user-level) with the **same project-relative policy path** as project init:
 
 ```json
 {
   "version": 1,
   "hooks": {
     "beforeShellExecution": [{
-      "command": "cupcake eval --harness cursor --policy-dir /Users/alice/.config/cupcake"
+      "command": "cupcake eval --harness cursor --policy-dir .cupcake"
     }],
     ...
   }
 }
 ```
+
+The global hook fires in every workspace and evaluates that workspace's `.cupcake` (or none). The org-wide global config is auto-discovered by the engine independently of `--policy-dir`, so the hook must NOT point at the global config root — doing so mis-resolved project paths and skipped local policies (issue #104 follow-up).
 
 **Use case**: Organization-wide policies that apply to all Cursor workspaces.
 
@@ -81,16 +83,10 @@ fn settings_path(&self, global: bool) -> PathBuf {
 #### `CursorHarness::generate_hooks()`
 
 ```rust
-fn generate_hooks(&self, policy_dir: &Path, global: bool) -> Result<Value> {
-    let policy_path = if global {
-        // Global config - use absolute path
-        let abs_path = fs::canonicalize(policy_dir)
-            .unwrap_or_else(|_| policy_dir.to_path_buf());
-        abs_path.display().to_string()
-    } else {
-        // Project config - use relative path from workspace root
-        ".cupcake".to_string()
-    };
+fn generate_hooks(&self, _policy_dir: &Path, _global: bool) -> Result<Value> {
+    // Project and global hooks both evaluate the workspace .cupcake;
+    // the global config is auto-discovered by the engine independently.
+    let policy_path = ".cupcake".to_string();
 
     Ok(json!({
         "version": 1,
@@ -126,7 +122,8 @@ cupcake init --global --harness cursor
 # Verify hooks created at user location
 cat ~/.cursor/hooks.json
 
-# Should show absolute path: --policy-dir /Users/alice/.config/cupcake
+# Should show project-relative path: --policy-dir .cupcake
+# (global config is auto-discovered by the engine, not via --policy-dir)
 ```
 
 ## Comparison with Claude Code
@@ -137,12 +134,12 @@ cat ~/.cursor/hooks.json
 | **User hooks**            | `~/.claude/settings.json` ✅   | `~/.cursor/hooks.json` ✅    |
 | **Hook location choice**  | Respects `--global` flag       | Respects `--global` flag     |
 | **Policy path (project)** | `$CLAUDE_PROJECT_DIR/.cupcake` | `.cupcake` (relative)        |
-| **Policy path (global)**  | Absolute path                  | Absolute path                |
+| **Policy path (global)**  | `$CLAUDE_PROJECT_DIR/.cupcake`  | `.cupcake` (relative)        |
 | **Process cwd**           | Project root (via env var)     | Workspace root (direct)      |
 
 ## Key Takeaways
 
 1. **Cursor supports both project and user-level hooks** - stored at `.cursor/hooks.json` and `~/.cursor/hooks.json`
 2. **Project init creates project-level hooks** - `.cursor/hooks.json` with relative policy paths
-3. **Global init creates user-level hooks** - `~/.cursor/hooks.json` with absolute policy paths
+3. **Global init creates user-level hooks** - `~/.cursor/hooks.json` with the same project-relative policy path as project init; the global config is auto-discovered by the engine, not passed via `--policy-dir`
 4. **Cursor spawns hooks with cwd=workspace root** - enabling relative path resolution

@@ -43,11 +43,13 @@ Cupcake uses OPA v1.71.0+ where Rego v1 is the default syntax.
 
 ## Testing Requirements
 
-- **Feature Flag (MANDATORY):** All Rust tests **MUST** be run with the `--features deterministic-tests` flag for stable HMAC key generation.
+- **Running tests:** Run the workspace test suite with:
   ```bash
-  cargo test --workspace --features cupcake-core/deterministic-tests
+  cargo test --workspace
   # or: just test
   ```
+  (Note: the `cupcake-py` crate needs a Python dev environment to build; scope to
+  `-p cupcake-core -p cupcake-cli` if that toolchain is unavailable.)
 - **Harness Testing (CRITICAL):** When testing a specific harness (e.g., Claude Code), use the dedicated helper function to avoid compilation errors:
   ```rust
   // CORRECT

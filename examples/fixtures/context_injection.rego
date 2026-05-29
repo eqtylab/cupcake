@@ -24,5 +24,5 @@ add_context contains context_msg if {
     change_keywords := {"modify", "update", "change", "fix", "add"}
     some keyword in change_keywords
     contains(lower(input.prompt), keyword)
-    context_msg := "Reminder: Run tests with 'cargo test --features deterministic-tests' after making changes."
+    context_msg := "Reminder: Run tests with 'cargo test' after making changes."
 }

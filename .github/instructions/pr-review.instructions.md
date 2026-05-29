@@ -170,7 +170,7 @@ cupcake-rewrite/
 **Review test coverage:**
 - [ ] Check that unit tests exist for new functions/modules
 - [ ] Check that integration tests exist for new features
-- [ ] Verify test code uses `--features deterministic-tests` pattern
+- [ ] Verify tests don't rely on shared global state between parallel test cases
 - [ ] Review test code to ensure tests are deterministic (no race conditions)
 - [ ] Check that tests clean up resources (temp files, directories)
 
@@ -453,13 +453,13 @@ paths.targets_protected(file_path, ".cupcake/")
 
 **Check that tests document the correct execution pattern:**
 ```bash
-cargo test --features deterministic-tests
+cargo test --workspace
 
 # Or use the alias
 cargo t
 ```
 
-**Why this matters:** The trust system uses HMAC key derivation which is non-deterministic in production mode. Without this flag, tests will fail intermittently. When reviewing, look for:
+**Why this matters:** Tests must be deterministic and isolated from shared global state, or they fail intermittently in CI. When reviewing, look for:
 - Test documentation mentions this requirement (in comments or README)
 - Test code structure suggests deterministic execution
 - No randomness or timing dependencies in test logic
@@ -515,7 +515,7 @@ const SYSTEM_EVAL: &str = include_str!("fixtures/system_evaluate.rego");
 ```bash
 # If policy changes don't appear in tests
 cargo clean -p cupcake-core
-cargo test --features deterministic-tests
+cargo test --workspace
 ```
 
 ---
@@ -709,7 +709,7 @@ pub fn process(input: &str) -> Result<Output> {
 ### Before Submitting PR (Author Checklist)
 
 **Authors should have:**
-- [ ] Verified tests locally with `--features deterministic-tests`
+- [ ] Verified tests locally with `cargo test --workspace`
 - [ ] Formatted code with `cargo fmt`
 - [ ] Addressed warnings from `cargo clippy`
 - [ ] Updated documentation

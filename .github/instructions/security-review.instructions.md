@@ -240,14 +240,13 @@ commands.has_verb(cmd, "rm")
 
 **Test Execution Requirements:**
 ```bash
-# CRITICAL: Must use deterministic-tests feature
-cargo test --features deterministic-tests
+cargo test --workspace
 
 # Or use alias
 cargo t
 ```
 
-**Why:** The trust system uses HMAC key derivation which is non-deterministic in production mode. The feature flag ensures deterministic keys for reliable test execution.
+**Why:** Tests must run deterministically and isolated from shared global state to be reliable in CI.
 
 **Test Structure Changes:**
 - Moved `tests/test_helpers.rs` → `tests/common/mod.rs` (proper Rust test pattern)
@@ -621,7 +620,7 @@ pub async fn evaluate(&self, input: &Value) {
 - ✅ Tests have clear comments explaining attack vectors
 - ✅ Tests verify both blocking behavior AND error messages
 - ✅ Tests clean up resources (temp directories, symlinks)
-- ✅ Tests use `--features deterministic-tests` in documentation/CI config
+- ✅ Tests are isolated and don't depend on shared global state across parallel cases
 
 ---
 
@@ -646,7 +645,7 @@ pub async fn evaluate(&self, input: &Value) {
 
 ### Test Review
 
-- [ ] Review test structure to ensure they use `--features deterministic-tests`
+- [ ] Review test structure to ensure tests are deterministic and isolated
 - [ ] Check that tests cover positive and negative cases
 - [ ] Verify tests use proper harness-specific helpers
 - [ ] Check that tests clean up resources (TempDir, etc.)
@@ -719,8 +718,8 @@ If anything is unclear during review, consider asking:
    - Are there linting tools to catch old patterns?
 
 4. **Testing:**
-   - Why is `--features deterministic-tests` required?
-   - What would happen without this flag?
+   - Are tests deterministic and isolated from shared global state?
+   - Could parallel execution cause flakiness?
    - Are there known flaky tests?
 
 5. **Cross-Platform:**

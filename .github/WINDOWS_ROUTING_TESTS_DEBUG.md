@@ -116,7 +116,7 @@ Fixed in `cupcake-core/tests/claude_code_routing_test.rs`:
 ```bash
 cd C:/Users/Administrator/cupcake
 export CLAUDE_CLI_PATH="/c/Users/Administrator/AppData/Roaming/npm/claude.cmd"
-cargo test --features deterministic-tests --test claude_code_routing_test
+cargo test --test claude_code_routing_test
 
 running 10 tests
 test test_multiple_events_routing ... ok
@@ -322,18 +322,18 @@ Check `C:\temp\cupcake_out.txt` for any error messages.
 
 ### Run all routing tests locally (if you have Claude CLI):
 ```bash
-cargo test --test claude_code_routing_test --features deterministic-tests -- --nocapture
+cargo test --test claude_code_routing_test -- --nocapture
 ```
 
 ### Run specific test:
 ```bash
-cargo test --test claude_code_routing_test test_pretooluse_routing --features deterministic-tests -- --nocapture
+cargo test --test claude_code_routing_test test_pretooluse_routing -- --nocapture
 ```
 
 ### Set environment for Claude CLI path:
 ```powershell
 $env:CLAUDE_CLI_PATH = "C:\npm\prefix\claude.ps1"
-cargo test --test claude_code_routing_test --features deterministic-tests -- --nocapture
+cargo test --test claude_code_routing_test -- --nocapture
 ```
 
 ## Success Criteria

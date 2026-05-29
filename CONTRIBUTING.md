@@ -21,7 +21,7 @@ Thank you for your interest in contributing to Cupcake! We welcome contributions
 2. Fork the repository and create a branch from `main`
 3. Make your changes, following the code style of the project
 4. Add or update tests as appropriate
-5. Ensure all tests pass: `just test` (or `cargo test --workspace --features cupcake-core/deterministic-tests`)
+5. Ensure all tests pass: `just test` (or `cargo test --workspace`)
 6. Submit a pull request
 
 ## Contributor License Agreement

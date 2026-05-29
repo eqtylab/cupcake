@@ -1,6 +1,5 @@
 [alias]
-t = "test --workspace --features cupcake-core/deterministic-tests"
-test-deterministic = "test --workspace --features cupcake-core/deterministic-tests"
+t = "test --workspace"
 build-dist = "build --profile dist --bin cupcake"
 
 # Distribution profile for optimized release builds

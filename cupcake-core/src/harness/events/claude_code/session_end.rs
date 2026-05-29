@@ -14,6 +14,9 @@ pub enum SessionEndReason {
     PromptInputExit,
     /// Other exit reasons
     Other,
+    /// Any reason introduced by Claude Code that this version does not yet model.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Payload for SessionEnd hook events
@@ -55,6 +58,7 @@ impl SessionEndPayload {
             SessionEndReason::Logout => "logout",
             SessionEndReason::PromptInputExit => "prompt_input_exit",
             SessionEndReason::Other => "other",
+            SessionEndReason::Unknown => "unknown",
         }
     }
 }

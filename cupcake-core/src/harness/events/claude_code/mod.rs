@@ -44,8 +44,16 @@ pub enum PermissionMode {
     Plan,
     /// Accept edits mode - file edits are auto-approved
     AcceptEdits,
+    /// Auto mode - Claude proceeds without prompting where allowed
+    Auto,
+    /// Don't-ask mode - permission prompts are suppressed
+    DontAsk,
     /// Bypass permissions - all tool calls auto-approved (dangerous)
     BypassPermissions,
+    /// Any permission mode introduced by Claude Code that this version does not
+    /// yet model. Captured here so deserialization never fails on a newer value.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for PermissionMode {
@@ -54,7 +62,10 @@ impl std::fmt::Display for PermissionMode {
             PermissionMode::Default => write!(f, "default"),
             PermissionMode::Plan => write!(f, "plan"),
             PermissionMode::AcceptEdits => write!(f, "acceptEdits"),
+            PermissionMode::Auto => write!(f, "auto"),
+            PermissionMode::DontAsk => write!(f, "dontAsk"),
             PermissionMode::BypassPermissions => write!(f, "bypassPermissions"),
+            PermissionMode::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -124,6 +135,9 @@ pub enum CompactTrigger {
     Manual,
     /// Automatic due to full context
     Auto,
+    /// Any trigger introduced by Claude Code that this version does not yet model.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for CompactTrigger {
@@ -131,6 +145,7 @@ impl std::fmt::Display for CompactTrigger {
         match self {
             CompactTrigger::Manual => write!(f, "manual"),
             CompactTrigger::Auto => write!(f, "auto"),
+            CompactTrigger::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -147,6 +162,9 @@ pub enum SessionSource {
     Clear,
     /// After compact (auto or manual)
     Compact,
+    /// Any source introduced by Claude Code that this version does not yet model.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for SessionSource {
@@ -156,6 +174,7 @@ impl std::fmt::Display for SessionSource {
             SessionSource::Resume => write!(f, "resume"),
             SessionSource::Clear => write!(f, "clear"),
             SessionSource::Compact => write!(f, "compact"),
+            SessionSource::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -439,6 +458,51 @@ mod tests {
                 assert_eq!(payload.common.cwd, "/home/user/project");
                 assert_eq!(payload.prompt, "Write a function to calculate factorial");
                 assert_eq!(event.event_name(), "UserPromptSubmit");
+            }
+            _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn test_user_prompt_submit_tolerates_new_permission_modes() {
+        // Regression: Claude Code sends permission_mode values ("auto", "dontAsk")
+        // that postdate this struct. The typed parse used for response formatting
+        // must not fail on them, otherwise the hook exits non-zero (non-blocking
+        // error) and any Block decision is silently discarded.
+        let known = r#"
+        {
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "s",
+            "transcript_path": "/t",
+            "cwd": "/c",
+            "permission_mode": "dontAsk",
+            "prompt": "hi"
+        }
+        "#;
+        let event: ClaudeCodeEvent = serde_json::from_str(known).unwrap();
+        match &event {
+            ClaudeCodeEvent::UserPromptSubmit(p) => {
+                assert_eq!(p.common.permission_mode, PermissionMode::DontAsk);
+            }
+            _ => panic!("Wrong event type"),
+        }
+
+        // A value this version has never heard of must fall back to Unknown,
+        // not error.
+        let future = r#"
+        {
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "s",
+            "transcript_path": "/t",
+            "cwd": "/c",
+            "permission_mode": "someFutureMode",
+            "prompt": "hi"
+        }
+        "#;
+        let event: ClaudeCodeEvent = serde_json::from_str(future).unwrap();
+        match &event {
+            ClaudeCodeEvent::UserPromptSubmit(p) => {
+                assert_eq!(p.common.permission_mode, PermissionMode::Unknown);
             }
             _ => panic!("Wrong event type"),
         }

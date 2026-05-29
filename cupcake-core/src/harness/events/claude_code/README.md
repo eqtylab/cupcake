@@ -16,12 +16,15 @@ All event payloads are unified by a common structure and traits defined in `src/
   - `session_id: String`
   - `transcript_path: String`
   - `cwd: String`
-  - `permission_mode: PermissionMode` - Current permission mode: `Default`, `Plan`, `AcceptEdits`, or `BypassPermissions`
+  - `permission_mode: PermissionMode` - Current permission mode: `Default`, `Plan`, `AcceptEdits`, `Auto`, `DontAsk`, or `BypassPermissions`
 - **`PermissionMode` enum:** Indicates the current permission level for the session:
   - `Default` - User is prompted for dangerous operations
   - `Plan` - Claude creates plans without executing
   - `AcceptEdits` - File edits are auto-approved
+  - `Auto` - Claude proceeds without prompting where allowed
+  - `DontAsk` - Permission prompts are suppressed
   - `BypassPermissions` - All tool calls auto-approved (dangerous)
+  - `Unknown` - Catch-all for any future mode Claude Code introduces; deserialization never fails on an unrecognized value
 - **`EventPayload` trait:** A trait implemented by all payload structs, guaranteeing access to the `CommonEventData`.
 - **`InjectsContext` trait:** A marker trait implemented _only_ by payloads for hooks that have special `stdout` handling for context injection (`SessionStart`, `UserPromptSubmit`, `PreCompact`).
 

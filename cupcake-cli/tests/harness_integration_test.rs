@@ -701,3 +701,51 @@ deny contains decision if {
         "Should use snake_case user_message, not camelCase"
     );
 }
+
+// ============================================================================
+// Claude Code permission_mode tolerance (regression)
+// ============================================================================
+
+/// Regression: a UserPromptSubmit event carrying a `permission_mode` value newer
+/// than this build knows (e.g. "dontAsk") must NOT make the hook exit non-zero.
+/// Before the fix the typed re-parse failed, the process exited 1 (a Claude Code
+/// "non-blocking error" that surfaces stderr in the transcript), and any Block
+/// decision was silently discarded.
+#[test]
+fn test_claude_user_prompt_submit_unknown_permission_mode_exits_zero() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_path = temp_dir.path();
+
+    let init_output = run_init(project_path, &["init", "--harness", "claude"]);
+    assert!(
+        init_output.status.success(),
+        "Init failed: {}",
+        String::from_utf8_lossy(&init_output.stderr)
+    );
+
+    let event = json!({
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript",
+        "cwd": project_path.to_string_lossy(),
+        "permission_mode": "dontAsk",
+        "prompt": "hello"
+    });
+
+    let output = run_eval_with_stdin_in_dir(
+        project_path,
+        &["eval", "--harness", "claude", "--policy-dir", ".cupcake"],
+        &event.to_string(),
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "eval must exit 0 for an unknown permission_mode (got {:?}). stderr: {stderr}",
+        output.status.code()
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    serde_json::from_str::<Value>(&stdout)
+        .unwrap_or_else(|_| panic!("stdout must be valid JSON: {stdout}"));
+}

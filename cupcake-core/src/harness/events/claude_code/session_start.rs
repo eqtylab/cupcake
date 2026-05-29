@@ -48,6 +48,7 @@ impl SessionStartPayload {
             SessionSource::Resume => "resume",
             SessionSource::Clear => "clear",
             SessionSource::Compact => "compact",
+            SessionSource::Unknown => "unknown",
         }
     }
 }

@@ -15,6 +15,10 @@ pub enum NotificationType {
     AuthSuccess,
     /// When Claude Code needs input for MCP tool elicitation
     ElicitationDialog,
+    /// Any notification type introduced by Claude Code that this version does not
+    /// yet model.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for NotificationType {
@@ -24,6 +28,7 @@ impl std::fmt::Display for NotificationType {
             NotificationType::IdlePrompt => write!(f, "idle_prompt"),
             NotificationType::AuthSuccess => write!(f, "auth_success"),
             NotificationType::ElicitationDialog => write!(f, "elicitation_dialog"),
+            NotificationType::Unknown => write!(f, "unknown"),
         }
     }
 }

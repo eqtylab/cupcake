@@ -445,7 +445,7 @@ async fn eval_command(
     // TELEMETRY: Capture raw event BEFORE any preprocessing mutations
     let raw_event_for_telemetry = hook_event_json.clone();
 
-    info!("Processing harness: {:?}", harness_type);
+    debug!("Processing harness: {:?}", harness_type);
     debug!("Parsing hook event from stdin");
 
     // Policy directory is resolved relative to the process cwd

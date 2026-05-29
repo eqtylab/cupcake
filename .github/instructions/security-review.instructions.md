@@ -246,7 +246,7 @@ cargo test --workspace
 cargo t
 ```
 
-**Why:** The trust system uses HMAC key derivation which is non-deterministic in production mode. The feature flag ensures deterministic keys for reliable test execution.
+**Why:** Tests must run deterministically and isolated from shared global state to be reliable in CI.
 
 **Test Structure Changes:**
 - Moved `tests/test_helpers.rs` → `tests/common/mod.rs` (proper Rust test pattern)

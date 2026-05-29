@@ -459,7 +459,7 @@ cargo test --workspace
 cargo t
 ```
 
-**Why this matters:** The trust system uses HMAC key derivation which is non-deterministic in production mode. Without this flag, tests will fail intermittently. When reviewing, look for:
+**Why this matters:** Tests must be deterministic and isolated from shared global state, or they fail intermittently in CI. When reviewing, look for:
 - Test documentation mentions this requirement (in comments or README)
 - Test code structure suggests deterministic execution
 - No randomness or timing dependencies in test logic

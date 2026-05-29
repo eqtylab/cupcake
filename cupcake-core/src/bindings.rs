@@ -166,9 +166,10 @@ mod tests {
 
     #[test]
     fn test_binding_engine_creation() {
-        // This will fail without proper test policies, but validates compilation
+        // A missing project policies dir is tolerated (issue #104): the engine
+        // initializes with global policies only. Validates the binding wires up.
         let result = BindingEngine::new("test_path", "claude");
-        assert!(result.is_err()); // Expected to fail without valid project
+        assert!(result.is_ok()); // Succeeds with no project policies
     }
 
     #[test]

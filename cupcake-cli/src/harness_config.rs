@@ -52,9 +52,16 @@ impl HarnessConfig for ClaudeHarness {
 
     fn settings_path(&self, global: bool) -> PathBuf {
         if global {
-            dirs::home_dir()
-                .unwrap_or_else(|| PathBuf::from("~"))
-                .join(".claude")
+            // Honor CLAUDE_CONFIG_DIR (Claude Code's config relocation env var);
+            // fall back to ~/.claude when unset.
+            std::env::var_os("CLAUDE_CONFIG_DIR")
+                .filter(|dir| !dir.is_empty())
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    dirs::home_dir()
+                        .unwrap_or_else(|| PathBuf::from("~"))
+                        .join(".claude")
+                })
                 .join("settings.json")
         } else {
             Path::new(".claude").join("settings.json")
@@ -787,6 +794,27 @@ mod tests {
 
         // New hooks added
         assert_eq!(existing["hooks"]["PreToolUse"][0]["matcher"], "*");
+    }
+
+    #[test]
+    fn test_claude_global_settings_path_respects_config_dir() {
+        // CLAUDE_CONFIG_DIR set -> path rooted there, not ~/.claude.
+        std::env::set_var("CLAUDE_CONFIG_DIR", "/custom/claude/dir");
+        let path = ClaudeHarness.settings_path(true);
+        assert_eq!(path, PathBuf::from("/custom/claude/dir/settings.json"));
+
+        // Unset -> falls back to ~/.claude.
+        std::env::remove_var("CLAUDE_CONFIG_DIR");
+        let fallback = ClaudeHarness.settings_path(true);
+        assert!(fallback.ends_with(".claude/settings.json"));
+
+        // Project (non-global) path is unaffected by the env var.
+        std::env::set_var("CLAUDE_CONFIG_DIR", "/custom/claude/dir");
+        assert_eq!(
+            ClaudeHarness.settings_path(false),
+            PathBuf::from(".claude/settings.json")
+        );
+        std::env::remove_var("CLAUDE_CONFIG_DIR");
     }
 
     #[test]

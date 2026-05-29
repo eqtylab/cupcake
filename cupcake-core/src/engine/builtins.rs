@@ -58,7 +58,7 @@ pub struct BuiltinsConfig {
 /// Configuration for always_inject_on_prompt builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlwaysInjectConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -74,7 +74,7 @@ fn default_enabled() -> bool {
 /// Configuration for git_pre_check builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitPreCheckConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -86,7 +86,7 @@ pub struct GitPreCheckConfig {
 /// Configuration for post_edit_check builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostEditCheckConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -127,7 +127,7 @@ pub enum ContextSource {
 /// Configuration for rulebook_security_guardrails builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RulebookSecurityConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -151,7 +151,7 @@ fn default_protected_paths() -> Vec<String> {
 /// Configuration for protected_paths builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtectedPathsConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -171,7 +171,7 @@ fn default_protected_paths_message() -> String {
 /// Configuration for git_block_no_verify builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitBlockNoVerifyConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -193,7 +193,7 @@ fn default_git_block_no_verify_message() -> String {
 /// Configuration for system protection builtin (global only)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemProtectionConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -213,7 +213,7 @@ fn default_system_protection_message() -> String {
 /// Configuration for sensitive data protection builtin (global only)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensitiveDataProtectionConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -233,7 +233,7 @@ fn default_sensitive_data_message() -> String {
 /// Configuration for cupcake execution protection builtin (global only)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CupcakeExecProtectionConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
@@ -253,7 +253,7 @@ fn default_cupcake_exec_message() -> String {
 /// Configuration for enforce_full_file_read builtin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnforceFullFileReadConfig {
-    /// Whether this builtin is enabled (defaults to true)
+    /// Whether this builtin is enabled (defaults to false; must be set explicitly)
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 

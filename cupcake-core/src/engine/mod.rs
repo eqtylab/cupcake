@@ -228,9 +228,17 @@ impl Engine {
             self.config.harness, harness_policies_dir
         );
 
-        // Step 1: Scan for .rego files in harness-specific directory with builtin filtering
-        let policy_files =
-            scanner::scan_policies_with_filter(&harness_policies_dir, &enabled_builtins).await?;
+        // Step 1: Scan the harness policy dir. A missing project policies dir is not
+        // an error - proceed with global policies (issue #104). Mirrors the global guard.
+        let policy_files = if harness_policies_dir.exists() {
+            scanner::scan_policies_with_filter(&harness_policies_dir, &enabled_builtins).await?
+        } else {
+            debug!(
+                "No project policies directory found at {:?} - using global policies only",
+                harness_policies_dir
+            );
+            Vec::new()
+        };
         info!(
             "Found {} policy files in {} harness directory",
             policy_files.len(),

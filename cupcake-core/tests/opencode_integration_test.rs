@@ -309,3 +309,36 @@ async fn test_opencode_event_parsing() -> Result<()> {
 
     Ok(())
 }
+
+/// Issue #104: no local `.cupcake` must not fail eval - init + evaluate to Allow.
+#[tokio::test]
+async fn test_missing_project_policies_dir_allows() -> Result<()> {
+    let project_dir = TempDir::new()?; // bare dir, no .cupcake
+    let empty_global = TempDir::new()?; // disables global auto-discovery
+
+    let config = EngineConfig {
+        harness: HarnessType::OpenCode,
+        wasm_max_memory: Some(10 * 1024 * 1024),
+        opa_path: None,
+        global_config: Some(empty_global.path().to_path_buf()),
+        debug_routing: false,
+    };
+
+    // Pre-fix: Err "Policy directory does not exist" -> exit 1.
+    let engine = Engine::new_with_config(project_dir.path(), config).await?;
+
+    let event = json!({
+        "hook_event_name": "PreToolUse",
+        "session_id": "test_session",
+        "cwd": project_dir.path().to_str().unwrap(),
+        "tool": "read",
+        "args": {
+            "filePath": "./greet.txt"
+        }
+    });
+
+    let decision = engine.evaluate(&event, None).await?;
+    assert!(!decision.is_blocking() && !decision.is_halt());
+
+    Ok(())
+}

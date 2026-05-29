@@ -44,9 +44,9 @@ signals:
 # Builtins provide common security patterns without writing Rego policies.
 # Each builtin can be enabled/disabled and configured independently.
 #
-# IMPORTANT: Builtins are ENABLED BY DEFAULT when configured.
-# Simply configuring a builtin (even with just empty settings) enables it.
-# To disable, either remove the configuration or set 'enabled: false'.
+# IMPORTANT: Builtins must be explicitly enabled with 'enabled: true'.
+# Configuring a builtin alone does NOT enable it - the 'enabled' field
+# defaults to false. To turn one on, set 'enabled: true' on its block.
 #
 # FILE PROTECTION BUILTINS (Two-Tier System):
 # 1. protected_paths: Makes specific paths read-only (read allowed, write blocked)
@@ -61,7 +61,7 @@ builtins:
   # Note: This builtin only works with Claude Code due to context injection support.
 
   # claude_code_always_inject_on_prompt:
-  #   # enabled: true  # Optional - defaults to true when configured
+  #   enabled: true  # Required to activate (defaults to false)
   #   context:
   #     # Static text context
   #     - "Follow SOLID principles and write comprehensive tests"
@@ -97,7 +97,7 @@ builtins:
   # feedback about syntax errors, type issues, or style violations.
 
   # post_edit_check:
-  #   # enabled: true  # Optional - defaults to true when configured
+  #   enabled: true  # Required to activate (defaults to false)
   #   # Checks by file extension
   #   by_extension:
   #     "rs":
@@ -185,11 +185,12 @@ builtins:
 
 ### Enabling/Disabling Builtins
 
-By default, builtins are **enabled when configured**. You don't need `enabled: true` explicitly:
+Builtins must be **explicitly enabled** with `enabled: true`. Configuring a builtin alone does not activate it — the `enabled` field defaults to `false`:
 
 ```yaml
 # This enables the builtin
 git_pre_check:
+  enabled: true
   checks:
     - command: "npm test"
 ```

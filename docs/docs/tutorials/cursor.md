@@ -146,7 +146,7 @@ Cursor was blocked by the `rulebook_security_guardrails` builtin, which protects
 
 **`Built-ins` are special policies that:**
 
-- Are enabled by default in `rulebook.yml`
+- Are enabled in `rulebook.yml` with `enabled: true`
 - Protect critical system functionality
 - Cannot be easily bypassed by AI agents
 - Provide layered security (global + project level)

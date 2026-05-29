@@ -87,7 +87,13 @@ is_sensitive_file(path) if {
 }
 
 is_sensitive_file(path) if {
-	lower_path := lower(path)
+	# Match keywords against the file name only, not the full path. Matching the
+	# entire path produced false positives: macOS canonicalizes /tmp and /var
+	# under /private, so the "private" keyword (and "auth") flagged every file
+	# beneath those roots. Directory-scoped secrets stay covered by the dedicated
+	# ssh/cloud/package/vcs clauses, which match on their full path prefixes.
+	segments := split(lower(path), "/")
+	filename := segments[count(segments) - 1]
 
 	# Files with sensitive keywords
 	sensitive_keywords := {
@@ -104,7 +110,7 @@ is_sensitive_file(path) if {
 	}
 
 	some keyword in sensitive_keywords
-	contains(lower_path, keyword)
+	contains(filename, keyword)
 }
 
 is_sensitive_file(path) if {

@@ -360,6 +360,15 @@ impl ValidationRule for DecisionEventCompatibilityRule {
 
         // Check each verb against each required event
         for event in &routing.required_events {
+            // Skip events this matrix has no spec for (e.g. another harness's
+            // native events, or fire-and-forget events with no decision schema).
+            // Without this, the Claude-Code-centric matrix flags every verb on
+            // such events as incompatible. Known-but-empty events (SessionEnd)
+            // are still validated because knows_event() returns true for them.
+            if !matrix.knows_event(event) {
+                continue;
+            }
+
             for (verb, line_numbers) in &found_verbs {
                 let line = line_numbers.first().copied();
 

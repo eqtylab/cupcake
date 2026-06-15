@@ -152,7 +152,62 @@ impl DecisionEventMatrix {
             vec![DecisionVerb::Halt, DecisionVerb::Block],
         );
 
+        // ---------------------------------------------------------------
+        // Cursor native events (cursor.com hooks)
+        // ---------------------------------------------------------------
+        // Cursor uses its own event namespace (camelCase) distinct from
+        // Claude Code's. Verb support is derived from Cursor's response
+        // schemas (see harness::response::cursor): before* permission events
+        // accept allow/deny/ask; after* events are fire-and-forget (return
+        // {} for any decision) and are therefore intentionally NOT listed
+        // here so the validator skips them rather than flagging every verb.
+
+        // beforeShellExecution / beforeMCPExecution: full permission gate
+        // {permission: allow|deny|ask}. Halt/Deny/Block reject, Ask confirms.
+        // (Modify is ignored by Cursor -> treated as allow; add_context has no
+        //  field in these schemas, so neither is supported.)
+        for event in ["beforeShellExecution", "beforeMCPExecution"] {
+            compatibility.insert(
+                event,
+                vec![
+                    DecisionVerb::Halt,
+                    DecisionVerb::Deny,
+                    DecisionVerb::Block,
+                    DecisionVerb::Ask,
+                ],
+            );
+        }
+
+        // beforeReadFile: {permission: allow|deny} only. Ask is coerced to
+        // deny by Cursor, so it is not offered as a distinct supported verb.
+        compatibility.insert(
+            "beforeReadFile",
+            vec![DecisionVerb::Halt, DecisionVerb::Deny, DecisionVerb::Block],
+        );
+
+        // beforeSubmitPrompt: {continue: true|false, user_message?}. Block/Deny
+        // prevent submission; Ask is coerced to block; context injection is
+        // explicitly unsupported (dropped by Cursor).
+        compatibility.insert(
+            "beforeSubmitPrompt",
+            vec![DecisionVerb::Halt, DecisionVerb::Deny, DecisionVerb::Block],
+        );
+
+        // stop: {followup_message?}. Only Block (-> followup) is actionable.
+        compatibility.insert("stop", vec![DecisionVerb::Halt, DecisionVerb::Block]);
+
         Self { compatibility }
+    }
+
+    /// Whether this matrix has an entry for the given event.
+    ///
+    /// Distinguishes a genuinely unknown event (e.g. another harness's native
+    /// event, or a fire-and-forget event with no decision schema) from a known
+    /// event that legitimately supports no verbs (e.g. SessionEnd -> []). The
+    /// validator uses this to skip events it has no authority over instead of
+    /// flagging every verb as incompatible.
+    pub fn knows_event(&self, event: &str) -> bool {
+        self.compatibility.contains_key(event)
     }
 
     /// Check if a decision verb is compatible with an event
@@ -368,6 +423,68 @@ mod tests {
             warning.is_none(),
             "deny + PreToolUse should NOT be deprecated"
         );
+    }
+
+    #[test]
+    fn test_cursor_before_events_support_permission_verbs() {
+        let matrix = DecisionEventMatrix::new();
+
+        // beforeShellExecution / beforeMCPExecution: allow/deny/ask gate
+        for event in ["beforeShellExecution", "beforeMCPExecution"] {
+            assert!(matrix.knows_event(event), "{event} should be known");
+            for verb in [
+                DecisionVerb::Halt,
+                DecisionVerb::Deny,
+                DecisionVerb::Block,
+                DecisionVerb::Ask,
+            ] {
+                assert!(
+                    matrix.is_compatible(event, verb),
+                    "{event} should support {verb:?}"
+                );
+            }
+            // Modify is ignored by Cursor; add_context has no schema field.
+            assert!(!matrix.is_compatible(event, DecisionVerb::Modify));
+            assert!(!matrix.is_compatible(event, DecisionVerb::AddContext));
+        }
+
+        // beforeReadFile: allow/deny only (ask is coerced to deny).
+        assert!(matrix.is_compatible("beforeReadFile", DecisionVerb::Deny));
+        assert!(matrix.is_compatible("beforeReadFile", DecisionVerb::Halt));
+        assert!(!matrix.is_compatible("beforeReadFile", DecisionVerb::Ask));
+    }
+
+    #[test]
+    fn test_cursor_fire_and_forget_events_are_unknown() {
+        let matrix = DecisionEventMatrix::new();
+
+        // after* events return {} for any decision, so they are intentionally
+        // absent from the matrix and the validator skips them.
+        for event in [
+            "afterFileEdit",
+            "afterShellExecution",
+            "afterMCPExecution",
+            "afterAgentResponse",
+            "afterAgentThought",
+        ] {
+            assert!(
+                !matrix.knows_event(event),
+                "fire-and-forget {event} should be unknown (skipped by validator)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_knows_event_distinguishes_unknown_from_empty() {
+        let matrix = DecisionEventMatrix::new();
+
+        // Known events (even with an empty verb set) are still validated.
+        assert!(matrix.knows_event("SessionEnd"));
+        assert!(matrix.compatible_verbs("SessionEnd").is_empty());
+
+        // Truly unknown events are not validated (skipped).
+        assert!(!matrix.knows_event("totallyMadeUpEvent"));
+        assert!(!matrix.knows_event("beforeReadFileX"));
     }
 
     #[test]
